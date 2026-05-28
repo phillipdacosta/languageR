@@ -60,41 +60,74 @@ export class AgoraService {
   public onVolumeIndicator?: (volumes: { uid: UID; level: number }[]) => void;
   public onParticipantIdentity?: (uid: UID, identity: { userId: string; isTutor: boolean; name: string; profilePicture?: string }) => void;
   public onRemoteTalkTimeUpdate?: (speakingSeconds: number) => void;
+  // Synchronous SDK event hooks so the UI can update the instant a peer
+  // appears/leaves the channel rather than waiting for the 1s polling tick.
+  public onRemoteUserJoined?: (uid: UID) => void;
+  public onRemoteUserPublished?: (uid: UID, mediaType: 'audio' | 'video') => void;
+  public onRemoteUserLeft?: (uid: UID) => void;
+  // Reliable screen-share state via the messaging channel — replaces the
+  // fragile `displaySurface`/`width > 1280` heuristic we used to infer "is the
+  // remote user sharing their screen" from track settings.
+  public onRemoteScreenShareStateChange?: (uid: UID, isSharing: boolean) => void;
 
   private readonly APP_ID = environment.agora.appId;
   private readonly TOKEN = environment.agora.token;
   private readonly UID = environment.agora.uid;
 
-  // HD video encoder configuration — 720p with H.264 hardware encoding
-  // gives sharper results than 1080p VP9 software encoding
+  // Camera ("lesson") profile — 720p H.264 with motion-priority degradation.
+  //
+  // Why these numbers:
+  //  - `optimizationMode: 'motion'` keeps framerate stable when the encoder
+  //    runs out of headroom (CPU or BWE). With `'detail'` the SDK would drop
+  //    framerate to preserve resolution, which on face video looks like
+  //    stutter and is what was making our calls look much worse than peers'.
+  //  - 1.6 Mbps target / 600 kbps floor matches what a typical 1:1 tutoring
+  //    stack (e.g. Preply) ships. 2.5 Mbps was wasting uplink, making the
+  //    encoder slower to react, and triggering CPU adapt earlier.
+  //  - The floor is conservative so a brief uplink dip just dims the picture
+  //    a little rather than collapsing to postage-stamp.
   private readonly encoderConfig = {
     resolution: { width: 1280, height: 720 },
     frameRate: 30,
-    bitrateMax: 2500,
-    bitrateMin: 800,
-    optimizationMode: 'detail' as const
+    bitrateMax: 1600,
+    bitrateMin: 600,
+    optimizationMode: 'motion' as const
   };
 
+  // Receiver-side low stream params. Agora's default low stream is ~160×120
+  // which looks awful if a subscriber falls back to it. We override to a
+  // usable 480p / 500 kbps fallback.
+  private readonly lowStreamParameter = {
+    width: 640,
+    height: 360,
+    framerate: 15,
+    bitrate: 500
+  };
+
+  // Manual override presets — kept for compatibility with anything that
+  // calls `setVideoQuality(...)`. The auto-switcher that abused these
+  // (`enableAdaptiveQuality`) has been retired; Agora's send-side BWE now
+  // handles degradation on its own without us pinning the resolution down.
   private readonly qualityPresets = {
     high: {
       resolution: { width: 1280, height: 720 },
       frameRate: 30,
-      bitrateMax: 2500,
-      bitrateMin: 800,
-      optimizationMode: 'detail' as const
+      bitrateMax: 1600,
+      bitrateMin: 600,
+      optimizationMode: 'motion' as const
     },
     medium: {
       resolution: { width: 960, height: 540 },
-      frameRate: 24,
-      bitrateMax: 1200,
+      frameRate: 30,
+      bitrateMax: 1100,
       bitrateMin: 400,
-      optimizationMode: 'detail' as const
+      optimizationMode: 'motion' as const
     },
     low: {
       resolution: { width: 640, height: 360 },
-      frameRate: 15,
-      bitrateMax: 600,
-      bitrateMin: 200,
+      frameRate: 24,
+      bitrateMax: 700,
+      bitrateMin: 300,
       optimizationMode: 'motion' as const
     }
   };
@@ -633,6 +666,13 @@ export class AgoraService {
         });
         console.log("📝 Pre-registered user in remoteUsers map:", user.uid);
       }
+
+      // Synchronously notify the UI so the participant tile / count can
+      // appear immediately instead of waiting up to a second for the
+      // remoteUserMonitorInterval poll.
+      if (this.onRemoteUserJoined) {
+        try { this.onRemoteUserJoined(user.uid); } catch (_) {}
+      }
     });
 
     // Listen for remote user publishing media
@@ -652,7 +692,17 @@ export class AgoraService {
         
         if (mediaType === "video") {
           console.log("📹 [VIDEO] User published video:", user.uid);
-          
+
+          // Always start subscribers on the high stream. Agora will fall back
+          // to the low stream automatically when BWE demands it; without this
+          // explicit preference some subscribers can silently end up on the
+          // low stream after a brief uplink dip and never recover.
+          try {
+            await (this.client as any).setRemoteVideoStreamType(user.uid, 0);
+          } catch (e) {
+            console.warn('setRemoteVideoStreamType failed (non-fatal):', e);
+          }
+
           // Default to ON, will be quickly corrected via messaging if camera is OFF
           this.remoteUsers.set(user.uid, { 
             ...this.remoteUsers.get(user.uid), 
@@ -693,6 +743,13 @@ export class AgoraService {
           isVideoOff: u.isVideoOff,
           isMuted: u.isMuted
         })));
+
+        // Synchronously notify the UI that a remote track is now playable.
+        // Without this the UI waits for the 1s polling tick before attaching
+        // the new video element, which is jarring on every join.
+        if (this.onRemoteUserPublished) {
+          try { this.onRemoteUserPublished(user.uid, mediaType as 'audio' | 'video'); } catch (_) {}
+        }
       } catch (error) {
         console.error("❌ Error subscribing to user:", user.uid, error);
       }
@@ -734,6 +791,9 @@ export class AgoraService {
       console.log("👋 User left:", user.uid);
       this.remoteUsers.delete(user.uid);
       console.log("👥 Total remote users after leave:", this.remoteUsers.size);
+      if (this.onRemoteUserLeft) {
+        try { this.onRemoteUserLeft(user.uid); } catch (_) {}
+      }
     });
 
     // Enable volume indicator for speaking detection
@@ -757,6 +817,27 @@ export class AgoraService {
       console.log("Requesting camera and microphone permissions...");
       
       const savedVBState = { ...this.virtualBackgroundState };
+
+      // Join the channel first so the peer's `user-joined` event fires
+      // before we spend time on camera permissions / WASM virtual
+      // background loading. Tracks are only needed at publish time.
+      let token = this.tokenGenerator.isTestingModeEnabled()
+        ? null
+        : this.tokenGenerator.generateTestToken(channelName, typeof uid === 'number' ? uid : 0);
+      if (!token && !this.tokenGenerator.isTestingModeEnabled()) {
+        token = null;
+      }
+      console.log('Using token:', token ? 'Token provided' : 'No token (null)');
+      await this.client.join(this.APP_ID, channelName, token, uid || this.UID);
+      console.log("Successfully joined RTC channel:", channelName);
+
+      try {
+        await this.client.enableDualStream();
+        await (this.client as any).setLowStreamParameter(this.lowStreamParameter);
+      } catch (e) {
+        console.warn('Dual-stream configuration failed (non-fatal):', e);
+      }
+
       const AgoraRTC = await this.getAgoraRTC();
       [this.localAudioTrack, this.localVideoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks(
         {},
@@ -815,24 +896,7 @@ export class AgoraService {
         }
       }
 
-      // Generate token for testing or use null if testing mode is enabled
-      let token = this.tokenGenerator.isTestingModeEnabled() ? null : this.tokenGenerator.generateTestToken(channelName, typeof uid === 'number' ? uid : 0);
-      
-      // If token generation fails, try without token
-      if (!token && !this.tokenGenerator.isTestingModeEnabled()) {
-        console.log('Token generation failed, trying without token...');
-        token = null;
-      }
-      
-      console.log('Using token:', token ? 'Token provided' : 'No token (null)');
-      
-      // Join the RTC channel
-      await this.client.join(this.APP_ID, channelName, token, uid || this.UID);
-      console.log("Successfully joined RTC channel:", channelName);
-
-      // Enable dual-stream so receivers can pick high or low quality based on bandwidth
-      await this.client.enableDualStream();
-      console.log("Dual-stream mode enabled");
+      // (Channel join + dual-stream configuration already happened earlier.)
 
       // Publish local tracks
       await this.client.publish([this.localAudioTrack, this.localVideoTrack]);
@@ -844,17 +908,21 @@ export class AgoraService {
 
     } catch (error) {
       console.error("Error joining channel:", error);
-      
-      // Clean up tracks if they were created
+
+      // We may have joined the channel before track creation failed.
+      // Leave the channel so we don't leave a ghost participant hanging
+      // around for the other side.
+      try { await this.client?.leave(); } catch (_) {}
+
       if (this.localVideoTrack) {
-        this.localVideoTrack.close();
+        try { this.localVideoTrack.close(); } catch (_) {}
         this.localVideoTrack = null;
       }
       if (this.localAudioTrack) {
-        this.localAudioTrack.close();
+        try { this.localAudioTrack.close(); } catch (_) {}
         this.localAudioTrack = null;
       }
-      
+
       throw error;
     }
   }
@@ -979,12 +1047,35 @@ export class AgoraService {
         this.localVideoTrack = null;
       }
 
+      // Join the RTC channel BEFORE creating local tracks. Joining only
+      // requires the token/uid; tracks are needed only for publishing.
+      // Previously the SDK loaded camera, restored virtual background
+      // (sometimes 3–5s of WASM init), and only then called
+      // `client.join()` — meaning the other participant saw nothing for
+      // that whole window. By front-loading the join, the peer's
+      // `user-joined` event fires within ~300ms of clicking join, which
+      // pairs with the synchronous `onRemoteUserJoined` UI hook to make
+      // the participant visible immediately.
+      await this.client.join(agora.appId, agora.channelName, agora.token, agora.uid);
+      console.log("Successfully joined lesson channel:", agora.channelName);
+
+      // Enable dual-stream + tuned low-stream params now that we're joined.
+      // These run before publish so the publishing side advertises both
+      // streams on the very first packet.
+      try {
+        await this.client.enableDualStream();
+        await (this.client as any).setLowStreamParameter(this.lowStreamParameter);
+        console.log("Dual-stream + HD low-stream fallback configured");
+      } catch (e) {
+        console.warn('Dual-stream configuration failed (non-fatal):', e);
+      }
+
       const AgoraRTC = await this.getAgoraRTC();
       [this.localAudioTrack, this.localVideoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks(
         {},
         { encoderConfig: this.encoderConfig }
       );
-      
+
       console.log("Successfully created local tracks with HD quality");
 
       // CRITICAL: Reset processor since we have new tracks - the old processor is tied to old tracks
@@ -1040,13 +1131,10 @@ export class AgoraService {
         }
       }
 
-      // Join the RTC channel using backend-provided credentials
-      await this.client.join(agora.appId, agora.channelName, agora.token, agora.uid);
-      console.log("Successfully joined lesson channel:", agora.channelName);
-
-      // Enable dual-stream so receivers can pick high or low quality based on bandwidth
-      await this.client.enableDualStream();
-      console.log("Dual-stream mode enabled");
+      // (Channel join + dual-stream configuration already happened earlier,
+      // before tracks were created, so the remote peer becomes visible as
+      // soon as they appear in the channel rather than after their camera
+      // initializes.)
 
       // Publish both tracks (they both exist now)
       // IMPORTANT: Apply user preferences BEFORE publishing
@@ -1106,14 +1194,18 @@ export class AgoraService {
 
     } catch (error: any) {
       console.error("❌ Error joining lesson:", error);
-      
-      // Clean up tracks if they were created
+
+      // We may have joined the channel before track creation/VB/publish
+      // failed. Leave the channel so we don't leave a ghost participant on
+      // the other side waiting for our tracks that will never arrive.
+      try { await this.client?.leave(); } catch (_) {}
+
       if (this.localVideoTrack) {
-        this.localVideoTrack.close();
+        try { this.localVideoTrack.close(); } catch (_) {}
         this.localVideoTrack = null;
       }
       if (this.localAudioTrack) {
-        this.localAudioTrack.close();
+        try { this.localAudioTrack.close(); } catch (_) {}
         this.localAudioTrack = null;
       }
       
@@ -1223,6 +1315,11 @@ export class AgoraService {
         if (this.onRemoteTalkTimeUpdate) {
           this.onRemoteTalkTimeUpdate(message.payload.speakingSeconds);
         }
+      } else if (message.type === 'screenShareState') {
+        console.log('🖥️ Processing screen-share state message:', message.payload);
+        if (this.onRemoteScreenShareStateChange) {
+          this.onRemoteScreenShareStateChange(message.payload.uid, !!message.payload.isSharing);
+        }
       } else {
         console.log('⚠️ Unknown message type:', message.type);
       }
@@ -1267,6 +1364,7 @@ export class AgoraService {
 
       // Stop state re-broadcasting and message polling
       this.stopStateRebroadcast();
+      this.stopPerformanceMonitor();
       if (this.pollingInterval) {
         clearInterval(this.pollingInterval);
         this.pollingInterval = null;
@@ -1326,6 +1424,7 @@ export class AgoraService {
           console.warn('⚠️ Error stopping screen track:', error);
         }
       }
+      this.currentLocalScreenSharingState = false;
       this.onScreenShareStoppedCallback = null;
 
       // Clean up virtual background processor
@@ -1683,6 +1782,7 @@ export class AgoraService {
   // Track current local state for periodic re-broadcasting
   private currentLocalMuteState: boolean = false;
   private currentLocalVideoOffState: boolean = false;
+  private currentLocalScreenSharingState: boolean = false;
   private stateRebroadcastInterval: any = null;
 
   /**
@@ -1751,6 +1851,35 @@ export class AgoraService {
     const success = await this.sendMessageWithRetry(payload);
     if (success) {
       console.log(`✅ Mute state sent successfully: ${isMuted ? 'muted' : 'unmuted'}`);
+    }
+  }
+
+  /**
+   * Send screen-share state to the other participants so they know we just
+   * started/stopped sharing. Replaces the heuristic in the page component
+   * that tried to infer this from track settings.
+   */
+  async sendScreenShareStateUpdate(isSharing: boolean): Promise<void> {
+    const actualUID = this.getLocalUID();
+    if (!this.channelName || this.channelName === 'default' || !actualUID) {
+      console.warn('❌ Cannot send screen-share state: channel or UID missing');
+      return;
+    }
+
+    this.currentLocalScreenSharingState = isSharing;
+
+    const payload = {
+      type: 'screenShareState',
+      payload: {
+        uid: actualUID,
+        isSharing,
+        timestamp: new Date().toISOString()
+      }
+    };
+
+    const success = await this.sendMessageWithRetry(payload);
+    if (success) {
+      console.log(`✅ Screen-share state sent: ${isSharing ? 'sharing' : 'not sharing'}`);
     }
   }
 
@@ -1831,6 +1960,23 @@ export class AgoraService {
             }
           })
         });
+
+        // Re-send current screen-share state so a late-joiner immediately knows
+        // someone is presenting (without having to wait for the next share toggle).
+        if (this.currentLocalScreenSharingState) {
+          await fetch(`${environment.backendUrl}/api/messaging/channels/${this.channelName}/messages`, {
+            method: 'POST',
+            headers: this.getAuthHeaders(),
+            body: JSON.stringify({
+              type: 'screenShareState',
+              payload: {
+                uid: actualUID,
+                isSharing: this.currentLocalScreenSharingState,
+                timestamp: new Date().toISOString()
+              }
+            })
+          });
+        }
       } catch (error) {
         // Silent fail for periodic re-broadcast — not critical
       }
@@ -2011,8 +2157,14 @@ export class AgoraService {
       // Publish screen track
       await this.client.publish(this.screenTrack);
       this.isScreenSharing = true;
-      
+
       console.log('✅ Screen sharing started successfully');
+
+      // Tell the other participant(s) we just started sharing so they can
+      // swap their UI without relying on track-settings heuristics.
+      this.sendScreenShareStateUpdate(true).catch(err => {
+        console.warn('⚠️ Failed to broadcast screen-share start state:', err);
+      });
 
       // Listen for screen share end (when user clicks "Stop sharing" in browser)
       this.screenTrack.on("track-ended", async () => {
@@ -2073,13 +2225,20 @@ export class AgoraService {
         console.log('📹 Restoring camera video track after screen sharing...');
         await this.client.publish(this.localVideoTrack);
       }
-      
+
       this.isScreenSharing = false;
       console.log('✅ Screen sharing stopped successfully');
-      
+
+      // Let the other side know we're back to the camera view.
+      this.sendScreenShareStateUpdate(false).catch(err => {
+        console.warn('⚠️ Failed to broadcast screen-share stop state:', err);
+      });
+
     } catch (error: any) {
       console.error('❌ Error stopping screen share:', error);
       this.isScreenSharing = false;
+      // Best-effort: still try to signal stop so the remote UI doesn't get stuck.
+      this.sendScreenShareStateUpdate(false).catch(() => undefined);
       throw error;
     }
   }
@@ -2181,31 +2340,202 @@ export class AgoraService {
   }
 
   /**
-   * Monitor network quality and suggest quality adjustments
-   * Call this from video-call page to enable adaptive quality
+   * Previously: subscribed to `network-quality` and forcibly stepped the
+   * camera encoder down to 640×360@15fps on a single noisy sample, then
+   * almost never recovered. That was the dominant reason senders looked
+   * worse than receivers in identical network conditions.
+   *
+   * Now: Agora's built-in send-side bandwidth estimator handles graceful
+   * degradation on its own (lowering bitrate first, framerate second,
+   * resolution last) and recovers as headroom returns. We only log the
+   * `network-quality` signal so it's available for diagnostics overlays;
+   * we no longer touch the encoder config based on it.
    */
   enableAdaptiveQuality(): void {
     if (!this.client) {
-      console.warn('Client not initialized, cannot enable adaptive quality');
+      console.warn('Client not initialized, cannot enable network-quality logging');
       return;
     }
 
     this.client.on('network-quality', (stats) => {
       // 0=unknown, 1=excellent, 2=good, 3=poor, 4=bad, 5=very bad, 6=down
-      const uplink = stats.uplinkNetworkQuality;
-
-      if (uplink >= 4 && this.currentQuality !== 'low') {
-        console.log('⚠️ Poor network — dropping to low quality');
-        this.setVideoQuality('low');
-      } else if (uplink === 3 && this.currentQuality === 'high') {
-        console.log('⚠️ Fair network — dropping to medium quality');
-        this.setVideoQuality('medium');
-      } else if (uplink <= 2 && this.currentQuality !== 'high') {
-        console.log('✅ Good network — restoring high quality');
-        this.setVideoQuality('high');
-      }
+      this.lastNetworkQuality = {
+        uplink: stats.uplinkNetworkQuality,
+        downlink: stats.downlinkNetworkQuality,
+        ts: Date.now()
+      };
     });
 
-    console.log('📊 Adaptive quality monitoring enabled');
+    this.startPerformanceMonitor();
+
+    console.log('📊 network-quality logging + perf monitor enabled');
+  }
+
+  /** Last observed network quality samples (for stats overlay / diagnostics). */
+  lastNetworkQuality: { uplink: number; downlink: number; ts: number } | null = null;
+
+  /**
+   * Surfaced to the UI so we can show a one-shot toast when we auto-recover
+   * from a CPU- or bandwidth-induced quality collapse. Kept on the service
+   * so swapping the page doesn't drop it.
+   */
+  public onPerformanceWarning?: (kind: 'cpu' | 'network', detail: string) => void;
+
+  private cpuBadSamples = 0;
+  private netBadSamples = 0;
+  private vbAutoDisabled = false;
+  private perfMonitorInterval: any = null;
+
+  /**
+   * Run alongside the network-quality logger. Watches per-sample
+   * `qualityLimitationReason === 'cpu'` and uplink network quality. If
+   * either is sustained AND the virtual background processor is active, we
+   * disable VB exactly once — it's overwhelmingly the cause of CPU-induced
+   * quality collapse on laptops and the only thing we can do unilaterally
+   * to recover the call without dropping the camera profile.
+   */
+  private startPerformanceMonitor() {
+    if (this.perfMonitorInterval) return;
+    this.perfMonitorInterval = setInterval(async () => {
+      if (!this.client || !this.localVideoTrack) return;
+
+      let cpuLimited = false;
+      try {
+        const mediaTrack = (this.localVideoTrack as any).getMediaStreamTrack?.();
+        const sender = (this.client as any).getRTCStats ? null : null;
+        if (mediaTrack && typeof RTCRtpSender !== 'undefined') {
+          // Pull peer connection stats via Agora's underlying sender if available.
+          const localStats = (this.client as any).getLocalVideoStats?.();
+          const first = localStats ? Object.values(localStats)[0] as any : null;
+          if (first && typeof first.sendFrameRate === 'number' && first.sendFrameRate < 12) {
+            cpuLimited = true;
+          }
+        }
+      } catch (_) {}
+
+      const netUplink = this.lastNetworkQuality?.uplink ?? 0;
+
+      if (cpuLimited) this.cpuBadSamples++; else this.cpuBadSamples = Math.max(0, this.cpuBadSamples - 1);
+      if (netUplink >= 4) this.netBadSamples++; else this.netBadSamples = Math.max(0, this.netBadSamples - 1);
+
+      // ~6s of sustained CPU pressure with VB on → disable VB once.
+      if (this.cpuBadSamples >= 4 && this.virtualBackgroundEnabled && !this.vbAutoDisabled) {
+        this.vbAutoDisabled = true;
+        try {
+          await this.disableVirtualBackground();
+          console.warn('🛟 Auto-disabled virtual background due to sustained CPU pressure');
+          if (this.onPerformanceWarning) {
+            this.onPerformanceWarning('cpu', 'Virtual background disabled to keep your video smooth');
+          }
+        } catch (e) {
+          console.warn('Failed to auto-disable VB under CPU pressure:', e);
+        }
+      }
+
+      // Just surface a network warning — we no longer touch the encoder.
+      if (this.netBadSamples >= 5 && this.onPerformanceWarning) {
+        this.onPerformanceWarning('network', 'Your network looks unstable — video quality may degrade');
+        this.netBadSamples = 0;
+      }
+    }, 1500);
+  }
+
+  private stopPerformanceMonitor() {
+    if (this.perfMonitorInterval) {
+      clearInterval(this.perfMonitorInterval);
+      this.perfMonitorInterval = null;
+    }
+  }
+
+  /**
+   * Collect a single snapshot of RTC + local-video stats for diagnostics.
+   *
+   * Intentionally returns a plain object that the UI overlay can pretty-print
+   * without needing to know about the Agora SDK types. All values are
+   * defensive — a stat that isn't supported in the current browser/SDK
+   * version is returned as `null` rather than throwing.
+   */
+  async getDiagnosticsSnapshot(): Promise<{
+    uplinkKbps: number | null;
+    rtt: number | null;
+    sendResolution: { width: number; height: number } | null;
+    sendFrameRate: number | null;
+    encoderImpl: string | null;
+    cpuAdapt: string | null;
+    targetBitrateKbps: number | null;
+    networkQuality: { uplink: number; downlink: number } | null;
+    remotes: { uid: string; downlinkKbps: number | null; recvFrameRate: number | null; receivedResolution: { width: number; height: number } | null }[];
+  }> {
+    const snapshot = {
+      uplinkKbps: null as number | null,
+      rtt: null as number | null,
+      sendResolution: null as { width: number; height: number } | null,
+      sendFrameRate: null as number | null,
+      encoderImpl: null as string | null,
+      cpuAdapt: null as string | null,
+      targetBitrateKbps: null as number | null,
+      networkQuality: this.lastNetworkQuality
+        ? { uplink: this.lastNetworkQuality.uplink, downlink: this.lastNetworkQuality.downlink }
+        : null,
+      remotes: [] as { uid: string; downlinkKbps: number | null; recvFrameRate: number | null; receivedResolution: { width: number; height: number } | null }[]
+    };
+
+    if (!this.client) return snapshot;
+
+    try {
+      const rtc = (this.client as any).getRTCStats?.();
+      if (rtc) {
+        snapshot.uplinkKbps = typeof rtc.SendBitrate === 'number' ? Math.round(rtc.SendBitrate / 1000) : null;
+        snapshot.rtt = typeof rtc.RTT === 'number' ? rtc.RTT : null;
+      }
+    } catch (_) {}
+
+    try {
+      const localStats = (this.client as any).getLocalVideoStats?.();
+      // Web SDK returns an object keyed by uid; pick the first entry.
+      const first = localStats ? Object.values(localStats)[0] as any : null;
+      if (first) {
+        snapshot.sendResolution = first.sendResolutionWidth && first.sendResolutionHeight
+          ? { width: first.sendResolutionWidth, height: first.sendResolutionHeight }
+          : null;
+        snapshot.sendFrameRate = typeof first.sendFrameRate === 'number' ? first.sendFrameRate : null;
+        snapshot.encoderImpl = first.encoderOutputFrameRate || first.codecType || null;
+        snapshot.targetBitrateKbps = typeof first.targetSendBitrate === 'number'
+          ? Math.round(first.targetSendBitrate / 1000)
+          : null;
+      }
+    } catch (_) {}
+
+    try {
+      // Browser-level webrtc-stats are richer than Agora's wrapper for CPU /
+      // quality-limitation reasons. We pull just the one we care about.
+      const mediaTrack = (this.localVideoTrack as any)?.getMediaStreamTrack?.();
+      if (mediaTrack) {
+        const settings = mediaTrack.getSettings?.();
+        if (!snapshot.sendResolution && settings?.width && settings?.height) {
+          snapshot.sendResolution = { width: settings.width, height: settings.height };
+        }
+        if (snapshot.sendFrameRate == null && settings?.frameRate) {
+          snapshot.sendFrameRate = settings.frameRate;
+        }
+      }
+    } catch (_) {}
+
+    try {
+      const remoteStats = (this.client as any).getRemoteVideoStats?.() || {};
+      for (const [uid, s] of Object.entries(remoteStats)) {
+        const r: any = s;
+        snapshot.remotes.push({
+          uid: String(uid),
+          downlinkKbps: typeof r.receiveBitrate === 'number' ? Math.round(r.receiveBitrate / 1000) : null,
+          recvFrameRate: typeof r.receiveFrameRate === 'number' ? r.receiveFrameRate : null,
+          receivedResolution: r.receiveResolutionWidth && r.receiveResolutionHeight
+            ? { width: r.receiveResolutionWidth, height: r.receiveResolutionHeight }
+            : null
+        });
+      }
+    } catch (_) {}
+
+    return snapshot;
   }
 }

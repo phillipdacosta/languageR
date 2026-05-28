@@ -1194,8 +1194,18 @@ ion-content {
 
   ion-icon { font-size: 18px; }
 
-  &:hover { background: #333; }
-  &:active { transform: scale(0.97); }
+  &:hover:not(:disabled) { background: #333; }
+  &:active:not(:disabled) { transform: scale(0.97); }
+
+  &:disabled {
+    background: #d1d1d6;
+    color: #ffffff;
+    opacity: 0.9;
+    cursor: not-allowed;
+    pointer-events: none;
+    transform: none;
+    box-shadow: none;
+  }
 }
 
 // Create Material modal — dark mode (gateway lives in app-create-material; chrome is here)
@@ -1288,7 +1298,13 @@ ion-content {
   .cm-modal-footer-btn {
     background: #f5f5f7;
     color: #1c1c1e;
-    &:hover { background: #e5e5ea; }
+    &:hover:not(:disabled) { background: #e5e5ea; }
+
+    &:disabled {
+      background: #3a3a3c;
+      color: #636366;
+      opacity: 1;
+    }
   }
   .cm-modal-footer-save {
     background: #2c2c2e;
@@ -1371,6 +1387,13 @@ ion-content {
       gap: 10px;
       padding-top: 8px;
     }
+
+    &--tutor-stable {
+      @media (min-width: 601px) {
+        min-height: 98px;
+        align-items: flex-start;
+      }
+    }
   }
   
   .welcome-content {
@@ -1382,6 +1405,14 @@ ion-content {
     @media (max-width: 600px) {
       top: 0;
       padding-bottom: 12px;
+    }
+  }
+
+  .welcome-content--tutor {
+    overflow: visible;
+
+    @media (min-width: 601px) {
+      min-height: 74px;
     }
   }
 
@@ -1442,6 +1473,30 @@ ion-content {
       color: inherit;
       font-size: 18px;
     }
+
+  }
+
+  // Desktop tutor: one fixed-height subtitle row (line + padding) so cards below never shift.
+  .welcome-tutor-desktop-line--stable {
+    @media (min-width: 601px) {
+      box-sizing: border-box;
+      height: 58px;
+      min-height: 58px;
+      max-height: 58px;
+      overflow: visible;
+      line-height: 1.35;
+      white-space: nowrap;
+      padding-top: 20px;
+    }
+  }
+
+  .welcome-tutor-desktop-line--growth-locked {
+    @media (min-width: 601px) {
+      .growth-ticker--locked,
+      .growth-ticker-msg {
+        white-space: nowrap;
+      }
+    }
   }
 
   // Growth insight ticker
@@ -1453,6 +1508,7 @@ ion-content {
     position: relative;
     padding-right: 20px;
     transition: opacity 0.2s ease;
+    vertical-align: middle;
 
     &:hover {
       .growth-dismiss-btn {
@@ -1460,17 +1516,214 @@ ion-content {
         pointer-events: auto;
       }
     }
+
+    // Sticky pending-updates: refresh is out-of-flow so line height stays unchanged.
+    &--locked {
+      position: relative;
+      display: inline-block;
+      vertical-align: baseline;
+      padding-right: 0;
+      gap: 0;
+      overflow: visible;
+
+      .growth-reload-btn {
+        position: absolute;
+        left: calc(100% + 10px);
+        top: 50%;
+        margin-left: 0;
+        transform: translateY(-50%);
+        white-space: nowrap;
+        overflow: visible;
+        z-index: 2;
+
+        &:hover {
+          transform: translateY(calc(-50% - 1px));
+        }
+
+        &:active {
+          transform: translateY(-50%);
+        }
+      }
+    }
   }
 
   .growth-ticker-text {
-    display: inline;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     animation: growthInsightSoftFade 1.05s cubic-bezier(0.22, 1, 0.36, 1) both;
+
+  }
+
+  .growth-ticker-msg {
+    position: relative;
+    z-index: 1;
+    white-space: nowrap;
+    display: inline;
   }
 
   .growth-ticker-icon {
     font-size: 15px;
     line-height: 1;
     flex-shrink: 0;
+  }
+
+  .growth-reload-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    background: #111827;
+    color: #ffffff;
+    border: none;
+    border-radius: 999px;
+    padding: 4px 10px;
+    min-width: 80px;
+    height: 26px;
+    box-sizing: border-box;
+    margin-left: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.2s ease, min-width 0s;
+    font-family: inherit;
+    letter-spacing: -0.01em;
+    vertical-align: middle;
+
+    ion-icon,
+    > span:not(.growth-reload-btn__burst) {
+      position: relative;
+      z-index: 1;
+    }
+
+    ion-icon {
+      font-size: 13px;
+    }
+
+    &:hover {
+      background: #000000;
+    }
+
+    &--with-burst {
+      position: relative;
+      overflow: visible;
+    }
+
+    &__burst {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 0;
+      height: 0;
+      overflow: visible;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    &__lottie,
+    &__burst dotlottie-player {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 150px;
+      height: 150px;
+      transform: translate(-50%, -50%);
+      transform-origin: center center;
+      pointer-events: none;
+      display: block;
+    }
+
+    &--loading {
+      background: #374151;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+
+    &--done {
+      background: #166534;
+      pointer-events: none;
+    }
+
+    &__icon-wrap,
+    &__spin-icon,
+    &__done-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+    }
+
+    &__spin-icon {
+      ion-spinner {
+        width: 15px;
+        height: 15px;
+        color: #ffffff;
+        --color: #ffffff;
+      }
+    }
+
+    &__done-icon {
+      color: #ffffff;
+      animation: growthReloadDoneIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+
+      ion-icon {
+        font-size: 15px;
+      }
+    }
+
+    &--mobile {
+      margin-left: 4px;
+      padding: 4px 9px;
+      font-size: 11px;
+      min-width: 74px;
+      height: 24px;
+
+      .growth-reload-btn__lottie,
+      .growth-reload-btn__burst dotlottie-player {
+        width: 120px;
+        height: 120px;
+      }
+    }
+  }
+
+  @keyframes growthReloadDoneIn {
+    from { opacity: 0; transform: scale(0.5); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+
+  .growth-ticker-mobile-wrap--locked {
+    overflow: visible;
+    min-height: 40px;
+    max-height: 40px;
+    box-sizing: border-box;
+    white-space: nowrap;
+
+    .growth-ticker-mobile-fade-wrap {
+      position: relative;
+      display: inline-block;
+      vertical-align: baseline;
+      max-width: 100%;
+    }
+
+    .growth-reload-btn--mobile {
+      position: absolute;
+      left: calc(100% + 8px);
+      top: 50%;
+      margin-left: 0;
+      transform: translateY(-50%);
+      white-space: nowrap;
+      overflow: visible;
+      z-index: 2;
+
+      &:hover {
+        transform: translateY(calc(-50% - 1px));
+      }
+
+      &:active {
+        transform: translateY(-50%);
+      }
+    }
   }
 
   .growth-dismiss-btn {
@@ -1551,6 +1804,13 @@ ion-content {
     .growth-ticker-text-mobile {
       flex: 1;
       min-width: 0;
+
+      &--confetti {
+        position: relative;
+        display: inline-block;
+        flex: 0 1 auto;
+        min-width: 0;
+      }
     }
 
     .growth-dots--mobile {
@@ -1574,6 +1834,7 @@ ion-content {
     opacity: 1;
   }
 }
+
 
 // "View all" link for growth insights
 .growth-view-all {
@@ -3262,6 +3523,15 @@ ion-content {
   right: -10px;
   z-index: 2;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+
+  &.badge-trial:not(.pop-float) {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  &.badge-trial.pop-float {
+    animation-delay: 0s;
+  }
 }
 .m-filled-class-cover-wrap {
   width: 120px;
@@ -3713,8 +3983,8 @@ img.m-card-empty-link-arrow-img {
   }
 }
 
-// Title block: name + inline TRIAL pill on the same line, then a 2-line
-// clamped tagline below — height-stable whether or not the tagline is set.
+// Title block: centered name, trial pill on its own row (so the name stays
+// visually centered on the card), then tagline below.
 .upnext-filled-text {
   margin: 0;
   display: flex;
@@ -3725,20 +3995,23 @@ img.m-card-empty-link-arrow-img {
 }
 
 .upnext-filled-name-row {
-  display: inline-flex;
+  display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  flex-wrap: wrap;
+  gap: 8px;
+  width: 100%;
   max-width: 100%;
 
   h3 {
+    width: 100%;
     font-size: 22px;
     font-weight: 700;
     color: #1d1d1f;
     margin: 0;
     letter-spacing: -0.3px;
     line-height: 1.2;
+    text-align: center;
   }
 }
 
@@ -3758,6 +4031,15 @@ img.m-card-empty-link-arrow-img {
   text-transform: none;
   line-height: 1;
   box-shadow: 0 1px 4px rgba(255, 140, 66, 0.22);
+
+  &:not(.pop-float) {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  &.pop-float {
+    animation-delay: 0s;
+  }
 
   ion-icon {
     font-size: 10px;
@@ -3971,13 +4253,17 @@ top: 4px;
 // Vertical dividers separate sections; status column shows a countdown chip
 // and a small hint, mirroring the design reference. Keeps fixed height.
 .upnext-filled-schedule {
-  display: flex;
-  flex-direction: row;
-  align-items: stretch;
-  justify-content: center;
+  display: grid;
+  // auto=date | 1px=divider | 1fr=time | 1px=divider | auto=status
+  // We make date and status equal by using a symmetric layout:
+  // date and status each shrink to content; time takes the rest.
+  // True horizontal centering of time achieved by making left and right
+  // sides visually balanced — we balance with equal padding inside the
+  // outer columns rather than forcing equal column widths.
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 2fr) auto auto;
+  align-items: center;
   gap: 0;
-  padding: 5px 10px;
-  // background: #fafafa;
+  padding: 5px 0;
   border-radius: 12px;
   margin: 0 auto;
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.05);
@@ -3985,6 +4271,7 @@ top: 4px;
   max-width: 420px;
   box-sizing: border-box;
   min-height: 48px;
+  overflow: hidden;
 
   .tw-date-badge {
     flex-shrink: 0;
@@ -4016,18 +4303,36 @@ top: 4px;
   min-width: 0;
 
   &--date {
-    flex: 0 0 auto;
+    grid-column: 1;
+    justify-content: center;
+    padding: 0 4px 0 10px;
   }
 
   &--time {
-    flex: 1 1 auto;
+    grid-column: 3;
+    display: grid;
+    grid-template-columns: auto auto;
+    grid-template-rows: auto auto;
+    align-items: center;
+    justify-content: center;
+    column-gap: 16px;
+    row-gap: 2px;
+    padding: 0 8px;
+    min-width: 0;
+    box-sizing: border-box;
   }
 
   &--status {
-    flex: 0 0 auto;
+    grid-column: 5;
+    min-width: 0;
     flex-direction: column;
     align-items: center;
+    justify-content: flex-start;
+    align-self: flex-start;
     gap: 2px;
+    padding: 6px 10px 0 4px;
+    text-align: center;
+    white-space: nowrap;
   }
 }
 
@@ -4036,23 +4341,36 @@ top: 4px;
   background: rgba(0, 0, 0, 0.08);
   align-self: stretch;
   margin: 2px 0;
+
+  // First divider sits in grid col 2, second in col 4
+  &:first-of-type {
+    grid-column: 2;
+  }
+
+  &:last-of-type {
+    grid-column: 4;
+  }
 }
 
 .upnext-filled-schedule-icon {
-  font-size: 15px;
-  color: #8e8e93;
+  grid-row: 1 / -1;
+  grid-column: 1;
+  align-self: center;
+  justify-self: center;
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
   flex-shrink: 0;
-}
-
-.upnext-filled-schedule-info {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  min-width: 0;
+  display: block;
+  padding-inline-end: 4px;
+  box-sizing: content-box;
+  pointer-events: none;
 }
 
 .upnext-filled-schedule-time {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: center;
   font-size: 14px;
   font-weight: 700;
   color: #1d1d1f;
@@ -4067,6 +4385,9 @@ top: 4px;
 }
 
 .upnext-filled-schedule-duration {
+  grid-column: 2;
+  grid-row: 2;
+  justify-self: center;
   font-size: 9px;
   font-weight: 600;
   color: #8e8e93;
@@ -4076,31 +4397,34 @@ top: 4px;
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
 }
 
-// Status chip — rounded pill with optional state dot. Variants drive only
-// color/background; dimensions stay constant so the schedule pill height is
-// stable across "Starts in 5m" vs "Live now" vs "Starts in 2h 30m".
+// Status label — plain text at top of status column (no pill).
 .upnext-filled-status-chip {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
-  padding: 3px 8px;
-  border-radius: 999px;
-  font-size: 10px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: -0.1px;
-  line-height: 1;
+  line-height: 1.2;
+  text-align: center;
   white-space: nowrap;
-  background: #f1f1f3;
+  flex-shrink: 0;
   color: #3c3c43;
 
   &--ready,
   &--live {
-    background: #e7f6ec;
+    background: transparent;
     color: #137a3a;
   }
 
   &--soon {
-    background: #fff4e0;
+    background: transparent;
     color: #a45a00;
   }
 }
@@ -4118,6 +4442,7 @@ top: 4px;
 }
 
 .upnext-filled-status-hint {
+  width: 100%;
   font-size: 9px;
   font-weight: 500;
   color: #8e8e93;
@@ -4379,39 +4704,6 @@ top: 4px;
 
   &:hover {
     background: rgba(0, 0, 0, 0.02);
-  }
-
-  .cu-extra-badge {
-    position: absolute;
-    top: -4px;
-    right: -8px;
-    color: #4298d3;
-    min-width: 28px;
-    height: 28px;
-    border-radius: 14px;
-    /* background: currentColor; */
-    /* color: #ffffff; */
-    font-size: 12px;
-    font-weight: 700;
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, sans-serif;
-    border: 2.5px solid #ffffff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0 6px;
-    cursor: pointer;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 2px 8px rgba(66, 152, 211, 0.3);
-    z-index: 2;
-
-    &:hover {
-      transform: scale(1.1);
-      box-shadow: 0 4px 12px rgba(66, 152, 211, 0.4);
-    }
-
-    &:active {
-      transform: scale(0.95);
-    }
   }
 
   .cu-preview-left {
@@ -5300,6 +5592,20 @@ top: 4px;
   flex: 0 0 auto;
   flex-shrink: 0;
   background: #ffffff;
+  border-radius: 12px;
+  transition: background 0.15s ease;
+
+  &--single {
+    cursor: pointer;
+
+    &:hover {
+      background: #f7f7f7;
+    }
+
+    &:active {
+      background: #f0f0f0;
+    }
+  }
 
   .enter-stagger-go & {
     opacity: 0;
@@ -5442,13 +5748,18 @@ top: 4px;
   flex: 0 0 auto;
   flex-shrink: 0;
   position: relative;
-  cursor: pointer;
-  background: #ffffff;
+  background: transparent;
   transition: background 0.15s ease;
   box-sizing: border-box;
 
-  &:hover {
-    background: rgba(0, 0, 0, 0.02);
+  // Only show independent hover/cursor on multi-event cells; single-event
+  // groups are clickable at the tw-day-group level instead.
+  .tw-day-group:not(.tw-day-group--single) & {
+    cursor: pointer;
+
+    &:hover {
+      background: rgba(0, 0, 0, 0.02);
+    }
   }
 
   &:not(:last-child) {
@@ -5546,6 +5857,25 @@ top: 4px;
   padding-right: 32px;
 }
 
+.tw-day-event-cell:has(.cu-extra-badge) {
+  padding-right: 4px;
+
+  .tw-day-event-cell__body {
+    padding-right: 88px;
+  }
+
+  .tw-event-menu-btn {
+    top: 10px;
+    right: 10px;
+  }
+
+  .cu-extra-badge {
+    top: auto;
+    bottom: 10px;
+    transform: none;
+  }
+}
+
 .tw-day-event-time {
   font-size: 12px;
   font-weight: 700;
@@ -5578,7 +5908,8 @@ top: 4px;
   opacity: 0;
   transition: opacity 0.15s ease;
 
-  .tw-day-event-cell:hover & {
+  .tw-day-event-cell:hover &,
+  .tw-day-group--single:hover & {
     opacity: 1;
   }
 
@@ -5596,6 +5927,45 @@ top: 4px;
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
+}
+
+// "+ more" — outline pill (matches withdraw-btn / View Calendar)
+.cu-extra-badge {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 6px 12px;
+  min-height: 32px;
+  box-sizing: border-box;
+  appearance: none;
+  -webkit-appearance: none;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #222222;
+  background: transparent;
+  border: 1px solid #cfcfcf;
+  border-radius: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+
+  &:hover {
+    color: #000000;
+    border-color: #b8bcc4;
+    background: #fafafa;
+  }
+
+  &:active {
+    background: #f0f0f0;
+  }
 }
 
 // =============================================
@@ -6203,6 +6573,80 @@ top: 4px;
 
 .airbnb-modal-body {
   padding: 8px 24px 24px;
+
+  &--day {
+    padding-top: 4px;
+  }
+}
+
+.airbnb-modal-date-group {
+  padding: 8px 0 4px;
+  margin-bottom: 20px;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.airbnb-modal-date-group__head {
+  display: flex;
+  justify-content: center;
+  padding-bottom: 12px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.airbnb-modal-date-group__lessons {
+  .airbnb-lesson-row--day-modal {
+    padding: 14px 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+
+    &:last-child {
+      border-bottom: none;
+      padding-bottom: 12px;
+    }
+
+    &:hover {
+      margin: 0;
+      padding-left: 0;
+      padding-right: 0;
+      background: rgba(0, 0, 0, 0.03);
+      border-radius: 10px;
+    }
+  }
+}
+
+.tw-date-badge--modal {
+  width: 52px;
+  height: 56px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  box-sizing: border-box;
+}
+
+.airbnb-lesson-row--day-modal {
+  align-items: center;
+
+  .airbnb-lesson-left--day-modal {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .airbnb-lesson-time {
+    font-size: 15px;
+    font-weight: 600;
+    color: #1d1d1f;
+    letter-spacing: -0.02em;
+  }
+}
+
+.airbnb-lesson-subject {
+  font-size: 14px;
+  font-weight: 400;
+  color: #8e8e93;
+  letter-spacing: -0.01em;
 }
 
 .airbnb-date-section {
@@ -9068,7 +9512,7 @@ top: 4px;
     background: #ffffff;
     border-radius: 16px;
     border: 1px solid rgba(0, 0, 0, 0.06);
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 6px 28px rgba(0, 0, 0, 0.12);
 
     &__icon-wrap {
       flex-shrink: 0;
@@ -9299,6 +9743,11 @@ top: 4px;
 
 @media (prefers-reduced-motion: reduce) {
   .pop-float { animation: none; opacity: 1; }
+  .m-filled-avatar-badge.badge-trial:not(.pop-float),
+  .upnext-filled-trial-pill.badge-trial:not(.pop-float) {
+    opacity: 1;
+    pointer-events: auto;
+  }
 }
 
 
@@ -9406,8 +9855,8 @@ top: 4px;
   }
 
   &.qa-with-asset .qa-icon-img {
-    width: 44px;
-    height: 44px;
+    width: 40px;
+    height: 40px;
     object-fit: contain;
     display: block;
     pointer-events: none;
@@ -9417,31 +9866,40 @@ top: 4px;
 
   /* Books art has lots of canvas padding — read larger without widening the row */
   &.qa-classes.qa-with-asset .qa-icon-img {
-    transform: scale(1.34);
+    transform: scale(1.14);
     transform-origin: center center;
   }
 
   &:hover.qa-classes.qa-with-asset .qa-icon-img {
-    transform: scale(1.447) !important; /* 1.34 × hover 1.08 */
+    transform: scale(1.231) !important; /* 1.14 × hover 1.08 */
   }
 
   /* Notepad + speech bubbles — heavy canvas padding */
   &.qa-create-material.qa-with-asset .qa-icon-img {
-    transform: scale(1.48);
+    transform: scale(1.26);
     transform-origin: center center;
   }
 
   &:hover.qa-create-material.qa-with-asset .qa-icon-img {
-    transform: scale(1.598) !important; /* 1.48 × hover 1.08 */
+    transform: scale(1.361) !important; /* 1.26 × hover 1.08 */
   }
 
   &.qa-forum.qa-with-asset .qa-icon-img {
-    transform: scale(1.72);
+    transform: scale(1.46);
     transform-origin: center center;
   }
 
   &:hover.qa-forum.qa-with-asset .qa-icon-img {
-    transform: scale(1.858) !important; /* 1.72 × 1.08 */
+    transform: scale(1.577) !important; /* 1.46 × 1.08 */
+  }
+
+  &.qa-rating.qa-with-asset .qa-icon-img {
+    transform: scale(1.26);
+    transform-origin: center center;
+  }
+
+  &:hover.qa-rating.qa-with-asset .qa-icon-img {
+    transform: scale(1.361) !important; /* 1.26 × hover 1.08 */
   }
 
   .qa-text {
@@ -14471,6 +14929,29 @@ top: 4px;
     ion-icon { color: #f5f5f7 !important; }
   }
   .airbnb-date-title { color: #f5f5f7 !important; }
+  .airbnb-lesson-row--day-modal .airbnb-lesson-time {
+    color: #f5f5f7 !important;
+  }
+  .airbnb-lesson-subject {
+    color: #8e8e93 !important;
+  }
+  .airbnb-modal-date-group__head {
+    border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+  }
+
+  .airbnb-modal-date-group__lessons .airbnb-lesson-row--day-modal {
+    border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.06) !important;
+    }
+  }
+
+  .tw-date-badge--modal {
+    background: #2a2a2a !important;
+    border-color: rgba(255, 255, 255, 0.12) !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2) !important;
+  }
   .airbnb-lesson-row {
     border-bottom-color: #2c2c2e !important;
     &:hover { background: #2c2c2e !important; }
@@ -14694,31 +15175,6 @@ top: 4px;
       ion-icon { color: #9A8E72 !important; }
     }
 
-    /* Dark: legacy classes asset — drop light-mode-only scale */
-    &.qa-classes.qa-with-asset .qa-icon-img {
-      transform: none !important;
-    }
-
-    &:hover.qa-classes.qa-with-asset .qa-icon-img {
-      transform: scale(1.08) !important;
-    }
-
-    &.qa-create-material.qa-with-asset .qa-icon-img {
-      transform: none !important;
-    }
-
-    &:hover.qa-create-material.qa-with-asset .qa-icon-img {
-      transform: scale(1.08) !important;
-    }
-
-    &.qa-forum.qa-with-asset .qa-icon-img {
-      transform: none !important;
-    }
-
-    &:hover.qa-forum.qa-with-asset .qa-icon-img {
-      transform: scale(1.08) !important;
-    }
-
     .qa-label { color: #f5f5f7 !important; }
     .qa-sub { color: #8e8e93 !important; }
     .qa-stat-label { color: #888 !important; }
@@ -14790,7 +15246,16 @@ top: 4px;
   .cu-subject { color: #888 !important; }
   .cu-avatar { background: #333 !important; }
   .cu-preview-date { color: #64d2ff !important; }
-  .cu-extra-badge { border-color: #2a2a2a !important; }
+  .cu-extra-badge {
+    color: var(--ion-text-color, #fff) !important;
+    background: transparent !important;
+    border-color: #4a4a4a !important;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.06) !important;
+      border-color: #666 !important;
+    }
+  }
   .coming-up-preview:hover { background: rgba(255, 255, 255, 0.04) !important; }
 
   .timeline-section--week-strip {
@@ -17682,6 +18147,48 @@ ion-modal.reschedule-proposal-modal {
 :host-context(html.ion-palette-dark) {
   .schedule-class-inline-panel {
     background: var(--ion-background-color, #000);
+  }
+}
+
+// DEV: Floating manual trigger for the pending-updates growth ticker.
+// Top-level (not nested) so the fixed-position button isn't scoped away
+// when it sits at the end of <ion-content> outside .welcome-section.
+.dev-pending-updates-trigger {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 9999;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: rgba(17, 24, 39, 0.92);
+  color: #ffffff;
+  border: none;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: transform 0.2s ease, background 0.2s ease, opacity 0.2s ease;
+  opacity: 0.85;
+
+  ion-icon {
+    font-size: 14px;
+  }
+
+  &:hover {
+    opacity: 1;
+    background: #000000;
+    transform: translateY(-1px);
+  }
+
+  &:active {
+    transform: translateY(0);
   }
 }
 

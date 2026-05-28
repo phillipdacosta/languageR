@@ -134,7 +134,7 @@
                 <ion-toggle [(ngModel)]="gcalSyncEnabled" (ionChange)="onGcalSettingChange('syncEnabled')"></ion-toggle>
               </div>
               <div class="inline-gcal-toggle">
-                <span>Push lessons to Google</span>
+                <span>Add lessons to Google Calendar</span>
                 <ion-toggle [(ngModel)]="gcalPushToGoogle" (ionChange)="onGcalSettingChange('pushToGoogle')"></ion-toggle>
               </div>
               <ion-button fill="clear" color="danger" size="small" (click)="disconnectGoogleCalendar()">
@@ -384,6 +384,7 @@
             </ion-button>
           </div>
 
+          <div class="sidebar-scroll-body">
           <!-- Tags Section -->
           <div class="tags-section">
             <div class="section-header" (click)="toggleTags()">
@@ -519,8 +520,8 @@
                   </div>
                   <div class="sidebar-gcal-toggle-item">
                     <div class="toggle-text">
-                      <span class="toggle-title">Push lessons to Google</span>
-                      <span class="toggle-desc"><img src="assets/barnabi-logo.png" alt="Barnabi" class="tc-brand-name-logo barnabi-wordmark-for-light-ui" /><img src="assets/barnabi-logo-wordmark-white.png" alt="" class="tc-brand-name-logo barnabi-wordmark-for-dark-ui" aria-hidden="true" /> lessons to Google Calendar</span>
+                      <span class="toggle-title">Add lessons to Google Calendar</span>
+                      <span class="toggle-desc">Create events for your <img src="assets/barnabi-logo.png" alt="Barnabi" class="tc-brand-name-logo barnabi-wordmark-for-light-ui" /><img src="assets/barnabi-logo-wordmark-white.png" alt="" class="tc-brand-name-logo barnabi-wordmark-for-dark-ui" aria-hidden="true" /> bookings</span>
                     </div>
                     <ion-toggle [(ngModel)]="gcalPushToGoogle" (ionChange)="onGcalSettingChange('pushToGoogle')"></ion-toggle>
                   </div>
@@ -532,6 +533,7 @@
             </div>
           </div>
 
+          </div> <!-- Close sidebar-scroll-body -->
         </div> <!-- Close sidebar-content -->
       </div>
 

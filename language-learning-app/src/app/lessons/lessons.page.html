@@ -168,7 +168,12 @@
                   <div class="colorful-spinner">
                     <div class="spinner-dot" *ngFor="let d of [0,1,2,3,4,5]"></div>
                   </div>
-                  <span>Generating analysis…</span>
+                  <div class="lgc-desc-spinner-text">
+                    <span class="lgc-desc-spinner-title">{{ 'LESSONS_PAGE.GENERATING_ANALYSIS' | translate }}</span>
+                    <span class="lgc-desc-spinner-eta" *ngIf="pl.formattedEndTime">
+                      {{ 'LESSONS_PAGE.ANALYSIS_READY_BY' | translate: { time: pl.formattedEndTime } }}
+                    </span>
+                  </div>
                 </div>
                 <div class="lgc-desc-empty" *ngIf="pl.cardDescMode === 'analysis_empty'">
                   <ion-icon name="document-text-outline"></ion-icon>

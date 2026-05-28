@@ -2275,6 +2275,18 @@ async function analyzeLesson(transcriptId) {
       analysisResult.topErrors = filterAndPrioritizeErrors(analysisResult.topErrors, lessonDuration);
       console.log(`✅ Filtered to ${analysisResult.topErrors.length} top errors`);
     }
+
+    // Canonicalize free-text errors to taxonomy skillIds. Must run AFTER
+    // filtering so we don't waste taxonomy lookups on transcription
+    // artifacts that just got removed. Idempotent — safe to call again.
+    try {
+      const { canonicalizeAnalysisSkills } = require('../services/aiService');
+      canonicalizeAnalysisSkills(analysisResult, transcript.language);
+    } catch (err) {
+      // Canonicalization is best-effort; the aggregator falls back to
+      // on-read canonicalization for any entries we missed here.
+      console.warn('⚠️  [transcription] Skill canonicalization failed (non-blocking):', err.message);
+    }
     
     console.log(`💾 Saving analysis to database...`);
     

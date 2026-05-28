@@ -224,6 +224,66 @@ function calculateErrorPriority(error, isTranscriptionError) {
   return score;
 }
 
+/**
+ * Stamp canonical skillIds onto every error/pattern in an analysis
+ * result. Idempotent — re-running on an already-canonicalized analysis
+ * is a no-op (skips entries that already have skillId set).
+ *
+ * Mutates the input analysis. Returns the same reference for chaining.
+ *
+ * Why server-side instead of asking GPT to emit skillIds: the taxonomy
+ * is too large to fit into a prompt reliably, GPT hallucinates IDs that
+ * don't exist, and we want the canonicalization rule set to be the
+ * single source of truth (one place to change, not buried in a prompt).
+ *
+ * @param {Object} analysis — output of analyzeLessonTranscript (mutated)
+ * @param {String} language — student's target language code
+ */
+function canonicalizeAnalysisSkills(analysis, language) {
+  if (!analysis || typeof analysis !== 'object') return analysis;
+  let taxonomy;
+  try {
+    // Lazy require — avoids circular import + lets aiService be used
+    // in standalone scripts that don't need taxonomy loaded.
+    taxonomy = require('./skillTaxonomy');
+  } catch (err) {
+    console.warn('[aiService] canonicalizeAnalysisSkills: taxonomy unavailable, skipping:', err.message);
+    return analysis;
+  }
+
+  let stamped = 0;
+  let fallbacks = 0;
+
+  if (Array.isArray(analysis.topErrors)) {
+    for (const err of analysis.topErrors) {
+      if (!err) continue;
+      if (err.skillId) continue;
+      const c = taxonomy.canonicalize(err.issue, language);
+      err.skillId = c.skillId;
+      err.skillIdConfidence = c.confidence;
+      stamped++;
+      if (c.confidence === 'fallback') fallbacks++;
+    }
+  }
+
+  if (Array.isArray(analysis.errorPatterns)) {
+    for (const pat of analysis.errorPatterns) {
+      if (!pat) continue;
+      if (pat.skillId) continue;
+      const c = taxonomy.canonicalize(pat.pattern, language);
+      pat.skillId = c.skillId;
+      pat.skillIdConfidence = c.confidence;
+      stamped++;
+      if (c.confidence === 'fallback') fallbacks++;
+    }
+  }
+
+  if (stamped > 0) {
+    console.log(`🏷️  [aiService] Canonicalized ${stamped} skill references (${fallbacks} fallback to unknown bucket)`);
+  }
+  return analysis;
+}
+
 // Already imported at top of file - removed duplicate
 const FormData = require('form-data');
 const fs = require('fs');
@@ -2158,12 +2218,42 @@ async function translateFeedbackFields(feedback, targetLanguageCode) {
   return translated;
 }
 
+/**
+ * Translate an arbitrary JSON object of prose strings/arrays for detail-page
+ * sections the server does not own (plan chips, prep briefing, cancel text, etc.).
+ */
+async function translateGenericFields(fieldsObject, targetLanguageCode) {
+  if (!fieldsObject || typeof fieldsObject !== 'object') {
+    return null;
+  }
+
+  const targetLang = getLanguageName(targetLanguageCode);
+  const completion = await getOpenAIClient().chat.completions.create({
+    model: 'gpt-4o-mini',
+    messages: [
+      {
+        role: 'system',
+        content: `Translate string values to ${targetLang}. Keep JSON keys, HTML tags, emoji, and numbers unchanged. Return JSON only with the same structure.`
+      },
+      { role: 'user', content: JSON.stringify(fieldsObject) }
+    ],
+    temperature: 0.3,
+    response_format: { type: 'json_object' }
+  });
+
+  const translated = JSON.parse(completion.choices[0].message.content);
+  translated.translatedAt = new Date();
+  return translated;
+}
+
 module.exports = {
   transcribeAudio,
   analyzeLessonTranscript,
   generateProgressReport,
   filterAndPrioritizeErrors,
+  canonicalizeAnalysisSkills,
   translateAnalysisFields,
-  translateFeedbackFields
+  translateFeedbackFields,
+  translateGenericFields
 };
 

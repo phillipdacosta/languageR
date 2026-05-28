@@ -4,11 +4,13 @@ $ob-text-secondary: #717171;
 :host {
   display: block;
   min-width: 0;
+  flex-shrink: 0;
 
   @media (min-width: 768px) {
     grid-column: 1;
     grid-row: 1;
     align-self: start;
+    overflow: hidden;
   }
 }
 
@@ -21,8 +23,20 @@ $ob-text-secondary: #717171;
   text-align: left;
 
   @media (min-width: 768px) {
-    padding-top: 28px;
+    padding-top: 0;
   }
+}
+
+.approval-split-guidance__greeting {
+  margin: 0 0 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  font-size: 26px;
+  font-weight: 700;
+  color: $ob-text-primary;
+  letter-spacing: -0.4px;
+  line-height: 1.25;
+  flex-shrink: 0;
 }
 
 .approval-split-guidance__title {
@@ -90,6 +104,14 @@ $ob-text-secondary: #717171;
 
     ion-icon {
       color: #359aff;
+    }
+  }
+
+  &--paid {
+    background: #eff6ff;
+
+    ion-icon {
+      color: #2563eb;
     }
   }
 

@@ -29,7 +29,6 @@ import { ApiAuthInterceptor } from './services/api-auth.interceptor';
 import { ApiUnauthorizedInterceptor } from './services/api-unauthorized.interceptor';
 import { GlobalLoadingComponent } from './components/global-loading/global-loading.component';
 import { ReminderNotificationComponent } from './components/reminder-notification/reminder-notification.component';
-import { EarlyExitModalComponent } from './components/early-exit-modal/early-exit-modal.component';
 import { CommonModule } from '@angular/common';
 
 
@@ -42,7 +41,6 @@ import { CommonModule } from '@angular/common';
     HttpClientModule,
     FormsModule,
     CommonModule,
-    EarlyExitModalComponent,
     ReminderNotificationComponent,
     IonicStorageModule.forRoot(),
     AuthModule.forRoot({

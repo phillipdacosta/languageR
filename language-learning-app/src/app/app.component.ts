@@ -10,7 +10,6 @@ import { MessagingService } from './services/messaging.service';
 import { AuthService } from './services/auth.service';
 import { UserService } from './services/user.service';
 import { LanguageService } from './services/language.service';
-import { EarlyExitService } from './services/early-exit.service';
 import { ReminderService, ReminderEvent } from './services/reminder.service';
 import { LessonService } from './services/lesson.service';
 import { ClassService } from './services/class.service';
@@ -33,13 +32,6 @@ export class AppComponent implements OnInit, OnDestroy {
   private isMessageListenerSetup = false;
   private splashHidden = false;
   private authResolved = false;
-  
-  // Early exit modal state
-  isEarlyExitModalOpen = false;
-  earlyExitLessonId: string = '';
-  earlyExitMinutesRemaining: number = 0;
-  earlyExitUserRole: 'tutor' | 'student' = 'student';
-  earlyExitIsClass: boolean = false;
 
   constructor(
     private loadingService: LoadingService,
@@ -49,7 +41,6 @@ export class AppComponent implements OnInit, OnDestroy {
     private authService: AuthService,
     private userService: UserService,
     private languageService: LanguageService,
-    private earlyExitService: EarlyExitService,
     private router: Router,
     private zone: NgZone,
     private reminderService: ReminderService,
@@ -165,36 +156,8 @@ export class AppComponent implements OnInit, OnDestroy {
     // Set up global WebSocket listener for real-time badge updates
     this.setupGlobalMessageListener();
     
-    // Set up early exit modal listener
-    this.setupEarlyExitListener();
   }
-  
-  private async setupEarlyExitListener() {
-    this.earlyExitService.earlyExitTriggered$.pipe(
-      takeUntil(this.destroy$)
-    ).subscribe(async (data) => {
-      // Get current user to determine role
-      let userRole: 'tutor' | 'student' = 'student';
-      try {
-        const currentUser = await this.userService.getCurrentUser().toPromise();
-        userRole = currentUser?.userType === 'tutor' ? 'tutor' : 'student';
-      } catch (error) {
-        console.error('Error getting user role:', error);
-      }
-      
-      // Set modal state and open
-      this.earlyExitLessonId = data.lessonId;
-      this.earlyExitMinutesRemaining = data.minutesRemaining;
-      this.earlyExitUserRole = userRole;
-      this.earlyExitIsClass = data.isClass || false;
-      this.isEarlyExitModalOpen = true;
-    });
-  }
-  
-  onEarlyExitModalDismiss(event: { action: string }) {
-    this.isEarlyExitModalOpen = false;
-  }
-  
+
   private setupGlobalMessageListener() {
     // Wait for user to be available, then connect and listen
     this.authService.user$.pipe(takeUntil(this.destroy$)).subscribe(user => {

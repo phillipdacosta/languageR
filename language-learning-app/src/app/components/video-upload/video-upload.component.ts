@@ -437,9 +437,12 @@ export class VideoUploadComponent implements OnInit, OnChanges, OnDestroy {
           return { valid: false, error: 'Invalid YouTube URL format' };
         }
         
-        return { 
-          valid: true, 
-          embedUrl: `https://www.youtube.com/embed/${videoId}`,
+        return {
+          valid: true,
+          // widget_referrer identifies this app to YouTube even when the HTTP Referer is empty
+          // (Capacitor WebView, restrictive referrer policies). Required per YouTube embedded
+          // player minimum-functionality terms.
+          embedUrl: `https://www.youtube.com/embed/${videoId}?widget_referrer=${encodeURIComponent('https://barnabi.ai')}`,
           platform: 'youtube',
           videoId
         };

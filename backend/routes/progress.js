@@ -1,16 +1,151 @@
 const express = require('express');
 const router = express.Router();
 const LessonAnalysis = require('../models/LessonAnalysis');
+const LearningPlan = require('../models/LearningPlan');
 const Notification = require('../models/Notification');
 const User = require('../models/User');
 const { verifyToken } = require('../middleware/videoUploadMiddleware');
+const struggleAggregator = require('../services/struggleAggregator');
+
+// Hand-curated descriptions for the most common struggle categories.
+// Used to enrich the aggregator's output when the taxonomy doesn't
+// carry a description field. Looked up by either raw issue string
+// (legacy) or by displayName from the taxonomy (new).
+const ERROR_DESCRIPTIONS = {
+  // Spanish-specific
+  'present subjunctive': 'Using special verb forms to express wishes, doubts, or hypothetical situations',
+  'subjunctive mood': 'Using special verb forms to express wishes, doubts, or hypothetical situations',
+  'subjunctive with emotion verbs': 'Using the subjunctive after verbs that express feelings or desires',
+  'ser vs estar': 'Choosing between the two Spanish verbs for "to be"',
+  'por vs para': 'Choosing the right preposition for purpose, duration, or destination',
+  'preterite vs imperfect': 'Choosing the correct past tense for what happened vs what was happening',
+  'gender agreement': 'Making adjectives and articles match the noun\'s gender',
+  'number agreement': 'Making words plural to match the noun',
+  'conditional sentences': 'Expressing "if-then" situations correctly',
+  // English-specific
+  'past simple vs present perfect': 'Choosing between completed past actions and connected-to-present actions',
+  'articles (a, an, the)': 'Knowing when (and which) article to use',
+  'phrasal verbs': 'Verb + preposition combinations like "pick up" or "put off"',
+  // Universal
+  'filler words': 'Reducing "um", "uh" and similar fillers',
+  'hesitation and pauses': 'Smoother delivery without long thinking pauses'
+};
 
 /**
  * @route   GET /api/progress/struggles/:language
- * @desc    Get recurring struggles for a student in a specific language (last 5 lessons)
+ * @desc    Top recurring struggles for the student, ranked by the
+ *          system's priority scorer over the last 5 lessons. Reads
+ *          from the canonical struggleAggregator so the home widget,
+ *          the next-lesson focus picker, and this surface always
+ *          agree on the student's #1 struggle.
  * @access  Private
  */
 router.get('/struggles/:language', verifyToken, async (req, res) => {
+  try {
+    const { language } = req.params;
+    
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    
+    // Load the plan so the aggregator can read beliefs + goal context.
+    // Plan may not exist for a brand-new student; aggregator handles
+    // null plan gracefully.
+    const plan = await LearningPlan.findOne({ studentId: user._id, language });
+
+    const agg = await struggleAggregator.aggregateStruggles({
+      studentId: user._id,
+      language,
+      plan,
+      windowSize: struggleAggregator.DEFAULT_WINDOW,
+      limit: 5
+    });
+
+    if (!agg.hasEnoughData || agg.struggles.length === 0) {
+      return res.json({
+        success: true,
+        hasEnoughData: false,
+        message: agg.lessonsAnalyzed === 0
+          ? 'No completed lessons yet for this language'
+          : `Need more data to identify patterns (${agg.lessonsAnalyzed} lesson${agg.lessonsAnalyzed === 1 ? '' : 's'} analyzed)`,
+        lessonsCompleted: agg.lessonsAnalyzed,
+        lessonsAnalyzed: agg.lessonsAnalyzed
+      });
+    }
+
+    const descLookup = (title) => {
+      if (typeof title !== 'string') return null;
+      return ERROR_DESCRIPTIONS[title.toLowerCase().trim()] || null;
+    };
+
+    // Map aggregator output to the response shape the frontend already
+    // consumes. The new `score` and `factors` are additive — clients
+    // that don't read them will still work.
+    const struggles = agg.struggles.map(s => ({
+      // Skill identity (NEW)
+      skillId: s.skillId,
+      category: s.category,
+      cefr: s.cefr,
+      // Display
+      issue: s.displayName,
+      userFriendlyTitle: s.displayName,
+      description: descLookup(s.displayName) || 'A recurring pattern in your recent lessons',
+      // Examples
+      examples: (s.examples || []).slice(0, 2).map(ex => ({
+        original: ex.original,
+        corrected: ex.corrected,
+        explanation: ex.explanation
+      })),
+      // Frequency / impact (kept for legacy clients)
+      appearances: s.appearances,
+      lessonsAnalyzed: agg.lessonsAnalyzed,
+      frequency: `${s.appearances}/${agg.lessonsAnalyzed}`,
+      percentage: Math.round((s.appearances / agg.lessonsAnalyzed) * 100),
+      impact: s.highestImpact,
+      // Scoring (NEW)
+      score: s.score,
+      factors: s.factors,
+      // Belief snapshot (NEW)
+      belief: s.belief ? {
+        mean: Number((s.belief.alpha / (s.belief.alpha + s.belief.beta)).toFixed(3)),
+        alpha: s.belief.alpha,
+        beta: s.belief.beta
+      } : null,
+      lastSeenAt: s.lastSeenAt,
+      isSyntheticSkill: s.isSyntheticSkill
+    }));
+
+    res.json({
+      success: true,
+      hasEnoughData: true,
+      language,
+      lessonsAnalyzed: agg.lessonsAnalyzed,
+      struggles,
+      activeFocusSkillId: plan?.activeFocusSkillId || null,
+      activeFocusSource: plan?.activeFocusSource || null,
+      dateRange: {
+        from: struggles.length > 0 ? struggles[struggles.length - 1]?.lastSeenAt : null,
+        to: struggles.length > 0 ? struggles[0]?.lastSeenAt : null
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error getting struggles:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get struggles',
+      error: error.message
+    });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────
+// LEGACY: original /struggles handler retained below for reference.
+// Routing only invokes the version above. Keeping the helper for any
+// downstream code that imported ERROR_DESCRIPTIONS-shaped data.
+// ─────────────────────────────────────────────────────────────────
+
+router.get('/_legacy_struggles/:language', verifyToken, async (req, res) => {
   try {
     const { language } = req.params;
     

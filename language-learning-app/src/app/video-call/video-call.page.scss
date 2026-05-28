@@ -1,3 +1,57 @@
+// ── Call diagnostics overlay ──
+// Dev-only HUD for video call quality. Toggle via Ctrl/Cmd+Shift+S or ?stats=1.
+.call-stats-overlay {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 10001;
+  background: rgba(0, 0, 0, 0.78);
+  color: #fff;
+  font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  min-width: 220px;
+  max-width: 320px;
+  pointer-events: auto;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+
+  .cs-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    line-height: 1.6;
+
+    &.cs-title {
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+      margin-bottom: 4px;
+      padding-bottom: 4px;
+      align-items: center;
+    }
+
+    &.cs-sub {
+      color: rgba(255, 255, 255, 0.78);
+      font-size: 11px;
+    }
+  }
+
+  .cs-close {
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 4px;
+
+    &:hover { color: #fff; }
+  }
+}
+
 // ── Leaving Overlay ──
 // Full-screen overlay shown instantly when the user clicks "End Call"
 .leaving-overlay {
@@ -855,12 +909,41 @@
     justify-content: center;
   }
 
+  // Floating chip on the viewer side announcing the remote user's screen share.
+  // Driven by the authoritative `screenShareState` message, not by track
+  // settings, so it appears reliably the moment the sharer toggles share.
+  .remote-sharing-chip {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    z-index: 12;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.82);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+
+    ion-icon {
+      font-size: 16px;
+      color: #38bdf8;
+    }
+  }
+
   .remote-user-info {
     position: absolute;
     top: 20px;
     left: 20px;
     z-index: 10;
-    
+
     .remote-user-label {
       display: flex;
       align-items: center;

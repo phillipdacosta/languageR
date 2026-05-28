@@ -1203,7 +1203,7 @@ ion-header {
 // Language Grid (for native language selection)
 .language-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
   gap: 10px;
   margin-bottom: 20px;
   
@@ -1218,16 +1218,21 @@ ion-header {
     flex-direction: column;
     align-items: center;
     gap: 2px;
+    min-width: 0;
     
     .language-native {
       font-size: 15px;
       font-weight: 600;
       color: $ob-text-primary;
+      white-space: nowrap;
+      text-align: center;
     }
     
     .language-name {
       font-size: 11px;
       color: $ob-text-secondary;
+      white-space: nowrap;
+      text-align: center;
     }
     
     &:hover {
@@ -1259,7 +1264,7 @@ ion-header {
 // Options Grid (for languages to learn)
 .options-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
   gap: 10px;
   margin-bottom: 20px;
   
@@ -1273,6 +1278,9 @@ ion-header {
     color: $ob-text-primary;
     cursor: pointer;
     transition: background 0.25s ease, border-color 0.25s ease, transform 0.15s ease;
+    white-space: nowrap;
+    text-align: center;
+    min-width: 0;
     
     &:hover {
       border-color: $ob-text-primary;
@@ -1942,12 +1950,12 @@ ion-header {
   }
   
   .language-grid {
-    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
     gap: 8px;
   }
   
   .options-grid {
-    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
     gap: 8px;
   }
 }

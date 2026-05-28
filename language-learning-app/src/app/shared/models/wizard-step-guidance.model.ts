@@ -11,6 +11,7 @@ export type WizardGuidanceIconModifier =
   | 'tos'
   | 'cert'
   | 'payout'
+  | 'paid'
   | 'quick';
 
 export interface WizardGuidanceItem {

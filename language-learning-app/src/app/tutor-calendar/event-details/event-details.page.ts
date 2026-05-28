@@ -25,7 +25,16 @@ import { ConfirmActionModalComponent } from '../../components/confirm-action-mod
 import { RescheduleLessonModalComponent } from '../../components/reschedule-lesson-modal/reschedule-lesson-modal.component';
 import { formatTimeInTz, formatDateInTz } from '../../shared/timezone.utils';
 import { MaterialService, TutorMaterial } from '../../services/material.service';
-import { LearningPlanService, LearningPlanSummary, GOAL_TYPE_LABELS, LessonPrep } from '../../services/learning-plan.service';
+import { LearningPlanService, LearningPlanSummary, LessonPrep } from '../../services/learning-plan.service';
+
+const GOAL_TYPE_I18N_KEYS: Record<string, string> = {
+  conversational: 'LEARNING_PLAN.GOAL_LABEL_CONVERSATIONAL',
+  exam_prep: 'LEARNING_PLAN.GOAL_LABEL_EXAM_PREP',
+  professional: 'LEARNING_PLAN.GOAL_LABEL_PROFESSIONAL',
+  travel: 'LEARNING_PLAN.GOAL_LABEL_TRAVEL',
+  relocation: 'LEARNING_PLAN.GOAL_LABEL_RELOCATION',
+  other: 'LEARNING_PLAN.GOAL_LABEL_OTHER',
+};
 import { WebSocketService } from '../../services/websocket.service';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { Subscription, firstValueFrom } from 'rxjs';
@@ -35,6 +44,7 @@ import {
   buildMockLessonEntity,
   getMockBillingAndPayment,
   getMockRecommendedMaterials,
+  getMockLearningPlanContext,
 } from '../../lessons/lesson-mock-preview';
 import { MOCK_CLASS_ATTENDEES_PREVIEW } from '../../constants/mock-class-attendees-preview';
 
@@ -97,6 +107,14 @@ interface BillingData {
   callEndTime?: string;
   isOfficeHours?: boolean;
 }
+
+type RecommendedMaterialDisplay = TutorMaterial & {
+  isSaved?: boolean;
+  _matchedStruggles?: string[];
+  _isCurrentTutor?: boolean;
+  _typeIcon?: string;
+  _typeLabel?: string;
+};
 
 @Component({
   selector: 'app-event-details',
@@ -187,12 +205,25 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   tutorMaterials: (TutorMaterial & { _addedDate?: string; _typeIcon?: string; _typeLabel?: string })[] = [];
   materialsSectionExpanded = true;
 
-  // Learning Plan summary (sidebar)
+  // Learning plan context (student + tutor)
   edPlanGoalLabel = '';
   edPlanPhaseLabel = '';
   edPlanNextFocus = '';
   edPlanStudentSummary = '';
+  edPlanFocusAreas: string[] = [];
+  edPlanSuggestedTopics: string[] = [];
+  edPlanAgenda: string[] = [];
+  edPlanMetaLine = '';
+  edPlanTopicChips: string[] = [];
+  edPlanEyebrowKey = 'EVENT_DETAILS.LESSON_SCREEN.LESSON_OBJECTIVE';
+  edShowPlanExpanded = false;
+  edShowTutorBriefing = false;
+  edPrepShowPersistentChallenges = false;
+  notesSectionLabelKey = 'EVENT_DETAILS.LESSON_SCREEN.NOTES';
+  showLessonNotesSection = false;
+  showTutorPrivateNotes = false;
   edHasPlan = false;
+  private edPlanSummary: LearningPlanSummary | null = null;
 
   // Pre-lesson briefing (tutor only) — populated alongside plan summary.
   // Combines plan + latest analysis + a short deterministic agenda.
@@ -202,7 +233,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   edPrepMasteryPercent = 0;
   edPrepProficiencyChangeIcon: 'arrow-up-outline' | 'remove-outline' | 'arrow-down-outline' | null = null;
   edPrepProficiencyChangeLabel = '';
-  edPrepBriefingExpanded = true;
+  edPrepBriefingExpanded = false;
   // Compact phase pill — surfaced in the briefing header so the tutor
   // sees the student's current phase without expanding anything.
   edPrepPhasePillLabel = '';
@@ -258,9 +289,43 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   hasTutorFeedback = false;
 
   // Last session context (for upcoming lessons)
+  hasFirstLessonContext = false;
+  firstLessonMessage = '';
   hasLastSessionContext = false;
   lastSessionSummary = '';
   lastSessionFocus: string[] = [];
+  lastSessionCanTranslate = false;
+  lastSessionTranslating = false;
+  lastSessionShowingTranslation = false;
+  private lastSessionOriginalSummary = '';
+  private lastSessionOriginalFocus: string[] = [];
+  private lastSessionTranslatedSummary = '';
+  private lastSessionTranslatedFocus: string[] = [];
+
+  // Unified page translation (one button for all dynamic prose)
+  pageCanTranslate = false;
+  pageTranslating = false;
+  pageShowingTranslation = false;
+  private pageOriginals: {
+    lastSessionSummary: string;
+    lastSessionFocus: string[];
+    analysisData: any;
+    feedbackStrengths: string[];
+    feedbackImprovements: string[];
+    feedbackNotes: string;
+    edPlanNextFocus: string;
+    edPlanGoalLabel: string;
+    edPlanPhaseLabel: string;
+    edPlanMetaLine: string;
+    edPlanTopicChips: string[];
+    edPlanAgenda: string[];
+    edPrep: LessonPrep | null;
+    cancelReasonLabel: string;
+    issueDetailsText: string;
+    lessonNotes: string;
+    recommendedStruggles: string[];
+    recommendedMaterials: RecommendedMaterialDisplay[];
+  } | null = null;
 
   // Previous lesson notes for this tutor-student pair
   previousNotesData: any = null;
@@ -331,6 +396,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   isLessonCompleted = false;
   feedbackProvided = false;
   feedbackPending = false;
+  showFeedbackStatusSection = false;
   tutorDisplayName = ''; // "Phillip D." — for student view
 
   // Payment status (financial outcome)
@@ -377,7 +443,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   classStudentsPaidCount = 0;
 
   // Recommended materials (student only)
-  recommendedMaterials: (TutorMaterial & { isSaved?: boolean; _matchedStruggles?: string[]; _isCurrentTutor?: boolean; _typeIcon?: string; _typeLabel?: string })[] = [];
+  recommendedMaterials: RecommendedMaterialDisplay[] = [];
   recommendedStruggles: string[] = [];
   recommendedLoading = false;
   hasRecommendations = false;
@@ -452,6 +518,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
 
   ngOnInit() {
     this.eventId = this.modalEventId || this.route.snapshot.paramMap.get('id');
+    this.resetPageTranslation();
 
     this.userService.getCurrentUser().subscribe({
       next: (user) => {
@@ -484,8 +551,24 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       if (this.paymentData) {
         this.computePaymentStatus();
       }
+      if (this.lesson?.paymentMethod) {
+        this.computePaymentMethodLabel(this.lesson.paymentMethod);
+      }
+      if (this.analysisData) {
+        this.computeAnalysisProperties();
+      }
+      if (this.edPrep) {
+        this.applyLessonPrep(this.edPrep);
+      }
+      if (this.hasLastSessionContext) {
+        this.resetLastSessionTranslation();
+        this.refreshLastSessionTranslateEligibility();
+      }
       if (this.lesson && !this.isClass) {
         this.computeAllProperties();
+      }
+      if (this.edPlanSummary) {
+        this.applyPlanSummary(this.edPlanSummary);
       }
       if (this.classData && this.isClass) {
         this.computeClassProperties();
@@ -627,6 +710,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     this.feedbackLoading = false;
 
     this.computeAllProperties();
+    this.capturePageOriginals();
 
     // Hydrate analysis / feedback / sidebar from mock lesson data (mirrors loadAdditionalData flow)
     const mockAi = (lesson as any).aiAnalysis;
@@ -689,6 +773,10 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       this.recommendedMaterials = mockRecs as any;
       this.hasRecommendations = true;
     }
+
+    this.applyMockLearningPlanContext(id);
+    this.refreshNotesPresentation();
+    this.capturePageOriginals();
 
     this.loading = false;
     this.startCountdown();
@@ -779,7 +867,11 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     this.lessonService.getLesson(this.eventId).subscribe({
       next: (response: any) => {
         if (response.success && response.lesson) {
+          const prevCtx = this.lesson?.lastSessionContext;
           this.lesson = response.lesson;
+          if (!this.lesson.lastSessionContext && prevCtx) {
+            this.lesson.lastSessionContext = prevCtx;
+          }
           this.isClass = false;
           this.classCanOpenGoingMessage = false;
           this.lessonsWithParticipant = response.lessonsCompleted || 0;
@@ -906,6 +998,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
 
       this.computeFeedbackStatus();
       this.resolveSidebarNotes();
+      this.refreshNotesPresentation();
     }
 
     this.loading = false;
@@ -985,41 +1078,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       this.sidebarNotesTranslationCache = null;
     }
 
-    // Load learning plan summary (non-blocking sidebar data)
-    if (this.isTutorUser && this.participantId) {
-      this.learningPlanService.getStudentPlanSummary(this.participantId).subscribe({
-        next: (res) => {
-          if (res.success && res.summaries?.length) {
-            const s = res.summaries[0];
-            this.edPlanGoalLabel = GOAL_TYPE_LABELS[s.goal?.type] || s.goal?.description || '';
-            this.edPlanPhaseLabel = s.currentPhase
-              ? `Phase ${s.currentPhaseIndex + 1} of ${s.totalPhases}: ${s.currentPhase.title}`
-              : '';
-            this.edPlanNextFocus = s.nextLessonFocus || '';
-            this.edPlanStudentSummary = s.studentSummary || '';
-            this.edHasPlan = true;
-            this.cdr.detectChanges();
-          }
-        },
-        error: () => {}
-      });
-
-      // Pre-lesson briefing (mastery + top errors + persistent challenges +
-      // recent excerpts + agenda). Picks the language from the lesson if
-      // present, otherwise from the plan summary above.
-      const briefingLanguage = (this.lesson as any)?.language || (this.lesson as any)?.subject;
-      if (briefingLanguage) {
-        this.learningPlanService.getLessonPrep(this.participantId, briefingLanguage).subscribe({
-          next: (res) => {
-            if (res.success && res.prep) {
-              this.applyLessonPrep(res.prep);
-              this.cdr.detectChanges();
-            }
-          },
-          error: () => {}
-        });
-      }
-    }
+    this.loadLearningPlanContext();
 
     // Load analysis
     if (!silent) this.analysisLoading = true;
@@ -1037,6 +1096,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
           this.analysisUnavailable = true;
           this.lessonService.updateCachedLessonDetail(this.eventId!, { analysisUnavailable: true });
         }
+        this.refreshNotesPresentation();
         if (!silent) this.analysisLoading = false;
         this.onRequestComplete(silent);
       },
@@ -1045,6 +1105,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
           this.analysisUnavailable = true;
           this.lessonService.updateCachedLessonDetail(this.eventId!, { analysisUnavailable: true });
         }
+        this.refreshNotesPresentation();
         if (!silent) this.analysisLoading = false;
         this.onRequestComplete(silent);
       }
@@ -1168,10 +1229,12 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
           }
         }
         this.recommendedLoading = false;
+        this.capturePageOriginals();
         this.cdr.detectChanges();
       },
       error: () => {
         this.recommendedLoading = false;
+        this.capturePageOriginals();
         this.cdr.detectChanges();
       }
     });
@@ -1221,6 +1284,8 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       // refresh derived projections in case analysis/feedback/previousNotes changed
       this.computeFeedbackStatus();
       this.resolveSidebarNotes();
+      this.refreshNotesPresentation();
+      this.capturePageOriginals();
       this.cdr.detectChanges();
       // the initial counter isn't maintained in silent mode; flag flips off
       // opportunistically — any in-flight callbacks are safe because each one
@@ -1233,6 +1298,8 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     if (this.pendingRequests <= 0) {
       this.computeFeedbackStatus();
       this.resolveSidebarNotes();
+      this.refreshNotesPresentation();
+      this.capturePageOriginals();
       this.loading = false;
       this.cdr.detectChanges();
       this.landFlipTransition();
@@ -1305,6 +1372,11 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     this.computeIssue();
     this.computeReschedule();
     this.computeLastSessionContext();
+    this.computeFirstLessonContext();
+    this.sanitizeLessonForViewerRole();
+    this.refreshPlanPresentation();
+    this.refreshNotesPresentation();
+    this.capturePageOriginals();
   }
 
   private computeRole() {
@@ -1693,15 +1765,716 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     }
   }
 
+  private computeFirstLessonContext(): void {
+    const ctx = this.lesson?.lastSessionContext;
+    const status = this.lesson?.status;
+    const isScheduleContext = status === 'scheduled' || status === 'confirmed';
+    if (!ctx?.isFirstLesson || !isScheduleContext) {
+      this.hasFirstLessonContext = false;
+      this.firstLessonMessage = '';
+      return;
+    }
+    const other = this.isTutorUser ? this.lesson?.studentId : this.lesson?.tutorId;
+    const otherName = other?.name || other?.firstName || this.participantName || '';
+    const shortName = otherName.split(' ')[0] || otherName;
+    const key = this.isTutorUser
+      ? 'LESSONS_PAGE.FIRST_LESSON_TUTOR'
+      : 'LESSONS_PAGE.FIRST_LESSON_STUDENT';
+    this.firstLessonMessage = this.translate.instant(key, { name: shortName });
+    this.hasFirstLessonContext = !!this.firstLessonMessage;
+  }
+
   private computeLastSessionContext() {
     const ctx = this.lesson?.lastSessionContext;
     if (!ctx || ctx.isFirstLesson || !ctx.summary) {
       this.hasLastSessionContext = false;
+      this.resetLastSessionTranslation();
       return;
     }
     this.hasLastSessionContext = true;
+    this.lastSessionOriginalSummary = ctx.summary;
+    this.lastSessionOriginalFocus = [...(ctx.recommendedFocus || [])];
     this.lastSessionSummary = ctx.summary;
-    this.lastSessionFocus = ctx.recommendedFocus || [];
+    this.lastSessionFocus = [...(ctx.recommendedFocus || [])];
+    this.resetLastSessionTranslation();
+    this.refreshLastSessionTranslateEligibility();
+  }
+
+  private resetLastSessionTranslation(): void {
+    this.lastSessionShowingTranslation = false;
+    this.lastSessionTranslating = false;
+    this.lastSessionTranslatedSummary = '';
+    this.lastSessionTranslatedFocus = [];
+  }
+
+  private refreshLastSessionTranslateEligibility(): void {
+    const ctx = this.lesson?.lastSessionContext;
+    this.lastSessionCanTranslate = !!(
+      this.hasLastSessionContext &&
+      ctx?.summaryTranslatable !== false &&
+      this.lastSessionOriginalSummary &&
+      this.lessonService.canTranslateProse() &&
+      this.lessonService.shouldOfferProseTranslation(ctx?.summaryLanguage)
+    );
+    this.refreshPageTranslateEligibility();
+  }
+
+  private resetPageTranslation(): void {
+    this.pageCanTranslate = false;
+    this.pageTranslating = false;
+    this.pageShowingTranslation = false;
+    this.pageOriginals = null;
+  }
+
+  private capturePageOriginals(): void {
+    if (this.pageShowingTranslation || this.isClass) {
+      return;
+    }
+    this.pageOriginals = {
+      lastSessionSummary: this.lastSessionSummary,
+      lastSessionFocus: [...this.lastSessionFocus],
+      analysisData: this.analysisData ? JSON.parse(JSON.stringify(this.analysisData)) : null,
+      feedbackStrengths: [...this.feedbackStrengths],
+      feedbackImprovements: [...this.feedbackImprovements],
+      feedbackNotes: this.feedbackNotes,
+      edPlanNextFocus: this.edPlanNextFocus,
+      edPlanGoalLabel: this.edPlanGoalLabel,
+      edPlanPhaseLabel: this.edPlanPhaseLabel,
+      edPlanMetaLine: this.edPlanMetaLine,
+      edPlanTopicChips: [...this.edPlanTopicChips],
+      edPlanAgenda: [...this.edPlanAgenda],
+      edPrep: this.edPrep ? JSON.parse(JSON.stringify(this.edPrep)) : null,
+      cancelReasonLabel: this.cancelReasonLabel,
+      issueDetailsText: this.issueDetailsText,
+      lessonNotes: this.lesson?.notes || '',
+      recommendedStruggles: [...this.recommendedStruggles],
+      recommendedMaterials: JSON.parse(JSON.stringify(this.recommendedMaterials)),
+    };
+    this.refreshPageTranslateEligibility();
+  }
+
+  private refreshPageTranslateEligibility(): void {
+    if (this.isClass || !this.lessonService.canTranslateProse()) {
+      this.pageCanTranslate = false;
+      return;
+    }
+    if (!this.hasPageTranslatableContent()) {
+      this.pageCanTranslate = false;
+      return;
+    }
+
+    this.pageCanTranslate = this.computePageNeedsTranslation();
+  }
+
+  /** Per-block language checks — show Translate only when something differs from the reader's language. */
+  private computePageNeedsTranslation(): boolean {
+    const blocks: (string | null | undefined)[] = [];
+
+    if (this.hasLastSessionContext && this.lastSessionOriginalSummary) {
+      blocks.push(this.lesson?.lastSessionContext?.summaryLanguage);
+    }
+
+    if (this.hasAnalysis && this.analysisData?._id) {
+      blocks.push(
+        this.isAiAnalysis
+          ? this.lessonService.inferStudentFacingProseLang(this.lesson)
+          : this.lessonService.inferTutorAuthoredProseLang(this.lesson),
+      );
+    }
+
+    if (this.hasTutorNote && this.analysisData?.tutorNote?.text) {
+      blocks.push(
+        this.lessonService.inferTutorNoteProseLang(this.lesson, this.analysisData.tutorNote.text),
+      );
+    }
+
+    if (
+      this.hasTutorFeedback &&
+      (this.feedbackNotes || this.feedbackStrengths.length || this.feedbackImprovements.length)
+    ) {
+      blocks.push(this.lessonService.inferTutorAuthoredProseLang(this.lesson));
+    }
+
+    if (this.edHasPlan && (this.edPlanNextFocus || this.edPlanGoalLabel || this.edPlanTopicChips.length)) {
+      blocks.push(this.lessonService.inferStudentFacingProseLang(this.lesson));
+    }
+
+    if (this.edPrepHasContent) {
+      blocks.push(this.lessonService.inferStudentFacingProseLang(this.lesson));
+    }
+
+    if (this.showTutorPrivateNotes && this.lesson?.notes) {
+      blocks.push(this.lessonService.inferTutorAuthoredProseLang(this.lesson));
+      blocks.push(this.lessonService.sniffProseLangFromText(this.lesson.notes));
+    }
+
+    return this.lessonService.shouldOfferProseTranslationForAnyBlock(blocks);
+  }
+
+  private hasPageTranslatableContent(): boolean {
+    if (this.hasLastSessionContext && this.lastSessionOriginalSummary) {
+      return true;
+    }
+    if (this.hasAnalysis && this.analysisData?._id) {
+      return true;
+    }
+    if (this.hasTutorFeedback && (
+      this.feedbackNotes ||
+      this.feedbackStrengths.length ||
+      this.feedbackImprovements.length
+    )) {
+      return true;
+    }
+    if (this.hasTutorNote && this.analysisData?.tutorNote?.text) {
+      return true;
+    }
+    if (this.edHasPlan && (this.edPlanNextFocus || this.edPlanGoalLabel || this.edPlanTopicChips.length)) {
+      return true;
+    }
+    if (this.edPrepHasContent) {
+      return true;
+    }
+    if (this.isCancelled && this.cancelReasonLabel) {
+      return true;
+    }
+    if (this.hasIssue && this.issueDetailsText) {
+      return true;
+    }
+    if (this.showTutorPrivateNotes && this.lesson?.notes) {
+      return true;
+    }
+    if (this.recommendedStruggles.length || this.recommendedMaterials.length) {
+      return true;
+    }
+    return false;
+  }
+
+  private buildClientTranslationSections(): Record<string, unknown> | null {
+    const sections: Record<string, unknown> = {};
+
+    const plan: Record<string, unknown> = {};
+    if (this.edPlanNextFocus) plan['nextFocus'] = this.edPlanNextFocus;
+    if (this.edPlanGoalLabel) plan['goalLabel'] = this.edPlanGoalLabel;
+    if (this.edPlanPhaseLabel) plan['phaseLabel'] = this.edPlanPhaseLabel;
+    if (this.edPlanTopicChips.length) plan['topicChips'] = [...this.edPlanTopicChips];
+    if (this.edPlanAgenda.length) plan['agenda'] = [...this.edPlanAgenda];
+    if (Object.keys(plan).length) sections['plan'] = plan;
+
+    if (this.edPrep) {
+      const prep: Record<string, unknown> = {};
+      if (this.edPrep.agenda?.length) prep['agenda'] = [...this.edPrep.agenda];
+      const la = this.edPrep.latestAnalysis;
+      if (la?.topErrors?.length) {
+        prep['topErrors'] = la.topErrors.map((e) => e.issue).filter(Boolean);
+      }
+      if (la?.persistentChallenges?.length) {
+        prep['persistentChallenges'] = [...la.persistentChallenges];
+      }
+      if (la?.correctedExcerpts?.length) {
+        prep['correctedExcerpts'] = la.correctedExcerpts.map((e) => ({
+          context: e.context || '',
+          original: e.original || '',
+          corrected: e.corrected || '',
+        }));
+      }
+      if (this.edPrep.otherTutorNotes?.length) {
+        prep['otherNotes'] = this.edPrep.otherTutorNotes.map((n) => n.text).filter(Boolean);
+      }
+      if (Object.keys(prep).length) sections['prep'] = prep;
+    }
+
+    const misc: Record<string, unknown> = {};
+    if (this.isCancelled && this.cancelReasonLabel) misc['cancelReason'] = this.cancelReasonLabel;
+    if (this.hasIssue && this.issueDetailsText) misc['issueDetails'] = this.issueDetailsText;
+    if (this.showTutorPrivateNotes && this.lesson?.notes) misc['lessonNotes'] = this.lesson.notes;
+    if (this.recommendedStruggles.length) misc['recommendedStruggles'] = [...this.recommendedStruggles];
+    if (this.recommendedMaterials.length) {
+      misc['recommendedMaterialTitles'] = this.recommendedMaterials.map((m) => m.title).filter(Boolean);
+    }
+    if (Object.keys(misc).length) sections['misc'] = misc;
+
+    return Object.keys(sections).length ? sections : null;
+  }
+
+  togglePageTranslation(): void {
+    if (!this.pageCanTranslate || this.pageTranslating || !this.eventId) {
+      return;
+    }
+
+    if (this.pageShowingTranslation) {
+      this.restorePageOriginals();
+      return;
+    }
+
+    if (!this.pageOriginals) {
+      this.capturePageOriginals();
+    }
+
+    const lang = this.lessonService.getProseTranslationTarget();
+    if (!lang) {
+      return;
+    }
+
+    this.pageTranslating = true;
+    this.cdr.detectChanges();
+
+    if (isLessonMockId(this.eventId)) {
+      window.setTimeout(() => {
+        this.applyMockPageTranslationLocally(lang);
+        this.pageShowingTranslation = true;
+        this.pageTranslating = false;
+        this.cdr.detectChanges();
+      }, 350);
+      return;
+    }
+
+    this.lessonService.translateLessonDetail(
+      this.eventId,
+      lang,
+      this.buildClientTranslationSections(),
+    ).subscribe({
+      next: (resp) => {
+        this.pageTranslating = false;
+        if (resp?.success) {
+          this.applyPageTranslation(resp);
+          this.pageShowingTranslation = true;
+        }
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.pageTranslating = false;
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
+  private applyMockPageTranslationLocally(targetLang: string): void {
+    const tag = targetLang.toUpperCase();
+    const tx = (s: string) => (s ? `[${tag}] ${s}` : s);
+    const txArr = (items: string[]) => items.map(tx);
+    const orig = this.pageOriginals;
+
+    if (this.hasLastSessionContext && orig) {
+      this.lastSessionSummary = tx(orig.lastSessionSummary);
+      this.lastSessionFocus = txArr(orig.lastSessionFocus);
+    }
+
+    if (this.analysisData && orig?.analysisData) {
+      const mockAnalysis = {
+        summary: orig.analysisData.overallAssessment?.summary,
+        progressFromLastLesson: orig.analysisData.overallAssessment?.progressFromLastLesson,
+        studentSummary: orig.analysisData.studentSummary,
+        tutorNoteText: orig.analysisData.tutorNote?.text,
+        recommendedFocus: orig.analysisData.recommendedFocus,
+        topicsDiscussed: orig.analysisData.topicsDiscussed,
+        homeworkSuggestions: orig.analysisData.homeworkSuggestions,
+        suggestedExercises: orig.analysisData.suggestedExercises,
+        strengths: orig.analysisData.strengths,
+        areasForImprovement: orig.analysisData.areasForImprovement,
+      };
+      this.analysisData = this.analysisTranslation.applyTranslation(this.analysisData, mockAnalysis);
+      this.computeAnalysisProperties();
+      this.resolveSidebarNotes();
+    }
+
+    if (orig) {
+      this.feedbackStrengths = txArr(orig.feedbackStrengths);
+      this.feedbackImprovements = txArr(orig.feedbackImprovements);
+      this.feedbackNotes = tx(orig.feedbackNotes);
+      this.edPlanNextFocus = tx(orig.edPlanNextFocus);
+      this.edPlanGoalLabel = tx(orig.edPlanGoalLabel);
+      this.edPlanPhaseLabel = tx(orig.edPlanPhaseLabel);
+      this.edPlanTopicChips = txArr(orig.edPlanTopicChips);
+      this.edPlanAgenda = txArr(orig.edPlanAgenda);
+      const parts: string[] = [];
+      if (this.edPlanGoalLabel) parts.push(this.edPlanGoalLabel);
+      if (this.edPlanPhaseLabel) parts.push(this.edPlanPhaseLabel);
+      this.edPlanMetaLine = parts.join(' · ');
+      if (orig.edPrep) {
+        this.edPrep = JSON.parse(JSON.stringify(orig.edPrep));
+        if (this.edPrep?.agenda?.length) this.edPrep.agenda = txArr(this.edPrep.agenda);
+        const la = this.edPrep?.latestAnalysis;
+        if (la?.topErrors?.length) {
+          la.topErrors = la.topErrors.map((e) => ({ ...e, issue: tx(e.issue) }));
+        }
+        if (la?.persistentChallenges?.length) {
+          la.persistentChallenges = txArr(la.persistentChallenges);
+        }
+        if (la?.correctedExcerpts?.length) {
+          la.correctedExcerpts = la.correctedExcerpts.map((e) => ({
+            ...e,
+            context: tx(e.context || ''),
+            original: tx(e.original || ''),
+            corrected: tx(e.corrected || ''),
+          }));
+        }
+        if (this.edPrep?.otherTutorNotes?.length) {
+          this.edPrep.otherTutorNotes = this.edPrep.otherTutorNotes.map((n) => ({
+            ...n,
+            text: tx(n.text),
+          }));
+        }
+      }
+      this.cancelReasonLabel = tx(orig.cancelReasonLabel);
+      this.issueDetailsText = tx(orig.issueDetailsText);
+      if (this.lesson && orig.lessonNotes) {
+        this.lesson = { ...this.lesson, notes: tx(orig.lessonNotes) };
+      }
+      this.recommendedStruggles = txArr(orig.recommendedStruggles);
+      this.recommendedMaterials = orig.recommendedMaterials.map((m) => ({
+        ...m,
+        title: tx(m.title),
+        _matchedStruggles: m._matchedStruggles?.length ? txArr(m._matchedStruggles) : m._matchedStruggles,
+      }));
+    }
+  }
+
+  private applyPageTranslation(resp: {
+    lastSession?: { summary?: string | null; recommendedFocus?: string[] } | null;
+    analysis?: Record<string, unknown> | null;
+    feedback?: Record<string, unknown> | null;
+    client?: Record<string, unknown> | null;
+  }): void {
+    if (resp.lastSession?.summary) {
+      this.lastSessionSummary = resp.lastSession.summary;
+    }
+    if (Array.isArray(resp.lastSession?.recommendedFocus) && resp.lastSession.recommendedFocus.length) {
+      this.lastSessionFocus = resp.lastSession.recommendedFocus.slice(0, 3);
+    }
+
+    if (resp.analysis && this.analysisData) {
+      this.analysisData = this.analysisTranslation.applyTranslation(this.analysisData, resp.analysis);
+      this.computeAnalysisProperties();
+      this.resolveSidebarNotes();
+    }
+
+    if (resp.feedback) {
+      const fb = resp.feedback;
+      if (Array.isArray(fb['strengths']) && fb['strengths'].length) {
+        this.feedbackStrengths = fb['strengths'] as string[];
+      }
+      if (Array.isArray(fb['areasForImprovement']) && fb['areasForImprovement'].length) {
+        this.feedbackImprovements = fb['areasForImprovement'] as string[];
+      }
+      if (typeof fb['overallNotes'] === 'string' && fb['overallNotes']) {
+        this.feedbackNotes = fb['overallNotes'];
+      }
+    }
+
+    const client = resp.client;
+    if (client) {
+      const plan = client['plan'] as Record<string, unknown> | undefined;
+      if (plan) {
+        if (typeof plan['nextFocus'] === 'string') this.edPlanNextFocus = plan['nextFocus'];
+        if (typeof plan['goalLabel'] === 'string') this.edPlanGoalLabel = plan['goalLabel'];
+        if (typeof plan['phaseLabel'] === 'string') this.edPlanPhaseLabel = plan['phaseLabel'];
+        if (Array.isArray(plan['topicChips'])) this.edPlanTopicChips = plan['topicChips'] as string[];
+        if (Array.isArray(plan['agenda'])) this.edPlanAgenda = plan['agenda'] as string[];
+        const parts: string[] = [];
+        if (this.edPlanGoalLabel) parts.push(this.edPlanGoalLabel);
+        if (this.edPlanPhaseLabel) parts.push(this.edPlanPhaseLabel);
+        this.edPlanMetaLine = parts.join(' · ');
+      }
+
+      const prep = client['prep'] as Record<string, unknown> | undefined;
+      if (prep && this.edPrep) {
+        if (Array.isArray(prep['agenda'])) {
+          this.edPrep = { ...this.edPrep, agenda: prep['agenda'] as string[] };
+        }
+        const la = this.edPrep.latestAnalysis;
+        if (la) {
+          const nextLa = { ...la };
+          if (Array.isArray(prep['topErrors']) && la.topErrors?.length) {
+            nextLa.topErrors = la.topErrors.map((err, i) => ({
+              ...err,
+              issue: (prep['topErrors'] as string[])[i] || err.issue,
+            }));
+          }
+          if (Array.isArray(prep['persistentChallenges'])) {
+            nextLa.persistentChallenges = prep['persistentChallenges'] as string[];
+          }
+          if (Array.isArray(prep['correctedExcerpts']) && la.correctedExcerpts?.length) {
+            const translated = prep['correctedExcerpts'] as Array<{ context?: string; original?: string; corrected?: string }>;
+            nextLa.correctedExcerpts = la.correctedExcerpts.map((ex, i) => ({
+              ...ex,
+              context: translated[i]?.context || ex.context,
+              original: translated[i]?.original || ex.original,
+              corrected: translated[i]?.corrected || ex.corrected,
+            }));
+          }
+          this.edPrep = { ...this.edPrep, latestAnalysis: nextLa };
+        }
+        if (Array.isArray(prep['otherNotes']) && this.edPrep.otherTutorNotes?.length) {
+          const notes = prep['otherNotes'] as string[];
+          this.edPrep = {
+            ...this.edPrep,
+            otherTutorNotes: this.edPrep.otherTutorNotes.map((n, i) => ({
+              ...n,
+              text: notes[i] || n.text,
+            })),
+          };
+        }
+      }
+
+      const misc = client['misc'] as Record<string, unknown> | undefined;
+      if (misc) {
+        if (typeof misc['cancelReason'] === 'string') this.cancelReasonLabel = misc['cancelReason'];
+        if (typeof misc['issueDetails'] === 'string') this.issueDetailsText = misc['issueDetails'];
+        if (typeof misc['lessonNotes'] === 'string' && this.lesson) {
+          this.lesson = { ...this.lesson, notes: misc['lessonNotes'] };
+        }
+        if (Array.isArray(misc['recommendedStruggles'])) {
+          this.recommendedStruggles = misc['recommendedStruggles'] as string[];
+        }
+        if (Array.isArray(misc['recommendedMaterialTitles']) && this.recommendedMaterials.length) {
+          const titles = misc['recommendedMaterialTitles'] as string[];
+          this.recommendedMaterials = this.recommendedMaterials.map((m, i) => ({
+            ...m,
+            title: titles[i] || m.title,
+          }));
+        }
+      }
+    }
+  }
+
+  private restorePageOriginals(): void {
+    const orig = this.pageOriginals;
+    if (!orig) {
+      this.pageShowingTranslation = false;
+      return;
+    }
+
+    this.lastSessionSummary = orig.lastSessionSummary;
+    this.lastSessionFocus = [...orig.lastSessionFocus];
+    this.analysisData = orig.analysisData ? JSON.parse(JSON.stringify(orig.analysisData)) : this.analysisData;
+    this.feedbackStrengths = [...orig.feedbackStrengths];
+    this.feedbackImprovements = [...orig.feedbackImprovements];
+    this.feedbackNotes = orig.feedbackNotes;
+    this.edPlanNextFocus = orig.edPlanNextFocus;
+    this.edPlanGoalLabel = orig.edPlanGoalLabel;
+    this.edPlanPhaseLabel = orig.edPlanPhaseLabel;
+    this.edPlanMetaLine = orig.edPlanMetaLine;
+    this.edPlanTopicChips = [...orig.edPlanTopicChips];
+    this.edPlanAgenda = [...orig.edPlanAgenda];
+    this.edPrep = orig.edPrep ? JSON.parse(JSON.stringify(orig.edPrep)) : this.edPrep;
+    this.cancelReasonLabel = orig.cancelReasonLabel;
+    this.issueDetailsText = orig.issueDetailsText;
+    if (this.lesson && orig.lessonNotes !== undefined) {
+      this.lesson = { ...this.lesson, notes: orig.lessonNotes };
+    }
+    this.recommendedStruggles = [...orig.recommendedStruggles];
+    this.recommendedMaterials = JSON.parse(JSON.stringify(orig.recommendedMaterials));
+
+    if (this.analysisData) {
+      this.computeAnalysisProperties();
+      this.resolveSidebarNotes();
+    } else {
+      this.hasTutorNote = false;
+      this.sanitizedTutorNote = '';
+    }
+    this.refreshPlanPresentation();
+    this.pageShowingTranslation = false;
+    this.cdr.detectChanges();
+  }
+
+  toggleLastSessionTranslation(): void {
+    this.togglePageTranslation();
+  }
+
+  private resolvePlanStudentId(): string | null {
+    if (this.isTutorUser) {
+      return this.participantId;
+    }
+    const lessonStudent = (this.lesson as any)?.studentId;
+    if (lessonStudent) {
+      return typeof lessonStudent === 'object'
+        ? String(lessonStudent._id || lessonStudent.id || '')
+        : String(lessonStudent);
+    }
+    const userId = (this.currentUser as any)?._id || this.currentUser?.id;
+    return userId ? String(userId) : null;
+  }
+
+  private pickPlanSummaryForLesson(
+    summaries: LearningPlanSummary[],
+    lessonLanguage: string
+  ): LearningPlanSummary | null {
+    if (!summaries.length) return null;
+    const normalized = lessonLanguage.trim().toLowerCase();
+    if (normalized) {
+      const match = summaries.find(
+        (s) => (s.language || '').trim().toLowerCase() === normalized
+      );
+      if (match) return match;
+    }
+    return summaries[0];
+  }
+
+  private goalLabelForType(type: string | undefined, description?: string): string {
+    if (type && GOAL_TYPE_I18N_KEYS[type]) {
+      return this.translate.instant(GOAL_TYPE_I18N_KEYS[type]);
+    }
+    return description || '';
+  }
+
+  private applyPlanSummary(summary: LearningPlanSummary): void {
+    this.edPlanSummary = summary;
+    this.edPlanGoalLabel = this.goalLabelForType(summary.goal?.type, summary.goal?.description);
+    this.edPlanPhaseLabel = summary.currentPhase
+      ? this.translate.instant('PRE_CALL.PHASE_LABEL', {
+          current: String(summary.currentPhaseIndex + 1),
+          total: String(summary.totalPhases),
+          title: summary.currentPhase.title,
+        })
+      : '';
+    this.edPlanNextFocus = summary.nextLessonFocus || '';
+    this.edPlanStudentSummary = summary.studentSummary || '';
+    this.edPlanFocusAreas = summary.currentPhase?.focusAreas || [];
+    this.edPlanSuggestedTopics = summary.currentPhase?.suggestedTopics || [];
+    this.edHasPlan = true;
+    this.refreshPlanPresentation();
+    this.capturePageOriginals();
+  }
+
+  private resetPlanContext(): void {
+    this.edPlanSummary = null;
+    this.edPlanGoalLabel = '';
+    this.edPlanPhaseLabel = '';
+    this.edPlanNextFocus = '';
+    this.edPlanStudentSummary = '';
+    this.edPlanFocusAreas = [];
+    this.edPlanSuggestedTopics = [];
+    this.edPlanAgenda = [];
+    this.edPlanMetaLine = '';
+    this.edPlanTopicChips = [];
+    this.edPlanEyebrowKey = 'EVENT_DETAILS.LESSON_SCREEN.LESSON_OBJECTIVE';
+    this.edShowPlanExpanded = false;
+    this.edShowTutorBriefing = false;
+    this.edPrepShowPersistentChallenges = false;
+    this.edHasPlan = false;
+  }
+
+  private refreshPlanPresentation(): void {
+    if (!this.edHasPlan) return;
+
+    const parts: string[] = [];
+    if (this.edPlanGoalLabel) parts.push(this.edPlanGoalLabel);
+    if (this.edPlanPhaseLabel) parts.push(this.edPlanPhaseLabel);
+    this.edPlanMetaLine = parts.join(' · ');
+
+    this.edPlanEyebrowKey = this.isLessonCompleted
+      ? 'EVENT_DETAILS.LESSON_SCREEN.PLAN_NEXT_UP'
+      : 'EVENT_DETAILS.LESSON_SCREEN.LESSON_OBJECTIVE';
+
+    if (this.isTutorUser) {
+      this.edPlanEyebrowKey = this.isLessonCompleted
+        ? 'EVENT_DETAILS.LESSON_SCREEN.PLAN_TUTOR_NEXT'
+        : 'EVENT_DETAILS.LESSON_SCREEN.PLAN_TUTOR_THIS';
+    }
+
+    this.edShowPlanExpanded = !this.isLessonCompleted;
+    this.edPlanTopicChips = this.edShowPlanExpanded
+      ? (this.edPlanSuggestedTopics.length
+          ? this.edPlanSuggestedTopics
+          : this.edPlanFocusAreas).slice(0, 4)
+      : [];
+
+    this.edShowTutorBriefing =
+      this.isTutorUser && !this.isLessonCompleted && !!this.edPrepHasContent;
+  }
+
+  private refreshNotesPresentation(): void {
+    if (this.isStudentUser) {
+      this.showTutorPrivateNotes = false;
+      this.showLessonNotesSection = this.hasAnalysis;
+      this.notesSectionLabelKey = 'EVENT_DETAILS.LESSON_SCREEN.NOTES';
+      return;
+    }
+
+    if (this.isTutorUser) {
+      this.showTutorPrivateNotes =
+        this.isLessonCompleted && !!this.lesson?.notes && !this.hasAnalysis;
+      this.showLessonNotesSection =
+        this.isLessonCompleted && (this.hasAnalysis || this.showTutorPrivateNotes);
+      if (this.hasAnalysis) {
+        this.notesSectionLabelKey = 'EVENT_DETAILS.LESSON_SCREEN.LESSON_ANALYSIS';
+      } else if (this.showTutorPrivateNotes) {
+        this.notesSectionLabelKey = 'EVENT_DETAILS.LESSON_SCREEN.FROM_THIS_LESSON';
+      }
+      return;
+    }
+
+    this.showLessonNotesSection = false;
+    this.showTutorPrivateNotes = false;
+  }
+
+  /** `lesson.notes` is tutor-private in the data model — never expose in the student UI. */
+  private sanitizeLessonForViewerRole(): void {
+    if (!this.lesson || !this.isStudentUser) return;
+    if (this.lesson.notes) {
+      this.lesson = { ...this.lesson, notes: undefined };
+    }
+  }
+
+  private loadLearningPlanContext(): void {
+    if (isLessonMockId(this.eventId)) {
+      this.applyMockLearningPlanContext(this.eventId!);
+      return;
+    }
+
+    const studentId = this.resolvePlanStudentId();
+    if (!studentId) return;
+
+    this.resetPlanContext();
+
+    const lessonLanguage =
+      String((this.lesson as any)?.language || (this.lesson as any)?.subject || '').trim();
+
+    this.learningPlanService.getStudentPlanSummary(studentId).subscribe({
+      next: (res) => {
+        if (res.success && res.summaries?.length) {
+          const summary = this.pickPlanSummaryForLesson(res.summaries, lessonLanguage);
+          if (summary) {
+            this.applyPlanSummary(summary);
+            this.cdr.detectChanges();
+          }
+        }
+      },
+      error: () => {},
+    });
+
+    if (lessonLanguage) {
+      this.learningPlanService.getLessonPrep(studentId, lessonLanguage).subscribe({
+        next: (res) => {
+          if (!res.success || !res.prep) return;
+          if (this.isTutorUser) {
+            this.applyLessonPrep(res.prep);
+          } else {
+            this.edPlanAgenda = res.prep.agenda || [];
+            if (!this.edPlanNextFocus && res.prep.plan?.nextLessonFocus) {
+              this.edPlanNextFocus = res.prep.plan.nextLessonFocus;
+            }
+          }
+          this.cdr.detectChanges();
+        },
+        error: () => {},
+      });
+    }
+  }
+
+  private applyMockLearningPlanContext(mockId: string): void {
+    const ctx = getMockLearningPlanContext(mockId);
+    if (!ctx) {
+      this.resetPlanContext();
+      return;
+    }
+
+    this.applyPlanSummary(ctx.summary);
+    if (this.isTutorUser) {
+      this.applyLessonPrep(ctx.prep);
+    } else {
+      this.edPlanAgenda = ctx.prep.agenda || [];
+    }
   }
 
   /**
@@ -1714,7 +2487,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     const phase = prep.plan?.currentPhase;
     const mastery = phase?.masteryAverage;
     if (mastery !== null && mastery !== undefined) {
-      this.edPrepMasteryLabel = `Mastery ${mastery}/100`;
+      this.edPrepMasteryLabel = this.translate.instant('EVENT_DETAILS.BRIEFING.MASTERY_LABEL', { score: mastery });
       this.edPrepMasteryPercent = Math.max(0, Math.min(100, mastery));
     } else {
       this.edPrepMasteryLabel = '';
@@ -1745,13 +2518,13 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     const change = prep.latestAnalysis?.proficiencyChange;
     if (change === 'improved') {
       this.edPrepProficiencyChangeIcon = 'arrow-up-outline';
-      this.edPrepProficiencyChangeLabel = 'Improving';
+      this.edPrepProficiencyChangeLabel = this.translate.instant('EVENT_DETAILS.BRIEFING.PROFICIENCY_IMPROVING');
     } else if (change === 'declined') {
       this.edPrepProficiencyChangeIcon = 'arrow-down-outline';
-      this.edPrepProficiencyChangeLabel = 'Slipping';
+      this.edPrepProficiencyChangeLabel = this.translate.instant('EVENT_DETAILS.BRIEFING.PROFICIENCY_SLIPPING');
     } else if (change === 'maintained') {
       this.edPrepProficiencyChangeIcon = 'remove-outline';
-      this.edPrepProficiencyChangeLabel = 'Holding steady';
+      this.edPrepProficiencyChangeLabel = this.translate.instant('EVENT_DETAILS.BRIEFING.PROFICIENCY_HOLDING');
     } else {
       this.edPrepProficiencyChangeIcon = null;
       this.edPrepProficiencyChangeLabel = '';
@@ -1762,8 +2535,16 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       prep.latestAnalysis?.topErrors?.length ||
       prep.latestAnalysis?.persistentChallenges?.length ||
       prep.latestAnalysis?.correctedExcerpts?.length ||
+      prep.otherTutorNotes?.length ||
       mastery !== null
     );
+
+    const hasTopErrors = (prep.latestAnalysis?.topErrors?.length || 0) > 0;
+    this.edPrepShowPersistentChallenges =
+      !hasTopErrors && (prep.latestAnalysis?.persistentChallenges?.length || 0) > 0;
+
+    this.refreshPlanPresentation();
+    this.capturePageOriginals();
   }
 
   toggleBriefingExpanded() {
@@ -1775,7 +2556,9 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     this.hasAnalysis = this.analysisData.status === 'completed';
     this.analysisUnavailable = ['failed', 'insufficient_data'].includes(this.analysisData.status || '');
     this.isAiAnalysis = this.analysisData.source !== 'tutor';
-    this.analysisLabel = this.isAiAnalysis ? 'AI Analysis' : 'Tutor Assessment';
+    this.analysisLabel = this.isAiAnalysis
+      ? this.translate.instant('EVENT_DETAILS.LESSON_SCREEN.AI_ANALYSIS_LABEL')
+      : this.translate.instant('EVENT_DETAILS.LESSON_SCREEN.TUTOR_ASSESSMENT_LABEL');
 
     // Pre-compute score colors
     this.grammarScoreColor = this.calcScoreColor(this.analysisData.grammarAnalysis?.accuracyScore);
@@ -1787,6 +2570,8 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       this.hasTutorNote = true;
       this.sanitizedTutorNote = this.sanitizer.bypassSecurityTrustHtml(this.analysisData.tutorNote.text);
     }
+
+    this.refreshNotesPresentation();
   }
 
   private calcScoreColor(score: number | undefined): string {
@@ -1858,31 +2643,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   }
 
   toggleSidebarTranslation() {
-    if (!this.sidebarNotesAnalysisId) return;
-
-    if (this.sidebarNotesShowingTranslation) {
-      this.analysisTranslation.showOriginal(this.sidebarNotesAnalysisId);
-      this.refreshSidebarFromTranslationState();
-      return;
-    }
-
-    if (this.analysisTranslation.hasTranslation(this.sidebarNotesAnalysisId)) {
-      this.analysisTranslation.showTranslated(this.sidebarNotesAnalysisId);
-      this.refreshSidebarFromTranslationState();
-      return;
-    }
-
-    this.sidebarNotesTranslating = true;
-    this.analysisTranslation.translate(this.sidebarNotesAnalysisId).subscribe({
-      next: () => {
-        this.sidebarNotesTranslating = false;
-        this.refreshSidebarFromTranslationState();
-      },
-      error: () => {
-        this.sidebarNotesTranslating = false;
-        this.cdr.detectChanges();
-      }
-    });
+    this.togglePageTranslation();
   }
 
   private refreshSidebarFromTranslationState() {
@@ -1933,19 +2694,19 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   private computePaymentMethodLabel(method: string) {
     switch (method) {
       case 'wallet':
-        this.paymentMethodLabel = 'Wallet';
+        this.paymentMethodLabel = this.translate.instant('EVENT_DETAILS.LESSON_SCREEN.PAYMENT_WALLET');
         this.paymentMethodIcon = 'wallet-outline';
         break;
       case 'card':
-        this.paymentMethodLabel = 'Credit / Debit card';
+        this.paymentMethodLabel = this.translate.instant('EVENT_DETAILS.LESSON_SCREEN.PAYMENT_CARD');
         this.paymentMethodIcon = 'card-outline';
         break;
       case 'apple_pay':
-        this.paymentMethodLabel = 'Apple Pay';
+        this.paymentMethodLabel = this.translate.instant('EVENT_DETAILS.LESSON_SCREEN.PAYMENT_APPLE_PAY');
         this.paymentMethodIcon = 'logo-apple';
         break;
       case 'google_pay':
-        this.paymentMethodLabel = 'Google Pay';
+        this.paymentMethodLabel = this.translate.instant('EVENT_DETAILS.LESSON_SCREEN.PAYMENT_GOOGLE_PAY');
         this.paymentMethodIcon = 'logo-google';
         break;
       default:
@@ -2894,6 +3655,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     if (isTrial) {
       this.feedbackProvided = false;
       this.feedbackPending = false;
+      this.showFeedbackStatusSection = false;
       return;
     }
 
@@ -2921,6 +3683,10 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
         && !hasAiAnalysis
         && (requiresTutorFeedback || hasPendingFeedbackRecord || !aiWasEnabled);
     }
+
+    this.showFeedbackStatusSection =
+      (this.isTutorUser && (this.feedbackPending || this.feedbackProvided)) ||
+      (this.isStudentUser && (this.feedbackPending || this.feedbackProvided));
   }
 
   leaveFeedback() {

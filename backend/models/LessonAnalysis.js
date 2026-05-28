@@ -103,7 +103,10 @@ const lessonAnalysisSchema = new mongoose.Schema({
       corrected: String,
       explanation: String
     }],
-    practiceNeeded: String
+    practiceNeeded: String,
+    // Same canonicalization as topErrors.skillId.
+    skillId: { type: String, default: null },
+    skillIdConfidence: { type: String, default: null }
   }],
   
   // Top Errors (Most critical issues to address)
@@ -115,7 +118,18 @@ const lessonAnalysisSchema = new mongoose.Schema({
       enum: ['low', 'medium', 'high']
     },
     occurrences: Number,
-    teachingPriority: String
+    teachingPriority: String,
+    // Canonical skill id from the taxonomy. Stamped at analyze-time by
+    // aiService (post-processing the GPT output). Legacy lessons without
+    // this field are canonicalized on read by the struggleAggregator.
+    skillId: { type: String, default: null },
+    // Confidence of the canonicalization — 'exact' | 'token' | 'fallback'.
+    // Used to flag low-confidence mappings for taxonomy curation.
+    skillIdConfidence: { type: String, default: null },
+    // Whether GPT itself flagged this as likely-noise from ASR. Carried
+    // forward so the priority scorer can down-weight it without losing
+    // the underlying signal entirely.
+    isLikelyTranscriptionError: { type: Boolean, default: false }
   }],
   
   // Corrected Excerpts (Before/after examples)

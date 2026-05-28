@@ -4,6 +4,7 @@ import { Observable, of, Subject } from 'rxjs';
 import { tap, map, catchError } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 import { UserService } from './user.service';
+import { LessonService } from './lesson.service';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 
 interface CachedTranslation {
@@ -24,12 +25,12 @@ export class AnalysisTranslationService {
   constructor(
     private http: HttpClient,
     private userService: UserService,
+    private lessonService: LessonService,
     private sanitizer: DomSanitizer
   ) {}
 
   private get targetLanguage(): string {
-    const user = this.userService.getCurrentUserValue();
-    return user?.nativeLanguage || 'en';
+    return this.lessonService.getProseTranslationTarget() || 'en';
   }
 
   hasTranslation(analysisId: string): boolean {

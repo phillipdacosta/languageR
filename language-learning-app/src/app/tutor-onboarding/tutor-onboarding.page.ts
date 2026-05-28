@@ -38,6 +38,7 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
   currentStep = 1;
   totalSteps = 11; // Name + Origin + Residence + Native + Spoken Languages + Spoken Levels + Teaching Languages + Experience + Schedule + Bio + Rate
 
+  tutorWizardGreetingKey = 'ONBOARDING.WELCOME_SCREEN.TUTOR_GREETING';
   tutorWizardTitleKey = 'ONBOARDING.TUTOR_OB.STEP1_TITLE';
   tutorWizardSubtitleKey = 'ONBOARDING.TUTOR_OB.STEP1_SUBTITLE';
   tutorWizardGuidanceItems: WizardGuidanceItem[] = TUTOR_WIZARD_GUIDANCE[1];
@@ -667,6 +668,8 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
         this.tutorWizardSubtitleKey = `${base}.STEP8_SUBTITLE`;
         break;
     }
+    this.tutorWizardGreetingKey =
+      this.currentStep === 1 ? 'ONBOARDING.WELCOME_SCREEN.TUTOR_GREETING' : '';
     this.tutorWizardProgressPercent =
       this.totalSteps > 0 ? (this.currentStep / this.totalSteps) * 100 : 0;
     this.tutorWizardGuidanceItems = TUTOR_WIZARD_GUIDANCE[this.currentStep] ?? [];
@@ -766,131 +769,7 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
   }
 
   startOnboarding() {
-    const srcTitle = document.querySelector('.welcome-title') as HTMLElement;
-    const srcRect = srcTitle?.getBoundingClientRect();
-
-    if (!srcTitle || !srcRect) {
-      this.preStepPhase = 'done';
-      return;
-    }
-
-    const srcText = srcTitle.textContent?.trim() || '';
-    const srcStyles = window.getComputedStyle(srcTitle);
-    const centerX = (r: DOMRect) => r.left + r.width / 2;
-
-    const clone = document.createElement('div');
-    clone.textContent = srcText;
-    Object.assign(clone.style, {
-      position: 'fixed',
-      // h1 is often full-width with text-align:center; anchor horizontal center so the fly-in matches the settled title.
-      left: `${centerX(srcRect)}px`,
-      top: `${srcRect.top}px`,
-      transform: 'translateX(-50%)',
-      width: 'auto',
-      height: `${srcRect.height}px`,
-      textAlign: 'center',
-      zIndex: '10000',
-      pointerEvents: 'none',
-      fontFamily: srcStyles.fontFamily,
-      fontSize: srcStyles.fontSize,
-      fontWeight: '700',
-      color: '#222222',
-      letterSpacing: '-0.5px',
-      lineHeight: '1.2',
-      whiteSpace: 'nowrap',
-      transition: 'left 0.5s cubic-bezier(0.32, 0.72, 0, 1), top 0.5s cubic-bezier(0.32, 0.72, 0, 1), width 0.5s cubic-bezier(0.32, 0.72, 0, 1), height 0.5s cubic-bezier(0.32, 0.72, 0, 1), font-size 0.5s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.3s ease',
-    });
-    document.body.appendChild(clone);
-
     this.preStepPhase = 'done';
-    this.cdr.detectChanges();
-
-    let landed = false;
-    const flyToDestination = (dest: HTMLElement) => {
-      if (landed) return;
-      landed = true;
-      dest.style.transition = 'none';
-      dest.style.opacity = '0';
-
-      // Measure dest after one rAF so the wizard layout has had a chance to settle.
-      requestAnimationFrame(() => {
-        const destRect = dest.getBoundingClientRect();
-        const destStyles = window.getComputedStyle(dest);
-        const destText = dest.textContent?.trim() || '';
-
-        clone.textContent = destText;
-        clone.style.left = `${centerX(destRect)}px`;
-        clone.style.top = `${destRect.top}px`;
-        clone.style.transform = 'translateX(-50%)';
-        clone.style.width = 'auto';
-        clone.style.height = `${destRect.height}px`;
-        clone.style.fontSize = destStyles.fontSize;
-
-        // After the main 500ms flight: re-measure dest in case layout shifted
-        // during flight (fonts/assets/flex centering settling), nudge the clone
-        // to the exact final position, then crossfade clone → real h1.
-        setTimeout(() => {
-          const finalRect = dest.getBoundingClientRect();
-          const finalLeft = centerX(finalRect);
-          const finalTop = finalRect.top;
-          const currentLeft = parseFloat(clone.style.left) || 0;
-          const currentTop = parseFloat(clone.style.top) || 0;
-          const drifted =
-            Math.abs(finalLeft - currentLeft) > 0.5 ||
-            Math.abs(finalTop - currentTop) > 0.5;
-
-          const startCrossfade = () => {
-            dest.style.transition = 'opacity 0.18s ease';
-            dest.style.opacity = '1';
-            clone.style.transition = 'opacity 0.18s ease';
-            clone.style.opacity = '0';
-            setTimeout(() => {
-              if (clone.parentNode) clone.remove();
-              dest.style.transition = '';
-              dest.style.opacity = '';
-            }, 200);
-          };
-
-          if (drifted) {
-            clone.style.transition =
-              'left 0.18s cubic-bezier(0.32, 0.72, 0, 1), top 0.18s cubic-bezier(0.32, 0.72, 0, 1)';
-            clone.style.left = `${finalLeft}px`;
-            clone.style.top = `${finalTop}px`;
-            setTimeout(startCrossfade, 180);
-          } else {
-            startCrossfade();
-          }
-        }, 520);
-      });
-    };
-
-    const destSelector = '.cm-details-wizard-header h1';
-    const checkDest = () => {
-      const dest = document.querySelector(destSelector) as HTMLElement;
-      if (dest) flyToDestination(dest);
-    };
-
-    requestAnimationFrame(() => requestAnimationFrame(checkDest));
-
-    const container = document.querySelector('.onboarding-container');
-    if (container) {
-      const observer = new MutationObserver(() => {
-        const dest = document.querySelector(destSelector) as HTMLElement;
-        if (dest) {
-          observer.disconnect();
-          flyToDestination(dest);
-        }
-      });
-      observer.observe(container, { childList: true, subtree: true });
-      setTimeout(() => {
-        observer.disconnect();
-        if (!landed) {
-          clone.style.opacity = '0';
-          clone.style.transition = 'opacity 0.3s ease';
-          setTimeout(() => { if (clone.parentNode) clone.remove(); }, 350);
-        }
-      }, 5000);
-    }
   }
 
   nextStep() {

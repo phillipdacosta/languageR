@@ -31,6 +31,11 @@ const phaseSchema = new mongoose.Schema({
   // Cached rolling-window average so the client doesn't recompute it.
   // Maintained by learningPlanService whenever lessonScores changes.
   masteryAverage: { type: Number, default: null, min: 0, max: 100 },
+  // Canonical skill IDs in scope for this phase (from focusAreas / topics).
+  // Drives the Bayesian promotion gate when plan.masteryGateMode ≠ rollingScore.
+  focusSkillIds: [{ type: String }],
+  // Cached aggregate of Beta beliefs over focusSkillIds (0–100).
+  bayesianMasteryAverage: { type: Number, default: null, min: 0, max: 100 },
   status: {
     type: String,
     enum: ['locked', 'active', 'completed'],
@@ -126,6 +131,75 @@ const tutorOverrideSchema = new mongoose.Schema({
     required: true
   },
   note: { type: String, default: '' }
+}, { _id: false });
+
+// Structured tutor-flagged skill priority. Beats the free-text
+// adjust_focus override because it (a) canonicalizes to a skillId so
+// the system can route it correctly, (b) carries a severity weight so
+// multiple priorities can be ranked, and (c) decays gracefully instead
+// of being silently overwritten by the next override.
+const tutorSkillPrioritySchema = new mongoose.Schema({
+  tutorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  tutorName: { type: String, default: '' },
+  skillId: { type: String, required: true },
+  // 1 = nudge, 2 = important, 3 = blocking. Used multiplicatively when
+  // resolving the next-lesson focus pick.
+  severity: { type: Number, default: 2, min: 1, max: 3 },
+  note: { type: String, default: '' },
+  setAt: { type: Date, default: Date.now },
+  // Auto-decays after this many days unless re-asserted by the tutor.
+  // Default 14 — matches the tutorVote window so the two concepts line up.
+  decayDays: { type: Number, default: 14, min: 1, max: 90 }
+}, { _id: false });
+
+// Per-skill Bayesian mastery belief. α + β are pseudo-counts of success
+// and failure evidence; mean = α/(α+β). Updated after every lesson via
+// bayesianMastery.update(). Decay applied at read time as needed.
+const skillBeliefSchema = new mongoose.Schema({
+  alpha: { type: Number, required: true, min: 0.0001 },
+  beta: { type: Number, required: true, min: 0.0001 },
+  lastUpdatedAt: { type: Date, default: null }
+}, { _id: false });
+
+// Snapshot of a Beta belief at the moment a focus was surfaced or settled.
+// Stored on focusHistory entries so we can compute Δmean later without
+// reading back the full belief history.
+const beliefSnapshotSchema = new mongoose.Schema({
+  alpha: { type: Number, default: null },
+  beta: { type: Number, default: null },
+  meanAtSurface: { type: Number, default: null },
+  essAtSurface: { type: Number, default: null },
+  meanAtSettle: { type: Number, default: null },
+  essAtSettle: { type: Number, default: null }
+}, { _id: false });
+
+// Closed-loop focus tracking. One entry per time we surfaced a focus
+// skill to the student or tutor. Settled by the NEXT lesson that
+// actually tests that skill — see focusHistoryService.settleFocus.
+const focusHistoryEntrySchema = new mongoose.Schema({
+  skillId: { type: String, required: true },
+  source: {
+    type: String,
+    enum: ['aggregator', 'upstream_diagnosis', 'tutor_priority', 'tutor_override', 'phase_default', 'manual'],
+    required: true
+  },
+  surfacedAt: { type: Date, default: Date.now },
+  fromLessonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Lesson', default: null },
+  // If source === 'upstream_diagnosis', this is the original symptom
+  // skill we redirected from.
+  diagnosedFrom: { type: String, default: null },
+  note: { type: String, default: '' },
+  beliefBefore: { type: beliefSnapshotSchema, default: null },
+  beliefAfter: { type: beliefSnapshotSchema, default: null },
+  outcome: {
+    type: String,
+    enum: ['pending', 'improved', 'stuck', 'worsened', 'superseded'],
+    default: 'pending'
+  },
+  settledAt: { type: Date, default: null },
+  settledByLessonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Lesson', default: null },
+  deltaMean: { type: Number, default: null },
+  deltaEss: { type: Number, default: null }
 }, { _id: false });
 
 // Per-tutor focus lane. When a student works with multiple tutors, each
@@ -224,6 +298,13 @@ const learningPlanSchema = new mongoose.Schema({
     default: 0
   },
   phases: [phaseSchema],
+  // Phase promotion gate: rollingScore (default) | bayesian | hybrid.
+  // See masteryService.evaluateAdvancementForPlan.
+  masteryGateMode: {
+    type: String,
+    enum: ['rollingScore', 'bayesian', 'hybrid'],
+    default: 'rollingScore'
+  },
 
   // Chapter system (Batch 1). Each chapter has 4 phases mapped to a CEFR
   // level and a scenic background theme. See docs/learning-journey/.
@@ -304,9 +385,33 @@ const learningPlanSchema = new mongoose.Schema({
   },
   history: [historyEntrySchema],
   tutorOverrides: [tutorOverrideSchema],
+  // Structured per-skill priorities (replacement for free-text overrides).
+  // Persists across lessons until decayDays elapses or the tutor clears it.
+  tutorSkillPriorities: [tutorSkillPrioritySchema],
   // One focus entry per tutor that has set one. Newest setAt wins
   // resolution ties when no upcoming lesson hint is available.
   tutorFocusByTutorId: [tutorFocusEntrySchema],
+  // Per-skill Bayesian mastery beliefs. Keyed by skillId. Updated after
+  // every lesson; aggregated into phase mastery for the legacy gate
+  // while the new gate reads beliefs directly.
+  skillBeliefs: {
+    type: Map,
+    of: skillBeliefSchema,
+    default: () => new Map()
+  },
+  // Closed-loop focus history (skillId + source + before/after beliefs).
+  // Pruned to MAX_HISTORY entries — see focusHistoryService.
+  focusHistory: [focusHistoryEntrySchema],
+  // Last skillId we surfaced as the active next-lesson focus, plus the
+  // source. Useful for the home widget to render "We chose this because
+  // X is your top struggle" or "Your tutor flagged Y."
+  activeFocusSkillId: { type: String, default: null },
+  activeFocusSource: {
+    type: String,
+    enum: ['aggregator', 'upstream_diagnosis', 'tutor_priority', 'tutor_override', 'phase_default', 'manual', null],
+    default: null
+  },
+  activeFocusSetAt: { type: Date, default: null },
   // Snapshot of struggle-matched materials surfaced to the student between
   // lessons. Populated for free students after each lesson analysis.
   recommendedMaterials: [recommendedMaterialSchema],

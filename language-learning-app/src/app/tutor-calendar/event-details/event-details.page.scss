@@ -361,6 +361,57 @@ ion-header ion-toolbar {
   border-radius: 20px;
 }
 
+.ed-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 8px;
+  margin-bottom: 4px;
+
+  .ed-title {
+    margin: 0;
+    padding-top: 0;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .ed-page-translate-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    background: transparent;
+    font-size: 12px;
+    font-weight: 500;
+    color: #6b7280;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+
+    ion-icon { font-size: 14px; }
+
+    &:hover:not(:disabled) {
+      background: #f3f4f6;
+      color: #374151;
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+
+    &.showing-translation {
+      border-color: #222;
+      color: #222;
+    }
+  }
+}
+
 .ed-title {
   font-size: 32px;
   font-weight: 700;
@@ -374,7 +425,6 @@ ion-header ion-toolbar {
 /* ── Sections / Rows ──────────────────────────────────── */
 .ed-row {
   padding: 28px 0;
-  border-bottom: 1px solid var(--ed-divider);
 
   &:last-child { border-bottom: none; }
 }
@@ -836,6 +886,74 @@ ion-header ion-toolbar {
   font-weight: 500;
 }
 
+.ed-learning-focus {
+  padding-top: 20px;
+  padding-bottom: 20px;
+}
+
+.ed-focus-card {
+  padding: 20px 22px;
+  border-radius: 16px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+}
+
+.ed-focus-card-eyebrow {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #359aff;
+  margin-bottom: 10px;
+}
+
+.ed-focus-card-body {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.45;
+  font-weight: 600;
+  color: var(--ed-text-primary);
+  letter-spacing: -0.01em;
+}
+
+.ed-focus-card-meta {
+  margin: 10px 0 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--ed-text-secondary, #717171);
+}
+
+.ed-learning-focus .ed-topics {
+  margin-top: 14px;
+  margin-bottom: 0;
+}
+
+.ed-focus-agenda,
+.ed-focus-list {
+  margin: 14px 0 0;
+  padding-left: 18px;
+  color: var(--ed-text-secondary, #717171);
+  font-size: 14px;
+  line-height: 1.5;
+
+  li + li {
+    margin-top: 6px;
+  }
+}
+
+.ed-last-session {
+  .ed-body {
+    margin-bottom: 0;
+  }
+
+  .ed-focus-list {
+    margin-top: 12px;
+    color: var(--ed-text-primary);
+  }
+}
+
 .ed-bullets {
   margin-bottom: 16px;
 
@@ -876,8 +994,46 @@ ion-header ion-toolbar {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 16px;
+  gap: 12px;
 
   .ed-section-label { margin: 0; }
+
+  .ed-translate-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    background: transparent;
+    font-size: 11px;
+    font-weight: 500;
+    color: #6b7280;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+
+    ion-icon {
+      font-size: 14px;
+    }
+
+    &:hover:not(:disabled) {
+      background: #f3f4f6;
+      color: #374151;
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+
+    &.showing-translation {
+      border-color: #222;
+      color: #222;
+    }
+  }
 
   &.collapsible {
     cursor: pointer;
@@ -1928,10 +2084,17 @@ ion-header {
 
   &--row {
     flex-direction: row;
+    align-items: stretch;
 
     .ed-pc-btn {
       flex: 1;
       min-width: 0;
+      font-size: 12px;
+      line-height: 1.25;
+      padding: 8px 10px;
+      min-height: 40px;
+      height: auto;
+      white-space: normal;
     }
   }
 }
@@ -1960,11 +2123,14 @@ ion-header {
   align-items: center;
   justify-content: center;
   width: 100%;
-  height: 44px;
-  padding: 0 16px;
+  min-height: 44px;
+  height: auto;
+  padding: 10px 14px;
   border-radius: 10px;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2244,10 +2410,6 @@ ion-header {
   .ed-pc-stat-label {
     font-size: 12px;
     margin-top: 2px;
-  }
-
-  .ed-pc-btn {
-    font-size: 15px;
   }
 
   .ed-pc-divider {
@@ -3571,6 +3733,16 @@ ion-header {
   .ed-topic {
     background: #2c2c2e;
     color: #f5f5f7;
+  }
+
+  .ed-learning-focus .ed-focus-card {
+    background: #1c1c1e;
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow: none;
+  }
+
+  .ed-learning-focus .ed-focus-card-eyebrow {
+    color: #4298d2;
   }
 
   .ed-impression {

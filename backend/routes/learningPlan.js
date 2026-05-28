@@ -106,7 +106,10 @@ router.get('/:language', verifyToken, async (req, res) => {
         return {
           ...p,
           progressState: ps.state,
-          windowProgressPercent: ps.windowProgressPercent
+          windowProgressPercent: ps.windowProgressPercent,
+          // Bayesian aggregate (when beliefs exist); gate still respects masteryGateMode.
+          bayesianMasteryAverage: p.bayesianMasteryAverage ?? null,
+          focusSkillIds: p.focusSkillIds || []
         };
       });
     }
@@ -771,6 +774,238 @@ router.post('/tutor-override', verifyToken, async (req, res) => {
     res.json({ success: true, plan: planView });
   } catch (error) {
     console.error('Error submitting tutor override:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+/**
+ * @route   PATCH /api/learning-plan/mastery-gate-mode
+ * @desc    Opt a plan into the Bayesian / hybrid promotion gate (dark launch).
+ *          Default for all plans is `rollingScore` (legacy lessonScores only).
+ *          Body: { studentId, language, mode } where mode is
+ *          `rollingScore` | `bayesian` | `hybrid`.
+ * @access  Private (student or their tutor)
+ */
+router.patch('/mastery-gate-mode', verifyToken, async (req, res) => {
+  try {
+    const requester = await User.findOne({ auth0Id: req.user.sub });
+    if (!requester) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    const { studentId, language, mode } = req.body || {};
+    const validModes = ['rollingScore', 'bayesian', 'hybrid'];
+    if (!studentId || !language || !validModes.includes(mode)) {
+      return res.status(400).json({
+        success: false,
+        message: `studentId, language, and mode (${validModes.join('|')}) are required`
+      });
+    }
+    if (String(requester._id) !== String(studentId) && requester.userType !== 'tutor') {
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+    }
+    const plan = await LearningPlan.findOne({
+      studentId,
+      language,
+      status: { $in: ['active', 'mastery_mode', 'draft'] }
+    });
+    if (!plan) {
+      return res.status(404).json({ success: false, message: 'No learning plan found' });
+    }
+    plan.masteryGateMode = mode;
+    plan.lastUpdatedAt = new Date();
+    await plan.save();
+    res.json({ success: true, masteryGateMode: plan.masteryGateMode });
+  } catch (error) {
+    console.error('Error updating mastery gate mode:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+/**
+ * @route   POST /api/learning-plan/tutor-skill-priority
+ * @desc    Tutor flags a specific skill (skillId from the taxonomy) as
+ *          a priority for the student. Structured replacement for the
+ *          free-text adjust_focus override: carries severity, decays
+ *          gracefully, and routes through the new focus resolver so
+ *          the system can act on it even across tutor handoffs.
+ *
+ *          Body: { studentId, language, skillId, severity?, note?, decayDays? }
+ *            severity:  1 (nudge) | 2 (important — default) | 3 (blocking)
+ *            decayDays: 1–90, default 14
+ *
+ *          De-dupes per tutor: a tutor's previous priority for the same
+ *          skillId is replaced (latest wins).
+ * @access  Private (tutor)
+ */
+router.post('/tutor-skill-priority', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    const { studentId, language, skillId, severity, note, decayDays } = req.body || {};
+    if (!studentId || !language || !skillId) {
+      return res.status(400).json({ success: false, message: 'studentId, language, and skillId are required' });
+    }
+
+    const taxonomy = require('../services/skillTaxonomy');
+    const skill = taxonomy.getSkill(skillId);
+    if (!skill) {
+      return res.status(400).json({ success: false, message: `Unknown skillId: ${skillId}` });
+    }
+
+    const sev = Math.max(1, Math.min(3, Number.isFinite(severity) ? Math.round(severity) : 2));
+    const decay = Math.max(1, Math.min(90, Number.isFinite(decayDays) ? Math.round(decayDays) : 14));
+
+    const plan = await LearningPlan.findOne({
+      studentId,
+      language,
+      status: { $in: ['active', 'mastery_mode'] }
+    });
+    if (!plan) {
+      return res.status(404).json({ success: false, message: 'No active learning plan found' });
+    }
+
+    let tutorDisplayName = user.name || 'Tutor';
+    if (user.firstName && user.lastName) {
+      tutorDisplayName = `${user.firstName} ${user.lastName.charAt(0)}.`;
+    }
+
+    // De-dupe: drop any prior priority from this tutor on this skill.
+    plan.tutorSkillPriorities = (plan.tutorSkillPriorities || []).filter(
+      p => !(String(p.tutorId) === String(user._id) && p.skillId === skillId)
+    );
+
+    plan.tutorSkillPriorities.push({
+      tutorId: user._id,
+      tutorName: tutorDisplayName,
+      skillId,
+      severity: sev,
+      note: (note || '').toString().slice(0, 280),
+      setAt: new Date(),
+      decayDays: decay
+    });
+
+    plan.history.push({
+      date: new Date(),
+      changeDescription: `Tutor ${tutorDisplayName} flagged ${taxonomy.displayNameFor(skillId, 'en')} as priority ${sev}`,
+      phaseIndexBefore: plan.currentPhaseIndex,
+      phaseIndexAfter: plan.currentPhaseIndex,
+      reason: null
+    });
+
+    plan.lastUpdatedAt = new Date();
+    await plan.save();
+
+    res.json({
+      success: true,
+      plan: {
+        tutorSkillPriorities: plan.tutorSkillPriorities,
+        activeFocusSkillId: plan.activeFocusSkillId,
+        activeFocusSource: plan.activeFocusSource
+      }
+    });
+  } catch (error) {
+    console.error('Error submitting tutor skill priority:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+/**
+ * @route   DELETE /api/learning-plan/tutor-skill-priority
+ * @desc    Tutor clears their own priority on a specific skill before
+ *          its natural decay. Body: { studentId, language, skillId }.
+ * @access  Private (tutor)
+ */
+router.delete('/tutor-skill-priority', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    const { studentId, language, skillId } = req.body || {};
+    if (!studentId || !language || !skillId) {
+      return res.status(400).json({ success: false, message: 'studentId, language, and skillId are required' });
+    }
+    const plan = await LearningPlan.findOne({ studentId, language });
+    if (!plan) {
+      return res.status(404).json({ success: false, message: 'No learning plan found' });
+    }
+    const before = plan.tutorSkillPriorities?.length || 0;
+    plan.tutorSkillPriorities = (plan.tutorSkillPriorities || []).filter(
+      p => !(String(p.tutorId) === String(user._id) && p.skillId === skillId)
+    );
+    const removed = before - plan.tutorSkillPriorities.length;
+    if (removed > 0) {
+      plan.history.push({
+        date: new Date(),
+        changeDescription: `Tutor cleared priority on ${skillId}`,
+        phaseIndexBefore: plan.currentPhaseIndex,
+        phaseIndexAfter: plan.currentPhaseIndex,
+        reason: null
+      });
+      await plan.save();
+    }
+    res.json({ success: true, removed });
+  } catch (error) {
+    console.error('Error clearing tutor skill priority:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+/**
+ * @route   GET /api/learning-plan/:language/skill-suggestions
+ * @desc    Returns a curated set of skillIds the requesting tutor can
+ *          flag for this student. Surfaces the student's current top
+ *          struggles + a few language-appropriate canonical skills, so
+ *          the tutor UI doesn't have to render the entire taxonomy.
+ *          Auto-passes the studentId via ?studentId=… query param so
+ *          this can be reused across tutor surfaces.
+ * @access  Private
+ */
+router.get('/:language/skill-suggestions', verifyToken, async (req, res) => {
+  try {
+    const requester = await User.findOne({ auth0Id: req.user.sub });
+    if (!requester) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    const language = req.params.language;
+    const studentId = req.query.studentId || req.query.student || requester._id.toString();
+    const taxonomy = require('../services/skillTaxonomy');
+    const struggleAggregator = require('../services/struggleAggregator');
+
+    const plan = await LearningPlan.findOne({ studentId, language });
+    const agg = await struggleAggregator.aggregateStruggles({
+      studentId,
+      language,
+      plan,
+      limit: 8
+    });
+
+    const fromStruggles = agg.struggles.map(s => ({
+      skillId: s.skillId,
+      displayName: s.displayName,
+      category: s.category,
+      cefr: s.cefr,
+      reason: 'top_struggle',
+      score: s.score
+    }));
+
+    const seen = new Set(fromStruggles.map(s => s.skillId));
+    const fromTaxonomy = taxonomy.listSkillsForLanguage(language)
+      .filter(s => !s._synthetic && !seen.has(s.id))
+      .slice(0, 30)
+      .map(s => ({
+        skillId: s.id,
+        displayName: s.displayName.en,
+        category: s.category,
+        cefr: s.cefr,
+        reason: 'taxonomy'
+      }));
+
+    res.json({ success: true, suggestions: [...fromStruggles, ...fromTaxonomy] });
+  } catch (error) {
+    console.error('Error fetching skill suggestions:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });

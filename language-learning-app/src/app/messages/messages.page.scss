@@ -77,6 +77,11 @@
   overflow-y: auto;
   overflow-x: hidden;
   width: 260px;
+
+  &:has(.emoji-reactions:only-child),
+  &:has(.emoji-reactions:last-child):not(:has(.action-menu)) {
+    width: 280px;
+  }
   max-height: 80vh;
   display: flex;
   flex-direction: column;
@@ -285,7 +290,8 @@
     transition: background 0.15s ease;
     cursor: pointer;
 
-    &:hover {
+    &:hover,
+    &.message-actions-visible {
       background: #f5f5f5;
     }
   }
@@ -316,6 +322,8 @@
     align-items: flex-start;
     min-width: 0;
     flex: 1;
+    position: relative;
+    padding-right: 56px;
   }
 
   .msg-header {
@@ -323,6 +331,8 @@
     align-items: baseline;
     gap: 8px;
     margin-bottom: 4px;
+    width: 100%;
+    padding-right: 0;
   }
 
   .msg-sender-name {
@@ -340,6 +350,7 @@
   }
 
   .message-bubble {
+    width: 100%;
     max-width: 100% !important;
     margin-left: 0 !important;
     margin-right: 0 !important;
@@ -2059,53 +2070,238 @@
   &.received {
     justify-content: flex-start;
   }
+
+  position: relative;
+
+  &.is-mine {
+    @media (max-width: 768px) {
+      justify-content: flex-end;
+    }
+  }
+
+  @media (max-width: 768px) {
+    width: fit-content;
+    max-width: 88%;
+    padding-right: 0;
+
+    &.is-mine {
+      margin-left: auto;
+    }
+
+    .message-bubble {
+      max-width: 100%;
+    }
+  }
 }
 
-// System messages - white card with professional styling
-.message-bubble.system-message {
+.message-toolbar {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+
+  @media (max-width: 768px) {
+    opacity: 0.85;
+    pointer-events: auto;
+  }
+}
+
+.message-wrapper:hover .message-toolbar,
+.message-wrapper.message-actions-visible .message-toolbar {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.message-toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #717171;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  -webkit-appearance: none;
+  appearance: none;
+
+  ion-icon {
+    font-size: 18px;
+  }
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.06);
+    color: #222222;
+  }
+
+  &:active {
+    background: rgba(0, 0, 0, 0.1);
+  }
+}
+
+.desktop-messages-wrapper .message-wrapper {
+  .message-toolbar {
+    top: 0;
+    right: 0;
+  }
+}
+
+// System messages — rich insight card
+.system-message-row {
+  display: block;
+  width: 100%;
+  margin: 12px 0 18px;
+  padding: 0;
+}
+
+.system-message-card {
+  width: 100%;
   background: #ffffff;
-  color: #222222;
-  max-width: 70%;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
-  
-  .message-text {
-    display: block;
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  border-radius: 20px;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.07);
+  overflow: hidden;
+  cursor: default;
+  transition: box-shadow 0.2s ease;
+
+  &:hover {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  }
+
+  // Top section: avatar + intro text side by side
+  &__top {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 20px 20px 16px;
+  }
+
+  &__avatar-wrap {
+    flex-shrink: 0;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: #EAF3FF;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__avatar {
+    width: 44px;
+    height: 44px;
+    object-fit: contain;
+  }
+
+  &__intro {
+    flex: 1;
+    min-width: 0;
+    padding-top: 2px;
+  }
+
+  &__badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #EAF3FF;
+    border-radius: 20px;
+    padding: 3px 10px 3px 8px;
     margin-bottom: 8px;
+
+    span:last-child {
+      font-size: 12px;
+      font-weight: 600;
+      color: #4298d3;
+      letter-spacing: 0.1px;
+    }
+  }
+
+  &__badge-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #4298d3;
+    flex-shrink: 0;
+  }
+
+  &__text {
+    font-size: 14px;
     line-height: 1.6;
-    white-space: pre-wrap; // Preserve line breaks and spacing
-    word-wrap: break-word; // Break long words if needed
-    
-    // Style links within system messages
+    color: #484848;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+
+    // First <strong> = card title — block, large
+    > strong:first-child {
+      display: block;
+      font-size: 19px;
+      font-weight: 700;
+      color: #111111;
+      letter-spacing: -0.3px;
+      line-height: 1.25;
+      margin: 0 0 10px;
+      white-space: normal;
+    }
+
+    // All other <strong> stay inline-bold
+    strong {
+      font-weight: 700;
+      color: #222222;
+    }
+
+    em {
+      display: block;
+      margin-top: 10px;
+      font-size: 13px;
+      font-style: normal;
+      color: #717171;
+      line-height: 1.5;
+      background: #f7f7f7;
+      border-radius: 10px;
+      padding: 10px 14px;
+      white-space: pre-wrap;
+    }
+
+    // Links (profile etc.)
     a {
-      color: #007bff;
-      text-decoration: underline;
+      color: #4298d3;
+      font-weight: 600;
+      text-decoration: none;
       cursor: pointer;
-      pointer-events: auto; // Ensure links are clickable
-      font-weight: 500; // Make links slightly bolder
-      
+      pointer-events: auto;
+
       &:hover {
         text-decoration: underline;
-        opacity: 0.8;
-        color: #0056b3;
+        text-underline-offset: 2px;
       }
     }
   }
-  
-  .message-timestamp {
-    font-size: 11px;
-    color: #6c757d; // Grey for timestamp on white background
-    opacity: 0.8;
+
+  &__footer {
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
+    padding: 10px 20px;
+    background: #fafafa;
+  }
+
+  &__time {
+    font-size: 12px;
+    font-weight: 400;
+    color: #999999;
   }
 }
 
-.system-avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 16px;
-  object-fit: cover;
-  flex-shrink: 0;
-  margin-top: 0; // Align to top of message bubble
+.desktop-messages-wrapper .system-message-row {
+  margin: 14px 0 20px;
 }
 
 .message-bubble {
@@ -2578,7 +2774,7 @@
   flex-shrink: 0;
   background: #ffffff;
   border-top: 0.5px solid rgba(0, 0, 0, 0.06);
-  padding: 16px 24px 20px;
+  padding: 12px 24px 16px;
   position: relative;
   z-index: 10;
 
@@ -2597,12 +2793,11 @@
 .message-composer-card {
   background: #f7f7f7;
   border-radius: 16px;
-  padding: 14px 16px 16px;
-  overflow: hidden;
+  padding: 10px 12px 12px;
 
   @media (max-width: 768px) {
     border-radius: 14px;
-    padding: 12px 14px 14px;
+    padding: 8px 10px 10px;
   }
 }
 
@@ -2613,8 +2808,8 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-height: 30px;
-  padding: 0 4px 12px;
+  min-height: 22px;
+  padding: 0 4px 8px;
   box-sizing: border-box;
   background: transparent;
   font-size: 12px;
@@ -2648,9 +2843,10 @@
 .message-input-box {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  min-height: 120px;
-  padding: 16px 16px 12px;
+  justify-content: flex-start;
+  gap: 6px;
+  min-height: 0;
+  padding: 10px 12px 8px;
   background: #ffffff;
   border: 1px solid #dddddd;
   border-radius: 12px;
@@ -2662,16 +2858,15 @@
   }
 
   @media (max-width: 768px) {
-    min-height: 108px;
-    padding: 14px 14px 10px;
+    padding: 10px 12px 8px;
     border-radius: 10px;
   }
 }
 
 .message-input {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   width: 100%;
-  min-height: 28px;
+  min-height: 22px;
   --background: transparent;
   --padding-start: 0;
   --padding-end: 0;
@@ -2691,7 +2886,7 @@
 
   &::part(native) {
     padding: 0;
-    min-height: 28px;
+    min-height: 22px;
   }
 }
 
@@ -2700,8 +2895,8 @@
   align-items: flex-end;
   justify-content: space-between;
   flex-shrink: 0;
-  margin-top: 12px;
-  padding-top: 2px;
+  margin-top: 0;
+  padding-top: 0;
 }
 
 .message-input-actions-start {
@@ -2722,23 +2917,23 @@
   border: none;
   border-radius: 8px;
   background: transparent;
-  color: #717171;
+  color: #484848;
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
   -webkit-appearance: none;
   appearance: none;
 
   ion-icon {
-    font-size: 20px;
+    font-size: 21px;
   }
 
   &:hover:not(:disabled) {
-    background: rgba(0, 0, 0, 0.05);
-    color: #222222;
+    background: rgba(0, 0, 0, 0.06);
+    color: #111111;
   }
 
   &:disabled {
-    opacity: 0.4;
+    opacity: 0.35;
     cursor: not-allowed;
   }
 }
@@ -4059,7 +4254,8 @@
     }
 
     .message-wrapper {
-      &:hover {
+      &:hover,
+      &.message-actions-visible {
         background: #1c1c1e;
       }
     }
@@ -4120,6 +4316,15 @@
           background: #2c2c2e;
         }
       }
+    }
+  }
+
+  .message-toolbar-btn {
+    color: #8e8e93;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: #f5f5f7;
     }
   }
 
@@ -4425,17 +4630,51 @@
     }
   }
 
-  .message-bubble.system-message {
+  .system-message-card {
     background: #1c1c1e;
-    color: #f5f5f7;
-    border-color: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.4);
 
-    .message-text a {
-      color: #4298d2;
+    &:hover {
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
     }
 
-    .message-timestamp {
-      color: #8e8e93;
+    &__avatar-wrap {
+      background: rgba(66, 152, 211, 0.15);
+    }
+
+    &__badge {
+      background: rgba(66, 152, 211, 0.15);
+    }
+
+    &__text {
+      color: #c7c7cc;
+
+      > strong:first-child {
+        color: #f5f5f7;
+      }
+
+      strong {
+        color: #ebebeb;
+      }
+
+      em {
+        background: #2c2c2e;
+        color: #8e8e93;
+      }
+
+      a {
+        color: #6ab4e8;
+      }
+    }
+
+    &__footer {
+      background: #161616;
+      border-top-color: rgba(255, 255, 255, 0.08);
+    }
+
+    &__time {
+      color: #636366;
     }
   }
 

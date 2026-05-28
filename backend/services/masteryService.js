@@ -9,11 +9,16 @@
  *   1. Reduces a LessonAnalysis into a single 0–100 mastery score.
  *   2. Decides whether the current phase should advance, given the
  *      rolling history of mastery scores in that phase.
+ *   3. Optional Bayesian gate (`plan.masteryGateMode`) using per-skill
+ *      Beta beliefs on `phase.focusSkillIds` — see evaluate*ForPlan.
  *
  * Used by both the free (rule-based) and premium (AI-driven) paths so that
  * promotion logic stays consistent — the AI can recommend "advance" but
  * the floor/ceiling here is the safety net.
  */
+
+const bayes = require('./bayesianMastery');
+const phaseScope = require('./phaseSkillScopeService');
 
 // ── Tunables ─────────────────────────────────────────────────────
 // Floor: never advance a phase before this many lessons. Even an
@@ -335,6 +340,307 @@ function evaluateChapterGraduation(phase) {
 }
 
 /**
+ * Bayesian phase-advancement gate. Uses aggregated Beta beliefs for
+ * skills in `phase.focusSkillIds` (resolved from focusAreas if empty).
+ *
+ * Returns `fallbackToRolling: true` when there is no skill scope or
+ * insufficient effective sample size — caller should use lessonScores.
+ */
+function evaluateAdvancementBayesian(phase, hasMorePhases, plan) {
+  if (phase?._isRecovery) {
+    return { advance: false, reason: 'recovery_phase', message: 'Recovery phase — defer to chapter graduation.', fallbackToRolling: false };
+  }
+  if (!hasMorePhases) {
+    return { advance: false, reason: 'last_phase_in_chapter', message: 'Last phase in chapter — defer to chapter graduation.', fallbackToRolling: false };
+  }
+
+  const lessons = phase?.lessonsCompleted || 0;
+  const skillIds = phaseScope.resolvePhaseSkillIds(phase, plan?.language);
+  if (!skillIds.length) {
+    return {
+      advance: false,
+      reason: 'bayesian_no_skills',
+      message: 'No canonical skills in scope for this phase.',
+      mastery: null,
+      fallbackToRolling: true
+    };
+  }
+
+  const snapshot = bayes.phaseMasterySnapshot(plan?.skillBeliefs, skillIds);
+  if (!bayes.hasSufficientPhaseEvidence(snapshot)) {
+    return {
+      advance: false,
+      reason: 'bayesian_insufficient_ess',
+      message: `Need more skill evidence (ESS ${snapshot.totalEss} < ${bayes.MIN_PHASE_ESS_TOTAL}).`,
+      mastery: snapshot.score,
+      thresholdUsed: applyTutorVoteBias(MASTERY_ADVANCE_THRESHOLD, phase?.tutorVotes),
+      fallbackToRolling: true,
+      bayesianSnapshot: snapshot
+    };
+  }
+
+  const avg = snapshot.score;
+  const threshold = applyTutorVoteBias(MASTERY_ADVANCE_THRESHOLD, phase?.tutorVotes);
+
+  if (lessons < MIN_LESSONS_PER_PHASE) {
+    return {
+      advance: false,
+      reason: 'min_lessons',
+      message: `Need at least ${MIN_LESSONS_PER_PHASE} lessons in this phase before advancing.`,
+      mastery: avg,
+      fallbackToRolling: false,
+      bayesianSnapshot: snapshot
+    };
+  }
+
+  if (lessons >= MAX_LESSONS_PER_PHASE) {
+    return {
+      advance: true,
+      reason: 'max_lessons_safety',
+      message: `Reached ${MAX_LESSONS_PER_PHASE}-lesson cap for this phase — advancing to keep momentum.`,
+      mastery: avg,
+      fallbackToRolling: false,
+      bayesianSnapshot: snapshot
+    };
+  }
+
+  if (avg !== null && avg >= threshold) {
+    return {
+      advance: true,
+      reason: 'mastery_met',
+      message: `Bayesian phase mastery ${avg} ≥ adjusted threshold ${threshold} (ESS ${snapshot.totalEss}).`,
+      mastery: avg,
+      thresholdUsed: threshold,
+      fallbackToRolling: false,
+      bayesianSnapshot: snapshot
+    };
+  }
+
+  return {
+    advance: false,
+    reason: 'mastery_below_threshold',
+    message: avg === null
+      ? 'No Bayesian mastery data yet.'
+      : `Bayesian phase mastery ${avg} below threshold ${threshold}.`,
+    mastery: avg,
+    thresholdUsed: threshold,
+    fallbackToRolling: false,
+    bayesianSnapshot: snapshot
+  };
+}
+
+/**
+ * Bayesian chapter-graduation gate (final / recovery phase).
+ */
+function evaluateChapterGraduationBayesian(phase, plan) {
+  const isRecovery = !!phase?._isRecovery;
+  const lessons = phase?.lessonsCompleted || 0;
+  const skillIds = phaseScope.resolvePhaseSkillIds(phase, plan?.language);
+
+  if (!skillIds.length) {
+    return {
+      graduate: false,
+      reason: 'bayesian_no_skills',
+      message: 'No canonical skills in scope.',
+      mastery: null,
+      fallbackToRolling: true,
+      isRecovery
+    };
+  }
+
+  const baseThreshold = isRecovery ? MASTERY_RECOVERY_THRESHOLD : CHAPTER_GRADUATION_THRESHOLD;
+  const minLessons = isRecovery ? RECOVERY_MIN_LESSONS : CHAPTER_GRADUATION_MIN_LESSONS;
+  const threshold = applyTutorVoteBias(baseThreshold, phase?.tutorVotes);
+  const snapshot = bayes.phaseMasterySnapshot(
+    plan?.skillBeliefs,
+    skillIds,
+    new Date(),
+    baseThreshold / 100
+  );
+
+  if (!bayes.hasSufficientPhaseEvidence(snapshot)) {
+    return {
+      graduate: false,
+      reason: 'bayesian_insufficient_ess',
+      message: `Need more skill evidence before ${isRecovery ? 'recovery' : 'chapter'} graduation.`,
+      mastery: snapshot.score,
+      thresholdUsed: threshold,
+      fallbackToRolling: true,
+      isRecovery,
+      bayesianSnapshot: snapshot
+    };
+  }
+
+  const avg = snapshot.score;
+
+  if (lessons < minLessons) {
+    return {
+      graduate: false,
+      reason: isRecovery ? 'recovery_min_lessons' : 'chapter_min_lessons',
+      message: `Need at least ${minLessons} lessons in the ${isRecovery ? 'recovery' : 'final'} phase before graduating.`,
+      mastery: avg,
+      thresholdUsed: threshold,
+      isRecovery,
+      fallbackToRolling: false,
+      bayesianSnapshot: snapshot
+    };
+  }
+
+  if (isRecovery) {
+    const tutorIds = (phase.lessonTutorIds || []).slice(-CHAPTER_GRADUATION_WINDOW).filter(Boolean).map(String);
+    const distinctTutors = new Set(tutorIds).size;
+    const now = Date.now();
+    const hasActiveAdvanceVote = Array.isArray(phase.tutorVotes) && phase.tutorVotes.some(v => {
+      if (!v || v.vote !== 'advance') return false;
+      if (!v.expiresAt) return false;
+      return new Date(v.expiresAt).getTime() >= now;
+    });
+    if (distinctTutors < RECOVERY_MIN_DISTINCT_TUTORS && !hasActiveAdvanceVote) {
+      return {
+        graduate: false,
+        reason: 'recovery_single_source',
+        message: `Recovery needs ${RECOVERY_MIN_DISTINCT_TUTORS}+ distinct tutors or an explicit advance vote.`,
+        mastery: avg,
+        thresholdUsed: threshold,
+        isRecovery: true,
+        fallbackToRolling: false,
+        bayesianSnapshot: snapshot
+      };
+    }
+  }
+
+  if (avg !== null && avg >= threshold) {
+    return {
+      graduate: true,
+      reason: isRecovery ? 'recovery_graduated' : 'chapter_graduated',
+      message: `Bayesian mastery ${avg} ≥ ${isRecovery ? 'recovery' : 'chapter'} threshold ${threshold}.`,
+      mastery: avg,
+      thresholdUsed: threshold,
+      isRecovery,
+      fallbackToRolling: false,
+      bayesianSnapshot: snapshot
+    };
+  }
+
+  return {
+    graduate: false,
+    reason: isRecovery ? 'recovery_mastery_below' : 'chapter_mastery_below',
+    message: avg === null ? 'No Bayesian mastery data yet.' : `Bayesian mastery ${avg} below threshold ${threshold}.`,
+    mastery: avg,
+    thresholdUsed: threshold,
+    isRecovery,
+    fallbackToRolling: false,
+    bayesianSnapshot: snapshot
+  };
+}
+
+/**
+ * Route advancement through rolling lesson scores, Bayesian beliefs, or both.
+ *
+ * plan.masteryGateMode:
+ *   - 'rollingScore' (default) — legacy lessonScores window only
+ *   - 'bayesian' — Beta beliefs on phase.focusSkillIds (falls back to rolling when no data)
+ *   - 'hybrid' — BOTH rolling and Bayesian must pass (Bayesian skipped if insufficient ESS)
+ */
+function evaluateAdvancementForPlan(phase, hasMorePhases, plan) {
+  const mode = plan?.masteryGateMode || 'rollingScore';
+  const rolling = evaluateAdvancement(phase, hasMorePhases);
+
+  if (mode === 'rollingScore') {
+    return {
+      ...rolling,
+      gateModeUsed: 'rollingScore',
+      rollingMastery: rolling.mastery ?? null,
+      bayesianMastery: null
+    };
+  }
+
+  const bayesian = evaluateAdvancementBayesian(phase, hasMorePhases, plan);
+  if (bayesian.fallbackToRolling) {
+    return {
+      ...rolling,
+      gateModeUsed: 'rollingScore',
+      rollingMastery: rolling.mastery ?? null,
+      bayesianMastery: bayesian.mastery ?? null,
+      bayesianFallback: bayesian.reason
+    };
+  }
+
+  if (mode === 'bayesian') {
+    return {
+      ...bayesian,
+      gateModeUsed: 'bayesian',
+      rollingMastery: rolling.mastery ?? null,
+      bayesianMastery: bayesian.mastery ?? null
+    };
+  }
+
+  // hybrid — both signals must agree to advance
+  const advance = rolling.advance && bayesian.advance;
+  let reason = bayesian.reason;
+  if (advance) {
+    reason = rolling.reason === 'max_lessons_safety' || bayesian.reason === 'max_lessons_safety'
+      ? 'max_lessons_safety'
+      : 'mastery_met_hybrid';
+  } else if (!rolling.advance) {
+    reason = rolling.reason;
+  }
+
+  return {
+    advance,
+    reason,
+    message: advance
+      ? `Hybrid gate: rolling ${rolling.mastery} and Bayesian ${bayesian.mastery} both met.`
+      : `Hybrid gate blocked (rolling: ${rolling.reason}, bayesian: ${bayesian.reason}).`,
+    mastery: bayesian.mastery ?? rolling.mastery,
+    thresholdUsed: bayesian.thresholdUsed ?? rolling.thresholdUsed,
+    gateModeUsed: 'hybrid',
+    rollingMastery: rolling.mastery ?? null,
+    bayesianMastery: bayesian.mastery ?? null,
+    bayesianSnapshot: bayesian.bayesianSnapshot
+  };
+}
+
+function evaluateChapterGraduationForPlan(phase, plan) {
+  const mode = plan?.masteryGateMode || 'rollingScore';
+  const rolling = evaluateChapterGraduation(phase);
+
+  if (mode === 'rollingScore') {
+    return { ...rolling, gateModeUsed: 'rollingScore' };
+  }
+
+  const bayesian = evaluateChapterGraduationBayesian(phase, plan);
+  if (bayesian.fallbackToRolling) {
+    return { ...rolling, gateModeUsed: 'rollingScore', bayesianFallback: bayesian.reason };
+  }
+
+  if (mode === 'bayesian') {
+    return { ...bayesian, gateModeUsed: 'bayesian' };
+  }
+
+  const graduate = rolling.graduate && bayesian.graduate;
+  let reason = bayesian.reason;
+  if (graduate) {
+    reason = bayesian.reason;
+  } else if (!rolling.graduate) {
+    reason = rolling.reason;
+  }
+
+  return {
+    graduate,
+    reason,
+    message: graduate
+      ? `Hybrid chapter graduation (rolling ${rolling.mastery}, Bayesian ${bayesian.mastery}).`
+      : `Hybrid graduation blocked.`,
+    mastery: bayesian.mastery ?? rolling.mastery,
+    thresholdUsed: bayesian.thresholdUsed ?? rolling.thresholdUsed,
+    isRecovery: bayesian.isRecovery,
+    gateModeUsed: 'hybrid',
+    bayesianSnapshot: bayesian.bayesianSnapshot
+  };
+}
+
+/**
  * Decide whether the student's mastery has decayed enough to warrant a
  * polite demotion to the previous chapter. Two-step rule (G15):
  *   1) First trip → returns { decay: 'warn' } so caller can surface a banner.
@@ -477,6 +783,10 @@ module.exports = {
   rollingMastery,
   evaluateAdvancement,
   evaluateChapterGraduation,
+  evaluateAdvancementBayesian,
+  evaluateChapterGraduationBayesian,
+  evaluateAdvancementForPlan,
+  evaluateChapterGraduationForPlan,
   evaluateDecay,
   evaluateCalibration,
   phaseProgressState,

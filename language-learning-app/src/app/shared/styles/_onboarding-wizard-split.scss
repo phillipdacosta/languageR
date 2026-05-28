@@ -1,21 +1,88 @@
 // Shared two-column wizard layout (matches tutor-approval split guidance).
 $ob-split-border-light: #ebebeb !default;
+$ob-split-viewport-height: calc(100dvh - 128px);
 
-// Full-width wizard chrome while split guidance is active (reference uses ~⅓ | gap | ⅔).
-:host.onboarding-page--wizard-main {
-  .onboarding-wizard-toolbar__inner {
-    max-width: 100%;
-    padding-left: 43px;
-    padding-right: 48px;
-    box-sizing: border-box;
+@keyframes obWizardSplitFadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
   }
 }
 
-.onboarding-container--wizard.ob-wizard-split-active {
-  .cm-wizard-viewport-scroll > .cm-details-wizard-page-shell {
-    max-width: 100%;
-    padding-left: 0;
-    padding-right: 0;
+:host.onboarding-page--wizard-main {
+  ion-header.onboarding-wizard-header {
+    flex-shrink: 0;
+  }
+}
+
+.onboarding-container--wizard.ob-wizard-split-active,
+.create-material-container.cm-details-wizard-split-active.ob-wizard-split-active,
+.cm-bundle-editor.cm-details-wizard-split-active.ob-wizard-split-active {
+  animation: obWizardSplitFadeIn 0.45s cubic-bezier(0.32, 0.72, 0, 1) both;
+
+  .onboarding-wizard-card {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    padding-top: 24px;
+    box-sizing: border-box;
+
+    @media (min-width: 768px) {
+      padding-top: 32px;
+    }
+  }
+
+  .cm-wizard-viewport-scroll {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+
+    @media (max-width: 767px) {
+      overflow-x: hidden;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    &--fit {
+      overflow: hidden;
+    }
+
+    > .cm-details-wizard-page-shell {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      max-width: 100%;
+      padding-left: 0;
+      padding-right: 0;
+    }
+
+    .cm-details-wizard {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .cm-details-wizard-scroll {
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .cm-details-wizard-scroll-inner {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+    }
   }
 
   .cm-details-wizard-page-shell {
@@ -27,6 +94,10 @@ $ob-split-border-light: #ebebeb !default;
     margin: 0;
     max-width: 100%;
     width: 100%;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
   }
 
   .step-content-card--wizard {
@@ -41,7 +112,7 @@ $ob-split-border-light: #ebebeb !default;
     margin: 0;
     max-width: 100%;
     width: 100%;
-    flex: 1 1 auto;
+    flex: 1;
     min-height: 0;
     display: flex;
     flex-direction: column;
@@ -52,31 +123,104 @@ $ob-split-border-light: #ebebeb !default;
     @media (min-width: 768px) {
       display: grid;
       grid-template-columns: min(380px, 44%) minmax(0, 1fr);
-      grid-template-rows: 1fr;
+      grid-template-rows: minmax(0, 1fr);
       align-items: stretch;
-      min-height: min(460px, calc(100dvh - 220px));
+      min-height: min(460px, #{$ob-split-viewport-height});
+      max-height: $ob-split-viewport-height;
+      overflow: hidden;
     }
   }
 
+  // Left guidance column — stays pinned while the right column scrolls.
+  app-wizard-step-guidance {
+    flex-shrink: 0;
+
+    @media (min-width: 768px) {
+      grid-column: 1;
+      grid-row: 1;
+      align-self: start;
+    }
+  }
+
+  // Right column shell — fixed grid cell.
   .ob-wizard-split-main.approval-split-main {
     box-sizing: border-box;
     text-align: left;
     border-left: none;
-    padding: 20px 24px 24px;
+    padding: 0;
     display: flex;
     flex-direction: column;
+    flex: 1;
     min-height: 0;
     width: 100%;
+    overflow: hidden;
 
     @media (min-width: 768px) {
       grid-column: 2;
       grid-row: 1;
-      position: relative;
-      width: 100%;
       min-width: 0;
       min-height: 0;
-      padding: 32px 48px;
+      max-height: 100%;
       border-left: 1px solid $ob-split-border-light;
+    }
+  }
+
+  // Stepper in the right column — top row aligns with approval-split-guidance__title.
+  .ob-wizard-split-stepper {
+    flex-shrink: 0;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0 24px;
+
+    @media (min-width: 768px) {
+      padding: 0 48px;
+    }
+
+    .onboarding-wizard-toolbar__inner {
+      width: 100%;
+      max-width: 100%;
+      margin-inline: auto;
+      padding: 0 0 12px;
+      box-sizing: border-box;
+
+      @media (min-width: 768px) {
+        max-width: min(680px, 100%);
+      }
+    }
+  }
+
+  // Scroll surface for form content only.
+  .ob-wizard-split-main-scroll {
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    box-sizing: border-box;
+    padding: 16px 24px 24px;
+
+    @media (min-width: 768px) {
+      max-height: $ob-split-viewport-height;
+      padding: 8px 48px 32px;
+    }
+
+    &::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    &::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: rgba(0, 0, 0, 0.14);
+      border-radius: 3px;
+
+      &:hover {
+        background: rgba(0, 0, 0, 0.22);
+      }
     }
   }
 

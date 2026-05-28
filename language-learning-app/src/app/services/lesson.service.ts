@@ -58,12 +58,16 @@ export interface Lesson {
     name: string;
     email: string;
     picture?: string;
+    nativeLanguage?: string;
+    interfaceLanguage?: string;
   };
   studentId: {
     _id: string;
     name: string;
     email: string;
     picture?: string;
+    nativeLanguage?: string;
+    interfaceLanguage?: string;
   };
   startTime: string;
   endTime: string;
@@ -415,12 +419,204 @@ export class LessonService {
 
   /**
    * Current UI locale, normalized to a short code (e.g. `pt-BR` → `pt`).
-   * Used when the user opts in to translating an individual card's
-   * previous-session prose via the per-card translate button.
    */
   getProseLang(): string {
     const raw = this.translateService.currentLang || this.translateService.defaultLang || '';
-    return (raw || '').toLowerCase().split(/[-_]/)[0];
+    return this.normalizeProseLang(raw);
+  }
+
+  private normalizeProseLang(raw: string | null | undefined): string {
+    return (raw || '').toLowerCase().split(/[-_]/)[0].trim();
+  }
+
+  /** Keep in sync with backend `SUPPORTED_PROSE_LANGS` (lessons.js). */
+  private static readonly SUPPORTED_PROSE_LANGS = new Set([
+    'en', 'es', 'fr', 'de', 'it', 'pt', 'nl', 'da', 'sv', 'no', 'fi',
+    'pl', 'cs', 'ro', 'el', 'tr', 'ru', 'uk', 'he', 'ar', 'fa', 'hi',
+    'th', 'vi', 'id', 'ms', 'ja', 'ko', 'zh',
+  ]);
+
+  isSupportedProseLang(lang: string | null | undefined): boolean {
+    const norm = this.normalizeProseLang(lang);
+    return !!norm && LessonService.SUPPORTED_PROSE_LANGS.has(norm);
+  }
+
+  /**
+   * Language the user reads in — profile interface language, then native,
+   * then durable local picks. Works for English UI users, German tutors, etc.
+   */
+  getProseReadingLanguage(): string {
+    const user = this.userService.getCurrentUserValue();
+    const fromProfile =
+      this.normalizeProseLang(user?.interfaceLanguage) ||
+      this.normalizeProseLang(user?.nativeLanguage);
+    if (fromProfile) {
+      return fromProfile;
+    }
+
+    if (typeof localStorage !== 'undefined') {
+      const picked = localStorage.getItem('userLanguagePicked');
+      const fromPick = this.normalizeProseLang(picked);
+      if (fromPick) {
+        return fromPick;
+      }
+
+      const stored = localStorage.getItem('userLanguage');
+      const fromStored = this.normalizeProseLang(stored);
+      if (fromStored) {
+        return fromStored;
+      }
+    }
+
+    return 'en';
+  }
+
+  /** Saved interface language from the user profile (not ephemeral UI toggles). */
+  getSavedInterfaceProseLang(): string {
+    const user = this.userService.getCurrentUserValue();
+    const fromProfile = this.normalizeProseLang(user?.interfaceLanguage);
+    if (fromProfile) {
+      return fromProfile;
+    }
+
+    if (typeof localStorage !== 'undefined') {
+      const picked = localStorage.getItem('userLanguagePicked');
+      const fromPick = this.normalizeProseLang(picked);
+      if (fromPick) {
+        return fromPick;
+      }
+
+      const stored = localStorage.getItem('userLanguage');
+      const fromStored = this.normalizeProseLang(stored);
+      if (fromStored) {
+        return fromStored;
+      }
+    }
+
+    return '';
+  }
+
+  /** Whether opt-in prose translation is allowed for this user. */
+  canTranslateProse(): boolean {
+    return this.getProseTranslationTarget() !== null;
+  }
+
+  /**
+   * Target language for lesson prose — the user's reading language.
+   * English is valid (e.g. German tutor notes → English UI).
+   */
+  getProseTranslationTarget(): string | null {
+    const lang = this.getProseReadingLanguage();
+    if (!this.isSupportedProseLang(lang)) {
+      return null;
+    }
+    return lang;
+  }
+
+  /**
+   * Whether to offer a translate control for prose in a known source language.
+   */
+  shouldOfferProseTranslation(contentLanguage?: string | null): boolean {
+    const target = this.getProseTranslationTarget();
+    if (!target) {
+      return false;
+    }
+    const source = this.normalizeProseLang(contentLanguage);
+    if (!source) {
+      return false;
+    }
+    return source !== target;
+  }
+
+  /** Profile language for a lesson participant (interface, then native). */
+  getParticipantProseLang(participant?: {
+    nativeLanguage?: string;
+    interfaceLanguage?: string;
+  } | null): string {
+    return (
+      this.normalizeProseLang(participant?.interfaceLanguage) ||
+      this.normalizeProseLang(participant?.nativeLanguage) ||
+      ''
+    );
+  }
+
+  /** AI-generated / student-facing prose (analysis, plan, prep). */
+  inferStudentFacingProseLang(lesson?: Pick<Lesson, 'studentId'> | null): string {
+    const embedded = lesson?.studentId;
+    if (embedded && typeof embedded === 'object') {
+      const lang = this.getParticipantProseLang(embedded);
+      if (lang) {
+        return lang;
+      }
+    }
+    return this.getProseReadingLanguage();
+  }
+
+  /** Tutor-authored prose (notes, feedback, manual assessment). */
+  inferTutorAuthoredProseLang(lesson?: Pick<Lesson, 'tutorId'> | null): string {
+    const embedded = lesson?.tutorId;
+    if (embedded && typeof embedded === 'object') {
+      return this.getParticipantProseLang(embedded);
+    }
+    return '';
+  }
+
+  /**
+   * Lightweight sniff when author metadata matches the reader but the note
+   * may still be in another language (e.g. English tutor, Spanish note).
+   */
+  sniffProseLangFromText(text?: string | null): string {
+    const sample = (text || '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 600);
+    if (sample.length < 16) {
+      return '';
+    }
+
+    const scores: Record<string, number> = {};
+    const countWords = (lang: string, words: string[]) => {
+      const re = new RegExp(`\\b(${words.join('|')})\\b`, 'gi');
+      scores[lang] = (sample.match(re)?.length || 0);
+    };
+
+    countWords('es', ['el', 'la', 'los', 'las', 'de', 'que', 'en', 'un', 'una', 'por', 'con', 'para', 'está', 'muy', 'bien', 'lección', 'nota', 'alumno', 'practica', 'verbos', 'sesión']);
+    countWords('en', ['the', 'and', 'you', 'was', 'were', 'with', 'this', 'that', 'lesson', 'good', 'great', 'need', 'should', 'practice', 'student', 'progress', 'review']);
+    countWords('fr', ['le', 'la', 'les', 'des', 'une', 'dans', 'pour', 'avec', 'très', 'bien', 'leçon', 'élève']);
+    countWords('de', ['der', 'die', 'das', 'und', 'ist', 'nicht', 'mit', 'für', 'sehr', 'gut', 'schüler', 'lektion']);
+    countWords('pt', ['não', 'uma', 'com', 'para', 'muito', 'bem', 'aula', 'aluno', 'prática']);
+
+    if (/[ñ¿¡]/i.test(sample)) {
+      scores['es'] = (scores['es'] || 0) + 2;
+    }
+
+    let best = '';
+    let bestScore = 0;
+    for (const [lang, score] of Object.entries(scores)) {
+      if (score > bestScore) {
+        bestScore = score;
+        best = lang;
+      }
+    }
+    return bestScore >= 2 ? best : '';
+  }
+
+  /** Best-effort language for a tutor note on an analysis document. */
+  inferTutorNoteProseLang(
+    lesson: Pick<Lesson, 'tutorId'> | null | undefined,
+    noteText?: string | null,
+  ): string {
+    const sniffed = this.sniffProseLangFromText(noteText);
+    if (sniffed) {
+      return sniffed;
+    }
+    return this.inferTutorAuthoredProseLang(lesson);
+  }
+
+  /** True when any known prose block differs from the reader's language. */
+  shouldOfferProseTranslationForAnyBlock(languages: (string | null | undefined)[]): boolean {
+    return languages.some((lang) => this.shouldOfferProseTranslation(lang));
   }
 
   // Get all lessons for current user
@@ -451,6 +647,31 @@ export class LessonService {
     return this.http.post<any>(
       `${this.baseUrl}/${lessonId}/translate-context`,
       { targetLanguage },
+    );
+  }
+
+  /** Translate all dynamic prose on the lesson detail page in one request. */
+  translateLessonDetail(
+    lessonId: string,
+    targetLanguage: string,
+    clientSections?: Record<string, unknown> | null,
+  ): Observable<{
+    success: boolean;
+    language?: string;
+    lastSession?: {
+      summary?: string | null;
+      recommendedFocus?: string[];
+      areasForImprovement?: string[];
+    } | null;
+    analysis?: Record<string, unknown> | null;
+    feedback?: Record<string, unknown> | null;
+    client?: Record<string, unknown> | null;
+  }> {
+    const headers = this.userService.getAuthHeadersSync();
+    return this.http.post<any>(
+      `${this.baseUrl}/${lessonId}/translate-detail`,
+      { targetLanguage, clientSections: clientSections || undefined },
+      { headers },
     );
   }
 

@@ -169,7 +169,21 @@ async function autoFinalizeLessons() {
           
           // Finalize the lesson
           await finalizeLesson(lesson, now);
-          
+
+          // Resolve any `pending` LessonAnalysis placeholder. There's no
+          // transcript or it failed, so the real analyzer will never run
+          // — leaving the row pending would strand the lesson card on a
+          // perpetual "Generating analysis…" spinner.
+          try {
+            const LessonAnalysis = require('../models/LessonAnalysis');
+            await LessonAnalysis.updateOne(
+              { lessonId: lesson._id, status: { $in: ['pending', 'processing'] } },
+              { $set: { status: 'insufficient_data', error: 'No usable transcript for analysis.' } }
+            );
+          } catch (analysisErr) {
+            console.warn(`⚠️ [AutoFinalize] Failed to clear pending analysis for ${lesson._id}: ${analysisErr.message}`);
+          }
+
           finalizedCount++;
           totalProcessed++;
           
