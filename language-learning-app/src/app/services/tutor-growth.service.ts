@@ -7,6 +7,14 @@ export interface GrowthInsight {
   messageParams?: Record<string, string | number>;
   route: string;
   priority: number;
+  /** Optional Lottie animation source; when set, the ticker renders it instead of `icon`. */
+  lottieSrc?: string;
+  /** When set, click triggers an in-page action instead of route navigation. */
+  actionType?: 'reload_lessons';
+  /** When true, ticker rotation is paused while this insight is active (and it pins to the top). */
+  lockRotation?: boolean;
+  /** When false, the ticker hides the dismiss (X) affordance. Defaults to true. */
+  dismissable?: boolean;
 }
 
 export interface ProfileChecklistItem {
@@ -241,6 +249,8 @@ export class TutorGrowthService {
   hasProfileCritical = false;
   /** All outstanding profile checklist items (for inline display). */
   profileChecklist: ProfileChecklistItem[] = [];
+  /** Sticky live-update insight (e.g. "3 new lessons booked — reload"). Kept across recomputes. */
+  private _pendingUpdatesInsight: GrowthInsight | null = null;
 
   constructor(private ngZone: NgZone) {}
 
@@ -565,7 +575,53 @@ export class TutorGrowthService {
     this.insights = filtered;
     this._activeIndex = 0;
     this.hasProfileCritical = filtered.some((i) => profileInsightIds.has(i.id));
+    this.applyPendingUpdatesInsight();
     this.startRotation();
+  }
+
+  /**
+   * Push a sticky "N new lessons booked — reload" insight to the top of the
+   * ticker. While present, rotation is locked so the user can act on it.
+   */
+  setPendingUpdates(count: number): void {
+    if (!count || count < 1) {
+      this.clearPendingUpdates();
+      return;
+    }
+    this._pendingUpdatesInsight = {
+      id: 'pending_updates',
+      icon: '',
+      lottieSrc: '/assets/lottie/pending-updates.json',
+      messageKey:
+        count === 1
+          ? 'HOME.GROWTH.INSIGHT_PENDING_UPDATES_ONE'
+          : 'HOME.GROWTH.INSIGHT_PENDING_UPDATES_MANY',
+      messageParams: count === 1 ? undefined : { count },
+      route: '',
+      priority: 10000,
+      actionType: 'reload_lessons',
+      lockRotation: true,
+      dismissable: false,
+    };
+    this.applyPendingUpdatesInsight();
+    this.stopRotation();
+    this.notifyUpdate();
+  }
+
+  clearPendingUpdates(): void {
+    if (!this._pendingUpdatesInsight) return;
+    this._pendingUpdatesInsight = null;
+    this.insights = this.insights.filter((i) => i.id !== 'pending_updates');
+    if (this._activeIndex >= this.insights.length) this._activeIndex = 0;
+    this.notifyUpdate();
+    this.startRotation();
+  }
+
+  private applyPendingUpdatesInsight(): void {
+    if (!this._pendingUpdatesInsight) return;
+    this.insights = this.insights.filter((i) => i.id !== 'pending_updates');
+    this.insights.unshift(this._pendingUpdatesInsight);
+    this._activeIndex = 0;
   }
 
   private materialStatsInsight(dv: number, dq: number, dp: number): GrowthInsight {
@@ -598,6 +654,8 @@ export class TutorGrowthService {
 
   goTo(index: number): void {
     if (index < 0 || index >= this.insights.length) return;
+    // Lock the carousel onto the pending-updates insight while it's active.
+    if (this.activeInsight?.lockRotation) return;
     this._activeIndex = index;
     this.notifyUpdate();
     this.restartRotation();
@@ -605,6 +663,7 @@ export class TutorGrowthService {
 
   next(): void {
     if (this.insights.length <= 1) return;
+    if (this.activeInsight?.lockRotation) return;
     this._activeIndex = (this._activeIndex + 1) % this.insights.length;
     this.notifyUpdate();
     this.restartRotation();
@@ -761,6 +820,9 @@ export class TutorGrowthService {
   private startRotation(): void {
     this.stopRotation();
     if (this.insights.length <= 1 || this._paused) return;
+    // While a locked insight is active (e.g. pending lesson updates) we never rotate
+    // — that surface is the highest-signal item the user has on the page.
+    if (this.insights.some((i) => i.lockRotation)) return;
 
     this.ngZone.runOutsideAngular(() => {
       this._rotationTimer = setTimeout(() => {

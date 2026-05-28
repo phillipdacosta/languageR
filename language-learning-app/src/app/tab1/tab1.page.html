@@ -396,15 +396,40 @@
         <p class="welcome-subtitle welcome-mobile-tutor-sub" *ngIf="isTutorUser && !isLoadingLessons && (!nextLesson || !nextLessonTimeLabel) && !growthInsight && tutorMobileWelcomeSubtitle && !hasProfileCriticalInsights">
           {{ tutorMobileWelcomeSubtitle }}
         </p>
-        <p class="welcome-subtitle welcome-mobile-tutor-sub growth-ticker-mobile-wrap" *ngIf="isTutorUser && !isLoadingLessons && ((!nextLesson || !nextLessonTimeLabel) || hasProfileCriticalInsights) && growthInsight"
-           (click)="onGrowthInsightTapAdvance()">
+        <p class="welcome-subtitle welcome-mobile-tutor-sub growth-ticker-mobile-wrap"
+           [class.growth-ticker-mobile-wrap--locked]="hasLockedGrowthInsight"
+           *ngIf="isTutorUser && !isLoadingLessons && ((!nextLesson || !nextLessonTimeLabel) || hasProfileCriticalInsights || hasLockedGrowthInsight) && growthInsight"
+           (click)="hasLockedGrowthInsight ? onGrowthInsightClick() : onGrowthInsightTapAdvance()">
           <ng-container *ngFor="let row of growthInsightSlideRow; trackBy: trackGrowthInsightSlide">
             <span class="growth-ticker-mobile-fade-wrap">
-              <span class="growth-ticker-icon">{{ row.insight.icon }}</span>
-              <span class="growth-ticker-text-mobile">{{ row.insight.messageKey | translate:(row.insight.messageParams || {}) }}</span>
+              <span class="growth-ticker-icon" *ngIf="!row.insight.lottieSrc">{{ row.insight.icon }}</span>
+              <span class="growth-ticker-text-mobile">
+                <span class="growth-ticker-msg">{{ row.insight.messageKey | translate:(row.insight.messageParams || {}) }}</span>
+              </span>
+                <button *ngIf="row.insight.actionType === 'reload_lessons'"
+                      class="growth-reload-btn growth-reload-btn--mobile growth-reload-btn--with-burst"
+                      [class.growth-reload-btn--loading]="growthReloadState === 'loading'"
+                      [class.growth-reload-btn--done]="growthReloadState === 'done'"
+                      [disabled]="growthReloadState === 'loading'"
+                      (click)="onGrowthInsightClick(); $event.stopPropagation()"
+                      [attr.aria-label]="'HOME.GROWTH.PENDING_UPDATES_RELOAD' | translate">
+                <span class="growth-reload-btn__burst" *ngIf="row.insight.lottieSrc || growthReloadBurstSrc" aria-hidden="true">
+                  <dotlottie-player
+                    class="growth-reload-btn__lottie"
+                    [attr.src]="row.insight.lottieSrc || growthReloadBurstSrc"
+                    autoplay
+                    speed="1"
+                    background="transparent"
+                    ></dotlottie-player>
+                </span>
+                <span *ngIf="growthReloadState === 'idle'" class="growth-reload-btn__icon-wrap"><ion-icon name="refresh-outline"></ion-icon></span>
+                <span *ngIf="growthReloadState === 'loading'" class="growth-reload-btn__spin-icon"><ion-spinner name="crescent"></ion-spinner></span>
+                <span *ngIf="growthReloadState === 'done'" class="growth-reload-btn__done-icon"><ion-icon name="checkmark-outline"></ion-icon></span>
+                <span *ngIf="growthReloadState === 'idle'">{{ 'HOME.GROWTH.PENDING_UPDATES_RELOAD' | translate }}</span>
+              </button>
             </span>
           </ng-container>
-          <span class="growth-dots growth-dots--mobile" *ngIf="growthCount > 1">
+          <span class="growth-dots growth-dots--mobile" *ngIf="growthCount > 1 && !hasLockedGrowthInsight">
             <span *ngFor="let dot of growthInsights; let i = index"
                   class="growth-dot"
                   [class.growth-dot--active]="i === growthIndex"
@@ -414,7 +439,7 @@
           </span>
         </p>
       </div>
-      <div class="welcome-header">
+      <div class="welcome-header" [class.welcome-header--tutor-stable]="isTutorUser && !isMobile">
         <div class="welcome-content" *ngIf="!isMobile && isStudentUser">
           <p class="welcome-subtitle welcome-tutor-desktop-line skeleton-text" *ngIf="isLoadingLessons">
             <ion-skeleton-text animated style="width: 280px; height: 16px; display: inline-block; border-radius: 4px;"></ion-skeleton-text>
@@ -433,41 +458,93 @@
           </p>
         </div>
 
-        <div class="welcome-content" *ngIf="!isMobile && isTutorUser">
+        <div class="welcome-content welcome-content--tutor" *ngIf="!isMobile && isTutorUser">
           <p class="welcome-subtitle welcome-tutor-desktop-line skeleton-text" *ngIf="isLoadingLessons">
             <ion-skeleton-text animated style="width: 280px; height: 16px; display: inline-block; border-radius: 4px;"></ion-skeleton-text>
           </p>
-          <p class="welcome-subtitle welcome-tutor-desktop-line" *ngIf="!isLoadingLessons && nextLesson && nextLessonTimeLabel && !hasProfileCriticalInsights">
-            <span class="welcome-tutor-desktop-greeting"> {{ greetingText }} - </span><span class="welcome-tutor-desktop-sep"> </span>{{ 'HOME.WELCOME_NEXT_LESSON' | translate:{ time: nextLessonTimeLabel } }}
-          </p>
-          <p class="welcome-subtitle welcome-tutor-desktop-line" *ngIf="!isLoadingLessons && (!nextLesson || hasProfileCriticalInsights)">
-            <span class="welcome-tutor-desktop-greeting"> {{ greetingText }} — </span>
-            <ng-container *ngIf="growthInsight; else staticWelcome">
-              <span class="growth-ticker"
-                    (mouseenter)="onGrowthInsightPause()"
-                    (mouseleave)="onGrowthInsightResume()"
+          <p class="welcome-subtitle welcome-tutor-desktop-line welcome-tutor-desktop-line--stable"
+             [class.welcome-tutor-desktop-line--growth-locked]="hasLockedGrowthInsight"
+             *ngIf="!isLoadingLessons">
+            <span class="welcome-tutor-desktop-greeting">{{ greetingText }} — </span>
+
+            <!-- Pending lesson updates (highest priority) -->
+            <ng-container *ngIf="hasLockedGrowthInsight && growthInsight; else tutorWelcomeMainLine">
+              <span class="growth-ticker growth-ticker--locked"
                     (click)="onGrowthInsightClick()">
                 <ng-container *ngFor="let row of growthInsightSlideRow; trackBy: trackGrowthInsightSlide">
                   <span class="growth-ticker-text">
-                    <span class="growth-ticker-icon">{{ row.insight.icon }}</span>
-                    {{ row.insight.messageKey | translate:(row.insight.messageParams || {}) }}
+                    <span class="growth-ticker-msg">{{ row.insight.messageKey | translate:(row.insight.messageParams || {}) }}</span>
                   </span>
                 </ng-container>
-                <button class="growth-dismiss-btn" (click)="onGrowthInsightDismiss(); $event.stopPropagation()" [attr.aria-label]="'HOME.GROWTH.DISMISS' | translate">
-                  <ion-icon name="close-outline"></ion-icon>
+                <button class="growth-reload-btn growth-reload-btn--with-burst"
+                        [class.growth-reload-btn--loading]="growthReloadState === 'loading'"
+                        [class.growth-reload-btn--done]="growthReloadState === 'done'"
+                        [disabled]="growthReloadState === 'loading'"
+                        (click)="onGrowthInsightClick(); $event.stopPropagation()"
+                        [attr.aria-label]="'HOME.GROWTH.PENDING_UPDATES_RELOAD' | translate">
+                  <ng-container *ngFor="let row of growthInsightSlideRow; trackBy: trackGrowthInsightSlide">
+                    <span class="growth-reload-btn__burst" *ngIf="row.insight.lottieSrc || growthReloadBurstSrc" aria-hidden="true">
+                      <dotlottie-player
+                        class="growth-reload-btn__lottie"
+                        [attr.src]="row.insight.lottieSrc || growthReloadBurstSrc"
+                        autoplay
+                        speed="1"
+                        background="transparent"
+                        ></dotlottie-player>
+                    </span>
+                  </ng-container>
+                  <span *ngIf="growthReloadState === 'idle'" class="growth-reload-btn__icon-wrap"><ion-icon name="refresh-outline"></ion-icon></span>
+                  <span *ngIf="growthReloadState === 'loading'" class="growth-reload-btn__spin-icon"><ion-spinner name="crescent"></ion-spinner></span>
+                  <span *ngIf="growthReloadState === 'done'" class="growth-reload-btn__done-icon"><ion-icon name="checkmark-outline"></ion-icon></span>
+                  <span *ngIf="growthReloadState === 'idle'">{{ 'HOME.GROWTH.PENDING_UPDATES_RELOAD' | translate }}</span>
                 </button>
               </span>
-              <span class="growth-dots" *ngIf="growthCount > 1">
-                <span *ngFor="let dot of growthInsights; let i = index"
-                      class="growth-dot"
-                      [class.growth-dot--active]="i === growthIndex"
-                      (click)="onGrowthInsightDotClick(i)">
-                </span>
-              </span>
-              <button class="growth-view-all" *ngIf="growthCount > 1" (click)="openGrowthInsightsModal(); $event.stopPropagation()">{{ 'HOME.GROWTH.VIEW_ALL' | translate }}</button>
             </ng-container>
-            <ng-template #staticWelcome>
-              <ng-container *ngIf="welcomeMessageText"><span class="welcome-tutor-desktop-sep"> </span>{{ welcomeMessageText }}</ng-container>
+
+            <ng-template #tutorWelcomeMainLine>
+              <ng-container *ngIf="nextLesson && nextLessonTimeLabel && !hasProfileCriticalInsights; else tutorWelcomeGrowthOrDefault">
+                {{ 'HOME.WELCOME_NEXT_LESSON' | translate:{ time: nextLessonTimeLabel } }}
+              </ng-container>
+            </ng-template>
+
+            <ng-template #tutorWelcomeGrowthOrDefault>
+              <ng-container *ngIf="growthInsight; else tutorWelcomeStatic">
+                <span class="growth-ticker"
+                      (mouseenter)="onGrowthInsightPause()"
+                      (mouseleave)="onGrowthInsightResume()"
+                      (click)="onGrowthInsightClick()">
+                  <ng-container *ngFor="let row of growthInsightSlideRow; trackBy: trackGrowthInsightSlide">
+                    <span class="growth-ticker-text">
+                      <span class="growth-ticker-icon" *ngIf="!row.insight.lottieSrc">{{ row.insight.icon }}</span>
+                      <span class="growth-ticker-msg">{{ row.insight.messageKey | translate:(row.insight.messageParams || {}) }}</span>
+                    </span>
+                  </ng-container>
+                  <button class="growth-dismiss-btn"
+                          *ngIf="growthInsight.dismissable !== false"
+                          (click)="onGrowthInsightDismiss(); $event.stopPropagation()"
+                          [attr.aria-label]="'HOME.GROWTH.DISMISS' | translate">
+                    <ion-icon name="close-outline"></ion-icon>
+                  </button>
+                </span>
+                <span class="growth-dots" *ngIf="growthCount > 1">
+                  <span *ngFor="let dot of growthInsights; let i = index"
+                        class="growth-dot"
+                        [class.growth-dot--active]="i === growthIndex"
+                        (click)="onGrowthInsightDotClick(i)">
+                  </span>
+                </span>
+                <button class="growth-view-all" *ngIf="growthCount > 1" (click)="openGrowthInsightsModal(); $event.stopPropagation()">{{ 'HOME.GROWTH.VIEW_ALL' | translate }}</button>
+              </ng-container>
+            </ng-template>
+
+            <ng-template #tutorWelcomeStatic>
+              <ng-container *ngIf="welcomeMessageText; else tutorWelcomeFallback">
+                {{ welcomeMessageText }}
+              </ng-container>
+            </ng-template>
+
+            <ng-template #tutorWelcomeFallback>
+              {{ 'HOME.WELCOME_DEFAULT' | translate }}
             </ng-template>
           </p>
         </div>
@@ -636,7 +713,7 @@
           </div>
           <span
             class="badge-inline badge-trial m-filled-avatar-badge"
-            [class.pop-float]="!mobileStaggerDone"
+            [class.pop-float]="trialBadgePopFloat"
             *ngIf="nextClass.isTrialLesson && nextClass.lesson?.status !== 'cancelled'">
             <ion-icon name="star"></ion-icon> {{ 'HOME.STATUS_TRIAL' | translate }}
           </span>
@@ -791,6 +868,7 @@
             </h3>
             <span
               class="badge-inline badge-trial upnext-filled-trial-pill"
+              [class.pop-float]="trialBadgePopFloat"
               *ngIf="nextClass.isTrialLesson && nextClass.lesson?.status !== 'cancelled'">
               <ion-icon name="star"></ion-icon>
               <span>{{ 'HOME.TRIAL_LESSON' | translate }}</span>
@@ -822,11 +900,13 @@
           </div>
           <span class="upnext-filled-schedule-divider" aria-hidden="true"></span>
           <div class="upnext-filled-schedule-col upnext-filled-schedule-col--time">
-            <ion-icon class="upnext-filled-schedule-icon" name="time-outline" aria-hidden="true"></ion-icon>
-            <div class="upnext-filled-schedule-info">
-              <span class="upnext-filled-schedule-time">{{ nextClass.detailTimeRange }}</span>
-              <span class="upnext-filled-schedule-duration">{{ nextClass.durationLabel }}</span>
-            </div>
+            <img
+              class="upnext-filled-schedule-icon"
+              src="assets/upnext-schedule-clock.png"
+              alt=""
+              aria-hidden="true" />
+            <span class="upnext-filled-schedule-time">{{ nextClass.detailTimeRange }}</span>
+            <span class="upnext-filled-schedule-duration">{{ nextClass.durationLabel }}</span>
           </div>
           <ng-container *ngIf="upNextStatusLabel">
             <span class="upnext-filled-schedule-divider" aria-hidden="true"></span>
@@ -1140,7 +1220,7 @@
       <div class="grid-cell-comingup enter-stagger enter-stagger-3" [class.enter-stagger-go]="desktopEnterReady" [class.enter-stagger-done]="desktopEnterDone" *ngIf="!isMobile && !isLoadingLessons && (isTutorUser || isStudentUser)">
         <ng-container *ngIf="!isLoadingLessons">
           <div class="coming-up-section-head" *ngIf="!isMobile">
-            <h2 class="desktop-tutor-section-title">{{ 'HOME.THIS_WEEK' | translate }}</h2>
+            <h2 class="desktop-tutor-section-title">{{ thisWeekHomeTitleKey | translate }}</h2>
           </div>
 
           <!-- Empty state when no other lessons this week -->
@@ -1160,7 +1240,9 @@
               <div class="tw-week-scroll-inner" [class.tw-week-scroll-inner--single]="thisWeekStripSingleEvent">
                 <div
                   *ngFor="let group of timelineDayGroups; trackBy: trackByTimelineDayGroup; let gi = index"
-                  class="tw-day-group">
+                  class="tw-day-group"
+                  [class.tw-day-group--single]="group.events.length === 1"
+                  (click)="group.events.length === 1 ? navigateToLesson(group.events[0].lesson) : null">
                   <div class="tw-day-group__date">
                     <div class="tw-date-badge" [class.tw-date-badge--today]="group.isToday">
                       <span class="tw-date-badge__month">{{ group.dateBadgeMonth }}</span>
@@ -1175,12 +1257,11 @@
                       {{ 'HOME.WEEK_SAME_DAY_SESSIONS' | translate: { count: group.events.length } }}
                     </div>
                   </div>
-                  <div class="tw-day-group__events">
+                  <div class="tw-day-group__events" *ngIf="group.events[0] as ev">
                     <div
-                      *ngFor="let ev of group.events; trackBy: trackByTimelineEvent; let ei = index"
                       class="tw-day-event-cell"
                       [class.tw-day-event-cell--class]="ev.isClass"
-                      (click)="navigateToLesson(ev.lesson)">
+                      (click)="group.events.length > 1 ? navigateToLesson(ev.lesson) : $event.stopPropagation()">
                       <div class="tw-day-event-cell__icon-col">
                         <div class="cu-avatar tw-day-event-avatar" [class.tw-day-event-avatar--class]="ev.isClass">
                           <img *ngIf="ev.avatar" [src]="ev.avatar" [alt]="ev.name" referrerpolicy="no-referrer">
@@ -1237,8 +1318,8 @@
                       <button
                         type="button"
                         class="cu-extra-badge"
-                        *ngIf="gi === 0 && ei === 0 && sameDayExtraCount > 0"
-                        (click)="openAllLessonsModal(); $event.stopPropagation()">
+                        *ngIf="group.extraCount > 0"
+                        (click)="openDayLessonsModal(group); $event.stopPropagation()">
                         {{ 'HOME.PLUS_MORE' | translate }}
                       </button>
                     </div>
@@ -1578,6 +1659,18 @@
 
 </ion-content>
 
+<!-- DEV: Manual trigger for the growth-ticker pending-updates surface.
+     Rendered outside ion-content so position:fixed pins to the viewport
+     instead of the (transformed) ion-content scroll container. Visible
+     only for tutors; click toggles between simulating 3 new bookings
+     and clearing the sticky insight. -->
+<button class="dev-pending-updates-trigger"
+        *ngIf="isTutorUser"
+        (click)="testPendingUpdates(hasLockedGrowthInsight ? 0 : 3)">
+  <ion-icon [name]="hasLockedGrowthInsight ? 'close-outline' : 'flash-outline'"></ion-icon>
+  <span>{{ hasLockedGrowthInsight ? 'Clear pending' : 'Test: 3 new lessons' }}</span>
+</button>
+
 <!-- All Lessons Modal - Airbnb Style -->
 <ion-modal 
   [isOpen]="isAllLessonsModalOpen" 
@@ -1591,7 +1684,7 @@
         <button class="airbnb-modal-back" *ngIf="isDatePickerView" (click)="closeDatePickerView()">
           <ion-icon name="arrow-back"></ion-icon>
         </button>
-        <h2 *ngIf="!isDatePickerView">{{ 'HOME.UPCOMING_LESSONS_MODAL' | translate }}</h2>
+        <h2 *ngIf="!isDatePickerView">{{ allLessonsModalTitle }}</h2>
         <h2 *ngIf="isDatePickerView">&nbsp;</h2>
         <button class="airbnb-modal-close" (click)="closeAllLessonsModal()">
           <ion-icon name="close"></ion-icon>
@@ -1599,7 +1692,7 @@
       </div>
       
       <!-- Month selector (only in lessons view) -->
-      <div class="airbnb-month-selector" *ngIf="!isDatePickerView">
+      <div class="airbnb-month-selector" *ngIf="!isDatePickerView && !allLessonsModalDayKey">
         <div class="airbnb-month-left">
           <span class="airbnb-month-label">{{ currentMonthLabel }}</span>
           <button class="airbnb-clear-filter" [class.visible]="hasMonthFilter" (click)="clearMonthFilter()">
@@ -1615,37 +1708,48 @@
     <!-- Scrollable content -->
     <ion-content class="airbnb-modal-ion-content">
       <!-- LESSONS VIEW -->
-      <div class="airbnb-modal-body" *ngIf="!isDatePickerView">
-        <ng-container *ngFor="let event of allLessonsForModal; let i = index; trackBy: trackByIndex">
-          <!-- Date header when date changes -->
-          <div class="airbnb-date-section" *ngIf="i === 0 || allLessonsForModal[i-1]?.fullDate !== event.fullDate" [@dateSectionEnter]>
-            <h3 class="airbnb-date-title">{{ event.fullDate }}</h3>
-          </div>
-          
-          <!-- Lesson row - clean, no border -->
-          <div class="airbnb-lesson-row" [class.cancelled]="event.isCancelled" [@lessonRowEnter] (click)="navigateToLessonFromModal(event.lesson)">
-            <div class="airbnb-lesson-left">
-              <div class="airbnb-lesson-date">{{ event.date }}</div>
-              <div class="airbnb-lesson-time">{{ event.time }} – {{ event.endTime || '' }}</div>
-              <app-class-attendees
-                *ngIf="event.lesson?.isClass && event.lesson?.attendees"
-                [attendees]="event.lesson.attendees"
-                [capacity]="event.lesson.capacity"
-                [maxDisplay]="3">
-              </app-class-attendees>
-            </div>
-            <div class="airbnb-lesson-right">
-              <div class="airbnb-lesson-participant-info">
-                <div class="airbnb-lesson-name">{{ event.name }}</div>
-                <div class="airbnb-lesson-cancelled" *ngIf="event.isCancelled">{{ 'HOME.CANCELLED' | translate }}</div>
-              </div>
-              <div class="airbnb-lesson-avatar-small">
-                <img *ngIf="event.avatar" [src]="event.avatar" [alt]="event.name" referrerpolicy="no-referrer">
-                <ion-icon *ngIf="!event.avatar" name="person"></ion-icon>
-              </div>
+      <div class="airbnb-modal-body" *ngIf="!isDatePickerView" [class.airbnb-modal-body--day]="allLessonsModalDayKey">
+        <div
+          class="airbnb-modal-date-group"
+          *ngFor="let dateGroup of allLessonsModalDateGroups; trackBy: trackByModalDateGroup"
+          [@dateSectionEnter]>
+          <div class="airbnb-modal-date-group__head">
+            <div class="tw-date-badge tw-date-badge--modal">
+              <span class="tw-date-badge__month">{{ dateGroup.dateBadge.month }}</span>
+              <span class="tw-date-badge__day">{{ dateGroup.dateBadge.dayNum }}</span>
+              <span class="tw-date-badge__weekday">{{ dateGroup.dateBadge.weekdayShort }}</span>
             </div>
           </div>
-        </ng-container>
+          <div class="airbnb-modal-date-group__lessons">
+            <div
+              class="airbnb-lesson-row airbnb-lesson-row--day-modal"
+              *ngFor="let event of dateGroup.events; trackBy: trackByIndex"
+              [class.cancelled]="event.isCancelled"
+              [@lessonRowEnter]
+              (click)="navigateToLessonFromModal(event.lesson)">
+              <div class="airbnb-lesson-left airbnb-lesson-left--day-modal">
+                <div class="airbnb-lesson-time">{{ event.time }} – {{ event.endTime || '' }}</div>
+                <app-class-attendees
+                  *ngIf="event.lesson?.isClass && event.lesson?.attendees"
+                  [attendees]="event.lesson.attendees"
+                  [capacity]="event.lesson.capacity"
+                  [maxDisplay]="3">
+                </app-class-attendees>
+              </div>
+              <div class="airbnb-lesson-right">
+                <div class="airbnb-lesson-participant-info">
+                  <div class="airbnb-lesson-name">{{ event.name }}</div>
+                  <div class="airbnb-lesson-subject" *ngIf="event.subject">{{ event.subject }}</div>
+                  <div class="airbnb-lesson-cancelled" *ngIf="event.isCancelled">{{ 'HOME.CANCELLED' | translate }}</div>
+                </div>
+                <div class="airbnb-lesson-avatar-small">
+                  <img *ngIf="event.avatar" [src]="event.avatar" [alt]="event.name" referrerpolicy="no-referrer">
+                  <ion-icon *ngIf="!event.avatar" name="person"></ion-icon>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
         
         <div class="airbnb-no-lessons" *ngIf="allLessonsForModal.length === 0" [@fadeIn]>
           <ion-icon name="calendar-outline"></ion-icon>

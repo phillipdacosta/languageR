@@ -151,10 +151,50 @@ ion-content {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
+    overflow-x: hidden;
     display: flex;
     flex-direction: column;
     gap: 24px;
+    box-sizing: border-box;
+    // Keep chevrons + ion-toggles clear of the scrollbar track (Windows
+    // Chrome often ignores scrollbar-gutter: stable).
     scrollbar-gutter: stable;
+    padding-inline-end: 10px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 0, 0, 0.22) transparent;
+
+    &::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    &::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 4px;
+      border: 2px solid transparent;
+      background-clip: padding-box;
+    }
+
+    .section-header {
+      gap: 10px;
+      padding-inline-end: 2px;
+
+      .expand-icon {
+        flex-shrink: 0;
+        margin-inline-start: 4px;
+      }
+    }
+
+    .sidebar-gcal-toggle-item {
+      padding-inline-end: 2px;
+
+      ion-toggle {
+        margin-inline-end: 2px;
+      }
+    }
   }
 }
 
@@ -6760,6 +6800,16 @@ ion-app.dark {
 
   .sidebar-last-sync {
     color: #636366;
+  }
+
+  .sidebar-scroll-body {
+    @media (min-width: 769px) {
+      scrollbar-color: rgba(255, 255, 255, 0.28) transparent;
+
+      &::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.25);
+      }
+    }
   }
 
   .sidebar-gcal-toggle-item {

@@ -1,4 +1,5 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef, ChangeDetectionStrategy, NgZone, ViewChild, AfterViewInit, ElementRef, HostBinding } from '@angular/core';
+import '@dotlottie/player-component';
 import lottie, { AnimationItem } from 'lottie-web';
 import { trigger, transition, style, animate } from '@angular/animations';
 import { ModalController, LoadingController, ToastController, ActionSheetController, PopoverController, AlertController, ViewDidLeave, NavController, IonContent } from '@ionic/angular';
@@ -97,7 +98,7 @@ import { isLessonMockId } from '../lessons/lesson-mock-preview';
         style({ opacity: 0, transform: 'translateY(-4px)' }),
         animate('250ms cubic-bezier(0.32, 0.72, 0, 1)', style({ opacity: 1, transform: 'translateY(0)' }))
       ])
-    ])
+    ]),
   ]
 })
 export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave {
@@ -219,6 +220,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   upNextCardAnimated = false;
   mobileStaggerReady = false;
   mobileStaggerDone = false;
+  /** Trial badge pop-float runs after home enter animations settle. */
+  trialBadgePopFloat = false;
   /** Desktop tutor/student home: staggered column reveal after load. */
   desktopEnterReady = false;
   desktopEnterDone = false;
@@ -631,6 +634,9 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   growthPaused = false;
   /** True when the growth ticker contains profile-critical items (should override next lesson display). */
   hasProfileCriticalInsights = false;
+  /** True when the active growth insight is a sticky, non-rotating item (e.g. pending lesson updates).
+   *  When true, the ticker takes over the welcome line regardless of next-lesson state. */
+  hasLockedGrowthInsight = false;
   /** Profile completion checklist for inline welcome display. */
   profileChecklist: ProfileChecklistItem[] = [];
   /** Incomplete or pending-review rows only — completed steps are hidden from the list. */
@@ -756,6 +762,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         // (due to asyncScheduler), so loadPendingFeedback() was skipped.
         if (this.isTutorUser) {
           this.loadPendingFeedback();
+          this.ensureGrowthInsightUpdateCallback();
         }
 
         if (this.isStudentUser && user?.onboardingData?.languages?.length) {
@@ -913,6 +920,10 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       this.isDarkModeActive = document.documentElement.classList.contains('ion-palette-dark');
     });
     this._darkModeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+
+    // Devtools-only manual trigger: window.__testPendingUpdates(3) to simulate a booking
+    // burst arriving via websocket, or window.__testPendingUpdates(0) to clear it.
+    (window as any).__testPendingUpdates = (count: number = 3) => this.testPendingUpdates(count);
 
     this.translationSub = this.analysisTranslation.onTranslationChanged().subscribe(changedId => {
       if (changedId === this.prevNotesAnalysisId) {
@@ -1177,6 +1188,22 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
           // Manually trigger change detection to update the UI
           this.cdr.detectChanges();
         }
+
+        // New booking arrived while user is on the home page — surface it in the
+        // growth ticker as a sticky "N new lessons booked … Refresh" insight
+        // instead of mutating the lesson list out from under them. The user
+        // clicks Refresh to merge the new data.
+        // Gated on `_isHomePageActive` so a booking that lands while the tutor
+        // is on tutor-calendar / messages / any other tab does NOT carry over
+        // as a stale ticker the next time they enter home — those reloads
+        // happen natively via the normal lesson fetch in ionViewWillEnter.
+        const isNewBookingNotification =
+          notification?.type === 'lesson_created' ||
+          notification?.type === 'office_hours_booking' ||
+          notification?.type === 'class_booked';
+        if (isNewBookingNotification && this.isTutorUser && this._isHomePageActive) {
+          this.queuePendingLessonUpdate();
+        }
         
         // Handle class invitations specially
         if (notification?.type === 'class_invitation' && this.currentUser.userType === 'student') {
@@ -1367,13 +1394,23 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     this.websocketService.connection$.pipe(
       takeUntil(this.destroy$)
     ).subscribe(isConnected => {
-      
+
       if (isConnected && this.currentUser) {
-        
-        // Reload important data after reconnection (no skeleton — silent refresh)
+
+        // Reload important data after reconnection (no skeleton — silent refresh).
+        // Exception: tutor sitting on the home page should not see cards mutate
+        // silently after a Wi-Fi blip or background-tab reconnect. We route the
+        // refresh through the pending-updates ticker instead, so the user
+        // explicitly taps Refresh to merge new data (same contract as live
+        // booking notifications). Other surfaces (other tabs, students) keep
+        // the silent reload — they don't have the ticker UI to begin with.
         setTimeout(() => {
           this.loadUnreadNotificationCount();
-          this.loadLessons(false);
+          if (this.isTutorUser && this._isHomePageActive) {
+            this.queuePendingLessonUpdate();
+          } else {
+            this.loadLessons(false);
+          }
           if (this.isStudent()) {
             this.loadPendingInvitations();
           }
@@ -1707,6 +1744,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   }
 
   ionViewWillEnter() {
+    this._isHomePageActive = true;
     if (this._hasInitiallyLoaded) {
       this.skipTabEntryAnimations = true;
     }
@@ -2043,6 +2081,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   }
 
   ionViewDidLeave() {
+    this._isHomePageActive = false;
     this.stopDynamicCardRefreshInterval();
     const u = this.router.url;
     const toMaterial =
@@ -2167,6 +2206,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     this.tutorGrowthService.destroy();
     this._growthInsightsLoaded = false;
     this._growthContext = null;
+
+    try { delete (window as any).__testPendingUpdates; } catch { /* ignore */ }
 
     this.destroy$.next();
 
@@ -5060,14 +5101,22 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     this.pendingActionItems = items;
   }
 
-  private computeGrowthInsights(): void {
-    if (!this.isTutorUser || this._growthInsightsLoaded) return;
-    this._growthInsightsLoaded = true;
-
+  private ensureGrowthInsightUpdateCallback(): void {
     this.tutorGrowthService.setUpdateCallback(() => {
-      this.syncGrowthInsightProperties();
-      this.cdr.detectChanges();
+      this.ngZone.run(() => {
+        this.syncGrowthInsightProperties();
+        this.cdr.markForCheck();
+      });
     });
+  }
+
+  private computeGrowthInsights(): void {
+    if (!this.isTutorUser) return;
+
+    this.ensureGrowthInsightUpdateCallback();
+
+    if (this._growthInsightsLoaded) return;
+    this._growthInsightsLoaded = true;
 
     const materials$ = this.materialService.getMyMaterials().pipe(
       take(1),
@@ -5236,7 +5285,12 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   private syncGrowthInsightProperties(): void {
     const insight = this.tutorGrowthService.activeInsight;
     const idx = this.tutorGrowthService.activeIndex;
-    const sig = insight ? `${idx}:${insight.id}` : '';
+    // Include pending count in sig so each new booking remounts the Lottie player.
+    const sig = insight
+      ? (insight.id === 'pending_updates'
+          ? `${idx}:${insight.id}:${this._pendingLessonUpdateCount}`
+          : `${idx}:${insight.id}`)
+      : '';
     if (sig !== this._lastGrowthSlideSig) {
       this._lastGrowthSlideSig = sig;
       if (insight) {
@@ -5263,6 +5317,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     this.growthInsightSlideRow = insight
       ? [{ epoch: this._growthSlideEpoch, insight }]
       : [];
+    this.hasLockedGrowthInsight = !!insight?.lockRotation;
   }
 
   /**
@@ -5414,11 +5469,84 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     const current = this.tutorGrowthService.activeInsight;
     if (!current) return;
 
+    if (current.actionType === 'reload_lessons') {
+      this.reloadPendingLessonUpdates();
+      return;
+    }
+
     if (current.id === 'create_material' || current.id === 'first_material') {
       this.navigateToCreateMaterial(new MouseEvent('click'));
     } else if (current.route.startsWith('/')) {
       this.router.navigate([current.route]);
     }
+  }
+
+  growthReloadState: 'idle' | 'loading' | 'done' = 'idle';
+  growthReloadBurstSrc: string | null = null;
+
+  /**
+   * Reload lesson data in place when the user taps the sticky
+   * "N new lessons" ticker entry. Clears the pending insight + counter so
+   * rotation resumes after the refresh.
+   */
+  async reloadPendingLessonUpdates(): Promise<void> {
+    if (this.growthReloadState === 'loading') return;
+    const current = this.tutorGrowthService.activeInsight;
+    this.growthReloadBurstSrc = current?.lottieSrc || this.growthReloadBurstSrc;
+    this.growthReloadState = 'loading';
+    this.cdr.markForCheck();
+    try {
+      await this.loadLessons(false);
+      this.growthReloadState = 'done';
+      this.cdr.markForCheck();
+      // Brief green check, then clear
+      await new Promise(resolve => setTimeout(resolve, 1200));
+    } finally {
+      this.growthReloadState = 'idle';
+      this.growthReloadBurstSrc = null;
+      this._pendingLessonUpdateCount = 0;
+      this.tutorGrowthService.clearPendingUpdates();
+      this.syncGrowthInsightProperties();
+      this.cdr.markForCheck();
+    }
+  }
+
+  /** Sticky counter so multiple booking events accumulate in the ticker. */
+  private _pendingLessonUpdateCount = 0;
+  /** True only while the home page is the currently-visible Ionic view.
+   *  We use this to suppress the "N new lessons booked while you were here"
+   *  ticker when the booking notification arrives while the tutor is on
+   *  another tab — they should see the new lesson natively the next time
+   *  they enter home, not as a stale pending-updates badge. */
+  private _isHomePageActive = false;
+
+  /** Increment the pending-bookings count and surface it in the growth ticker. */
+  queuePendingLessonUpdate(delta: number = 1): void {
+    if (!this.isTutorUser) return;
+    this.ngZone.run(() => {
+      this.ensureGrowthInsightUpdateCallback();
+      this._pendingLessonUpdateCount += Math.max(1, delta);
+      this.tutorGrowthService.setPendingUpdates(this._pendingLessonUpdateCount);
+      this.syncGrowthInsightProperties();
+      this.cdr.markForCheck();
+    });
+  }
+
+  /**
+   * Manual test entry point — invoke from devtools as
+   * `window.__testPendingUpdates(3)` to simulate a websocket-driven booking
+   * burst without actually waiting on the backend. Pass 0 to clear.
+   */
+  testPendingUpdates(count: number = 3): void {
+    if (!count || count < 1) {
+      this._pendingLessonUpdateCount = 0;
+      this.tutorGrowthService.clearPendingUpdates();
+    } else {
+      this._pendingLessonUpdateCount = count;
+      this.tutorGrowthService.setPendingUpdates(count);
+    }
+    this.syncGrowthInsightProperties();
+    this.cdr.markForCheck();
   }
 
   openGrowthInsightsModal(): void {
@@ -7197,6 +7325,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
 
   /** Max lessons shown in the desktop This Week horizontal strip (rest via Full schedule / modal). */
   private readonly thisWeekHomeMaxLessons = 15;
+  thisWeekHomeTitleKey = 'HOME.THIS_WEEK';
 
   trackByTimelineEvent(_index: number, ev: { lesson?: { _id?: string; startTime?: string } }): string {
     const id = ev?.lesson?._id;
@@ -7211,17 +7340,49 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     return group.dayKey;
   }
 
+  /** Calendar-day key for grouping / filtering (local calendar date). */
+  private lessonDayKey(startTime: string | Date): string {
+    const d = startTime instanceof Date ? startTime : new Date(startTime);
+    return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+  }
+
+  private currentCalendarWeekBounds(from: Date = new Date()): { start: Date; end: Date } {
+    const start = this.getStartOfWeek(this.startOfDay(from));
+    const end = new Date(start);
+    end.setDate(end.getDate() + 7);
+    return { start, end };
+  }
+
+  private lessonsInCurrentCalendarWeek<T extends { startTime: string | Date }>(lessons: T[], from: Date = new Date()): T[] {
+    const { start, end } = this.currentCalendarWeekBounds(from);
+    return lessons.filter((lesson) => {
+      const lessonStart = new Date(lesson.startTime);
+      return lessonStart >= start && lessonStart < end;
+    });
+  }
+
+  private scopedThisWeekOrUpcomingLessons<T extends { startTime: string | Date }>(lessons: T[], from: Date = new Date()): {
+    lessons: T[];
+    titleKey: string;
+  } {
+    const thisWeekLessons = this.lessonsInCurrentCalendarWeek(lessons, from);
+    if (thisWeekLessons.length > 0) {
+      return { lessons: thisWeekLessons, titleKey: 'HOME.THIS_WEEK' };
+    }
+    return { lessons, titleKey: 'HOME.COMING_UP_DYNAMIC' };
+  }
+
   /** Calendar-day groups for the desktop This Week strip (one date column per day, events scroll horizontally). */
-  get timelineDayGroups(): Array<{ dayKey: string; dateLabel: string; dateBadgeMonth: string; dateBadgeDay: string; dateBadgeWeekday: string; isToday: boolean; events: any[] }> {
+  get timelineDayGroups(): Array<{ dayKey: string; dateLabel: string; dateBadgeMonth: string; dateBadgeDay: string; dateBadgeWeekday: string; isToday: boolean; events: any[]; extraCount: number }> {
     const events = this.timelineEvents;
     if (!events.length) {
       return [];
     }
-    const groups: Array<{ dayKey: string; dateLabel: string; dateBadgeMonth: string; dateBadgeDay: string; dateBadgeWeekday: string; isToday: boolean; events: any[] }> = [];
+    const groups: Array<{ dayKey: string; dateLabel: string; dateBadgeMonth: string; dateBadgeDay: string; dateBadgeWeekday: string; isToday: boolean; events: any[]; extraCount: number }> = [];
     for (const ev of events) {
       const st = ev?.lesson?.startTime;
       const d = st ? new Date(st) : new Date();
-      const dayKey = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+      const dayKey = this.lessonDayKey(d);
       const dateLabel = ev.date as string;
       const last = groups[groups.length - 1];
       if (last && last.dayKey === dayKey) {
@@ -7235,8 +7396,12 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
           dateBadgeWeekday: ev.dateBadgeWeekday || '',
           isToday: !!ev.isToday,
           events: [ev],
+          extraCount: 0,
         });
       }
+    }
+    for (const g of groups) {
+      g.extraCount = Math.max(0, g.events.length - 1);
     }
     return groups;
   }
@@ -7253,7 +7418,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     const lessonsHash = this.lessons.map(l => `${l._id}:${l.startTime}`).join(',');
     const cancelledHash = this.cancelledLessons.map(l => `${l._id}:${l.startTime}`).join(',');
     const nextLessonId = this.nextLesson?.lessonId || 'null';
-    const currentHash = `${lessonsHash}:${cancelledHash}:${nextLessonId}:${Date.now() - (Date.now() % 60000)}`; // Update every minute
+    const weekStartsOn = this.getCalendarWeekStartsOn();
+    const currentHash = `${lessonsHash}:${cancelledHash}:${nextLessonId}:${weekStartsOn}:${Date.now() - (Date.now() % 60000)}`; // Update every minute
     
     // Return cached value if inputs haven't changed
     if (this._cachedTimelineEventsHash === currentHash && this._cachedTimelineEvents.length >= 0) {
@@ -7279,13 +7445,6 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
                               nextClassLesson?.lesson?._id || 
                               (nextClassLesson?.lesson && String(nextClassLesson.lesson._id));
     
-    // Get all scheduled (non-cancelled) lesson times to check for replacements
-    const scheduledLessonTimes = new Set(
-      allLessonsForTimeline
-        .filter(l => l.status !== 'cancelled')
-        .map(l => new Date(l.startTime).getTime())
-    );
-    
     // Future / active lessons for This Week row(s)
     const baseFilter = (lesson: any) => {
       const startTime = new Date(lesson.startTime);
@@ -7304,8 +7463,10 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     const withoutNext = pool.filter(
       (lesson) => !nextClassLessonId || String(lesson._id) !== String(nextClassLessonId)
     );
+    const scopedLessons = this.scopedThisWeekOrUpcomingLessons(withoutNext, now);
+    this.thisWeekHomeTitleKey = scopedLessons.titleKey;
     const cap = this.thisWeekHomeMaxLessons;
-    const chosen = withoutNext.slice(0, cap);
+    const chosen = scopedLessons.lessons.slice(0, cap);
 
     return chosen.map((lesson) => {
         const startTime = new Date(lesson.startTime);
@@ -7387,14 +7548,6 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     return this.timelineEvents.filter(e => !e.isCancelled).length;
   }
 
-  // Count of additional lessons on the same day as the first timeline event
-  get sameDayExtraCount(): number {
-    const events = this.timelineEvents;
-    if (events.length < 2) return 0;
-    const firstDate = events[0].date;
-    return events.filter((e: any, i: number) => i > 0 && e.date === firstDate).length;
-  }
-  
   // Get count of cancelled timeline events
   get cancelledTimelineCount(): number {
     return this.timelineEvents.filter(e => e.isCancelled).length;
@@ -7423,6 +7576,14 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   // Track if all lessons modal is open
   isAllLessonsModalOpen = false;
   allLessonsForModal: any[] = [];
+  /** When set, modal lists only lessons on this calendar day (This Week +more). */
+  allLessonsModalDayKey: string | null = null;
+  allLessonsModalTitle = '';
+  allLessonsModalDateGroups: Array<{
+    dayKey: string;
+    dateBadge: { month: string; dayNum: string; weekdayShort: string };
+    events: any[];
+  }> = [];
   
   // Track if feedback modal is open
   isFeedbackModalOpen = false;
@@ -7433,53 +7594,121 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   tutorApprovalWizardBackdropVisible = false;
   tutorApprovalWizardModalReady = false;
 
+  private mapLessonToModalRow(lesson: Lesson): any {
+    const startTime = new Date(lesson.startTime);
+    const endTime = lesson.endTime ? new Date(lesson.endTime) : null;
+    const student = lesson.studentId as any;
+    const tutor = lesson.tutorId as any;
+    const isStudentView = this.isStudent();
+    const participantToShow = isStudentView ? tutor : student;
+
+    return {
+      date: this.formatRelativeDate(startTime),
+      fullDate: this.formatFullDate(startTime),
+      time: this.formatTimeOnly(startTime),
+      endTime: endTime ? this.formatTimeOnly(endTime) : null,
+      name: participantToShow
+        ? (isStudentView ? this.formatTutorDisplayName(participantToShow) : this.formatStudentDisplayName(participantToShow))
+        : 'Unknown',
+      avatar: participantToShow?.picture || participantToShow?.profilePicture || null,
+      subject: this.formatSubject(lesson.subject),
+      duration: lesson.duration || 25,
+      isCancelled: lesson.status === 'cancelled',
+      lesson,
+    };
+  }
+
+  private syncAllLessonsModalDateGroups(): void {
+    const groups: Array<{
+      dayKey: string;
+      dateBadge: { month: string; dayNum: string; weekdayShort: string };
+      events: any[];
+    }> = [];
+
+    for (const ev of this.allLessonsForModal) {
+      const st = ev?.lesson?.startTime;
+      const dayKey = st ? this.lessonDayKey(st) : '';
+      const last = groups[groups.length - 1];
+      if (last && last.dayKey === dayKey) {
+        last.events.push(ev);
+      } else {
+        groups.push({
+          dayKey,
+          dateBadge: st
+            ? this.lessonDateBadgeParts(st)
+            : { month: '', dayNum: '', weekdayShort: '' },
+          events: [ev],
+        });
+      }
+    }
+
+    this.allLessonsModalDateGroups = groups;
+  }
+
+  trackByModalDateGroup(_index: number, group: { dayKey: string }): string {
+    return group.dayKey;
+  }
+
+  private futureLessonsForModal(dayKey?: string): Lesson[] {
+    const now = new Date();
+    return [...this.lessons]
+      .filter((lesson) => {
+        const startTime = new Date(lesson.startTime);
+        if (startTime <= now) return false;
+        if (lesson.status === 'completed') return false;
+        if (dayKey != null && this.lessonDayKey(startTime) !== dayKey) return false;
+        return true;
+      })
+      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+  }
+
+  /**
+   * Open modal with all lessons on one calendar day (This Week +more).
+   */
+  openDayLessonsModal(group: { dayKey: string; events: any[]; dateLabel?: string }): void {
+    this.selectedFilterMonth = null;
+    this.selectedFilterYear = null;
+    this.selectedDateForPicker = new Date().toISOString();
+    this.allLessonsModalDayKey = group.dayKey;
+    this.isDatePickerView = false;
+
+    const lessons = this.futureLessonsForModal(group.dayKey);
+    this.allLessonsForModal = lessons.map((lesson) => this.mapLessonToModalRow(lesson));
+    this.allLessonsUnfiltered = [...this.allLessonsForModal];
+    this.syncAllLessonsModalDateGroups();
+    const groupDate = lessons[0]?.startTime ? new Date(lessons[0].startTime) : new Date();
+    const isCurrentWeekGroup = this.lessonsInCurrentCalendarWeek([{ startTime: groupDate }]).length > 0;
+    this.allLessonsModalTitle = this.translateService.instant(
+      isCurrentWeekGroup ? 'HOME.THIS_WEEK' : 'HOME.COMING_UP_DYNAMIC'
+    );
+
+    this.isAllLessonsModalOpen = true;
+  }
+
   /**
    * Open modal to show all upcoming lessons (Airbnb style)
    */
   async openAllLessonsModal() {
-    // Reset filter state
     this.selectedFilterMonth = null;
     this.selectedFilterYear = null;
     this.selectedDateForPicker = new Date().toISOString();
-    
-    // Get all future lessons (exclude cancelled — they're not "upcoming")
-    const allLessons = [...this.lessons];
-    const now = new Date();
-    
-    this.allLessonsForModal = allLessons
-      .filter(lesson => new Date(lesson.startTime) > now)
-      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
-      .map(lesson => {
-        const startTime = new Date(lesson.startTime);
-        const endTime = lesson.endTime ? new Date(lesson.endTime) : null;
-        const student = lesson.studentId as any;
-        const tutor = lesson.tutorId as any;
-        const isStudentView = this.isStudent();
-        const participantToShow = isStudentView ? tutor : student;
-        
-        return {
-          date: this.formatRelativeDate(startTime),
-          fullDate: this.formatFullDate(startTime),
-          time: this.formatTimeOnly(startTime),
-          endTime: endTime ? this.formatTimeOnly(endTime) : null,
-          name: participantToShow ? (isStudentView ? this.formatTutorDisplayName(participantToShow) : this.formatStudentDisplayName(participantToShow)) : 'Unknown',
-          avatar: participantToShow?.picture || participantToShow?.profilePicture || null,
-          subject: this.formatSubject(lesson.subject),
-          duration: lesson.duration || 25,
-          isCancelled: lesson.status === 'cancelled',
-          lesson: lesson
-        };
-      });
-    
-    // Store unfiltered list
+    this.allLessonsModalDayKey = null;
+    this.isDatePickerView = false;
+    this.allLessonsModalTitle = this.translateService.instant('HOME.UPCOMING_LESSONS_MODAL');
+
+    const scopedLessons = this.scopedThisWeekOrUpcomingLessons(this.futureLessonsForModal());
+    this.allLessonsModalTitle = this.translateService.instant(scopedLessons.titleKey);
+    this.allLessonsForModal = scopedLessons.lessons.map((lesson) => this.mapLessonToModalRow(lesson));
     this.allLessonsUnfiltered = [...this.allLessonsForModal];
-    
+    this.syncAllLessonsModalDateGroups();
     this.isAllLessonsModalOpen = true;
   }
 
   closeAllLessonsModal() {
     this.isAllLessonsModalOpen = false;
-    this.isDatePickerView = false; // Reset to lessons view
+    this.isDatePickerView = false;
+    this.allLessonsModalDayKey = null;
+    this.allLessonsModalDateGroups = [];
   }
 
   // Date picker view state (same modal, different view)
@@ -7570,12 +7799,14 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       return lessonDate.getMonth() === this.selectedFilterMonth && 
              lessonDate.getFullYear() === this.selectedFilterYear;
     });
+    this.syncAllLessonsModalDateGroups();
   }
   
   clearMonthFilter() {
     this.selectedFilterMonth = null;
     this.selectedFilterYear = null;
     this.allLessonsForModal = [...this.allLessonsUnfiltered];
+    this.syncAllLessonsModalDateGroups();
   }
 
   // Format full date like "Friday, February 6"
@@ -8101,6 +8332,9 @@ navigateToLessons() {
     // Only show skeleton loader if explicitly requested (e.g., initial load)
     if (showSkeleton) {
       this.isLoadingLessons = true;
+      this.trialBadgePopFloat = false;
+      this.mobileStaggerReady = false;
+      this.mobileStaggerDone = false;
       this.syncEarningsColumnLoading();
     }
     
@@ -8434,6 +8668,7 @@ navigateToLessons() {
               this.quickActionsAnimated = true;
               this.upNextCardAnimated = true;
               this.mobileStaggerDone = true;
+              this.scheduleTrialBadgePopFloat();
               this.cdr.detectChanges();
             }, 800);
           }, 50);
@@ -8450,6 +8685,7 @@ navigateToLessons() {
                 setTimeout(() => {
                   this.upNextCardAnimated = true;
                   this.desktopEnterDone = true;
+                  this.scheduleTrialBadgePopFloat();
                   this.cdr.markForCheck();
                 }, 300);
               }, 80);
@@ -8462,6 +8698,7 @@ navigateToLessons() {
           this.desktopEnterDone = true;
           this.mobileStaggerReady = true;
           this.mobileStaggerDone = true;
+          this.scheduleTrialBadgePopFloat();
         }
         
       } else {
@@ -8469,11 +8706,33 @@ navigateToLessons() {
         this.upNextCardAnimated = true;
         this.mobileStaggerReady = true;
         this.mobileStaggerDone = true;
+        this.scheduleTrialBadgePopFloat();
         this.refreshPreComputedTemplateValues();
         this.cdr.detectChanges();
       }
       this.syncTutorMobileWelcomeAboveUpNext();
     }
+  }
+
+  /** Pop-float trial badge after Up Next / quick-actions enter animations finish. */
+  private scheduleTrialBadgePopFloat(): void {
+    this.trialBadgePopFloat = false;
+    const isTrial =
+      !!this.nextLesson?.isTrialLesson &&
+      this.nextLesson?.lesson?.status !== 'cancelled';
+    if (!isTrial) {
+      return;
+    }
+    setTimeout(() => {
+      if (
+        !this.nextLesson?.isTrialLesson ||
+        this.nextLesson?.lesson?.status === 'cancelled'
+      ) {
+        return;
+      }
+      this.trialBadgePopFloat = true;
+      this.cdr.detectChanges();
+    }, 280);
   }
 
   /**

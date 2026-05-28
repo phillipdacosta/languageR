@@ -505,7 +505,10 @@
       "INSIGHT_MORNING_PREP_MANY": "{{count}} lessons today — review your notes before they start",
       "INSIGHT_EVENING_RECAP_ONE": "1 lesson done today — great session, {{name}}",
       "INSIGHT_EVENING_RECAP_MANY": "{{count}} lessons done today — great sessions, {{name}}",
-      "INSIGHT_SHARE_PROFILE": "Your profile is live — share the link to get your first booking"
+      "INSIGHT_SHARE_PROFILE": "Your profile is live — share the link to get your first booking",
+      "INSIGHT_PENDING_UPDATES_ONE": "1 new lesson booked while you were here",
+      "INSIGHT_PENDING_UPDATES_MANY": "{{count}} new lessons booked while you were here",
+      "PENDING_UPDATES_RELOAD": "Refresh"
     },
     "ACCEPT_INVITATION": "Accept Invitation",
     "DECLINE_INVITATION": "Decline Invitation",
@@ -695,6 +698,7 @@
     "STATS_RATING": "Rating",
     "STATS_OVERALL": "Overall",
     "THIS_WEEK": "This Week",
+    "COMING_UP_DYNAMIC": "Coming up",
     "WEEK_SAME_DAY_SESSIONS": "{{count}} sessions",
     "THIS_WEEK_NOTHING_YET": "Nothing yet",
     "THIS_WEEK_NOTHING_ELSE": "Nothing else — for now!",
