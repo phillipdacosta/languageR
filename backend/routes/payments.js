@@ -22,7 +22,7 @@ const User = require('../models/User');
 const Lesson = require('../models/Lesson');
 const Notification = require('../models/Notification');
 const Message = require('../models/Message');
-const { generateTrialLessonMessage } = require('../utils/systemMessages');
+const { buildSystemMessage } = require('../utils/systemMessages');
 const { formatNameWithInitial } = require('../utils/nameFormatter');
 const { applyApprovalIfReady } = require('../utils/tutorApproval');
 const {
@@ -597,10 +597,10 @@ router.post('/book-lesson-with-payment', verifyToken, async (req, res) => {
       // Send system message to tutor if this is a trial lesson
       if (isTrialLesson) {
         try {
-          const tutorLanguage = tutor.interfaceLanguage || 'en';
-
           // Fold the student's learning plan into the system message so the
-          // tutor sees their goal/level/phase before the call. Non-fatal.
+          // tutor sees their goal/level/phase/struggles before the call.
+          // Non-fatal: missing plan => message still fires without the
+          // journey block.
           let studentPlan = null;
           try {
             const LearningPlan = require('../models/LearningPlan');
@@ -609,27 +609,28 @@ router.post('/book-lesson-with-payment', verifyToken, async (req, res) => {
               studentPlan = await LearningPlan.findOne({
                 studentId: student._id,
                 language: planLanguage,
-                status: { $in: ['draft', 'active', 'completed'] }
+                status: { $in: ['draft', 'active', 'completed', 'mastery_mode', 'unframed'] }
               }).lean();
             }
           } catch (planErr) {
             console.warn('🔍 [TRIAL] plan lookup failed (non-fatal):', planErr.message);
           }
 
-          const systemMessageContent = generateTrialLessonMessage({
-            studentName: studentDisplayName,
-            studentId: student._id.toString(),
-            startTime: lessonDate,
-            duration: populatedLesson.duration,
-            tutorLanguage,
-            plan: studentPlan
+          const built = buildSystemMessage({
+            template: 'trial_lesson_booked',
+            student: { _id: student._id, displayName: studentDisplayName },
+            tutor,
+            lesson: { startTime: lessonDate, duration: populatedLesson.duration },
+            plan: studentPlan,
+            triggerType: 'book_lesson'
           });
-          
+
+          const systemMessageContent = built.content;
+
           // Create conversation ID between tutor and student using auth0Ids
           const ids = [student.auth0Id, tutor.auth0Id].sort();
           const conversationId = `${ids[0]}_${ids[1]}`;
-          
-          // Create the system message
+
           const systemMessage = new Message({
             conversationId,
             senderId: 'system',
@@ -639,17 +640,22 @@ router.post('/book-lesson-with-payment', verifyToken, async (req, res) => {
             isSystemMessage: true,
             visibleToTutorOnly: true,
             triggerType: 'book_lesson',
+            systemMessage: {
+              template: built.template,
+              params: built.params,
+              locale: built.locale
+            },
             read: false
           });
-          
+
           await systemMessage.save();
-          
+
           console.log('✅ System message sent to tutor about trial lesson:', {
             messageId: systemMessage._id.toString(),
             tutorAuth0Id: tutor.auth0Id,
             studentAuth0Id: student.auth0Id,
             conversationId,
-            language: tutorLanguage
+            language: built.locale
           });
           
           // Create notification for tutor about the trial lesson message

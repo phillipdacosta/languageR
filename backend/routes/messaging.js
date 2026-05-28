@@ -13,6 +13,8 @@ const { formatNameWithInitial } = require('../utils/nameFormatter');
 const {
   syncClassConversation
 } = require('../services/classConversation');
+const { buildSystemMessage } = require('../utils/systemMessages');
+const LearningPlan = require('../models/LearningPlan');
 
 // Use shared name formatter
 const formatDisplayName = formatNameWithInitial;
@@ -1427,48 +1429,60 @@ router.post('/potential-student', verifyToken, async (req, res) => {
       });
     }
 
-    // Create system message content
-    // Get tutor's languages (from onboardingData or profile)
+    // Resolve student's LearningPlan in one of the tutor's teaching
+    // languages so the message can reference their journey. We don't fail
+    // the message creation if this lookup throws — the plan summary is a
+    // bonus, the "shown interest" notice still fires without it.
     const tutorLanguages = tutor.onboardingData?.languages || tutor.profile?.languages || [];
-    const primaryLanguage = tutorLanguages.length > 0 ? tutorLanguages[0] : 'language';
-    
-    // Format language text (e.g., "Spanish" or "Spanish and French")
-    let languageText = primaryLanguage;
-    if (tutorLanguages.length > 1) {
-      languageText = tutorLanguages.slice(0, -1).join(', ') + ' and ' + tutorLanguages[tutorLanguages.length - 1];
+    let studentPlan = null;
+    try {
+      if (tutorLanguages.length > 0) {
+        studentPlan = await LearningPlan.findOne({
+          studentId: student._id,
+          language: { $in: tutorLanguages },
+          status: { $in: ['draft', 'active', 'completed', 'mastery_mode', 'unframed'] }
+        }).lean();
+      }
+      // Fallback: if no plan in a tutor-language, take whatever active plan the
+      // student has — the tutor can still infer relevant context from goal/level.
+      if (!studentPlan) {
+        studentPlan = await LearningPlan.findOne({
+          studentId: student._id,
+          status: { $in: ['draft', 'active', 'mastery_mode'] }
+        }).lean();
+      }
+    } catch (planErr) {
+      console.warn('[potential-student] plan lookup failed (non-fatal):', planErr.message);
     }
-    
-    // Get student name formatted as "FirstName LastInitial."
-    const studentName = formatDisplayName(student);
-    
-    // Randomly select from different message templates for variation
-    const messageTemplates = [
-      `Student ${studentName} has shown interest in your ${languageText} lessons but hasn't finalized their booking yet.\n\nYou can start a conversation to answer any questions they may have about your methodology, class structure, or learning goals.`,
-      
-      `It looks like ${studentName} started booking a ${languageText} lesson with you but hasn't completed it yet.\n\nYou can reach out to see if they need any help or would like to know more about your classes, teaching style, or what to expect.`,
-      
-      `${studentName} has expressed interest in your ${languageText} lessons but hasn't finished the booking process.\n\nConsider sending a message to answer any questions they might have about your approach, availability, or course content.`,
-      
-      `${studentName} showed interest in your ${languageText} classes but didn't complete the booking.\n\nA quick message could make the difference — offer assistance or share a bit more about what makes your lessons unique.`
-    ];
-    
-    // Randomly select a message template
-    const randomIndex = Math.floor(Math.random() * messageTemplates.length);
-    const systemMessageContent = `👋 ${messageTemplates[randomIndex]}`;
 
-    // Create system message (senderId is 'system', but we'll use a special identifier)
-    // For system messages, we'll use the tutorId as senderId but mark it as system
+    const studentName = formatDisplayName(student);
+
+    const built = buildSystemMessage({
+      template: 'student_interest',
+      student: { _id: student._id, displayName: studentName },
+      tutor,
+      plan: studentPlan,
+      triggerType
+    });
+
     const systemMessage = new Message({
       conversationId,
-      senderId: 'system', // Special system sender
-      receiverId: tutorId, // Only visible to tutor
-      content: systemMessageContent,
+      senderId: 'system',
+      receiverId: tutorId,
+      content: built.content,
       type: 'system',
       isSystemMessage: true,
       visibleToTutorOnly: true,
       triggerType,
+      systemMessage: {
+        template: built.template,
+        params: built.params,
+        locale: built.locale
+      },
       read: false
     });
+
+    const systemMessageContent = built.content;
 
     await systemMessage.save();
     console.log('✅ System message created:', {

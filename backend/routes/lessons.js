@@ -12,7 +12,7 @@ const walletService = require('../services/walletService');
 const stripeService = require('../services/stripeService');
 const { RtcRole, RtcTokenBuilder } = require('agora-token');
 const { verifyToken, getUserFromRequest } = require('../middleware/videoUploadMiddleware');
-const { generateTrialLessonMessage } = require('../utils/systemMessages');
+const { buildSystemMessage } = require('../utils/systemMessages');
 const { formatNameWithInitial } = require('../utils/nameFormatter');
 const { pushLessonToGoogleCalendar, removeLessonFromGoogleCalendar, updateLessonOnGoogleCalendar } = require('../services/googleCalendarService');
 const { translateAnalysisFields, translateFeedbackFields, translateGenericFields } = require('../services/aiService');
@@ -680,13 +680,10 @@ router.post('/', verifyToken, async (req, res) => {
     if (isTrialLesson) {
       console.log('🔍 [TRIAL LESSON] Starting system message creation...');
       try {
-        // Get tutor's interface language preference
-        const tutorLanguage = tutor.interfaceLanguage || 'en';
-        console.log('🔍 [TRIAL LESSON] Tutor language:', tutorLanguage);
-
         // Pull the student's learning plan (if any) so the system message
-        // includes a "Their journey so far" block. We don't fail the trial
-        // booking if this lookup throws — the plan summary is a bonus.
+        // includes a "Their journey so far" block + struggles + encouragement.
+        // We don't fail the trial booking if this lookup throws — the plan
+        // summary is a bonus, the trial system message still fires without it.
         let studentPlan = null;
         try {
           const LearningPlan = require('../models/LearningPlan');
@@ -695,30 +692,30 @@ router.post('/', verifyToken, async (req, res) => {
             studentPlan = await LearningPlan.findOne({
               studentId: student._id,
               language: planLanguage,
-              status: { $in: ['draft', 'active', 'completed'] }
+              status: { $in: ['draft', 'active', 'completed', 'mastery_mode', 'unframed'] }
             }).lean();
           }
         } catch (planErr) {
           console.warn('🔍 [TRIAL LESSON] plan lookup failed (non-fatal):', planErr.message);
         }
 
-        const systemMessageContent = generateTrialLessonMessage({
-          studentName: studentDisplayName,
-          studentId: student._id.toString(),
-          startTime: lessonDate,
-          duration: lesson.duration,
-          tutorLanguage,
-          plan: studentPlan
+        const built = buildSystemMessage({
+          template: 'trial_lesson_booked',
+          student: { _id: student._id, displayName: studentDisplayName },
+          tutor,
+          lesson: { startTime: lessonDate, duration: lesson.duration },
+          plan: studentPlan,
+          triggerType: 'book_lesson'
         });
-        
+
+        const systemMessageContent = built.content;
         console.log('🔍 [TRIAL LESSON] Message generated, length:', systemMessageContent.length);
-        
+
         // Create conversation ID between tutor and student using auth0Ids (NOT MongoDB ObjectIds)
         const ids = [student.auth0Id, tutor.auth0Id].sort();
         const conversationId = `${ids[0]}_${ids[1]}`;
         console.log('🔍 [TRIAL LESSON] ConversationId:', conversationId);
-        
-        // Create the system message
+
         const systemMessage = new Message({
           conversationId,
           senderId: 'system',
@@ -728,17 +725,22 @@ router.post('/', verifyToken, async (req, res) => {
           isSystemMessage: true,
           visibleToTutorOnly: true,
           triggerType: 'book_lesson',
+          systemMessage: {
+            template: built.template,
+            params: built.params,
+            locale: built.locale
+          },
           read: false
         });
-        
+
         await systemMessage.save();
-        
+
         console.log('✅ System message sent to tutor about trial lesson:', {
           messageId: systemMessage._id.toString(),
           tutorAuth0Id: tutor.auth0Id,
           studentAuth0Id: student.auth0Id,
           conversationId,
-          language: tutorLanguage
+          language: built.locale
         });
         
         // Create notification for tutor about the trial lesson message

@@ -65,6 +65,10 @@ export class AgoraService {
   public onRemoteUserJoined?: (uid: UID) => void;
   public onRemoteUserPublished?: (uid: UID, mediaType: 'audio' | 'video') => void;
   public onRemoteUserLeft?: (uid: UID) => void;
+  // Reliable screen-share state via the messaging channel — replaces the
+  // fragile `displaySurface`/`width > 1280` heuristic we used to infer "is the
+  // remote user sharing their screen" from track settings.
+  public onRemoteScreenShareStateChange?: (uid: UID, isSharing: boolean) => void;
 
   private readonly APP_ID = environment.agora.appId;
   private readonly TOKEN = environment.agora.token;
@@ -1311,6 +1315,11 @@ export class AgoraService {
         if (this.onRemoteTalkTimeUpdate) {
           this.onRemoteTalkTimeUpdate(message.payload.speakingSeconds);
         }
+      } else if (message.type === 'screenShareState') {
+        console.log('🖥️ Processing screen-share state message:', message.payload);
+        if (this.onRemoteScreenShareStateChange) {
+          this.onRemoteScreenShareStateChange(message.payload.uid, !!message.payload.isSharing);
+        }
       } else {
         console.log('⚠️ Unknown message type:', message.type);
       }
@@ -1415,6 +1424,7 @@ export class AgoraService {
           console.warn('⚠️ Error stopping screen track:', error);
         }
       }
+      this.currentLocalScreenSharingState = false;
       this.onScreenShareStoppedCallback = null;
 
       // Clean up virtual background processor
@@ -1772,6 +1782,7 @@ export class AgoraService {
   // Track current local state for periodic re-broadcasting
   private currentLocalMuteState: boolean = false;
   private currentLocalVideoOffState: boolean = false;
+  private currentLocalScreenSharingState: boolean = false;
   private stateRebroadcastInterval: any = null;
 
   /**
@@ -1840,6 +1851,35 @@ export class AgoraService {
     const success = await this.sendMessageWithRetry(payload);
     if (success) {
       console.log(`✅ Mute state sent successfully: ${isMuted ? 'muted' : 'unmuted'}`);
+    }
+  }
+
+  /**
+   * Send screen-share state to the other participants so they know we just
+   * started/stopped sharing. Replaces the heuristic in the page component
+   * that tried to infer this from track settings.
+   */
+  async sendScreenShareStateUpdate(isSharing: boolean): Promise<void> {
+    const actualUID = this.getLocalUID();
+    if (!this.channelName || this.channelName === 'default' || !actualUID) {
+      console.warn('❌ Cannot send screen-share state: channel or UID missing');
+      return;
+    }
+
+    this.currentLocalScreenSharingState = isSharing;
+
+    const payload = {
+      type: 'screenShareState',
+      payload: {
+        uid: actualUID,
+        isSharing,
+        timestamp: new Date().toISOString()
+      }
+    };
+
+    const success = await this.sendMessageWithRetry(payload);
+    if (success) {
+      console.log(`✅ Screen-share state sent: ${isSharing ? 'sharing' : 'not sharing'}`);
     }
   }
 
@@ -1920,6 +1960,23 @@ export class AgoraService {
             }
           })
         });
+
+        // Re-send current screen-share state so a late-joiner immediately knows
+        // someone is presenting (without having to wait for the next share toggle).
+        if (this.currentLocalScreenSharingState) {
+          await fetch(`${environment.backendUrl}/api/messaging/channels/${this.channelName}/messages`, {
+            method: 'POST',
+            headers: this.getAuthHeaders(),
+            body: JSON.stringify({
+              type: 'screenShareState',
+              payload: {
+                uid: actualUID,
+                isSharing: this.currentLocalScreenSharingState,
+                timestamp: new Date().toISOString()
+              }
+            })
+          });
+        }
       } catch (error) {
         // Silent fail for periodic re-broadcast — not critical
       }
@@ -2100,8 +2157,14 @@ export class AgoraService {
       // Publish screen track
       await this.client.publish(this.screenTrack);
       this.isScreenSharing = true;
-      
+
       console.log('✅ Screen sharing started successfully');
+
+      // Tell the other participant(s) we just started sharing so they can
+      // swap their UI without relying on track-settings heuristics.
+      this.sendScreenShareStateUpdate(true).catch(err => {
+        console.warn('⚠️ Failed to broadcast screen-share start state:', err);
+      });
 
       // Listen for screen share end (when user clicks "Stop sharing" in browser)
       this.screenTrack.on("track-ended", async () => {
@@ -2162,13 +2225,20 @@ export class AgoraService {
         console.log('📹 Restoring camera video track after screen sharing...');
         await this.client.publish(this.localVideoTrack);
       }
-      
+
       this.isScreenSharing = false;
       console.log('✅ Screen sharing stopped successfully');
-      
+
+      // Let the other side know we're back to the camera view.
+      this.sendScreenShareStateUpdate(false).catch(err => {
+        console.warn('⚠️ Failed to broadcast screen-share stop state:', err);
+      });
+
     } catch (error: any) {
       console.error('❌ Error stopping screen share:', error);
       this.isScreenSharing = false;
+      // Best-effort: still try to signal stop so the remote UI doesn't get stuck.
+      this.sendScreenShareStateUpdate(false).catch(() => undefined);
       throw error;
     }
   }

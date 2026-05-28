@@ -13,6 +13,7 @@ VIDEO_CALL_EN: dict = {
     "RETRY": "Retry",
     "SCREEN_SHARING": "Screen Sharing",
     "STOP_SHARING": "Stop Sharing",
+    "REMOTE_IS_SHARING": "{{name}} is sharing their screen",
     "YOU": "You",
     "PARTICIPANT": "Participant",
     "TUTOR": "Tutor",

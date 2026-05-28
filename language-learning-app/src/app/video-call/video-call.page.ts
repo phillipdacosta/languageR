@@ -41,7 +41,6 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('localVideoGallery', { static: false }) localVideoGalleryRef!: ElementRef<HTMLDivElement>;
   @ViewChild('chatMessagesContainer', { static: false }) chatMessagesRef!: ElementRef<HTMLDivElement>;
   @ViewChild('screenShareVideo', { static: false }) screenShareVideoRef!: ElementRef<HTMLDivElement>;
-  @ViewChild('localVideoPip', { static: false }) localVideoPipRef!: ElementRef<HTMLDivElement>;
 
   // Listen for window resize to adjust canvas size
   @HostListener('window:resize')
@@ -94,6 +93,22 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   showWhiteboard = false;
   showChat = false;
   showNotes = false;
+
+  // Picture-in-Picture tiles rendered alongside the local user's screen share so the
+  // sharer can still see who they're talking to. Maintained independently of
+  // `allParticipants` (which is only populated in class mode) so 1:1 lessons work too.
+  screenSharePipParticipants: Array<{
+    uid: any;
+    name: string;
+    isVideoOff: boolean;
+    isMuted: boolean;
+    profilePicture?: string;
+  }> = [];
+
+  // Which remote UID is currently sharing (driven by the `screenShareState`
+  // message). Used to label the screen-share view for the viewer.
+  remoteSharingUid: any = null;
+  remoteSharingName: string = '';
   
   // Notes form properties (for tutors during lesson)
   lessonNoteText: string = '';
@@ -504,8 +519,19 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     this.agoraService.onRemoteUserPublished = (_uid, mediaType) => {
       this.refreshRemoteParticipantsImmediately(`published-${mediaType}`);
     };
-    this.agoraService.onRemoteUserLeft = (_uid) => {
+    this.agoraService.onRemoteUserLeft = (uid) => {
+      // If the user who just left was sharing, clear that state so the
+      // viewer doesn't get stuck showing the "X is sharing" overlay.
+      if (this.remoteSharingUid === uid) {
+        this.remoteSharingUid = null;
+        this.remoteSharingName = '';
+        this.isRemoteScreenSharing = false;
+      }
       this.refreshRemoteParticipantsImmediately('left');
+    };
+
+    this.agoraService.onRemoteScreenShareStateChange = (uid, isSharing) => {
+      this.handleRemoteScreenShareStateChange(uid, isSharing);
     };
 
     this.agoraService.onVolumeIndicator = (volumes) => {
@@ -1405,8 +1431,9 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       // Keep template-bound remote user properties in sync
       this.updateRemoteUserProperties();
 
-      // Check for remote screen sharing
-      this.checkRemoteScreenSharing();
+      // (Remote screen-share state now flows in via the `screenShareState`
+      //  message hooked up in `handleRemoteScreenShareStateChange`, so the
+      //  fragile track-settings heuristic is gone.)
 
       // Log when remote user count changes
       if (previousCount !== this.remoteUserCount) {
@@ -1536,28 +1563,31 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     }, 1000);
   }
 
-  private checkRemoteScreenSharing() {
-    const remoteUsers = this.agoraService.getRemoteUsers();
-    let someoneElseSharing = false;
+  /**
+   * Authoritative screen-share state for a remote user. Driven by the
+   * `screenShareState` message broadcast by the sharer. Replaces the old
+   * `displaySurface`/`width > 1280` heuristic, which false-positived on any
+   * HD webcam and missed shares on browsers that don't expose `displaySurface`.
+   */
+  private handleRemoteScreenShareStateChange(uid: any, isSharing: boolean): void {
+    if (isSharing) {
+      this.remoteSharingUid = uid;
+      this.isRemoteScreenSharing = true;
+      this.remoteSharingName = this.resolveRemoteSharerName(uid);
+    } else if (this.remoteSharingUid === uid || !this.remoteSharingUid) {
+      this.remoteSharingUid = null;
+      this.remoteSharingName = '';
+      this.isRemoteScreenSharing = false;
+    }
+    this.cdr.detectChanges();
+  }
 
-    // Check if any remote user has a screen sharing track
-    remoteUsers.forEach((user, uid) => {
-      // Screen sharing tracks typically have different properties
-      // Check if the video track is a screen share (usually larger resolution)
-      if (user.videoTrack) {
-        const track = user.videoTrack.getMediaStreamTrack();
-        if (track) {
-          const settings = track.getSettings();
-          // Screen shares typically have displaySurface property or very high resolution
-          if (settings.displaySurface || (settings.width && settings.width > 1280)) {
-            someoneElseSharing = true;
-            console.log(`📺 Remote user ${uid} is screen sharing`);
-          }
-        }
-      }
-    });
-
-    this.isRemoteScreenSharing = someoneElseSharing;
+  private resolveRemoteSharerName(uid: any): string {
+    const registry = this.participantRegistry.get(uid);
+    if (registry?.name) return registry.name;
+    const identity = this.remoteUserIdentities.get(uid);
+    if (identity?.name) return identity.name;
+    return this.userRole === 'tutor' ? (this.studentName || '') : (this.tutorName || '');
   }
 
   private playRemoteVideoInCorrectContainer() {
@@ -4395,20 +4425,16 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         this.ngZone.run(() => {
           console.log('🖥️ Screen share stopped externally — syncing page state');
           this.isScreenSharing = false;
-          
-          // Clean up the screen share display
+          this.screenSharePipParticipants = [];
+
           if (this.screenShareVideoRef?.nativeElement) {
             this.screenShareVideoRef.nativeElement.innerHTML = '';
           }
-          if (this.localVideoPipRef?.nativeElement) {
-            this.localVideoPipRef.nativeElement.innerHTML = '';
-          }
-          
-          // Restore normal video layout
+
           setTimeout(() => {
             this.playRemoteVideoInCorrectContainer();
           }, 300);
-          
+
           this.cdr.detectChanges();
         });
       });
@@ -4449,20 +4475,13 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     try {
       await this.agoraService.stopScreenShare();
       this.isScreenSharing = false;
+      this.screenSharePipParticipants = [];
       console.log('✅ Screen sharing stopped successfully');
-      
-      // Clear the screen share display
+
       if (this.screenShareVideoRef?.nativeElement) {
         this.screenShareVideoRef.nativeElement.innerHTML = '';
       }
-      
-      // Clear PiP displays
-      if (this.localVideoPipRef?.nativeElement) {
-        this.localVideoPipRef.nativeElement.innerHTML = '';
-      }
-      
-      
-      // Restore normal video layout
+
       setTimeout(() => {
         this.playRemoteVideoInCorrectContainer();
       }, 300);
@@ -4490,65 +4509,92 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   private displayScreenShare() {
     try {
       const screenTrack = this.agoraService.getScreenTrack();
-      if (screenTrack && this.screenShareVideoRef?.nativeElement) {
-        console.log('🖥️ Displaying screen share video in full screen mode');
-        screenTrack.play(this.screenShareVideoRef.nativeElement);
-        
-        // Also display local camera in PiP
-        this.displayLocalVideoPip();
-        
-        // Display remote participants in PiP
-        this.displayRemoteParticipantsPip();
-      }
+      if (!screenTrack || !this.screenShareVideoRef?.nativeElement) return;
+      console.log('🖥️ Displaying screen share video in full screen mode');
+      screenTrack.play(this.screenShareVideoRef.nativeElement);
+
+      // Build the PiP roster first so the *ngFor renders, then attach each
+      // remote user's video track to its slot.
+      this.updateScreenSharePipParticipants();
+      this.cdr.detectChanges();
+      this.attachRemoteParticipantsToPip();
     } catch (error) {
       console.error('❌ Error displaying screen share:', error);
     }
   }
 
-  private displayLocalVideoPip() {
-    try {
-      const localTrack = this.agoraService.getLocalVideoTrack();
-      if (localTrack && this.localVideoPipRef?.nativeElement) {
-        console.log('📹 Displaying local camera in PiP');
-        localTrack.play(this.localVideoPipRef.nativeElement);
+  /**
+   * Rebuild the screen-share PiP roster from the current Agora remote users.
+   * Driven from the same SDK events as the rest of the UI (join/publish/
+   * unpublish/leave/state-change) so the sharer always sees the latest set
+   * of peers next to their shared screen.
+   */
+  private updateScreenSharePipParticipants(): void {
+    const remoteUsers = this.agoraService.getRemoteUsers();
+    const next: typeof this.screenSharePipParticipants = [];
+
+    remoteUsers.forEach((user, uid) => {
+      const stateFromMap = this.remoteUserStates.get(uid) || {};
+      const isVideoOff = stateFromMap.isVideoOff !== undefined
+        ? !!stateFromMap.isVideoOff
+        : !user.videoTrack;
+      const isMuted = stateFromMap.isMuted !== undefined
+        ? !!stateFromMap.isMuted
+        : !user.audioTrack;
+
+      const registryInfo = this.participantRegistry.get(uid);
+      const broadcastIdentity = this.remoteUserIdentities.get(uid);
+
+      let name = '';
+      let profilePicture = '';
+      if (registryInfo) {
+        name = registryInfo.name;
+        profilePicture = registryInfo.profilePicture || '';
+      } else if (broadcastIdentity) {
+        name = broadcastIdentity.name;
+        profilePicture = broadcastIdentity.profilePicture || '';
+      } else if (this.userRole === 'tutor') {
+        name = this.studentName || '';
+        profilePicture = this.studentProfilePicture || '';
+      } else {
+        name = this.tutorName || '';
+        profilePicture = this.tutorProfilePicture || '';
       }
-    } catch (error) {
-      console.error('❌ Error displaying local video PiP:', error);
-    }
+
+      next.push({ uid, name, isVideoOff, isMuted, profilePicture });
+    });
+
+    this.screenSharePipParticipants = next;
   }
 
-  private displayRemoteParticipantsPip() {
-    try {
-      // Wait a bit for DOM to update
-      setTimeout(() => {
-        const remoteUsers = this.agoraService.getRemoteUsers();
-        remoteUsers.forEach((user: any, uid: any) => {
-          if (user.videoTrack) {
-            const pipElement = document.getElementById(`pip-remote-${uid}`);
-            if (pipElement) {
-              const videoContainer = pipElement.querySelector('.pip-video-element');
-              if (videoContainer) {
-                console.log(`📹 Displaying remote participant ${uid} in PiP`);
-                user.videoTrack.play(videoContainer as HTMLElement);
-              }
-            }
-          }
-        });
-      }, 100);
-    } catch (error) {
-      console.error('❌ Error displaying remote participants PiP:', error);
-    }
+  /**
+   * Attach each remote user's video track into its PiP slot. Runs after the
+   * *ngFor renders the slot DOM. Idempotent — skips slots that already have
+   * a playing <video> element so we don't churn it on every refresh.
+   */
+  private attachRemoteParticipantsToPip(): void {
+    if (!this.isScreenSharing) return;
+    const remoteUsers = this.agoraService.getRemoteUsers();
+    setTimeout(() => {
+      remoteUsers.forEach((user, uid) => {
+        if (!user.videoTrack) return;
+        const pipElement = document.getElementById(`pip-remote-${uid}`);
+        if (!pipElement) return;
+        const videoContainer = pipElement.querySelector('.pip-video-element') as HTMLElement | null;
+        if (!videoContainer) return;
+        const existingVideo = videoContainer.querySelector('video');
+        if (existingVideo && !existingVideo.paused && existingVideo.readyState >= 2) return;
+        try {
+          videoContainer.innerHTML = '';
+          user.videoTrack.play(videoContainer);
+        } catch (e) {
+          console.warn('⚠️ Failed to attach remote video to PiP for uid', uid, e);
+        }
+      });
+    }, 150);
   }
 
-  getRemoteParticipants() {
-    return this.allParticipants.filter((p: any) => !p.isLocal);
-  }
-
-  isMyScreenShare(): boolean {
-    // Return true if the current user is the one sharing screen
-    // This prevents showing their own camera PiP overlay
-    return this.isScreenSharing;
-  }
+  trackPipParticipant = (_: number, p: { uid: any }) => p.uid;
 
   // Whiteboard Screen Sharing Methods
   async shareWhiteboardScreen() {
@@ -4618,11 +4664,9 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         this.ngZone.run(() => {
           console.log('🖥️ Canvas share stopped externally — syncing page state');
           this.isScreenSharing = false;
+          this.screenSharePipParticipants = [];
           if (this.screenShareVideoRef?.nativeElement) {
             this.screenShareVideoRef.nativeElement.innerHTML = '';
-          }
-          if (this.localVideoPipRef?.nativeElement) {
-            this.localVideoPipRef.nativeElement.innerHTML = '';
           }
           setTimeout(() => this.playRemoteVideoInCorrectContainer(), 300);
           this.cdr.detectChanges();
@@ -5267,7 +5311,16 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     
     // Recompute template-bound properties for 1:1 view
     this.updateRemoteUserProperties();
-    
+
+    // While screen-sharing, mirror mute / camera-off state into the PiP roster
+    // and re-attach the video track if the camera just turned back on.
+    if (this.isScreenSharing) {
+      this.updateScreenSharePipParticipants();
+      if (state.isVideoOff === false) {
+        this.attachRemoteParticipantsToPip();
+      }
+    }
+
     // Force change detection to update UI immediately
     this.cdr.detectChanges();
   }
@@ -5305,6 +5358,14 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         } else {
           this.playRemoteVideoInCorrectContainer();
         }
+      }
+
+      // While screen-sharing, keep the PiP roster + video tracks in sync with
+      // join/publish/unpublish/leave events so the sharer can still see the
+      // other user the moment they appear or their camera turns on.
+      if (this.isScreenSharing) {
+        this.updateScreenSharePipParticipants();
+        this.attachRemoteParticipantsToPip();
       }
 
       // Side effects on a count change run through a single idempotent

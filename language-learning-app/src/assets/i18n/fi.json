@@ -2831,15 +2831,15 @@
     "CAMERA_OFF": "Kamera pois päältä",
     "WAITING_PARTICIPANTS": "Muita osallistujia odotellessa...",
     "WAITING_TUTOR": "Tutoria odotellessa...",
-    "STUDENT_WANTS": "Opiskelija toivoo:",
-    "INTENT_EASY_LABEL": "rentoa ja kepeää opetusta",
-    "INTENT_EASY_HINT": "Rauhallinen tahti, vähän korjauksia",
-    "INTENT_CONVERSATIONAL_LABEL": "vapaata keskustelua",
-    "INTENT_CONVERSATIONAL_HINT": "Vapaa puhe, anna opiskelijan johtaa",
-    "INTENT_FOCUSED_LABEL": "tavoitteellista harjoittelua",
+    "STUDENT_WANTS": "Opiskelijoiden mieltymykset:",
+    "INTENT_EASY_LABEL": "Rentoa & helppoa",
+    "INTENT_EASY_HINT": "Helppo vauhti, minimaaliset korjaukset",
+    "INTENT_CONVERSATIONAL_LABEL": "Keskusteleva",
+    "INTENT_CONVERSATIONAL_HINT": "Vapaa keskustelu, seuraa heidän esimerkkiään",
+    "INTENT_FOCUSED_LABEL": "Keskittynyt harjoitus",
     "INTENT_FOCUSED_HINT": "Pysy aiheessa, korjaa aktiivisesti",
-    "INTENT_CHALLENGE_LABEL": "haastetta",
-    "INTENT_CHALLENGE_HINT": "Vaadi enemmän, tuo uutta materiaalia",
+    "INTENT_CHALLENGE_LABEL": "Haluaa haasteen",
+    "INTENT_CHALLENGE_HINT": "Työnnä kovemmin, ota käyttöön uutta materiaalia",
     "VIRTUAL_BACKGROUND": "Virtuaalinen tausta",
     "ENABLE_BLUR": "Ota sumennus käyttöön",
     "BLACK_BACKGROUND": "musta tausta",
@@ -2989,7 +2989,8 @@
     "SESSION_CANCELLED_STUDENT_NO_SHOW": "Opiskelija ei saapunut luokkahuoneeseen ajoissa, joten istunto peruttiin ajanhukkaan välttämiseksi.",
     "SESSION_CANCELLED_STUDENT_LEFT": "Opiskelija on poistunut istunnosta.",
     "SCREEN_SHARE_NOT_SUPPORTED": "Näytön jakamista ei tueta tässä selaimessa.",
-    "SCREEN_SHARE_NOT_READABLE": "Näyttöä ei voitu käyttää. Toinen sovellus saattaa estää sen."
+    "SCREEN_SHARE_NOT_READABLE": "Näyttöä ei voitu käyttää. Toinen sovellus saattaa estää sen.",
+    "REMOTE_IS_SHARING": "{{name}} jakaa näyttönsä"
   },
   "ALERTS": {
     "LESSON": {

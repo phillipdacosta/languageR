@@ -70,6 +70,17 @@ const messageSchema = new mongoose.Schema({
     enum: ['favorite', 'book_lesson'],
     required: false
   },
+  // Structured payload for re-renderable system messages.
+  // `content` is still pre-rendered at write time as a fallback for any
+  // client that doesn't know how to consume this payload. When a tutor's
+  // interfaceLanguage changes or a richer client is available, the message
+  // can be re-rendered from (template, params) via
+  // backend/utils/systemMessages.renderSystemMessage.
+  systemMessage: {
+    template: { type: String, default: null },
+    params: { type: mongoose.Schema.Types.Mixed, default: null },
+    locale: { type: String, default: null }
+  },
   // File attachment fields
   fileUrl: {
     type: String,

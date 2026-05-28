@@ -312,6 +312,122 @@ async function emitTeachingStickingSignals(lessonAnalysis) {
   return { fired };
 }
 
+/**
+ * Pure, plan-only derivation of the top struggles a tutor should know about.
+ * No LLM, no I/O — safe to call on hot paths like message creation.
+ *
+ * Sources (in priority order):
+ *   1. activeFocusSkillId — the canonical currently-active struggle.
+ *   2. focusHistory entries with outcome `stuck` or `worsened` (recent first).
+ *   3. tutorSkillPriorities flagged at severity ≥ 2 by any tutor.
+ *
+ * Skill keys are passed through humanizeSkillKey() so canonical IDs like
+ * "verb.past_tense.ar_regular" become readable as "verb past tense ar regular".
+ * Translation of the resulting strings is intentionally NOT attempted here —
+ * canonical skill keys are language-agnostic and the tutor can interpret them.
+ *
+ * @param {Object} plan      LearningPlan POJO (lean()'d).
+ * @param {Object} [opts]
+ * @param {Number} [opts.limit=3]
+ * @returns {String[]} top struggles, max `limit`, deduped.
+ */
+function deriveTopStruggles(plan, { limit = 3 } = {}) {
+  if (!plan) return [];
+  const out = [];
+  const seen = new Set();
+  const push = (key) => {
+    const k = (key || '').toString().trim();
+    if (!k || seen.has(k)) return;
+    seen.add(k);
+    out.push(humanizeSkillKey(k));
+  };
+
+  if (plan.activeFocusSkillId) push(plan.activeFocusSkillId);
+
+  const hist = [...(plan.focusHistory || [])]
+    .filter((f) => f.outcome === 'stuck' || f.outcome === 'worsened')
+    .sort((a, b) =>
+      new Date(b.surfacedAt || 0).getTime() - new Date(a.surfacedAt || 0).getTime()
+    );
+  for (const h of hist) push(h.skillId);
+
+  const priorities = [...(plan.tutorSkillPriorities || [])]
+    .filter((p) => (p.severity || 0) >= 2)
+    .sort((a, b) => (b.severity || 0) - (a.severity || 0));
+  for (const p of priorities) push(p.skillId);
+
+  return out.slice(0, limit);
+}
+
+/**
+ * Plan-only encouragement hints. Combines the student's goal, current
+ * roadmap phase, and CEFR estimate into a short list of "things the tutor
+ * can say to make the student feel seen."
+ *
+ * Returned strings reference the student's hand-typed goal verbatim, so
+ * they stay readable across languages (the goal text is in whatever
+ * language the student wrote it in, not the tutor's UI language).
+ *
+ * @param {Object} plan
+ * @param {Object} [opts]
+ * @param {Number} [opts.limit=3]
+ * @returns {String[]}
+ */
+function deriveEncouragementHints(plan, { limit = 3 } = {}) {
+  if (!plan) return [];
+  const hints = [];
+
+  const goalDesc = (plan.goal?.description || '').trim();
+  const goalType = (plan.goal?.type || '').trim();
+  if (goalDesc) {
+    hints.push(`Mention their goal — "${goalDesc}" — they'll feel heard.`);
+  } else if (goalType) {
+    hints.push(
+      `Their goal is ${goalType.replace(/_/g, ' ')} — frame examples around that.`
+    );
+  }
+
+  const phase = (plan.phases || [])[plan.currentPhaseIndex ?? 0];
+  const phaseTitle = (phase?.title || '').trim();
+  if (phaseTitle) {
+    hints.push(`Acknowledge their current phase: "${phaseTitle}".`);
+  }
+
+  const cefr =
+    plan.revealedCefrLevel?.level || plan.internalCefrEstimate?.level;
+  if (cefr) {
+    hints.push(`They're working at ${cefr} — calibrate examples to that level.`);
+  }
+
+  return hints.slice(0, limit);
+}
+
+/**
+ * True if the student needs a gentler tone this lesson (recovery, decay,
+ * or human-intervention flag).
+ */
+function isInRecoveryDip(plan) {
+  if (!plan) return false;
+  const pt = plan.pendingTransitions || {};
+  const currentPhase = (plan.phases || [])[plan.currentPhaseIndex ?? 0];
+  return !!(
+    pt.recoveryStuck
+    || pt.humanInterventionSuggested
+    || pt.decayWarning
+    || currentPhase?._isRecovery
+    || (plan.pingPongCount || 0) >= 1
+  );
+}
+
+function humanizeSkillKey(key) {
+  if (!key) return '';
+  return String(key)
+    .replace(/[._-]+/g, ' ')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .toLowerCase()
+    .trim();
+}
+
 function _extractDemonstratedSkills(lessonAnalysis) {
   // Heuristic: the analysis's "successes", "improvements", or "wins" array
   // contains skill keys the student handled well. Adjust to match your
@@ -337,5 +453,9 @@ function _extractDemonstratedSkills(lessonAnalysis) {
 
 module.exports = {
   synthesizeTutorBriefing,
-  emitTeachingStickingSignals
+  emitTeachingStickingSignals,
+  deriveTopStruggles,
+  deriveEncouragementHints,
+  isInRecoveryDip,
+  humanizeSkillKey
 };

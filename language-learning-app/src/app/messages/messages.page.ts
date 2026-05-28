@@ -174,12 +174,15 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
   // Reply functionality
   replyingToMessage: Message | null = null;
   highlightedMessageId: string | null = null; // Track which message is highlighted
-  private longPressTimer: any = null;
   
   // Context menu state
   showContextMenu = false;
+  contextMenuMode: 'emoji' | 'actions' = 'actions';
   contextMenuPosition: any = null;
   contextMenuMessage: Message | null = null;
+  activeToolbarMessageId: string | null = null;
+  messageToolbarEmojiLabel = 'Add reaction';
+  messageToolbarMoreLabel = 'Message options';
   
   // Track optimistic reaction updates to prevent flicker
   private optimisticReactionUpdates = new Set<string>();
@@ -288,6 +291,8 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
 
   ngOnInit() {
     this.isDesktop = !this.platformService.isSmallScreen();
+    this.messageToolbarEmojiLabel = this.translateService.instant('MESSAGES.ADD_REACTION') || 'Add reaction';
+    this.messageToolbarMoreLabel = this.translateService.instant('MESSAGES.MESSAGE_OPTIONS') || 'Message options';
     
     // Check if we're actually on the messages page
     const isOnMessagesPage = this.router.url.includes('/messages');
@@ -3873,54 +3878,62 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     await modal.present();
   }
 
-  // Reply functionality handlers
-  async onMessageTap(message: Message, event: any) {
-    // Show context menu on long press (both mobile and desktop)
-    await this.showMessageContextMenu(message, event);
-  }
-
-  onMessagePressStart(message: Message, event: any) {
-    const pressedElement = event.target.closest('.message-wrapper') || event.target.closest('.message-bubble');
-
-    this.longPressTimer = setTimeout(async () => {
-      const eventData = {
-        target: pressedElement,
-        type: 'longpress'
-      };
-      await this.showMessageContextMenu(message, eventData);
-    }, 500);
-  }
-
-  onMessagePressEnd(event: any) {
-    if (this.longPressTimer) {
-      clearTimeout(this.longPressTimer);
-      this.longPressTimer = null;
+  openEmojiMenuForMessage(message: Message, event: Event) {
+    event.stopPropagation();
+    if (this.isMyMessage(message)) {
+      return;
     }
+    const messageId = this.getMessageId(message);
+    if (this.showContextMenu && this.contextMenuMode === 'emoji' && this.activeToolbarMessageId === messageId) {
+      this.closeContextMenu();
+      return;
+    }
+    this.activeToolbarMessageId = messageId;
+    this.showMessageContextMenu(message, event, 'emoji');
   }
 
-  showMessageContextMenu(message: Message, event: any) {
-    // Get the position of the tapped message
-    const target = event.target;
-    if (!target) {
+  openActionsMenuForMessage(message: Message, event: Event) {
+    event.stopPropagation();
+    const messageId = this.getMessageId(message);
+    if (this.showContextMenu && this.contextMenuMode === 'actions' && this.activeToolbarMessageId === messageId) {
+      this.closeContextMenu();
+      return;
+    }
+    this.activeToolbarMessageId = messageId;
+    this.showMessageContextMenu(message, event, 'actions');
+  }
+
+  private getMessageId(message: Message): string {
+    return String((message as any).id || (message as any)._id || '');
+  }
+
+  showMessageContextMenu(message: Message, event: Event, mode: 'emoji' | 'actions') {
+    const anchor = (event.currentTarget || event.target) as HTMLElement | null;
+    if (!anchor) {
       return;
     }
 
-    const rect = target.getBoundingClientRect();
+    this.contextMenuMode = mode;
+    const rect = anchor.getBoundingClientRect();
     const screenHeight = window.innerHeight;
     const screenWidth = window.innerWidth;
-    const menuWidth = 260;
-    // Calculate actual menu height based on content:
-    // - Emoji reactions (if not my message): ~60px
-    // - 4-5 action items × ~50px each = ~200-250px
-    const emojiHeight = this.isMyMessage(message) ? 0 : 60;
-    const actionsHeight = this.isMyMessage(message) ? 200 : 210; // 4 items vs 5 items
+    const menuWidth = mode === 'emoji' ? 280 : 260;
+    const emojiHeight = mode === 'emoji' ? 72 : 0;
+    const actionsHeight = mode === 'actions' ? (this.isMyMessage(message) ? 200 : 250) : 0;
     const baseMenuHeight = emojiHeight + actionsHeight;
     const paddingFromEdge = 20; // Minimum padding from screen edges
     const gapFromMessage = 8; // Gap between message and menu
-    
+
+    // The composer (input bar) is fixed/sticky at the bottom and overlays the
+    // thread — treat its top edge as the usable bottom boundary so menus aren't
+    // hidden behind it.
+    const composerEl = document.querySelector('.message-composer') as HTMLElement | null;
+    const composerTop = composerEl ? composerEl.getBoundingClientRect().top : screenHeight;
+    const usableBottom = Math.min(screenHeight, composerTop);
+
     // Calculate available space
     const spaceAbove = rect.top - paddingFromEdge;
-    const spaceBelow = screenHeight - rect.bottom - paddingFromEdge;
+    const spaceBelow = usableBottom - rect.bottom - paddingFromEdge;
     
     // Determine if menu should show above or below based on available space
     const showBelow = spaceBelow >= 200 || (spaceBelow >= spaceAbove && spaceBelow >= 150);
@@ -3936,8 +3949,8 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
       menuHeight = Math.min(baseMenuHeight, Math.max(150, availableHeight));
       menuTop = rect.bottom + gapFromMessage;
       
-      // Ensure menu doesn't go off bottom of screen
-      const maxTop = screenHeight - menuHeight - paddingFromEdge;
+      // Ensure menu doesn't go off bottom of the usable area (above composer)
+      const maxTop = usableBottom - menuHeight - paddingFromEdge;
       if (menuTop > maxTop) {
         menuTop = maxTop;
       }
@@ -3992,6 +4005,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     this.showContextMenu = false;
     this.contextMenuMessage = null;
     this.contextMenuPosition = null;
+    this.activeToolbarMessageId = null;
   }
 
   onContextMenuAction(action: string) {
@@ -4221,8 +4235,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
 
   onReactionClick(message: Message, emoji: string, event: Event) {
     event.stopPropagation();
-    // Open context menu for this message at the reaction location
-    this.onMessageTap(message, event as any);
+    this.addReactionToMessage(message, emoji);
   }
 
   hasReaction(message: Message, emoji: string): boolean {

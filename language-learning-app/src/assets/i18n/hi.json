@@ -2832,15 +2832,15 @@
     "CAMERA_OFF": "कैमरा बंद",
     "WAITING_PARTICIPANTS": "अन्य प्रतिभागियों की प्रतीक्षा है...",
     "WAITING_TUTOR": "शिक्षक की प्रतीक्षा में...",
-    "STUDENT_WANTS": "छात्र की पसंद:",
-    "INTENT_EASY_LABEL": "आरामदायक, हल्का पाठ",
-    "INTENT_EASY_HINT": "धीमी गति, कम सुधार",
-    "INTENT_CONVERSATIONAL_LABEL": "मुक्त बातचीत",
-    "INTENT_CONVERSATIONAL_HINT": "खुलकर बात करें, छात्र को अगुवाई करने दें",
+    "STUDENT_WANTS": "छात्र प्राथमिकता:",
+    "INTENT_EASY_LABEL": "आरामदायक और आसान",
+    "INTENT_EASY_HINT": "आसान गति, न्यूनतम सुधार",
+    "INTENT_CONVERSATIONAL_LABEL": "संवादी",
+    "INTENT_CONVERSATIONAL_HINT": "स्वतंत्र बातचीत करें, उनके नेतृत्व का पालन करें",
     "INTENT_FOCUSED_LABEL": "केंद्रित अभ्यास",
-    "INTENT_FOCUSED_HINT": "विषय पर बने रहें, सक्रिय रूप से सुधारें",
-    "INTENT_CHALLENGE_LABEL": "एक चुनौती",
-    "INTENT_CHALLENGE_HINT": "और माँगें, नई सामग्री लाएँ",
+    "INTENT_FOCUSED_HINT": "विषय पर बने रहें, सक्रिय रूप से सही करें",
+    "INTENT_CHALLENGE_LABEL": "चुनौती चाहता है",
+    "INTENT_CHALLENGE_HINT": "अधिक जोर लगाओ, नई सामग्री पेश करो",
     "VIRTUAL_BACKGROUND": "आभासी पृष्ठभूमि",
     "ENABLE_BLUR": "धुंधला सक्षम करें",
     "BLACK_BACKGROUND": "काली पृष्ठभूमि",
@@ -2990,7 +2990,8 @@
     "SESSION_CANCELLED_STUDENT_NO_SHOW": "छात्र ने समय पर कक्षा में प्रवेश नहीं किया, इसलिए आपका समय बर्बाद होने से बचने के लिए सत्र रद्द कर दिया गया।",
     "SESSION_CANCELLED_STUDENT_LEFT": "छात्र ने सत्र छोड़ दिया है.",
     "SCREEN_SHARE_NOT_SUPPORTED": "इस ब्राउज़र में स्क्रीन शेयरिंग समर्थित नहीं है.",
-    "SCREEN_SHARE_NOT_READABLE": "स्क्रीन तक नहीं पहुंच सका. हो सकता है कोई दूसरा ऐप इसे ब्लॉक कर रहा हो."
+    "SCREEN_SHARE_NOT_READABLE": "स्क्रीन तक नहीं पहुंच सका. हो सकता है कोई दूसरा ऐप इसे ब्लॉक कर रहा हो.",
+    "REMOTE_IS_SHARING": "{{name}} अपनी स्क्रीन साझा कर रहा है"
   },
   "ALERTS": {
     "LESSON": {

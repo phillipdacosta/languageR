@@ -2833,14 +2833,14 @@
     "WAITING_PARTICIPANTS": "في انتظار باقي المشاركين...",
     "WAITING_TUTOR": "في انتظار المعلم...",
     "STUDENT_WANTS": "تفضيل الطالب:",
-    "INTENT_EASY_LABEL": "درس مريح وخفيف",
-    "INTENT_EASY_HINT": "وتيرة هادئة، تصحيحات قليلة",
-    "INTENT_CONVERSATIONAL_LABEL": "محادثة حرة",
-    "INTENT_CONVERSATIONAL_HINT": "حديث حر، دع الطالب يقود",
-    "INTENT_FOCUSED_LABEL": "ممارسة مركّزة",
-    "INTENT_FOCUSED_HINT": "التزم بالموضوع، صحّح بنشاط",
-    "INTENT_CHALLENGE_LABEL": "تحدٍّ",
-    "INTENT_CHALLENGE_HINT": "اطلب أكثر، قدّم مادة جديدة",
+    "INTENT_EASY_LABEL": "استرخاء وسهل",
+    "INTENT_EASY_HINT": "وتيرة سهلة، والحد الأدنى من التصحيحات",
+    "INTENT_CONVERSATIONAL_LABEL": "محادثة",
+    "INTENT_CONVERSATIONAL_HINT": "كلام مجاني، اتبع خطاهم",
+    "INTENT_FOCUSED_LABEL": "الممارسة المركزة",
+    "INTENT_FOCUSED_HINT": "البقاء على الموضوع، الصحيح بنشاط",
+    "INTENT_CHALLENGE_LABEL": "يريد التحدي",
+    "INTENT_CHALLENGE_HINT": "ادفع بقوة، وأدخل مواد جديدة",
     "VIRTUAL_BACKGROUND": "الخلفية الافتراضية",
     "ENABLE_BLUR": "تمكين طمس",
     "BLACK_BACKGROUND": "خلفية سوداء",
@@ -2990,7 +2990,8 @@
     "SESSION_CANCELLED_STUDENT_NO_SHOW": "لم يدخل الطالب إلى الفصل في الوقت المناسب لذلك تم إلغاء الجلسة تجنباً لإضاعة الوقت.",
     "SESSION_CANCELLED_STUDENT_LEFT": "لقد غادر الطالب الجلسة.",
     "SCREEN_SHARE_NOT_SUPPORTED": "مشاركة الشاشة غير مدعومة في هذا المتصفح.",
-    "SCREEN_SHARE_NOT_READABLE": "لا يمكن الوصول إلى الشاشة. قد يكون هناك تطبيق آخر يحظره."
+    "SCREEN_SHARE_NOT_READABLE": "لا يمكن الوصول إلى الشاشة. قد يكون هناك تطبيق آخر يحظره.",
+    "REMOTE_IS_SHARING": "{{name}} يشارك شاشته"
   },
   "ALERTS": {
     "LESSON": {

@@ -1633,6 +1633,8 @@
     "SEND": "Send",
     "UPLOADING": "Uploading...",
     "RECORDING": "Recording... {{duration}}s",
+    "ADD_REACTION": "Add reaction",
+    "MESSAGE_OPTIONS": "Message options",
     "TRIAL_LESSON_SYSTEM_MESSAGE": {
       "TITLE": "New Trial Lesson Scheduled",
       "INTRO": "A new student has booked a trial lesson with you.",
@@ -3398,6 +3400,7 @@
     "RETRY": "Retry",
     "SCREEN_SHARING": "Screen Sharing",
     "STOP_SHARING": "Stop Sharing",
+    "REMOTE_IS_SHARING": "{{name}} is sharing their screen",
     "YOU": "You",
     "PARTICIPANT": "Participant",
     "TUTOR": "Tutor",

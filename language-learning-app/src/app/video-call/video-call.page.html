@@ -237,25 +237,15 @@
         </div>
       </div>
       
-      <!-- Picture-in-Picture camera feeds -->
-      <div class="pip-container">
-        <!-- Local camera (your camera) - Only show to remote viewers, not to the sharer -->
-        <div class="pip-video local-pip" *ngIf="!isVideoOff && !isMyScreenShare()">
-          <div #localVideoPip class="pip-video-element">
-            <!-- Local camera feed will be displayed here -->
-          </div>
-          <div class="pip-label">{{ 'VIDEO_CALL.YOU' | translate }}</div>
-        </div>
-        
-        <!-- Remote participants cameras -->
-        <div class="pip-video remote-pip" 
-             *ngFor="let participant of getRemoteParticipants()" 
-             [attr.id]="'pip-remote-' + participant.uid">
+      <!-- Picture-in-Picture: show the other participant(s) so the sharer can see them while presenting. -->
+      <div class="pip-container" *ngIf="screenSharePipParticipants.length > 0">
+        <div class="pip-video remote-pip"
+             *ngFor="let participant of screenSharePipParticipants; trackBy: trackPipParticipant"
+             [id]="'pip-remote-' + participant.uid">
           <div class="pip-video-element">
             <!-- Remote camera feed will be displayed here -->
           </div>
-          <div class="pip-label">{{ participant.name || 'VIDEO_CALL.PARTICIPANT' | translate }}</div>
-          <!-- Camera off placeholder -->
+          <div class="pip-label">{{ participant.name || ('VIDEO_CALL.PARTICIPANT' | translate) }}</div>
           <div class="pip-placeholder" *ngIf="participant.isVideoOff">
             <ion-avatar>
               <img *ngIf="participant.profilePicture" [src]="participant.profilePicture" alt="{{ participant.name }}">
@@ -271,20 +261,26 @@
     <div class="main-video" *ngIf="!isClass && !isScreenSharing">
       <div #remoteVideo class="video-container-remote" *ngIf="isConnected && remoteUserCount > 0; else remoteMainPlaceholder">
         <!-- Remote video will be displayed here -->
-        
+
         <!-- Camera Off placeholder for main view -->
-        <div class="video-placeholder" *ngIf="isRemoteUserVideoOff">
+        <div class="video-placeholder" *ngIf="isRemoteUserVideoOff && !isRemoteScreenSharing">
           <ion-avatar class="avatar-placeholder">
             <img *ngIf="remoteParticipantProfilePicture" [src]="remoteParticipantProfilePicture" alt="Remote participant" referrerpolicy="no-referrer">
             <ion-icon *ngIf="!remoteParticipantProfilePicture" name="person" class="avatar-icon"></ion-icon>
           </ion-avatar>
           <p>{{ 'VIDEO_CALL.CAMERA_OFF' | translate }}</p>
         </div>
-        
+
+        <!-- Reliable screen-share indicator (driven by the screenShareState message). -->
+        <div class="remote-sharing-chip" *ngIf="isRemoteScreenSharing">
+          <ion-icon name="desktop-outline"></ion-icon>
+          <span>{{ 'VIDEO_CALL.REMOTE_IS_SHARING' | translate:{ name: remoteSharingName || remoteParticipantLabel } }}</span>
+        </div>
+
         <!-- Remote user mute indicator (overlay on main video) -->
         <div class="remote-user-info" *ngIf="remoteUserCount > 0">
           <div class="remote-user-label">
-            <ion-icon [name]="isRemoteUserMuted ? 'mic-off-outline' : 'mic-outline'" 
+            <ion-icon [name]="isRemoteUserMuted ? 'mic-off-outline' : 'mic-outline'"
                       [class.muted]="isRemoteUserMuted"></ion-icon>
             <span>{{ remoteParticipantLabel }}</span>
           </div>

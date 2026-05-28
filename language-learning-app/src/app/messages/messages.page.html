@@ -16,8 +16,8 @@
            [style.left.px]="contextMenuPosition?.arrowOffset"
            [class.arrow-above]="!contextMenuPosition?.showBelow"></div>
       
-      <!-- Quick Emoji Reactions -->
-      <div class="emoji-reactions" *ngIf="contextMenuMessage && !isMyMessage(contextMenuMessage)">
+      <!-- Emoji picker (face icon) -->
+      <div class="emoji-reactions" *ngIf="contextMenuMode === 'emoji' && contextMenuMessage && !isMyMessage(contextMenuMessage)">
         <button class="emoji-btn" *ngFor="let emoji of quickReactions" 
                 [class.selected]="hasReaction(contextMenuMessage, emoji)"
                 (click)="addReactionToMessage(contextMenuMessage, emoji); $event.stopPropagation()">
@@ -25,8 +25,8 @@
         </button>
       </div>
 
-      <!-- Action Menu -->
-      <div class="action-menu">
+      <!-- Action menu (three dots) -->
+      <div class="action-menu" *ngIf="contextMenuMode === 'actions' && contextMenuMessage">
         <button class="action-item" (click)="onContextMenuAction('reply')">
           <ion-icon name="arrow-undo-outline"></ion-icon>
           <span>{{ 'ALERTS.MESSAGES.REPLY' | translate }}</span>
@@ -445,12 +445,24 @@
                 </div>
 
             <!-- System Message -->
-            <div *ngIf="message.type === 'system' || message.isSystemMessage" class="message-wrapper received">
-              <img src="assets/icons-app-bird-2.png" alt="Barnabi" class="message-avatar system-avatar">
-              <div class="message-bubble system-message" (click)="handleSystemMessageClick($event)">
-                <span class="message-text" [innerHTML]="message.content | markdownLink"></span>
-                <span class="message-timestamp">{{ message.createdAt | date: shortDateTimeFormat }}</span>
-              </div>
+            <div *ngIf="message.type === 'system' || message.isSystemMessage" class="system-message-row">
+              <article class="system-message-card" (click)="handleSystemMessageClick($event)">
+                <div class="system-message-card__top">
+                  <div class="system-message-card__avatar-wrap">
+                    <img src="assets/icons-app-bird-2.png" alt="" class="system-message-card__avatar">
+                  </div>
+                  <div class="system-message-card__intro">
+                    <div class="system-message-card__badge">
+                      <span class="system-message-card__badge-dot"></span>
+                      <span>{{ 'LOGIN.BRAND_NAME' | translate }}</span>
+                    </div>
+                    <div class="system-message-card__text" [innerHTML]="message.content | markdownLink"></div>
+                  </div>
+                </div>
+                <footer class="system-message-card__footer">
+                  <time class="system-message-card__time">{{ message.createdAt | date: 'MMM d, y \'at\' h:mm a' }}</time>
+                </footer>
+              </article>
             </div>
 
               <!-- Regular Message Bubble -->
@@ -458,13 +470,7 @@
                    class="message-wrapper"
                    [class.has-reactions]="message.reactions && message.reactions.length > 0"
                    [class.is-mine]="message.senderId === getCurrentUserId()"
-                   (mousedown)="onMessagePressStart(message, $event)"
-                   (touchstart)="onMessagePressStart(message, $event)"
-                   (mouseup)="onMessagePressEnd($event)"
-                   (touchend)="onMessagePressEnd($event)"
-                   (mouseleave)="onMessagePressEnd($event)"
-                   (touchcancel)="onMessagePressEnd($event)"
-                   (press)="onMessageTap(message, $event)">
+                   [class.message-actions-visible]="activeToolbarMessageId === message.id">
               <!-- Desktop avatar -->
               <img class="msg-avatar"
                    *ngIf="message.senderId === getCurrentUserId() && currentUser?.picture"
@@ -477,6 +483,21 @@
                 {{ message.senderId === getCurrentUserId() ? (currentUser?.name?.charAt(0) || '?') : (selectedConversation?.otherUser?.name?.charAt(0) || '?') }}
               </div>
               <div class="msg-body">
+              <div class="message-toolbar">
+                <button type="button"
+                        class="message-toolbar-btn"
+                        *ngIf="message.senderId !== getCurrentUserId()"
+                        [attr.aria-label]="messageToolbarEmojiLabel"
+                        (click)="openEmojiMenuForMessage(message, $event)">
+                  <ion-icon name="happy-outline"></ion-icon>
+                </button>
+                <button type="button"
+                        class="message-toolbar-btn"
+                        [attr.aria-label]="messageToolbarMoreLabel"
+                        (click)="openActionsMenuForMessage(message, $event)">
+                  <ion-icon name="ellipsis-horizontal"></ion-icon>
+                </button>
+              </div>
               <div class="msg-header">
                 <span class="msg-sender-name"
                       *ngIf="message.senderId !== getCurrentUserId()">{{ selectedConversation?.otherUser?.name }}</span>
@@ -1060,29 +1081,51 @@
                 </div>
 
             <!-- System Message (Mobile) -->
-            <div *ngIf="message.type === 'system' || message.isSystemMessage" class="message-wrapper received">
-              <img src="assets/icons-app-bird-2.png" alt="Barnabi" class="message-avatar system-avatar">
-              <div class="message-bubble system-message" (click)="handleSystemMessageClick($event)">
-                <span class="message-text" [innerHTML]="message.content | markdownLink"></span>
-                <span class="message-timestamp">{{ message.createdAt | date: shortDateTimeFormat }}</span>
-              </div>
+            <div *ngIf="message.type === 'system' || message.isSystemMessage" class="system-message-row">
+              <article class="system-message-card" (click)="handleSystemMessageClick($event)">
+                <div class="system-message-card__top">
+                  <div class="system-message-card__avatar-wrap">
+                    <img src="assets/icons-app-bird-2.png" alt="" class="system-message-card__avatar">
+                  </div>
+                  <div class="system-message-card__intro">
+                    <div class="system-message-card__badge">
+                      <span class="system-message-card__badge-dot"></span>
+                      <span>{{ 'LOGIN.BRAND_NAME' | translate }}</span>
+                    </div>
+                    <div class="system-message-card__text" [innerHTML]="message.content | markdownLink"></div>
+                  </div>
+                </div>
+                <footer class="system-message-card__footer">
+                  <time class="system-message-card__time">{{ message.createdAt | date: 'MMM d, y \'at\' h:mm a' }}</time>
+                </footer>
+              </article>
             </div>
 
               <!-- Regular Message Bubble (Mobile) -->
               <div *ngIf="message.type !== 'system' && !message.isSystemMessage"
                    class="message-wrapper"
-                   [class.has-reactions]="message.reactions && message.reactions.length > 0">
+                   [class.has-reactions]="message.reactions && message.reactions.length > 0"
+                   [class.is-mine]="message.senderId === getCurrentUserId()"
+                   [class.message-actions-visible]="activeToolbarMessageId === message.id">
+              <div class="message-toolbar">
+                <button type="button"
+                        class="message-toolbar-btn"
+                        *ngIf="message.senderId !== getCurrentUserId()"
+                        [attr.aria-label]="messageToolbarEmojiLabel"
+                        (click)="openEmojiMenuForMessage(message, $event)">
+                  <ion-icon name="happy-outline"></ion-icon>
+                </button>
+                <button type="button"
+                        class="message-toolbar-btn"
+                        [attr.aria-label]="messageToolbarMoreLabel"
+                        (click)="openActionsMenuForMessage(message, $event)">
+                  <ion-icon name="ellipsis-horizontal"></ion-icon>
+                </button>
+              </div>
               <div class="message-bubble" 
                    [class.sent]="message.senderId === getCurrentUserId()"
                    [class.received]="message.senderId !== getCurrentUserId()"
-                   [class.highlighted]="highlightedMessageId === message.id"
-                   (mousedown)="onMessagePressStart(message, $event)"
-                   (touchstart)="onMessagePressStart(message, $event)"
-                   (mouseup)="onMessagePressEnd($event)"
-                   (touchend)="onMessagePressEnd($event)"
-                   (mouseleave)="onMessagePressEnd($event)"
-                   (touchcancel)="onMessagePressEnd($event)"
-                   (press)="onMessageTap(message, $event)">
+                   [class.highlighted]="highlightedMessageId === message.id">
                 
                 <!-- Replied-to message preview (if this is a reply) -->
                 <div *ngIf="message.replyTo" 
