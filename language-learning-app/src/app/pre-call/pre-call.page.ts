@@ -48,6 +48,10 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
   errorMessage: string = '';
   useAgoraForPreview = false; // True when Agora tracks are used for display (after VB activation)
   isTutor: boolean = false;
+  /** True after the lesson has loaded and the local user's role (tutor vs student)
+   * has been resolved from the lesson + auth context. Used to gate role-specific UI
+   * (e.g. the student intent chips) so they don't flash for tutors during initial load. */
+  roleResolved: boolean = false;
   isTrialLesson: boolean = false;
   isClass: boolean = false; // Track if this is a class or 1:1 lesson
   otherParticipantJoined: boolean = false;
@@ -181,6 +185,7 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
       console.log('⏳ Student waiting for tutor acceptance');
       console.log('⏳ Lesson ID:', this.lessonId);
       this.isTutor = false;
+      this.roleResolved = true;
       this.waitingForTutorAcceptance = true;
       this.tutorHasAccepted = false;
       this.lessonTitle = this.t('PRE_CALL.WAITING_FOR_TUTOR_TITLE');
@@ -288,6 +293,7 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
     if (isOfficeHours && !this.lessonId) {
       console.log('⚡ Office Hours Waiting Room Mode');
       this.isTutor = true;
+      this.roleResolved = true;
       this.isOfficeHoursWaitingRoom = true;
       this.lessonTitle = this.t('PRE_CALL.OFFICE_HOURS_WAITING_ROOM');
       this.participantName = this.t('PRE_CALL.WAITING_FOR_STUDENT');
@@ -498,7 +504,8 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
         // SECURITY: Determine role from authenticated user + lesson data (never trust URL params)
         const tutorId = lesson.tutorId?._id?.toString() || (typeof lesson.tutorId === 'string' ? lesson.tutorId : '');
         this.isTutor = (currentUserId === tutorId);
-        
+        this.roleResolved = true;
+
         console.log('🔐 PRE-CALL: Role determined from lesson data', {
           currentUserId,
           tutorId,

@@ -145,7 +145,7 @@
       <p class="lesson-subtitle">{{ lessonSubtitle }}</p>
 
       <!-- Student Lesson Intent Chips -->
-      <div class="intent-section" *ngIf="!isTutor">
+      <div class="intent-section" *ngIf="roleResolved && !isTutor">
         <p class="intent-title">{{ 'PRE_CALL.INTENT_TITLE' | translate }}</p>
         <div class="intent-chips">
           <button

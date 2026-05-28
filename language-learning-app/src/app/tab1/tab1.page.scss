@@ -4259,7 +4259,7 @@ top: 4px;
   // True horizontal centering of time achieved by making left and right
   // sides visually balanced — we balance with equal padding inside the
   // outer columns rather than forcing equal column widths.
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 2fr) auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 2fr) auto auto;
   align-items: center;
   gap: 0;
   padding: 5px 0;
@@ -4324,7 +4324,6 @@ top: 4px;
   &--status {
     grid-column: 5;
     min-width: 0;
-    overflow: hidden;
     flex-direction: column;
     align-items: center;
     justify-content: flex-start;
@@ -4332,6 +4331,7 @@ top: 4px;
     gap: 2px;
     padding: 6px 10px 0 4px;
     text-align: center;
+    white-space: nowrap;
   }
 }
 
@@ -4402,8 +4402,6 @@ top: 4px;
   align-items: center;
   justify-content: center;
   gap: 4px;
-  max-width: 100%;
-  min-width: 0;
   padding: 0;
   margin: 0;
   border: none;
@@ -4414,9 +4412,8 @@ top: 4px;
   letter-spacing: -0.1px;
   line-height: 1.2;
   text-align: center;
-  white-space: normal;
-  word-break: break-word;
-  overflow-wrap: break-word;
+  white-space: nowrap;
+  flex-shrink: 0;
   color: #3c3c43;
 
   &--ready,
