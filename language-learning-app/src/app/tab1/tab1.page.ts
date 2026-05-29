@@ -227,6 +227,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   desktopEnterDone = false;
   /** Animated earnings balance display (count-up). */
   displayedEarningsText = '0.00';
+  private _earningsInitialized = false;
   /** One-shot progress bar shine when weekly goal updates. */
   weeklyGoalBarShine = false;
   /** Brief Lottie pop at the end of the weekly goal bar when the tutor hits their goal. */
@@ -239,6 +240,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   private _weeklyGoalRestingFrameApplied = false;
   private readonly weeklyGoalLottieSpeed = 1.75;
   @ViewChild('weeklyGoalLottieHost') weeklyGoalLottieHost?: ElementRef<HTMLDivElement>;
+  @ViewChild('upNextTaglineEl') upNextTaglineEl?: ElementRef<HTMLElement>;
   private _earningsOpenedFromOtherTab = false;
   @HostBinding('class.returning-from-inline') returningFromInline = false;
   @HostBinding('class.skip-tab-entry-animations') skipTabEntryAnimations = false;
@@ -305,6 +307,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
    * (first-lesson hint or last-session summary). Empty string when nothing
    * useful to say so the row collapses without changing card height. */
   upNextTagline = '';
+  upNextTaglineShowViewMore = false;
+  upNextTaglineLessonId = '';
   /** Compact countdown shown in the schedule pill's status column
    * (e.g. "Starts in 5m" / "Live now"). Empty when nothing to surface. */
   upNextStatusLabel = '';
@@ -1023,18 +1027,37 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
           this.closeTutorBookingModal();
           this.cdr.markForCheck();
         }
-        // Close the earnings inline panel silently on any router navigation
-        // (tab switch, back gesture, deep link, etc.) so we never return to
-        // a home view that still shows the earnings surface.
+        // Close the earnings inline panel on navigation away from home — but
+        // NOT when navigating forward to a detail page (e.g. lessons/:id from
+        // a transaction tap). In that case the home view is about to be fully
+        // hidden by the incoming route, so collapsing the earnings panel here
+        // would flash the raw home layout to the user before lessons/:id
+        // renders. We only collapse immediately for tab-switches and back
+        // gestures that land back on the home tab.
         if (this.showEarningsView) {
+          const targetUrl = (event as NavigationStart).url;
+          const isForwardToDetail =
+            targetUrl.includes('/tabs/lessons/') ||
+            targetUrl.includes('/lesson-analysis/') ||
+            targetUrl.includes('/video-call/');
+          if (!isForwardToDetail) {
+            this.showEarningsView = false;
+            this.returningFromEarnings = false;
+            this.returningFromInline = false;
+            this.cdr.detectChanges();
+          }
+        }
+      }
+      if (event instanceof NavigationEnd) {
+        const url = (event as NavigationEnd).urlAfterRedirects || (event as NavigationEnd).url;
+        // If we skipped closing earnings on NavigationStart (forward nav to detail)
+        // and the user has now navigated back to home, close it now without flash.
+        if (this.showEarningsView && (url === '/tabs/home' || url === '/tabs/home/')) {
           this.showEarningsView = false;
           this.returningFromEarnings = false;
           this.returningFromInline = false;
           this.cdr.detectChanges();
         }
-      }
-      if (event instanceof NavigationEnd) {
-        const url = (event as NavigationEnd).urlAfterRedirects || (event as NavigationEnd).url;
         this.syncMaterialsModalChildRoute(url);
         if (
           this.isMobile &&
@@ -1197,10 +1220,16 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         // is on tutor-calendar / messages / any other tab does NOT carry over
         // as a stale ticker the next time they enter home — those reloads
         // happen natively via the normal lesson fetch in ionViewWillEnter.
+        // A trial booking emits TWO lesson_created events: the booking itself
+        // and a follow-up "Trial Lesson Tips" message. The tips notification
+        // carries data.messageId (it links to a system message) — exclude it so
+        // a single booking doesn't double-count in the ticker.
+        const isTrialTipsFollowUp = !!notification?.data?.messageId;
         const isNewBookingNotification =
-          notification?.type === 'lesson_created' ||
-          notification?.type === 'office_hours_booking' ||
-          notification?.type === 'class_booked';
+          (notification?.type === 'lesson_created' ||
+            notification?.type === 'office_hours_booking' ||
+            notification?.type === 'class_booked') &&
+          !isTrialTipsFollowUp;
         if (isNewBookingNotification && this.isTutorUser && this._isHomePageActive) {
           this.queuePendingLessonUpdate();
         }
@@ -1406,11 +1435,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         // the silent reload — they don't have the ticker UI to begin with.
         setTimeout(() => {
           this.loadUnreadNotificationCount();
-          if (this.isTutorUser && this._isHomePageActive) {
-            this.queuePendingLessonUpdate();
-          } else {
-            this.loadLessons(false);
-          }
+          this.loadLessons(false);
           if (this.isStudent()) {
             this.loadPendingInvitations();
           }
@@ -5483,6 +5508,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
 
   growthReloadState: 'idle' | 'loading' | 'done' = 'idle';
   growthReloadBurstSrc: string | null = null;
+  lessonsRefreshing = false;
 
   /**
    * Reload lesson data in place when the user taps the sticky
@@ -5494,16 +5520,23 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     const current = this.tutorGrowthService.activeInsight;
     this.growthReloadBurstSrc = current?.lottieSrc || this.growthReloadBurstSrc;
     this.growthReloadState = 'loading';
+    // Fade lesson area out before loading new data.
+    this.lessonsRefreshing = true;
     this.cdr.markForCheck();
+    // Let the fade-out transition complete before fetching.
+    await new Promise(resolve => setTimeout(resolve, 200));
     try {
       await this.loadLessons(false);
       this.growthReloadState = 'done';
+      // Fade content back in after data is ready.
+      this.lessonsRefreshing = false;
       this.cdr.markForCheck();
       // Brief green check, then clear
       await new Promise(resolve => setTimeout(resolve, 1200));
     } finally {
       this.growthReloadState = 'idle';
       this.growthReloadBurstSrc = null;
+      this.lessonsRefreshing = false;
       this._pendingLessonUpdateCount = 0;
       this.tutorGrowthService.clearPendingUpdates();
       this.syncGrowthInsightProperties();
@@ -6593,6 +6626,34 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     return clean.slice(0, max - 1).replace(/\s+\S*$/, '') + '…';
   }
 
+  private scheduleUpNextTaglineTruncationCheck(): void {
+    this.upNextTaglineShowViewMore = false;
+    const lessonId = this.nextLesson?.lessonId || this.nextLesson?.lesson?._id;
+    this.upNextTaglineLessonId = lessonId ? String(lessonId) : '';
+
+    if (!this.upNextTagline) {
+      this.cdr.markForCheck();
+      return;
+    }
+
+    setTimeout(() => {
+      const el = this.upNextTaglineEl?.nativeElement;
+      if (!el || !this.upNextTagline) {
+        this.upNextTaglineShowViewMore = false;
+        this.cdr.markForCheck();
+        return;
+      }
+      this.upNextTaglineShowViewMore = el.scrollWidth > el.clientWidth + 1;
+      this.cdr.markForCheck();
+    }, 0);
+  }
+
+  openUpNextLessonFromTagline(event: Event): void {
+    event.stopPropagation();
+    if (!this.upNextTaglineLessonId) return;
+    this.router.navigate(['/tabs/lessons', this.upNextTaglineLessonId]);
+  }
+
   /** Whether the translate button should be shown on the Up Next card.
    * Hidden when UI is English, the tagline isn't translatable, or there's
    * no tagline at all. */
@@ -6614,6 +6675,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       if (this.upNextTaglineOriginal) {
         this.upNextTagline = this.upNextTaglineOriginal;
         this.upNextTaglineIsTranslated = false;
+        this.scheduleUpNextTaglineTruncationCheck();
         this.cdr.markForCheck();
       }
       return;
@@ -6634,6 +6696,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
           this.upNextTagline = `${prefix}${this.truncateTagline(resp.summary, 110)}`;
           this.upNextTaglineIsTranslated = true;
         }
+        this.scheduleUpNextTaglineTruncationCheck();
         this.cdr.markForCheck();
       },
       error: (err) => {
@@ -6684,6 +6747,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       this.upNextTagline &&
       this.lessonService.shouldOfferProseTranslation(ctx.summaryLanguage)
     );
+    this.scheduleUpNextTaglineTruncationCheck();
     this.refreshUpNextStatusFields(nl, lesson);
     this.refreshNextLessonTimeSensitiveFields();
     this.refreshWeeklyEarningsProgress();
@@ -10535,13 +10599,28 @@ navigateToLessons() {
       this.cdr.markForCheck();
     };
 
+    // On first load snap directly to the real value — no count-up from zero.
+    if (!this._earningsInitialized) {
+      this._earningsInitialized = true;
+      finish(target);
+      return;
+    }
+
     if (typeof window === 'undefined') {
       finish(target);
       return;
     }
 
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (prefersReduced || target <= 0) {
+    if (prefersReduced) {
+      finish(target);
+      return;
+    }
+
+    const startValue = parseFloat(this.displayedEarningsText) || 0;
+    const delta = target - startValue;
+
+    if (Math.abs(delta) < 0.005) {
       finish(target);
       return;
     }
@@ -10551,7 +10630,7 @@ navigateToLessons() {
     const step = (now: number) => {
       const t = Math.min(1, (now - startTime) / duration);
       const eased = 1 - Math.pow(1 - t, 3);
-      this.displayedEarningsText = (target * eased).toFixed(2);
+      this.displayedEarningsText = (startValue + delta * eased).toFixed(2);
       this.cdr.markForCheck();
       if (t < 1) {
         requestAnimationFrame(step);

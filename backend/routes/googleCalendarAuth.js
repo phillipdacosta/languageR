@@ -6,8 +6,51 @@ const Lesson = require('../models/Lesson');
 const { verifyToken } = require('../middleware/videoUploadMiddleware');
 const crypto = require('crypto');
 
-const pendingStates = new Map();
 const webhookDebounceTimers = new Map();
+
+// OAuth state is signed (HMAC) and self-contained rather than stored in process
+// memory. The old in-memory `pendingStates` Map broke in production whenever the
+// `/url` request and Google's `/callback` redirect were handled by different
+// processes — which happens routinely on Render with multiple instances, a
+// redeploy, or an OOM auto-restart — yielding a consistent `invalid_state`
+// failure even on a fully warm server. A signed state survives all of those.
+const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
+
+function getStateSecret() {
+  return process.env.OAUTH_STATE_SECRET
+    || process.env.GOOGLE_OAUTH_CLIENT_SECRET
+    || 'insecure-dev-oauth-state-secret';
+}
+
+function signOAuthState(payload) {
+  const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  const sig = crypto.createHmac('sha256', getStateSecret()).update(body).digest('base64url');
+  return `${body}.${sig}`;
+}
+
+function verifyOAuthState(state) {
+  if (!state || typeof state !== 'string' || !state.includes('.')) return null;
+  const [body, sig] = state.split('.');
+  if (!body || !sig) return null;
+
+  const expected = crypto.createHmac('sha256', getStateSecret()).update(body).digest('base64url');
+  const sigBuf = Buffer.from(sig);
+  const expectedBuf = Buffer.from(expected);
+  if (sigBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(sigBuf, expectedBuf)) {
+    return null;
+  }
+
+  let payload;
+  try {
+    payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'));
+  } catch (_) {
+    return null;
+  }
+
+  if (!payload || !payload.userId || !payload.iat) return null;
+  if (Date.now() - payload.iat > OAUTH_STATE_TTL_MS) return null;
+  return payload;
+}
 
 // Per-tutor cache of Google event IDs that came from Barnabi-pushed lessons.
 // We use this to filter pushed lessons out of the gcal events list (so a Barnabi
@@ -118,15 +161,7 @@ router.get('/google-calendar/url', verifyToken, async (req, res) => {
     }
 
     const oauth2Client = getOAuth2Client();
-    const state = crypto.randomBytes(32).toString('hex');
-
-    pendingStates.set(state, { userId: dbUser._id.toString(), createdAt: Date.now() });
-
-    for (const [key, val] of pendingStates) {
-      if (Date.now() - val.createdAt > 10 * 60 * 1000) {
-        pendingStates.delete(key);
-      }
-    }
+    const state = signOAuthState({ userId: dbUser._id.toString(), iat: Date.now() });
 
     const url = oauth2Client.generateAuthUrl({
       access_type: 'offline',
@@ -154,9 +189,8 @@ router.get('/google-calendar/callback', async (req, res) => {
     if (error) return sendError('access_denied');
     if (!code || !state) return sendError('missing_params');
 
-    const stateData = pendingStates.get(state);
+    const stateData = verifyOAuthState(state);
     if (!stateData) return sendError('invalid_state');
-    pendingStates.delete(state);
 
     const userId = stateData.userId;
     const oauth2Client = getOAuth2Client();

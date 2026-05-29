@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { TranslateService } from '@ngx-translate/core';
 import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable, forkJoin, of } from 'rxjs';
-import { catchError, filter, take } from 'rxjs/operators';
+import { catchError, filter, map, shareReplay, take } from 'rxjs/operators';
 import { SIGNUP_LANGUAGE_COMPLETED_LS_KEY } from '../signup-language/language-select-flow.storage';
 
 export type SupportedLanguage =
@@ -33,6 +33,11 @@ export class LanguageService {
    * overwrite real strings and force English fallback for nested keys.
    */
   private readonly translationsBootstrapped = new BehaviorSubject<boolean>(false);
+
+  /** Locale codes whose JSON bundle has been registered with ngx-translate. */
+  private readonly loadedLanguages = new Set<SupportedLanguage>();
+  /** De-dupes concurrent fetches of the same locale bundle. */
+  private readonly inFlightLoads = new Map<SupportedLanguage, Observable<boolean>>();
 
   private static readonly RTL_LANGUAGES: ReadonlySet<SupportedLanguage> = new Set<SupportedLanguage>([
     'ar', 'he', 'fa',
@@ -99,29 +104,88 @@ export class LanguageService {
   }
 
   /**
-   * Load every supported locale once, then register fallback. Must finish
-   * before `translate.use()` so the noop loader never clobbers real bundles.
+   * Prioritized bootstrap. Each locale bundle is ~200–360KB, so the old
+   * "forkJoin all 29 before applying anything" approach downloaded ~7MB and
+   * left every `| translate` rendering raw keys (e.g. "HOME.TITLE") until the
+   * slowest file arrived — the visible flash on first load.
+   *
+   * Instead we load only the active language (+ `en` for fallback), apply it,
+   * and flip the ready flag. Every other locale is loaded lazily, on demand,
+   * the first time it's actually selected (see `setLanguage` →
+   * `loadLanguageBundle`). Most users never switch interface language, so this
+   * avoids pulling ~6.5MB of bundles nobody needs. `translate.use()` is never
+   * called before the chosen bundle is registered, so the noop loader can't
+   * clobber real strings.
    */
   private bootstrapAllTranslations(): void {
-    const requests = this.supportedLanguages.map((lang) =>
-      this.http.get<Record<string, unknown>>(`./assets/i18n/${lang.code}.json`).pipe(
-        catchError((err) => {
-          console.warn(`Failed to load translations for ${lang.code}:`, err);
-          return of({} as Record<string, unknown>);
-        })
-      )
-    );
+    const primary = this.resolveInitialLanguage();
+    const priority: SupportedLanguage[] = primary === 'en' ? ['en'] : [primary, 'en'];
 
-    forkJoin(requests).subscribe((bundles) => {
-      bundles.forEach((data, i) => {
-        const code = this.supportedLanguages[i].code;
+    forkJoin(priority.map((code) => this.loadLanguageBundle(code))).subscribe(() => {
+      this.translate.setFallbackLang('en');
+      this.applyLanguage(primary);
+      this.translationsBootstrapped.next(true);
+    });
+  }
+
+  /**
+   * Fetch and register a single locale bundle. Cached + de-duped so the
+   * priority load and on-demand `setLanguage` paths never re-fetch the same
+   * file. Resolves true once registered (or false on error).
+   */
+  private loadLanguageBundle(code: SupportedLanguage): Observable<boolean> {
+    if (this.loadedLanguages.has(code)) return of(true);
+    const existing = this.inFlightLoads.get(code);
+    if (existing) return existing;
+
+    const request = this.http.get<Record<string, unknown>>(`./assets/i18n/${code}.json`).pipe(
+      map((data) => {
         if (data && typeof data === 'object' && Object.keys(data).length > 0) {
           this.translate.setTranslation(code, data as never, false);
         }
-      });
-      this.translate.setFallbackLang('en');
-      this.translationsBootstrapped.next(true);
-    });
+        this.loadedLanguages.add(code);
+        this.inFlightLoads.delete(code);
+        return true;
+      }),
+      catchError((err) => {
+        console.warn(`Failed to load translations for ${code}:`, err);
+        this.inFlightLoads.delete(code);
+        return of(false);
+      }),
+      shareReplay(1)
+    );
+
+    this.inFlightLoads.set(code, request);
+    return request;
+  }
+
+  /**
+   * Resolve the language to apply at startup, synchronously, from the same
+   * priority as `initializeLanguage` minus the server profile (unavailable at
+   * construction time): localStorage → browser → 'en'.
+   */
+  private resolveInitialLanguage(): SupportedLanguage {
+    try {
+      const saved = localStorage.getItem(LanguageService.USER_LANGUAGE_KEY);
+      if (saved && this.isSupported(saved)) return saved as SupportedLanguage;
+    } catch {
+      /* localStorage may be unavailable (private mode); fall through */
+    }
+    return this.detectBrowserLanguage() ?? 'en';
+  }
+
+  /** Activate a (already-registered) language and sync document lang/dir. */
+  private applyLanguage(lang: SupportedLanguage): void {
+    // Update subject before `translate.use()` so synchronous `onLangChange`
+    // subscribers (and Intl formatters reading `getCurrentLanguage()`) see the
+    // new code immediately — `translate.use` may emit during its call.
+    this.currentLanguageSubject.next(lang);
+    this.translate.use(lang);
+
+    if (typeof document !== 'undefined') {
+      document.documentElement.lang = lang;
+      document.documentElement.dir = LanguageService.RTL_LANGUAGES.has(lang) ? 'rtl' : 'ltr';
+    }
   }
 
   private runWhenTranslationsReady(fn: () => void): void {
@@ -242,21 +306,18 @@ export class LanguageService {
       }
 
       console.log('🌐 Setting language to:', lang, `(source: ${source})`);
-      // Update subject before `translate.use()` so synchronous `onLangChange`
-      // subscribers (and Intl formatters reading `getCurrentLanguage()`) see
-      // the new code immediately — `translate.use` may emit during its call.
-      this.currentLanguageSubject.next(lang);
-      this.translate.use(lang);
 
-      localStorage.setItem(LanguageService.USER_LANGUAGE_KEY, lang);
-      if (source === 'user') {
-        localStorage.setItem(LanguageService.USER_PICK_KEY, lang);
-      }
+      // Ensure the target bundle is registered before activating it. With the
+      // prioritized bootstrap, a not-yet-background-loaded locale could
+      // otherwise activate against the noop loader and clobber real strings.
+      this.loadLanguageBundle(lang).subscribe(() => {
+        this.applyLanguage(lang);
 
-      if (typeof document !== 'undefined') {
-        document.documentElement.lang = lang;
-        document.documentElement.dir = LanguageService.RTL_LANGUAGES.has(lang) ? 'rtl' : 'ltr';
-      }
+        localStorage.setItem(LanguageService.USER_LANGUAGE_KEY, lang);
+        if (source === 'user') {
+          localStorage.setItem(LanguageService.USER_PICK_KEY, lang);
+        }
+      });
     });
   }
 

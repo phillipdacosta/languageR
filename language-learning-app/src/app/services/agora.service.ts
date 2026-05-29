@@ -786,6 +786,31 @@ export class AgoraService {
       }
     });
 
+    // Native Agora signal for remote mute/unmute of audio or video. This fires
+    // reliably when a peer calls setMuted() on their track (which we use for
+    // camera/mic off so the track stays published). Previously we relied ONLY
+    // on the custom HTTP messaging channel to learn about a peer's camera-off
+    // state — if that message was delayed or lost, the remote side kept showing
+    // a frozen/black frame instead of the avatar. This is the robust hot path.
+    this.client.on("user-info-updated", (uid, msg) => {
+      const remoteUser = this.remoteUsers.get(uid);
+      if (msg === "mute-video" || msg === "unmute-video") {
+        const isVideoOff = msg === "mute-video";
+        if (remoteUser) remoteUser.isVideoOff = isVideoOff;
+        console.log(`📹 [user-info-updated] ${uid} video ${isVideoOff ? "OFF" : "ON"}`);
+        if (this.onRemoteUserStateChange) {
+          this.onRemoteUserStateChange(uid, { isVideoOff });
+        }
+      } else if (msg === "mute-audio" || msg === "unmute-audio") {
+        const isMuted = msg === "mute-audio";
+        if (remoteUser) remoteUser.isMuted = isMuted;
+        console.log(`🎤 [user-info-updated] ${uid} audio ${isMuted ? "MUTED" : "UNMUTED"}`);
+        if (this.onRemoteUserStateChange) {
+          this.onRemoteUserStateChange(uid, { isMuted });
+        }
+      }
+    });
+
     // Listen for remote user leaving the channel
     this.client.on("user-left", (user) => {
       console.log("👋 User left:", user.uid);
@@ -1478,10 +1503,13 @@ export class AgoraService {
     const isMuted = this.localAudioTrack.muted;
     await this.localAudioTrack.setMuted(!isMuted);
     
-    // Send mute state to other users via messaging
-    await this.sendMuteStateUpdate(!isMuted);
+    // Notify other users via messaging WITHOUT blocking the UI. The local track
+    // is already (un)muted above; awaiting the retrying HTTP POST here made the
+    // button feel laggy (up to ~600ms+ on a slow network) before the icon
+    // flipped. Fire-and-forget so the UI reflects the change immediately.
+    void this.sendMuteStateUpdate(!isMuted);
     
-    console.log(`🎤 Microphone ${!isMuted ? 'muted' : 'unmuted'}, notified remote users`);
+    console.log(`🎤 Microphone ${!isMuted ? 'muted' : 'unmuted'}, notifying remote users`);
     return !isMuted;
   }
 
@@ -1499,8 +1527,10 @@ export class AgoraService {
       this.localVideoTrack.setMuted(!newState);
       this.videoEnabledState = newState;
       
-      // Send video state to other users via messaging
-      await this.sendVideoStateUpdate(!newState);
+      // Notify other users via messaging WITHOUT blocking the UI (see toggleMute).
+      // Remote peers also learn about this via the native 'user-info-updated'
+      // event, so this message is a redundant fast-path, not the only signal.
+      void this.sendVideoStateUpdate(!newState);
       
       console.log('Video track setEnabled completed:', {
         newState,
@@ -1725,10 +1755,23 @@ export class AgoraService {
     }
   }
 
-  // Send whiteboard data via HTTP API
-  async sendWhiteboardData(data: any): Promise<void> {
+  // Send whiteboard data via HTTP API.
+  // Pass reliable=true for low-frequency, must-not-drop events like the
+  // open/close toggle so a single transient network failure doesn't leave the
+  // other participant out of sync (e.g. tutor opens board, student never sees it).
+  async sendWhiteboardData(data: any, reliable: boolean = false): Promise<void> {
     if (!this.channelName || this.channelName === 'default') {
       console.warn("Cannot send whiteboard data: no active channel");
+      return;
+    }
+
+    if (reliable) {
+      const ok = await this.sendMessageWithRetry({ type: 'whiteboard', payload: data });
+      if (ok) {
+        console.log("Whiteboard data sent successfully (reliable):", data);
+      } else {
+        console.error("Failed to send whiteboard data after retries:", data);
+      }
       return;
     }
 

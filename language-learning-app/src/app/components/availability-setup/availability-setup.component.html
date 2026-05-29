@@ -182,6 +182,8 @@
                      [class.past]="isPastSlot(day.index, i)"
                      [class.booked]="isSlotBooked(day.index, i)"
                      [class.gcal-busy]="isGcalBusySlot(day, i)"
+                     [attr.title]="gcalBusySlotTooltips[day.dateKey + '-' + i]"
+                     [attr.aria-label]="gcalBusySlotTooltips[day.dateKey + '-' + i]"
                      (mousedown)="startSelection(day.index, i, $event)"
                      (mouseenter)="onSlotMouseEnter(day.index, i)"
                      (mouseup)="endSelection()">
