@@ -2252,12 +2252,14 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       await this.initializeWhiteboard();
     }
     
-    // Send whiteboard state change to other participant
+    // Send whiteboard state change to other participant.
+    // Use the reliable (retrying) path so the open/close toggle is not lost on a
+    // transient network blip — otherwise the student never auto-opens the board.
     this.agoraService.sendWhiteboardData({
       type: 'toggle',
       isOpen: this.showWhiteboard,
       initiatedBy: this.userRole  // 'tutor' or 'student'
-    });
+    }, true);
     
     // Show enhanced sharing messages
     // if (this.showWhiteboard) {

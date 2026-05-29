@@ -110,7 +110,7 @@
                  [class.video-watched]="hasWatchedVideo(tutor.id)"
                  [class.show-ring]="viewMode === 'grid'"
                  (click)="onAvatarClick(tutor, $event)">
-              <img [src]="getTutorImageSrc(tutor)" [alt]="tutor.name" class="tutor-avatar-image" (error)="onImageError($event)">
+              <img [src]="getTutorImageSrc(tutor)" [alt]="tutor.name" class="tutor-avatar-image" loading="lazy" decoding="async" (error)="onImageError($event)">
               <div class="online-badge" *ngIf="tutor.isOnline"></div>
             </div>
           </div>

@@ -27,6 +27,7 @@ interface WeekDay {
   shortName: string;
   index: number;
   date: Date;
+  dateKey: string;
   displayDate: string;
   displayMonth: string;
 }
@@ -87,6 +88,7 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
   gcalPushToGoogle = false;
   gcalLastSyncAt: Date | null = null;
   private gcalBusySlots = new Set<string>();
+  gcalBusySlotTooltips: Record<string, string> = {};
   selectedSlotsCount = 0;
   currentWeek: Date = new Date(); // First day currently shown in grid
   hasUnsavedChanges = false;
@@ -526,6 +528,7 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
       shortName,
       index: dayIndex,
       date: cleanDate,
+      dateKey: this.formatDateKey(cleanDate),
       displayDate: dayOfMonth.toString(),
       displayMonth: monthName
     });
@@ -680,6 +683,7 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
         shortName,
         index: date.getDay(), // Use actual day of week (0=Sunday, 1=Monday, etc.)
         date,
+        dateKey: this.formatDateKey(date),
         displayDate: dayOfMonth.toString(),
         displayMonth: monthName
       });
@@ -1303,9 +1307,22 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
       this.showBookedSlotToast();
       return;
     }
+    if (this.isGcalBusyByDayIndex(dayIndex, slotIndex)) {
+      return;
+    }
     this.isSelecting = true;
     this.selectionStart = { day: dayIndex, index: slotIndex };
     this.toggleSlot(dayIndex, slotIndex);
+  }
+
+  private getDisplayedDayByIndex(dayIndex: number): WeekDay | undefined {
+    return this.displayedWeekDays?.find(d => d.index === dayIndex)
+      || this.weekDays?.find(d => d.index === dayIndex);
+  }
+
+  private isGcalBusyByDayIndex(dayIndex: number, slotIndex: number): boolean {
+    const day = this.getDisplayedDayByIndex(dayIndex);
+    return !!day && this.isGcalBusySlot(day, slotIndex);
   }
 
   onSlotMouseEnter(dayIndex: number, slotIndex: number) {
@@ -1327,7 +1344,7 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
     const startIdx = Math.min(this.selectionStart.index, slotIndex);
     const endIdx = Math.max(this.selectionStart.index, slotIndex);
 
-    const dayArray = this.isSingleDayMode ? this.displayedWeekDays : this.weekDays;
+    const dayArray = this.displayedWeekDays?.length ? this.displayedWeekDays : this.weekDays;
     
     for (let day = startDay; day <= endDay; day++) {
       const dayObj = dayArray?.find(d => d.index === day);
@@ -1337,6 +1354,7 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
       
       for (let idx = startIdx; idx <= endIdx; idx++) {
         if (this.isPastSlot(day, idx) || this.isSlotBooked(day, idx)) continue;
+        if (this.isGcalBusySlot(dayObj, idx)) continue;
         this.selectedSlots.add(`${dateStr}-${idx}`);
       }
     }
@@ -1362,10 +1380,10 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
 
   private toggleSlot(dayIndex: number, slotIndex: number) {
     if (this.isPastSlot(dayIndex, slotIndex) || this.isSlotBooked(dayIndex, slotIndex)) return;
+    if (this.isGcalBusyByDayIndex(dayIndex, slotIndex)) return;
     
     // Find the specific date for this dayIndex
-    const dayArray = this.isSingleDayMode ? this.displayedWeekDays : this.weekDays;
-    const day = dayArray?.find(d => d.index === dayIndex);
+    const day = this.getDisplayedDayByIndex(dayIndex);
     if (!day) return;
     
     // Use specific date in slot key (YYYY-MM-DD format)
@@ -1411,8 +1429,10 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
   }
 
   isSlotSelected(dayIndex: number, slotIndex: number): boolean {
-    const dayArray = this.isSingleDayMode ? this.displayedWeekDays : this.weekDays;
-    const day = dayArray?.find(d => d.index === dayIndex);
+    if (this.isGcalBusyByDayIndex(dayIndex, slotIndex) && !this.isSlotBooked(dayIndex, slotIndex)) {
+      return false;
+    }
+    const day = this.getDisplayedDayByIndex(dayIndex);
     if (!day) return false;
     
     const dateStr = this.formatDateKey(day.date);
@@ -1617,7 +1637,10 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
         const startIdx = 9 * 2; // 9:00
         const endIdx = 18 * 2; // 18:00 (exclusive)
         for (let idx = startIdx; idx < endIdx; idx++) {
-          this.selectedSlots.add(`${dateStr}-${idx}`);
+          const slotKey = `${dateStr}-${idx}`;
+          if (!this.gcalBusySlots.has(slotKey)) {
+            this.selectedSlots.add(slotKey);
+          }
         }
       }
     });
@@ -1678,7 +1701,10 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
     while (currentDate <= endDate) {
       const dateStr = this.formatDateKey(currentDate);
       timeSlotIndices.forEach(idx => {
-        this.selectedSlots.add(`${dateStr}-${idx}`);
+        const slotKey = `${dateStr}-${idx}`;
+        if (!this.gcalBusySlots.has(slotKey)) {
+          this.selectedSlots.add(slotKey);
+        }
       });
       appliedDays++;
       
@@ -1844,33 +1870,60 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
     this.userService.getGoogleCalendarEvents(timeMin.toISOString(), timeMax.toISOString()).subscribe({
       next: (res) => {
         this.gcalBusySlots.clear();
+        this.gcalBusySlotTooltips = {};
         for (const evt of res.events) {
           if (evt.allDay) continue;
           const start = new Date(evt.start);
           const end = new Date(evt.end);
-          this.markGcalBusy(start, end);
+          this.markGcalBusy(start, end, evt);
+        }
+        if (this.removeGcalBusySelectedSlots() > 0) {
+          this.updateSelectedCount();
         }
         this.cdr.detectChanges();
       }
     });
   }
 
-  private markGcalBusy(start: Date, end: Date) {
+  private markGcalBusy(start: Date, end: Date, event?: any) {
     const dateStr = this.formatDateKey(start);
     const startMinutes = start.getHours() * 60 + start.getMinutes();
     const endMinutes = end.getHours() * 60 + end.getMinutes();
     const startIdx = Math.floor(startMinutes / 30);
     const endIdx = Math.ceil(endMinutes / 30);
+    const tooltip = `${event?.summary || 'Google Calendar event'} (${this.formatTooltipTime(start)} - ${this.formatTooltipTime(end)})`;
 
     for (let i = startIdx; i < endIdx; i++) {
-      this.gcalBusySlots.add(`${dateStr}-${i}`);
+      const slotKey = `${dateStr}-${i}`;
+      this.gcalBusySlots.add(slotKey);
+      this.gcalBusySlotTooltips[slotKey] = this.gcalBusySlotTooltips[slotKey]
+        ? `${this.gcalBusySlotTooltips[slotKey]}\n${tooltip}`
+        : tooltip;
     }
+  }
+
+  private formatTooltipTime(date: Date): string {
+    return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   }
 
   isGcalBusySlot(day: any, slotIndex: number): boolean {
     if (!this.gcalSyncEnabled || this.gcalBusySlots.size === 0) return false;
     const dateStr = this.formatDateKey(day.date);
     return this.gcalBusySlots.has(`${dateStr}-${slotIndex}`);
+  }
+
+  private removeGcalBusySelectedSlots(): number {
+    if (!this.gcalSyncEnabled || this.gcalBusySlots.size === 0) return 0;
+
+    let removed = 0;
+    for (const slotKey of Array.from(this.selectedSlots)) {
+      if (this.gcalBusySlots.has(slotKey) && !this.bookedSlots.has(slotKey)) {
+        this.selectedSlots.delete(slotKey);
+        removed++;
+      }
+    }
+
+    return removed;
   }
 
   // ── Calendar Settings ──────────────────────────────
@@ -1932,6 +1985,9 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
           this.selectedSlots.add(bookedSlotKey);
         }
       });
+
+      this.removeGcalBusySelectedSlots();
+      this.updateSelectedCount();
       
       // Convert selected slots to availability blocks
       const availabilityBlocks = this.convertSlotsToBlocks();

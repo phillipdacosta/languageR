@@ -3995,16 +3995,17 @@ img.m-card-empty-link-arrow-img {
 }
 
 .upnext-filled-name-row {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
   width: 100%;
   max-width: 100%;
+  column-gap: 8px;
 
   h3 {
-    width: 100%;
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: center;
     font-size: 22px;
     font-weight: 700;
     color: #1d1d1f;
@@ -4012,6 +4013,14 @@ img.m-card-empty-link-arrow-img {
     letter-spacing: -0.3px;
     line-height: 1.2;
     text-align: center;
+    white-space: nowrap;
+  }
+
+  .upnext-filled-trial-pill {
+    grid-column: 3;
+    grid-row: 1;
+    justify-self: start;
+    align-self: center;
   }
 }
 
@@ -4056,6 +4065,39 @@ img.m-card-empty-link-arrow-img {
   align-items: center;
   gap: 4px;
   max-width: 100%;
+  width: 100%;
+}
+
+.upnext-filled-tagline-wrap {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  max-width: 420px;
+  width: 100%;
+  min-width: 0;
+}
+
+.upnext-filled-tagline-more {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 0 2px;
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 600;
+  color: #4a90d9;
+  letter-spacing: -0.05px;
+  cursor: pointer;
+  white-space: nowrap;
+  border-radius: 6px;
+  transition: background 0.15s ease, color 0.15s ease;
+
+  &:hover {
+    background: rgba(74, 144, 217, 0.08);
+    color: #2d6db6;
+  }
 }
 
 .upnext-filled-translate-btn,
@@ -4098,29 +4140,26 @@ img.m-card-empty-link-arrow-img {
   width: 100%;
 }
 
-// Tagline (lesson description). Kept to a strict 2-line block so the card
-// height never grows with longer summaries — text just ellipsizes.
+// Tagline (lesson description). Single line with ellipsis; "View more" when clipped.
 .upnext-filled-tagline {
   font-size: 14px;
   font-weight: 500;
   color: #6b7280;
   margin: 0;
   line-height: 1.45;
-  max-width: 420px;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 100%;
   letter-spacing: -0.1px;
   text-align: center;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  height: calc(14px * 1.45 * 2);
 }
 .earnings-amount-text {
-position: relative;
-right: 26px;
-top: 4px;
+  position: relative;
+  right: 26px;
+  top: 4px;
 }
 
 // Class cover — landscape tile (tutor desktop Up Next). Slightly larger; padding trimmed to offset.
@@ -9111,6 +9150,11 @@ top: 4px;
   display: flex;
   flex-direction: column;
   min-height: 0;
+  transition: opacity 0.2s ease;
+
+  &.lessons-refreshing {
+    opacity: 0;
+  }
 
   @media (max-width: 600px) {
     flex: none;
@@ -10077,9 +10121,37 @@ top: 4px;
     }
   }
   
+  // Flexible region holding balance + weekly goal. Keeps withdraw / view-details
+  // buttons pinned at the bottom of the fixed-height card.
+  .earnings-card-main {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+
+    // Balance always fully visible.
+    .earnings-card-body {
+      flex: 0 0 auto;
+    }
+
+    // Weekly goal absorbs/yields the slack and clips its bottom if needed.
+    .earnings-goal {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow: hidden;
+    }
+  }
+
+  // Pinned action buttons — never shrink or get clipped.
+  .withdraw-btn,
+  .view-details-link {
+    flex-shrink: 0;
+  }
+
   .earnings-card-body {
     margin-bottom: 12px;
-    flex: 1; // Push withdraw button to bottom when Pending is hidden
+    flex: 1; // Push withdraw button to bottom
     
     .earnings-label {
       font-size: 14px;
@@ -10099,7 +10171,7 @@ top: 4px;
       box-sizing: content-box;
       /* Air under “Total Balance” — scaled coin still reads tight to the label without this */
       padding-top: 4px;
-
+      padding-left: 3px;
       /* Layout stays 0.85em; drawn ≈ 2.85em. Nudge left + reserve inline space so dots aren’t covered. */
       .home-dollar-icon {
         width: 0.85em;
@@ -10147,53 +10219,9 @@ top: 4px;
       border-radius: 3px;
       background: rgba(0, 0, 0, 0.08);
     }
-    
-    .earnings-pending {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 8px 0;
-      border-top: 1px solid #f3f4f6;
-      box-sizing: border-box;
-
-      .pending-amount-masked {
-        color: #d1d5db;
-        letter-spacing: 1px;
-      }
-
-      .pending-label {
-        font-size: 14px;
-        color: #6b7280;
-        font-weight: 500;
-      }
-      
-      .pending-amount {
-        font-size: 16px;
-        font-weight: 600;
-        color: #FF385C;
-
-        /* Layout 1em; visual 2.85em */
-        .home-dollar-icon {
-          width: 1em;
-          height: 1em;
-          vertical-align: middle;
-          margin-right: 0.65em;
-          margin-left: -0.18em;
-          object-fit: contain;
-          display: inline-block;
-          background: transparent;
-          background-color: transparent;
-          position: relative;
-          top: 5px;
-          transform: translateX(-0.52em) scale(2.85);
-          transform-origin: 0 55%;
-        }
-      }
-    }
   }
   
-  // Weekly earnings goal (desktop only): FLAT section between Pending and Withdraw.
-  // Uses a hairline divider (same pattern as .earnings-pending) — no nested card surface.
+  // Weekly earnings goal (desktop only): FLAT section between balance and Withdraw.
   .earnings-goal {
     margin: 0 0 12px 0;
     padding: 10px 0 0 0;
@@ -15046,11 +15074,6 @@ top: 4px;
         background-size: 200% 100%;
         animation: skeletonShimmer 1.2s ease-in-out infinite;
       }
-    }
-    .earnings-pending {
-      border-top-color: #3a3a3a !important;
-      .pending-label { color: #999 !important; }
-      .pending-amount-masked { color: #555 !important; }
     }
     .withdraw-btn {
       --border-color: #4d4d4d !important;

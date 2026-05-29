@@ -1,4 +1,5 @@
 const multer = require('multer');
+const sharp = require('sharp');
 const { Storage } = require('@google-cloud/storage');
 const videoCompressionService = require('../services/videoCompressionService');
 const { pipeline } = require('stream');
@@ -267,6 +268,36 @@ async function getUserFromRequest(req) {
 const { verifyToken } = require('./verifyAuth');
 
 // Image upload handler
+/**
+ * Resize + compress an uploaded image before it goes to GCS.
+ *
+ * Originals are frequently multi-MB phone photos that get rendered into tiny
+ * avatars/thumbnails, which made images load slowly across the app. Converting
+ * to WebP @ q80 with a sane max dimension typically cuts the payload by
+ * ~80–95% with no visible quality loss at display sizes. Animated GIFs are
+ * passed through untouched so their animation is preserved.
+ */
+async function processImageForUpload(buffer, mimetype, folder) {
+  if (mimetype === 'image/gif') {
+    return { buffer, ext: 'gif', contentType: 'image/gif' };
+  }
+
+  // Avatars render small; thumbnails a bit larger. Both cover retina displays.
+  const maxDimension = folder === 'profile-pictures' ? 512 : 1000;
+
+  try {
+    const optimized = await sharp(buffer, { failOn: 'none' })
+      .rotate() // honor EXIF orientation so portraits aren't sideways
+      .resize(maxDimension, maxDimension, { fit: 'inside', withoutEnlargement: true })
+      .webp({ quality: 80 })
+      .toBuffer();
+    return { buffer: optimized, ext: 'webp', contentType: 'image/webp' };
+  } catch (error) {
+    console.warn('⚠️ sharp image processing failed, uploading original:', error?.message);
+    return { buffer, ext: (mimetype.split('/')[1] || 'jpg'), contentType: mimetype };
+  }
+}
+
 async function uploadImageToGCS(req, res) {
   try {
     if (!req.file) {
@@ -290,19 +321,26 @@ async function uploadImageToGCS(req, res) {
 
     const timestamp = Date.now();
     const randomString = Math.random().toString(36).substring(2, 15);
-    const fileExtension = req.file.originalname.split('.').pop();
-    
+
     const isMaterialThumbnail = req.baseUrl.includes('materials');
     const isClassThumbnail = req.path.includes('classes') || req.path.includes('thumbnail');
     const folder = isMaterialThumbnail ? 'material-thumbnails' : isClassThumbnail ? 'class-thumbnails' : 'profile-pictures';
-    const fileName = `${folder}/${req.user.sub}/${timestamp}-${randomString}.${fileExtension}`;
+
+    const processed = await processImageForUpload(req.file.buffer, req.file.mimetype, folder);
+    console.log('📸 Image optimized:', {
+      originalBytes: req.file.size,
+      optimizedBytes: processed.buffer.length,
+      contentType: processed.contentType,
+    });
+
+    const fileName = `${folder}/${req.user.sub}/${timestamp}-${randomString}.${processed.ext}`;
 
     console.log('📸 GCS target:', fileName, 'bucket:', bucket.name);
 
     const file = bucket.file(fileName);
     const stream = file.createWriteStream({
       metadata: {
-        contentType: req.file.mimetype,
+        contentType: processed.contentType,
         cacheControl: 'public, max-age=31536000',
       },
     });
@@ -332,7 +370,7 @@ async function uploadImageToGCS(req, res) {
       }
     });
 
-    stream.end(req.file.buffer);
+    stream.end(processed.buffer);
   } catch (error) {
     console.error('❌ Error in uploadImageToGCS:', error);
     res.status(500).json({ error: 'Internal server error', detail: error?.message });

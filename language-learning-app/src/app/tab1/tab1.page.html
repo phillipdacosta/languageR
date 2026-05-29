@@ -654,7 +654,7 @@
     
     <!-- Tutor Dashboard Grid: 2x2 layout (students share the same shell; tutor-only widgets gated separately) -->
     <div class="tutor-dashboard-grid tutor-dashboard-grid--with-this-week" *ngIf="isTutorUser || isStudentUser">
-      <div class="grid-cell-upnext">
+      <div class="grid-cell-upnext" [class.lessons-refreshing]="lessonsRefreshing">
         <ng-container *ngIf="!isMobile && (isTutorUser || isStudentUser)">
           <div class="home-widget-skeleton-title skeleton-line" *ngIf="isLoadingLessons" aria-hidden="true"></div>
           <h2 class="desktop-tutor-section-title" *ngIf="!isLoadingLessons">{{ (nextLesson ? 'HOME.UP_NEXT' : 'HOME.YOUR_SCHEDULE') | translate }}</h2>
@@ -875,7 +875,16 @@
             </span>
           </div>
           <div class="upnext-filled-tagline-row" *ngIf="upNextTagline">
-            <p class="upnext-filled-tagline">{{ upNextTagline }}</p>
+            <div class="upnext-filled-tagline-wrap">
+              <p #upNextTaglineEl class="upnext-filled-tagline">{{ upNextTagline }}</p>
+              <button
+                type="button"
+                class="upnext-filled-tagline-more"
+                *ngIf="upNextTaglineShowViewMore"
+                (click)="openUpNextLessonFromTagline($event)">
+                {{ 'HOME.VIEW_MORE' | translate }}
+              </button>
+            </div>
             <button
               type="button"
               class="upnext-filled-translate-btn"
@@ -1116,22 +1125,13 @@
         </app-premium-when-unframed>
 
         <div class="earnings-card-widget hover-lift" *ngIf="isTutorUser" [class.skip-entry-animation]="returningFromEarnings">
+          <div class="earnings-card-main">
           <div class="earnings-card-body">
             <div class="earnings-label">{{ 'HOME.TOTAL_BALANCE' | translate }}</div>
             <div class="earnings-balance" (click)="toggleWalletVisibility($event)">
               <span *ngIf="earningsBalanceLoading" class="earnings-balance-skeleton"><ion-skeleton-text animated style="width: 120px; height: 40px; display: block; border-radius: 8px;"></ion-skeleton-text></span>
               <span *ngIf="!earningsBalanceLoading && !showWalletBalance && !walletTemporarilyVisible"><img class="home-dollar-icon" [src]="isDarkModeActive ? 'assets/home-earnings-dollar-dark.png' : 'assets/home-earnings-dollar.png'" alt="" role="presentation" /><span class="earnings-dots-display">••••</span></span>
               <span *ngIf="!earningsBalanceLoading && (showWalletBalance || walletTemporarilyVisible)"><img class="home-dollar-icon" [src]="isDarkModeActive ? 'assets/home-earnings-dollar-dark.png' : 'assets/home-earnings-dollar.png'" alt="" role="presentation" /><span class="earnings-amount-text"> {{ displayedEarningsText }}</span></span>
-            </div>
-            <div
-              class="earnings-pending"
-              *ngIf="tutorPendingEarnings > 0">
-              <span class="pending-label">{{ 'HOME.PENDING' | translate }}</span>
-              <span class="pending-amount">
-                <img class="home-dollar-icon" [src]="isDarkModeActive ? 'assets/home-earnings-dollar-dark.png' : 'assets/home-earnings-dollar.png'" alt="" role="presentation" />
-                <span *ngIf="showWalletBalance || walletTemporarilyVisible">{{ tutorPendingEarnings.toFixed(2) }}</span>
-                <span *ngIf="!showWalletBalance && !walletTemporarilyVisible" class="pending-amount-masked">••</span>
-              </span>
             </div>
           </div>
 
@@ -1204,6 +1204,7 @@
                 <ng-container *ngIf="showWalletBalance || walletTemporarilyVisible">{{ weeklyEarningsGoalSubLabel }}</ng-container>
               </div>
             </div>
+          </div>
           </div>
 
           <ion-button fill="outline" expand="block" class="withdraw-btn" (click)="openWithdrawModal()">
