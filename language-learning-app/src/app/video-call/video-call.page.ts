@@ -2303,6 +2303,20 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       }, 50);
     } else {
       // Whiteboard is CLOSING
+      // Destroy the Fastboard instance so a later reopen re-mounts its UI into
+      // the freshly-created container. The panel is rendered with
+      // *ngIf="showWhiteboard", so closing removes the container DOM; without a
+      // destroy here `initializeWhiteboard()` early-returns (fastboardApp still
+      // set) on reopen and the toolbar/controls stay bound to the discarded
+      // node — i.e. no visible controls. The board content is preserved
+      // server-side (same room) and restored on rejoin.
+      void this.destroyWhiteboard();
+
+      if (this.cursorCleanupInterval) {
+        clearInterval(this.cursorCleanupInterval);
+        this.cursorCleanupInterval = null;
+      }
+
       if (this.isClass) {
         setTimeout(() => {
           if (this.userRole === 'tutor') {
@@ -2344,11 +2358,26 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     }, 200);
   }
   
+  // Remove only the Agora-injected video nodes from a container while leaving
+  // Angular-rendered overlays (camera-off avatar, mic status) intact. The 1:1
+  // main container (#remoteVideo) holds those overlays as children, so a blunt
+  // `innerHTML = ''` would delete them — and since their *ngIf conditions don't
+  // change, Angular never re-creates them, leaving the closed-whiteboard view
+  // with no avatar/mic indicator.
+  private clearAgoraVideoNodes(container: HTMLElement) {
+    Array.from(container.children).forEach(child => {
+      if (child.tagName === 'VIDEO' || child.querySelector('video')) {
+        child.remove();
+      }
+    });
+  }
+
   // Move remote video back to main area when whiteboard closes
   private moveRemoteVideoToMain() {
     console.log('📹 moveRemoteVideoToMain called');
     
-    // Clear the tile if it exists
+    // Clear the tile if it exists (the tile holds only the Agora video; its
+    // avatar placeholder is a sibling, so a full clear is safe here)
     if (this.remoteVideoTileRef?.nativeElement) {
       this.remoteVideoTileRef.nativeElement.innerHTML = '';
     }
@@ -2363,8 +2392,9 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         return;
       }
       
-      const remoteContainer = this.remoteVideoRef.nativeElement;
-      remoteContainer.innerHTML = ''; // Clear any existing content
+      // Remove any stale Agora video node but preserve the Angular overlays
+      // (avatar + mic status) that live inside this same container.
+      this.clearAgoraVideoNodes(this.remoteVideoRef.nativeElement);
       
       // Use the centralized method to play video
       this.playRemoteVideoInCorrectContainer();
@@ -4982,7 +5012,16 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
             // Tutor closed - auto-close for student
             console.log('🎨 Tutor closed whiteboard - auto-closing for student');
             this.showWhiteboard = false;
-            
+
+            // Destroy the Fastboard instance so a subsequent auto-open re-mounts
+            // its UI into the freshly-created container (see toggleWhiteboard).
+            void this.destroyWhiteboard();
+
+            if (this.cursorCleanupInterval) {
+              clearInterval(this.cursorCleanupInterval);
+              this.cursorCleanupInterval = null;
+            }
+
             // Force change detection
             this.cdr.detectChanges();
             
