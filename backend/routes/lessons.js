@@ -2999,6 +2999,23 @@ router.post('/:id/call-end', verifyToken, async (req, res) => {
     const userId = user?._id;
     const userRole = userId && userId.toString() === lesson.tutorId._id.toString() ? 'tutor' : 'student';
 
+    // A participant leaving BEFORE the scheduled end time is just leaving the
+    // call — NOT ending the lesson. We must not mark the lesson `ended_early`
+    // and must not notify the other participant, otherwise the other side gets
+    // a "lesson ended" prompt and the leaver is blocked from rejoining. The
+    // lesson stays active (its current status) until `endTime`, at which point
+    // the auto-finalize cron completes it and rejoining is blocked.
+    const scheduledEnd = lesson.endTime ? new Date(lesson.endTime) : null;
+    const isPastScheduledEnd = scheduledEnd ? Date.now() >= scheduledEnd.getTime() : true;
+    if (!isPastScheduledEnd) {
+      console.log(`↩️ [call-end] Early leave by ${userRole} for lesson ${lesson._id} — lesson stays active until scheduled end (${lesson.endTime}).`);
+      return res.json({
+        success: true,
+        ended: false,
+        message: 'Participant left early; lesson remains active until its scheduled end time.'
+      });
+    }
+
     // Only calculate if call was started and not already ended
     if (lesson.actualCallStartTime && !lesson.actualCallEndTime) {
       const now = new Date();

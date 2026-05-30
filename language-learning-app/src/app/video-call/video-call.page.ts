@@ -460,6 +460,15 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     private languageService: LanguageService
   ) { }
 
+  ionViewWillEnter() {
+    // Reset transient end-of-call state on every (re-)entry so a rejoin after
+    // leaving early never shows a stale, perpetually-spinning "Leaving…"
+    // overlay. Ionic may reuse this page instance, in which case the class
+    // field defaults don't re-run — so reset explicitly here.
+    this.isEndingCall = false;
+    this.hasEndedCall = false;
+  }
+
   async ngOnInit() {
     this.languageService.whenTranslationsReady().pipe(takeUntil(this.destroy$)).subscribe(() => {
       this.applyVideoCallI18n();
@@ -5999,7 +6008,12 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       //   Done up-front so the placeholder is in the DB before
       //   `completeTranscription` triggers the real analyzer (which then
       //   upserts the placeholder row).
-      if (ctx.lessonId && !ctx.otherParticipantEnded) {
+      // Only record call-end on a REAL end (scheduled end time reached). An
+      // early leave must not finalize the lesson — the other participant stays
+      // in the call and the leaver can rejoin until the scheduled end time. The
+      // auto-finalize cron completes the lesson once `endTime` passes.
+      const isRealEnd = ctx.isPermanentEnd || ctx.otherParticipantEnded;
+      if (ctx.lessonId && ctx.isPermanentEnd && !ctx.otherParticipantEnded) {
         try {
           await firstValueFrom(this.lessonService.endCall(ctx.lessonId, ctx.clientSpeakingSeconds));
           console.log('✅ Background: call-end recorded (placeholder + status update)');
@@ -6019,7 +6033,12 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       //    Backend triggers `analyzeLesson()` here, which upserts the
       //    LessonAnalysis row with the real GPT-4 result (overwriting the
       //    placeholder from step 1).
-      if (ctx.transcriptionEnabled && ctx.transcriptId && !ctx.transcriptionAlreadyDone) {
+      // Only complete the transcript on a real end. On an early leave we leave
+      // the session open so it resumes on rejoin (checkAndResumeTranscription),
+      // and the autoCompleteTranscripts cron finalizes it after `endTime` if
+      // the user never returns. Completing it here would both prevent resume
+      // and trigger analysis on a lesson that hasn't actually ended.
+      if (isRealEnd && ctx.transcriptionEnabled && ctx.transcriptId && !ctx.transcriptionAlreadyDone) {
         try {
           console.log('📝 Background: completing transcription...');
           await firstValueFrom(this.transcriptionService.completeTranscription());
