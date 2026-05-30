@@ -18173,47 +18173,5 @@ ion-modal.reschedule-proposal-modal {
   }
 }
 
-// DEV: Floating manual trigger for the pending-updates growth ticker.
-// Top-level (not nested) so the fixed-position button isn't scoped away
-// when it sits at the end of <ion-content> outside .welcome-section.
-.dev-pending-updates-trigger {
-  position: fixed;
-  right: 20px;
-  bottom: 20px;
-  z-index: 9999;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
-  background: rgba(17, 24, 39, 0.92);
-  color: #ffffff;
-  border: none;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 600;
-  font-family: inherit;
-  letter-spacing: -0.01em;
-  cursor: pointer;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  transition: transform 0.2s ease, background 0.2s ease, opacity 0.2s ease;
-  opacity: 0.85;
-
-  ion-icon {
-    font-size: 14px;
-  }
-
-  &:hover {
-    opacity: 1;
-    background: #000000;
-    transform: translateY(-1px);
-  }
-
-  &:active {
-    transform: translateY(0);
-  }
-}
-
 // Animations for empty state
 

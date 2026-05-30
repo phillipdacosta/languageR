@@ -925,10 +925,6 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     });
     this._darkModeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
 
-    // Devtools-only manual trigger: window.__testPendingUpdates(3) to simulate a booking
-    // burst arriving via websocket, or window.__testPendingUpdates(0) to clear it.
-    (window as any).__testPendingUpdates = (count: number = 3) => this.testPendingUpdates(count);
-
     this.translationSub = this.analysisTranslation.onTranslationChanged().subscribe(changedId => {
       if (changedId === this.prevNotesAnalysisId) {
         this.refreshPrevNotesTranslationState();
@@ -2231,8 +2227,6 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     this.tutorGrowthService.destroy();
     this._growthInsightsLoaded = false;
     this._growthContext = null;
-
-    try { delete (window as any).__testPendingUpdates; } catch { /* ignore */ }
 
     this.destroy$.next();
 
@@ -5565,23 +5559,6 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     });
   }
 
-  /**
-   * Manual test entry point — invoke from devtools as
-   * `window.__testPendingUpdates(3)` to simulate a websocket-driven booking
-   * burst without actually waiting on the backend. Pass 0 to clear.
-   */
-  testPendingUpdates(count: number = 3): void {
-    if (!count || count < 1) {
-      this._pendingLessonUpdateCount = 0;
-      this.tutorGrowthService.clearPendingUpdates();
-    } else {
-      this._pendingLessonUpdateCount = count;
-      this.tutorGrowthService.setPendingUpdates(count);
-    }
-    this.syncGrowthInsightProperties();
-    this.cdr.markForCheck();
-  }
-
   openGrowthInsightsModal(): void {
     this.growthModalItems = this.tutorGrowthService.getAllWithStatus();
     this.isGrowthModalOpen = true;
@@ -5846,13 +5823,24 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
           return start > now;
         }
         
-        // For non-cancelled lessons: show if start time hasn't passed yet
-        return start > now && (l.status === 'scheduled' || l.status === 'in_progress');
+        // For non-cancelled lessons, scheduled time is the source of truth.
+        // If users leave early, the backend marks the lesson `ended_early`,
+        // but the card should stay visible until the booked end time.
+        return this.isScheduleVisibleUntilScheduledEnd(l, now.getTime());
       })
       .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
     
     // Return the first lesson chronologically (whether cancelled or not)
     return upcoming.length > 0 ? upcoming[0] : null;
+  }
+
+  private isScheduleVisibleUntilScheduledEnd(lesson: Lesson, nowMs: number = Date.now()): boolean {
+    if (!lesson || lesson.status === 'cancelled') return false;
+    const startMs = new Date(lesson.startTime).getTime();
+    const endMs = new Date(lesson.endTime).getTime();
+    if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return false;
+
+    return startMs > nowMs || (startMs <= nowMs && nowMs < endMs);
   }
 
   // Get formatted info about the next lesson for empty state display
@@ -6100,17 +6088,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     // Second pass: find the earliest upcoming lesson ACROSS ALL DATES and mark it as "next"
     // Get ALL upcoming lessons (not just for this date)
     const allUpcomingLessons = this.lessons
-      .filter(l => {
-        if (l.status !== 'scheduled' && l.status !== 'in_progress' && l.status !== 'pending_reschedule') return false;
-        const startTime = new Date(l.startTime);
-        const endTime = new Date(l.endTime);
-        // Include lessons that are in progress (started but not ended yet)
-        if (startTime <= now && now < endTime) {
-          return true;
-        }
-        // Include lessons that haven't started yet (upcoming)
-        return startTime > now;
-      })
+      .filter(l => this.isScheduleVisibleUntilScheduledEnd(l, now.getTime()))
       .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
     
     // Get the very next lesson ID (the earliest upcoming lesson across all dates)
@@ -7016,8 +6994,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   get nextLesson(): any | null {
     // Create a hash of the inputs to detect changes
     // MUST include both lessons and cancelledLessons since getNextLesson() checks both
-    const lessonsHash = this.lessons.map(l => `${l._id}:${l.startTime}:${l.status}`).join(',');
-    const cancelledHash = this.cancelledLessons.map(l => `${l._id}:${l.startTime}:${l.status}`).join(',');
+    const lessonsHash = this.lessons.map(l => `${l._id}:${l.startTime}:${l.endTime}:${l.status}`).join(',');
+    const cancelledHash = this.cancelledLessons.map(l => `${l._id}:${l.startTime}:${l.endTime}:${l.status}`).join(',');
     const currentHash = `next:${lessonsHash}:${cancelledHash}:${this.currentLocale}:${Date.now() - (Date.now() % 60000)}`; // Update every minute + on locale change
     
     // Return cached value if inputs haven't changed
@@ -7035,7 +7013,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   get firstLessonForSelectedDate(): any | null {
     // Create a hash of the inputs to detect changes
     const selectedDateStr = this.selectedDate ? this.selectedDate.toISOString() : 'null';
-    const lessonsHash = this.lessons.map(l => `${l._id}:${l.startTime}:${l.status}`).join(',');
+    const lessonsHash = this.lessons.map(l => `${l._id}:${l.startTime}:${l.endTime}:${l.status}`).join(',');
     const currentHash = `${selectedDateStr}:${lessonsHash}:${this.currentLocale}:${Date.now() - (Date.now() % 60000)}`; // Update every minute + on locale change
     
     // Return cached value if inputs haven't changed
@@ -7056,17 +7034,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     
     // Get ALL upcoming/active lessons (across all dates)
     const allUpcomingLessons = this.lessons
-      .filter(l => {
-        if (l.status !== 'scheduled' && l.status !== 'in_progress' && l.status !== 'pending_reschedule') return false;
-        const startTime = new Date(l.startTime);
-        const endTime = new Date(l.endTime);
-        // Include lessons that are in progress (started but not ended yet)
-        if (startTime <= now && now < endTime) {
-          return true;
-        }
-        // Include lessons that haven't started yet (upcoming)
-        return startTime > now;
-      })
+      .filter(l => this.isScheduleVisibleUntilScheduledEnd(l, now.getTime()))
       .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
     
     if (allUpcomingLessons.length === 0) {
@@ -7175,15 +7143,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     
     // Filter for upcoming/active lessons (include pending_reschedule)
     const activeLessons = lessonsForDate.filter(l => {
-      if (l.status !== 'scheduled' && l.status !== 'in_progress' && l.status !== 'pending_reschedule') return false;
-      const startTime = new Date(l.startTime);
-      const endTime = new Date(l.endTime);
-      // Include lessons that are in progress (started but not ended yet)
-      if (startTime <= now && now < endTime) {
-        return true;
-      }
-      // Include lessons that haven't started yet (upcoming)
-      return startTime > now;
+      return this.isScheduleVisibleUntilScheduledEnd(l, now.getTime());
     }).sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
     
     if (activeLessons.length === 0) {
@@ -7194,17 +7154,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     
     // Check if this is the actual next class across ALL dates
     const allUpcomingLessons = this.lessons
-      .filter(l => {
-        if (l.status !== 'scheduled' && l.status !== 'in_progress' && l.status !== 'pending_reschedule') return false;
-        const startTime = new Date(l.startTime);
-        const endTime = new Date(l.endTime);
-        // Include lessons that are in progress (started but not ended yet)
-        if (startTime <= now && now < endTime) {
-          return true;
-        }
-        // Include lessons that haven't started yet (upcoming)
-        return startTime > now;
-      })
+      .filter(l => this.isScheduleVisibleUntilScheduledEnd(l, now.getTime()))
       .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
     
     const isNextClass = allUpcomingLessons.length > 0 && String(allUpcomingLessons[0]._id) === String(firstLesson._id);
