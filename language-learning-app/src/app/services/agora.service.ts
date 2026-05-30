@@ -15,6 +15,8 @@ import { TokenGeneratorService } from './token-generator.service';
 import { LessonService, LessonJoinResponse } from './lesson.service';
 import { ClassService } from './class.service';
 import { UserService } from './user.service';
+import { AuthService } from './auth.service';
+import { buildBearerToken } from './auth-token.util';
 
 @Injectable({
   providedIn: 'root'
@@ -157,7 +159,8 @@ export class AgoraService {
     private tokenGenerator: TokenGeneratorService,
     private lessonService: LessonService,
     private classService: ClassService,
-    private userService: UserService
+    private userService: UserService,
+    private authService: AuthService
   ) {}
 
   getClient(): IAgoraRTCClient | null {
@@ -1281,7 +1284,7 @@ export class AgoraService {
 
     try {
       const response = await fetch(`${environment.backendUrl}/api/messaging/channels/${this.channelName}/messages?since=${this.lastMessageTime}`, {
-        headers: this.getAuthHeaders()
+        headers: await this.getAuthHeaders()
       });
 
       if (response.ok) {
@@ -1353,24 +1356,29 @@ export class AgoraService {
     }
   }
 
-  private getAuthHeaders(): Record<string, string> {
-    // Use the same auth headers as other services, but convert HttpHeaders to plain object
-    const httpHeaders = this.userService.getAuthHeadersSync();
-    const headers: Record<string, string> = {};
-    
-    // Convert HttpHeaders to plain object for fetch API
-    httpHeaders.keys().forEach(key => {
-      const value = httpHeaders.get(key);
-      if (value) {
-        headers[key] = value;
+  // These messaging-channel calls use the raw `fetch()` API, so the
+  // `ApiAuthInterceptor` (which only runs on Angular's HttpClient) never fires.
+  // We must mint a real Auth0 bearer token ourselves via `buildBearerToken`,
+  // exactly like `websocket.service.ts` / `deepgram-audio.service.ts` do.
+  // The old code relied on `userService.getAuthHeadersSync()`, which only
+  // returns the deprecated `dev-token-{email}` placeholder — accepted in local
+  // dev but rejected with 401 in production, silently breaking whiteboard sync
+  // and the camera/mute state messages.
+  private async getAuthHeaders(): Promise<Record<string, string>> {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'X-Requested-With': 'XMLHttpRequest'
+    };
+
+    try {
+      const token = await buildBearerToken(this.authService);
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
       }
-    });
-    
-    // Ensure Content-Type is set for JSON requests
-    if (!headers['Content-Type']) {
-      headers['Content-Type'] = 'application/json';
+    } catch (err) {
+      console.error('[Agora] Failed to build bearer token for messaging:', err);
     }
-    
+
     return headers;
   }
 
@@ -1778,7 +1786,7 @@ export class AgoraService {
     try {
       const response = await fetch(`${environment.backendUrl}/api/messaging/channels/${this.channelName}/messages`, {
         method: 'POST',
-        headers: this.getAuthHeaders(),
+        headers: await this.getAuthHeaders(),
         body: JSON.stringify({
           type: 'whiteboard',
           payload: data
@@ -1805,7 +1813,7 @@ export class AgoraService {
     try {
       const response = await fetch(`${environment.backendUrl}/api/messaging/channels/${this.channelName}/messages`, {
         method: 'POST',
-        headers: this.getAuthHeaders(),
+        headers: await this.getAuthHeaders(),
         body: JSON.stringify({
           type: 'chat',
           payload: message
@@ -1836,7 +1844,7 @@ export class AgoraService {
       try {
         const response = await fetch(`${environment.backendUrl}/api/messaging/channels/${this.channelName}/messages`, {
           method: 'POST',
-          headers: this.getAuthHeaders(),
+          headers: await this.getAuthHeaders(),
           body: JSON.stringify(payload)
         });
         
@@ -1979,7 +1987,7 @@ export class AgoraService {
         // Re-send current mute state
         await fetch(`${environment.backendUrl}/api/messaging/channels/${this.channelName}/messages`, {
           method: 'POST',
-          headers: this.getAuthHeaders(),
+          headers: await this.getAuthHeaders(),
           body: JSON.stringify({
             type: 'muteState',
             payload: {
@@ -1993,7 +2001,7 @@ export class AgoraService {
         // Re-send current video state
         await fetch(`${environment.backendUrl}/api/messaging/channels/${this.channelName}/messages`, {
           method: 'POST',
-          headers: this.getAuthHeaders(),
+          headers: await this.getAuthHeaders(),
           body: JSON.stringify({
             type: 'videoState',
             payload: {
@@ -2009,7 +2017,7 @@ export class AgoraService {
         if (this.currentLocalScreenSharingState) {
           await fetch(`${environment.backendUrl}/api/messaging/channels/${this.channelName}/messages`, {
             method: 'POST',
-            headers: this.getAuthHeaders(),
+            headers: await this.getAuthHeaders(),
             body: JSON.stringify({
               type: 'screenShareState',
               payload: {
@@ -2042,7 +2050,7 @@ export class AgoraService {
     try {
       await fetch(`${environment.backendUrl}/api/messaging/channels/${this.channelName}/messages`, {
         method: 'POST',
-        headers: this.getAuthHeaders(),
+        headers: await this.getAuthHeaders(),
         body: JSON.stringify({
           type: 'talkTime',
           payload: {
@@ -2082,7 +2090,7 @@ export class AgoraService {
       
       const response = await fetch(`${environment.backendUrl}/api/messaging/channels/${this.channelName}/messages`, {
         method: 'POST',
-        headers: this.getAuthHeaders(),
+        headers: await this.getAuthHeaders(),
         body: JSON.stringify({
           type: 'participantIdentity',
           payload: {

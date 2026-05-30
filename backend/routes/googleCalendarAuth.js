@@ -29,14 +29,26 @@ function signOAuthState(payload) {
 }
 
 function verifyOAuthState(state) {
-  if (!state || typeof state !== 'string' || !state.includes('.')) return null;
+  if (!state || typeof state !== 'string' || !state.includes('.')) {
+    console.error('[GCal State] Rejected: missing/malformed state param');
+    return null;
+  }
   const [body, sig] = state.split('.');
-  if (!body || !sig) return null;
+  if (!body || !sig) {
+    console.error('[GCal State] Rejected: state not in body.sig form');
+    return null;
+  }
 
   const expected = crypto.createHmac('sha256', getStateSecret()).update(body).digest('base64url');
   const sigBuf = Buffer.from(sig);
   const expectedBuf = Buffer.from(expected);
   if (sigBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(sigBuf, expectedBuf)) {
+    // A signature mismatch almost always means the host that SIGNED the state
+    // (the one serving /url, i.e. the frontend's apiUrl host) and the host
+    // VERIFYING it here (GOOGLE_CALENDAR_REDIRECT_URI host) use different
+    // GOOGLE_OAUTH_CLIENT_SECRET / OAUTH_STATE_SECRET values, or are different
+    // deployments entirely. Make sure both ends are the same Render service.
+    console.error('[GCal State] Rejected: HMAC signature mismatch (secret differs between the /url host and this /callback host?)');
     return null;
   }
 
@@ -44,11 +56,18 @@ function verifyOAuthState(state) {
   try {
     payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'));
   } catch (_) {
+    console.error('[GCal State] Rejected: payload not valid JSON');
     return null;
   }
 
-  if (!payload || !payload.userId || !payload.iat) return null;
-  if (Date.now() - payload.iat > OAUTH_STATE_TTL_MS) return null;
+  if (!payload || !payload.userId || !payload.iat) {
+    console.error('[GCal State] Rejected: payload missing userId/iat');
+    return null;
+  }
+  if (Date.now() - payload.iat > OAUTH_STATE_TTL_MS) {
+    console.error('[GCal State] Rejected: state expired (older than TTL)');
+    return null;
+  }
   return payload;
 }
 
@@ -195,7 +214,20 @@ router.get('/google-calendar/callback', async (req, res) => {
     const userId = stateData.userId;
     const oauth2Client = getOAuth2Client();
 
-    const { tokens } = await oauth2Client.getToken(code);
+    let tokens;
+    try {
+      ({ tokens } = await oauth2Client.getToken(code));
+    } catch (tokenErr) {
+      // Google's real reason lives in tokenErr.response.data (e.g.
+      // "redirect_uri_mismatch" → the redirect URI here is not registered on
+      // this OAuth client, or "invalid_grant" → code already used/expired).
+      console.error('[GCal Callback] Token exchange failed.', {
+        redirectUri: process.env.GOOGLE_CALENDAR_REDIRECT_URI || '(derived default)',
+        callbackHost: req.headers['x-forwarded-host'] || req.headers.host,
+        googleError: tokenErr?.response?.data || tokenErr?.message
+      });
+      return sendError('auth_failed');
+    }
     oauth2Client.setCredentials(tokens);
 
     const grantedScopes = (tokens.scope || '').split(/\s+/).filter(Boolean);
