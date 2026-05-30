@@ -1660,18 +1660,6 @@
 
 </ion-content>
 
-<!-- DEV: Manual trigger for the growth-ticker pending-updates surface.
-     Rendered outside ion-content so position:fixed pins to the viewport
-     instead of the (transformed) ion-content scroll container. Visible
-     only for tutors; click toggles between simulating 3 new bookings
-     and clearing the sticky insight. -->
-<button class="dev-pending-updates-trigger"
-        *ngIf="isTutorUser"
-        (click)="testPendingUpdates(hasLockedGrowthInsight ? 0 : 3)">
-  <ion-icon [name]="hasLockedGrowthInsight ? 'close-outline' : 'flash-outline'"></ion-icon>
-  <span>{{ hasLockedGrowthInsight ? 'Clear pending' : 'Test: 3 new lessons' }}</span>
-</button>
-
 <!-- All Lessons Modal - Airbnb Style -->
 <ion-modal 
   [isOpen]="isAllLessonsModalOpen" 

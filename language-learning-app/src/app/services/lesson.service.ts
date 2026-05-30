@@ -741,9 +741,15 @@ export class LessonService {
     const earliestJoin = new Date(startTime.getTime() - 15 * 60000); // 15 minutes early
     const latestJoin = new Date(endTime.getTime() + 5 * 60000); // 5 minutes after end
     
-    // Allow joining if within time window and lesson is scheduled or in progress
+    // Allow joining through the scheduled end window. If a participant leaves
+    // early, the backend marks the lesson `ended_early`, but both users should
+    // still be able to rejoin until the booked end time.
     const withinTimeWindow = now >= earliestJoin && now <= latestJoin;
-    const canJoinStatus = lesson.status === 'scheduled' || lesson.status === 'in_progress';
+    const canJoinStatus =
+      lesson.status === 'scheduled' ||
+      lesson.status === 'confirmed' ||
+      lesson.status === 'in_progress' ||
+      lesson.status === 'ended_early';
     
     return withinTimeWindow && canJoinStatus;
   }

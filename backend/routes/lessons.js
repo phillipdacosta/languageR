@@ -1998,7 +1998,7 @@ router.get('/:id/status', verifyToken, async (req, res) => {
   try {
     const lesson = await Lesson.findById(req.params.id);
     
-    if (!lesson || (lesson.status !== 'scheduled' && lesson.status !== 'confirmed' && lesson.status !== 'in_progress')) {
+    if (!lesson || !['scheduled', 'confirmed', 'in_progress', 'ended_early'].includes(lesson.status)) {
       return res.status(404).json({ 
         success: false, 
         message: 'Lesson not available' 
@@ -2080,7 +2080,7 @@ router.post('/:id/join', verifyToken, async (req, res) => {
       .populate('tutorId', 'name email picture firstName lastName')
       .populate('studentId', 'name email picture firstName lastName');
 
-    if (!lesson || (lesson.status !== 'scheduled' && lesson.status !== 'confirmed' && lesson.status !== 'in_progress')) {
+    if (!lesson || !['scheduled', 'confirmed', 'in_progress', 'ended_early'].includes(lesson.status)) {
       return res.status(404).json({ 
         success: false, 
         message: 'Lesson not available' 
