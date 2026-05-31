@@ -366,6 +366,14 @@ export class LessonService {
       quickImpression: string;
       homework: string;
       capturedCorrections?: Array<{ original: string; corrected: string; explanation?: string }>;
+      // Optional structured assessment (sent when student had AI analysis OFF)
+      isTutorAssessment?: boolean;
+      cefrLevel?: string;
+      grammarRating?: number;
+      fluencyRating?: number;
+      keyErrorAreas?: string[];
+      strengths?: string[];
+      areasToImprove?: string[];
     }
   ): Observable<{ success: boolean; message: string }> {
     const headers = this.userService.getAuthHeadersSync();

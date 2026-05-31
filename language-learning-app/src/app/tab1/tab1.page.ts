@@ -11,6 +11,7 @@ import { WalletService } from '../services/wallet.service';
 import { Observable, takeUntil, take, filter, firstValueFrom, observeOn, asyncScheduler, forkJoin, of, catchError } from 'rxjs';
 import { Subject, Subscription } from 'rxjs';
 import { LessonService, Lesson } from '../services/lesson.service';
+import { ImagePreloadService } from '../services/image-preload.service';
 import { ClassService, ClassInvitation } from '../services/class.service';
 import { ClassInvitationModalComponent } from '../components/class-invitation-modal/class-invitation-modal.component';
 import { ClassMenuPopoverComponent } from '../components/class-menu-popover/class-menu-popover.component';
@@ -713,7 +714,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     private analysisTranslation: AnalysisTranslationService,
     private homeInlineToolbar: HomeInlineToolbarService,
     private materialService: MaterialService,
-    private tutorGrowthService: TutorGrowthService
+    private tutorGrowthService: TutorGrowthService,
+    private imagePreloadService: ImagePreloadService
   ) {
     // Cache the latest tutor approval status. Rebuilds the profile checklist
     // SYNCHRONOUSLY from the snapshot so any wizard step (TOS accepted,
@@ -8332,6 +8334,28 @@ navigateToLessons() {
     return null;
   }
 
+  /** Collect avatar / class-cover URLs from the loaded lesson feed and warm
+   *  them during idle time so they're cached before the user opens the lessons
+   *  list or a lesson detail. Dedupe + null-skipping is handled by the service. */
+  private preloadLessonImages(): void {
+    const urls: (string | null | undefined)[] = [];
+
+    const pushFromLesson = (lesson: any) => {
+      if (!lesson) return;
+      const tutor = lesson.tutorId;
+      const student = lesson.studentId;
+      if (tutor && typeof tutor === 'object') urls.push(tutor.picture || tutor.profilePicture);
+      if (student && typeof student === 'object') urls.push(student.picture || student.profilePicture);
+      if (lesson.classData?.thumbnail) urls.push(lesson.classData.thumbnail);
+    };
+
+    [...(this.lessons || []), ...(this.pastLessons || []), ...(this.cancelledLessons || [])]
+      .forEach(pushFromLesson);
+    (this.pastTutors || []).forEach(t => urls.push((t as any)?.picture));
+
+    this.imagePreloadService.preloadWhenIdle(urls);
+  }
+
   async loadLessons(showSkeleton = true) {
     
     
@@ -8652,7 +8676,11 @@ navigateToLessons() {
         // Mark that we've loaded data and update cache timestamp
         this._hasInitiallyLoaded = true;
         this._lastDataFetch = Date.now();
-        
+
+        // Warm avatar / class-cover images while the user is still on home, so
+        // they're already painted when navigating to the lessons / detail views.
+        this.preloadLessonImages();
+
       } else {
         this.lessons = [];
       }

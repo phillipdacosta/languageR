@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 """
-Fill missing translations for tutor checklist + approval flow.
+Fill missing / stale translations across interface bundles.
 
-- HOME.GROWTH: any string value still identical to en.json
-- TUTOR_APPROVAL: same
-- PROFILE_SCREEN: deep-merge from en when missing keys; translate strings still identical to en
-- ONBOARDING.WELCOME_SCREEN: deep-merge missing keys from en; translate stale strings (own update
-  pass so leaf keys like CTA do not collide with other sections)
+- HOME.GROWTH, TUTOR_APPROVAL, PROFILE_SCREEN: strings still identical to en.json
+- ONBOARDING.WELCOME_SCREEN: deep-merge missing keys; translate stale strings
+- PRE_CALL, VIDEO_CALL: deep-merge missing keys from en; translate missing or stale strings
 
 Uses Google Translate via deep-translator; preserves {{placeholders}}.
 """
@@ -247,10 +245,28 @@ def process_locale(en: dict[str, Any], path: Path, dry_run: bool) -> int:
             loc_ws = data["ONBOARDING"]["WELCOME_SCREEN"]
         collect_string_updates(stem, en_welcome, loc_ws, welcome_updates)
 
-    if not updates and not welcome_updates:
+    precall_updates: dict[str, str] = {}
+    en_precall = en.get("PRE_CALL")
+    if isinstance(en_precall, dict):
+        if "PRE_CALL" not in data or not isinstance(data["PRE_CALL"], dict):
+            data["PRE_CALL"] = json.loads(json.dumps(en_precall))
+        else:
+            deep_merge_missing_strings(data["PRE_CALL"], en_precall)
+        collect_string_updates(stem, en_precall, data.setdefault("PRE_CALL", {}), precall_updates)
+
+    videocall_updates: dict[str, str] = {}
+    en_videocall = en.get("VIDEO_CALL")
+    if isinstance(en_videocall, dict):
+        if "VIDEO_CALL" not in data or not isinstance(data["VIDEO_CALL"], dict):
+            data["VIDEO_CALL"] = json.loads(json.dumps(en_videocall))
+        else:
+            deep_merge_missing_strings(data["VIDEO_CALL"], en_videocall)
+        collect_string_updates(stem, en_videocall, data.setdefault("VIDEO_CALL", {}), videocall_updates)
+
+    if not updates and not welcome_updates and not precall_updates and not videocall_updates:
         return 0
 
-    total_slots = len(updates) + len(welcome_updates)
+    total_slots = len(updates) + len(welcome_updates) + len(precall_updates) + len(videocall_updates)
     if dry_run:
         return total_slots
 
@@ -277,6 +293,26 @@ def process_locale(en: dict[str, Any], path: Path, dry_run: bool) -> int:
         loc_ws = data.setdefault("ONBOARDING", {}).get("WELCOME_SCREEN")
         if isinstance(loc_ws, dict) and en_welcome is not None:
             apply_flat_updates(loc_ws, en_welcome, w_flat)
+
+    if precall_updates:
+        p_keys = list(precall_updates.keys())
+        p_texts = [precall_updates[k] for k in p_keys]
+        p_translated = translate_texts(translator, p_texts)
+        print(f"  [{stem}] pre_call: {len(p_texts)} strings", flush=True)
+        p_flat = dict(zip(p_keys, p_translated))
+        loc_pc = data.get("PRE_CALL")
+        if isinstance(loc_pc, dict) and isinstance(en_precall, dict):
+            apply_flat_updates(loc_pc, en_precall, p_flat)
+
+    if videocall_updates:
+        v_keys = list(videocall_updates.keys())
+        v_texts = [videocall_updates[k] for k in v_keys]
+        v_translated = translate_texts(translator, v_texts)
+        print(f"  [{stem}] video_call: {len(v_texts)} strings", flush=True)
+        v_flat = dict(zip(v_keys, v_translated))
+        loc_vc = data.get("VIDEO_CALL")
+        if isinstance(loc_vc, dict) and isinstance(en_videocall, dict):
+            apply_flat_updates(loc_vc, en_videocall, v_flat)
 
     tmp_path = path.with_suffix(path.suffix + ".tmp")
     tmp_path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

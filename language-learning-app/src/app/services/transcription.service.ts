@@ -12,6 +12,14 @@ export interface TranscriptSegment {
   language: string;
 }
 
+export type PreviousLessonState = 'ready' | 'generating' | 'awaiting_tutor' | 'empty' | 'error';
+
+export interface PreviousLessonContext {
+  state: PreviousLessonState;
+  analysis?: LessonAnalysis;
+  lessonDate?: string;
+}
+
 export interface LessonAnalysis {
   lessonId: string;
   transcriptId: string;
@@ -373,6 +381,30 @@ export class TranscriptionService {
     }
     const headers = this.userService.getAuthHeadersSync();
     return this.http.get<LessonAnalysis>(`${this.apiUrl}/student/${studentId}/latest`, { params, headers });
+  }
+
+  /**
+   * Pre-call context for the previous lesson. Always resolves with a
+   * discriminated state so the UI can distinguish "no notes" from "still
+   * generating" / "waiting on tutor" / a load error.
+   */
+  getPreviousLessonContext(
+    studentId: string,
+    tutorId?: string,
+    currentLessonId?: string
+  ): Observable<PreviousLessonContext> {
+    const params: any = {};
+    if (tutorId) {
+      params.tutorId = tutorId;
+    }
+    if (currentLessonId) {
+      params.currentLessonId = currentLessonId;
+    }
+    const headers = this.userService.getAuthHeadersSync();
+    return this.http.get<PreviousLessonContext>(
+      `${this.apiUrl}/student/${studentId}/previous-context`,
+      { params, headers }
+    );
   }
 
   /**

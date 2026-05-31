@@ -7,7 +7,7 @@ import { LessonService } from '../services/lesson.service';
 import { ClassService } from '../services/class.service';
 import { AgoraService } from '../services/agora.service';
 import { WebSocketService } from '../services/websocket.service';
-import { TranscriptionService, LessonAnalysis } from '../services/transcription.service';
+import { TranscriptionService, LessonAnalysis, PreviousLessonState } from '../services/transcription.service';
 import { ReminderService } from '../services/reminder.service';
 import { firstValueFrom } from 'rxjs';
 import { Subject, Subscription, takeUntil } from 'rxjs';
@@ -37,6 +37,12 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
 
   lessonId: string = '';
   lessonTitle: string = '';
+  showLessonTitleHeader = false;
+  lessonSubtitlePrefix = '';
+  lessonSubtitleParticipantName = '';
+  lessonSubtitleParticipantPicture = '';
+  lessonSubtitlePlain = '';
+  participantPicture = '';
   tutorName: string = '';
   studentName: string = '';
   participantName: string = ''; // The other participant (student for tutors, tutor for students)
@@ -54,6 +60,12 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
   roleResolved: boolean = false;
   isTrialLesson: boolean = false;
   isClass: boolean = false; // Track if this is a class or 1:1 lesson
+
+  // AI analysis status for this lesson (derived from the student's setting, or
+  // the locked snapshot once the lesson has started). Drives the pre-call card
+  // that tells the tutor/student whether feedback is automatic or manual.
+  aiAnalysisEnabled: boolean = true;
+  aiStatusResolved: boolean = false;
   otherParticipantJoined: boolean = false;
   otherParticipantName: string = '';
   otherParticipantPicture: string = '';
@@ -85,11 +97,13 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
   showVirtualBackgroundControls = false;
   isVirtualBackgroundEnabled = false;
   
-  // AI Previous Lesson Notes (for tutors)
+  // Previous Lesson Notes (tutor + student). Single state drives the card so
+  // "no notes", "still generating", "waiting on tutor" and "load error" never
+  // get conflated. 'hidden' = card not rendered at all.
+  notesState: 'hidden' | 'loading' | PreviousLessonState = 'hidden';
+  notesPrevLessonDateText = '';
   previousLessonNotes: LessonAnalysis | null = null;
   originalPreviousLessonNotes: LessonAnalysis | null = null;
-  loadingPreviousNotes = false;
-  previousNotesChecked = false;
   prevNotesAnalysisId: string | null = null;
   prevNotesTranslating = false;
   prevNotesShowingTranslation = false;
@@ -103,6 +117,17 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
   planStudentSummary = '';
   planSelfAssessedLevel = '';
   hasPlanData = false;
+
+  // Learning journey map (shown to tutor AND student when a plan exists)
+  journeyPhases: Array<{ filled: boolean; active: boolean; completed: boolean }> = [];
+  journeyPhaseLabel = '';
+  journeyPhaseTitle = '';
+  journeyProgressLabel = '';
+  journeyProgressPercent = 0;
+  journeyGoalLevel = '';
+  journeyGoalMeta = '';
+  journeyPaceIcon = '';
+  journeyGoalOwnerLabel = '';
   
   // Student lesson intent
   selectedIntent: string | null = null;
@@ -189,7 +214,9 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
       this.waitingForTutorAcceptance = true;
       this.tutorHasAccepted = false;
       this.lessonTitle = this.t('PRE_CALL.WAITING_FOR_TUTOR_TITLE');
+      this.showLessonTitleHeader = true;
       this.participantName = this.t('PRE_CALL.TUTOR_JOIN_SOON');
+      this.refreshLessonSubtitle();
       
       // Connect to WebSocket to listen for tutor acceptance
       console.log('🔌 Connecting to WebSocket...');
@@ -296,7 +323,9 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
       this.roleResolved = true;
       this.isOfficeHoursWaitingRoom = true;
       this.lessonTitle = this.t('PRE_CALL.OFFICE_HOURS_WAITING_ROOM');
+      this.showLessonTitleHeader = true;
       this.participantName = this.t('PRE_CALL.WAITING_FOR_STUDENT');
+      this.refreshLessonSubtitle();
       this.isLoading = false;
       
       // Ensure office hours are enabled when entering waiting room
@@ -358,8 +387,9 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
       console.log('⏭️ NOT calling loadPreviousLessonNotes() - Reason: isTrialLesson');
     }
 
-    // Load student's learning plan for tutor context
-    if (this.isTutor) {
+    // Load the student's learning plan — shown as a journey map to BOTH the
+    // tutor and the student (skip for trial lessons, which have no plan yet).
+    if (!this.isTrialLesson) {
       this.loadStudentPlanContext();
     }
 
@@ -506,6 +536,14 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
         this.isTutor = (currentUserId === tutorId);
         this.roleResolved = true;
 
+        // Resolve AI analysis status: prefer the locked snapshot (set once the
+        // lesson starts), otherwise fall back to the student's current setting.
+        const aiSnapshot = (lesson as any).aiAnalysisEnabledAtTime;
+        this.aiAnalysisEnabled = (aiSnapshot === true || aiSnapshot === false)
+          ? aiSnapshot
+          : (lesson.studentId?.profile?.aiAnalysisEnabled !== false);
+        this.aiStatusResolved = true;
+
         console.log('🔐 PRE-CALL: Role determined from lesson data', {
           currentUserId,
           tutorId,
@@ -524,11 +562,12 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
         // For tutors, show student info. For students, show tutor info.
         if (this.isTutor) {
           this.participantName = this.studentName;
-          this.lessonTitle = this.t('PRE_CALL.CLASS_WITH', { name: this.studentName });
+          this.participantPicture = lesson.studentId?.picture || '';
         } else {
           this.participantName = this.tutorName;
-          this.lessonTitle = this.t('PRE_CALL.LESSON_WITH', { name: this.tutorName });
+          this.participantPicture = lesson.tutorId?.picture || '';
         }
+        this.showLessonTitleHeader = false;
         this.refreshLessonSubtitle();
         
         // Check if the other participant has already joined
@@ -587,6 +626,7 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
       this.lessonTitle = this.isClass
         ? this.t('PRE_CALL.LANGUAGE_CLASS')
         : this.t('PRE_CALL.LANGUAGE_LESSON');
+      this.showLessonTitleHeader = true;
       this.tutorName = this.t('PRE_CALL.DEFAULT_TUTOR');
       this.studentName = this.t('PRE_CALL.DEFAULT_STUDENT');
       this.refreshLessonSubtitle();
@@ -957,124 +997,58 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
   }
 
   /**
-   * Load previous lesson notes for tutors
-   * Shows AI analysis from last lesson with this student
-   * Note: Not shown for trial lessons
+   * Load previous-lesson context for tutor AND student.
+   * Resolves to a single `notesState` so the card can render the right thing
+   * (ready / generating / awaiting_tutor / empty / error) instead of
+   * collapsing every case into "no notes".
    */
-  private async loadPreviousLessonNotes() {
-    console.log('🔍 loadPreviousLessonNotes() called', {
-      isTutor: this.isTutor,
-      lessonId: this.lessonId,
-      isTrialLesson: this.isTrialLesson,
-      isClass: this.isClass,
-      hasLessonData: !!this.currentLessonData
-    });
-    
-    if (!this.lessonId || this.isTrialLesson) {
-      console.log('⏭️ Skipping previous notes: lessonId=%s, isTrialLesson=%s', 
-        this.lessonId, this.isTrialLesson);
+  loadPreviousLessonNotes() {
+    if (!this.lessonId || this.isTrialLesson || this.isClass) {
+      this.notesState = 'hidden';
       return;
     }
 
-    console.log('✅ Passed first check (lessonId && !isTrialLesson)');
-
-    try {
-      console.log('🔄 Getting current user...');
-      // Get current user
-      const currentUser = await firstValueFrom(this.userService.getCurrentUser());
-      console.log('✅ Got current user:', !!currentUser);
-      
-      if (this.isClass) {
-        console.log('⏭️ Skipping previous notes - this is a class (group lesson)');
-        return;
-      }
-      
-      console.log('✅ Not a class, proceeding...');
-      
-      // Use cached lesson data instead of re-fetching
-      const lesson = this.currentLessonData;
-      
-      console.log('🔍 Checking lesson and user data:', {
-        hasLesson: !!lesson,
-        hasCurrentUser: !!currentUser,
-        lessonType: typeof lesson
-      });
-      
-      if (!lesson || !currentUser) {
-        console.log('⏭️ Missing lesson or user data for previous notes', {
-          hasLesson: !!lesson,
-          hasCurrentUser: !!currentUser
-        });
-        return;
-      }
-      
-      console.log('✅ Have both lesson and user data');
-      
-      console.log('🔍 Lesson details for notes check:', {
-        isOfficeHours: lesson.isOfficeHours,
-        isTrialLesson: lesson.isTrialLesson,
-        duration: lesson.duration,
-        studentId: lesson.studentId?._id || lesson.studentId
-      });
-      
-      // Skip if this is an office hours session (quick session)
-      if (lesson.isOfficeHours) {
-        console.log('⏭️ Skipping previous notes - this is an office hours session');
-        return;
-      }
-
-      console.log('✅ Not an office hours session, proceeding...');
-
-      const studentId = lesson.studentId?._id || lesson.studentId;
-      const tutorId = lesson.tutorId?._id || lesson.tutorId;
-
-      console.log('🔍 Extracted IDs:', { 
-        studentId, 
-        tutorId,
-        currentUserKeys: Object.keys(currentUser || {})
-      });
-
-      if (!studentId || !tutorId) {
-        console.log('⏭️ Missing IDs for previous notes', { studentId, tutorId });
-        return;
-      }
-
-      console.log(`📋 Loading previous lesson notes for student ${studentId} with tutor ${tutorId}...`);
-      console.log(`📋 Excluding current lesson: ${this.lessonId}`);
-      
-      // Only show loading state after we've confirmed we'll make the API call
-      this.loadingPreviousNotes = true;
-
-      this.transcriptionService.getLatestAnalysis(studentId, tutorId, this.lessonId).subscribe({
-        next: (analysis) => {
-          console.log('✅ Previous lesson notes loaded:', {
-            lessonDate: analysis.lessonDate,
-            lessonId: analysis.lessonId,
-            proficiencyLevel: analysis.overallAssessment?.proficiencyLevel,
-            hasRecommendedFocus: !!analysis.recommendedFocus?.length
-          });
-          this.previousLessonNotes = analysis;
-          this.originalPreviousLessonNotes = { ...analysis };
-          this.loadingPreviousNotes = false;
-          this.previousNotesChecked = true;
-          this.initPrevNotesTranslation(analysis);
-        },
-        error: (error) => {
-          console.log('ℹ️ No previous lesson notes available (first regular lesson or no analyses yet)', {
-            status: error.status,
-            message: error.message
-          });
-          this.previousLessonNotes = null;
-          this.loadingPreviousNotes = false;
-          this.previousNotesChecked = true;
-        }
-      });
-    } catch (error) {
-      console.error('❌ Error loading previous lesson notes:', error);
-      this.previousLessonNotes = null;
-      this.loadingPreviousNotes = false;
-      this.previousNotesChecked = true;
+    const lesson = this.currentLessonData;
+    if (!lesson || lesson.isOfficeHours) {
+      this.notesState = 'hidden';
+      return;
     }
+
+    const studentId = lesson.studentId?._id || lesson.studentId;
+    const tutorId = lesson.tutorId?._id || lesson.tutorId;
+    if (!studentId || !tutorId) {
+      this.notesState = 'hidden';
+      return;
+    }
+
+    this.notesState = 'loading';
+    this.transcriptionService.getPreviousLessonContext(studentId, tutorId, this.lessonId).subscribe({
+      next: (ctx) => {
+        if (ctx.state === 'ready' && ctx.analysis) {
+          this.previousLessonNotes = ctx.analysis;
+          this.originalPreviousLessonNotes = { ...ctx.analysis };
+          this.notesState = 'ready';
+          this.initPrevNotesTranslation(ctx.analysis);
+        } else {
+          this.previousLessonNotes = null;
+          this.notesPrevLessonDateText = ctx.lessonDate || '';
+          // generating | awaiting_tutor | empty | error
+          this.notesState = ctx.state;
+        }
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        // Transport/auth failure — retryable, not "no notes".
+        this.previousLessonNotes = null;
+        this.notesState = 'error';
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  /** Retry button handler for the error state. */
+  retryPreviousLessonNotes() {
+    this.loadPreviousLessonNotes();
   }
 
   private loadStudentPlanContext() {
@@ -2367,21 +2341,40 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
   private refreshLessonSubtitle(): void {
     const studentFallback = this.t('PRE_CALL.YOUR_STUDENT');
     const tutorFallback = this.t('PRE_CALL.YOUR_TUTOR');
-    if (this.isTutor && !this.isTrialLesson) {
-      this.lessonSubtitle = this.t('PRE_CALL.TUTOR_SUBTITLE_REGULAR', {
-        name: this.studentName || studentFallback,
-      });
-    } else if (this.isTutor && this.isTrialLesson) {
-      this.lessonSubtitle = this.t('PRE_CALL.TUTOR_SUBTITLE_TRIAL', {
-        name: this.studentName || studentFallback,
-      });
-    } else if (!this.isTutor && !this.isTrialLesson) {
-      this.lessonSubtitle = this.t('PRE_CALL.STUDENT_SUBTITLE_REGULAR');
-    } else {
-      this.lessonSubtitle = this.t('PRE_CALL.STUDENT_SUBTITLE_TRIAL', {
-        name: this.tutorName || tutorFallback,
-      });
+
+    if (this.waitingForTutorAcceptance || (this.isOfficeHoursWaitingRoom && !this.lessonId)) {
+      this.lessonSubtitlePrefix = '';
+      this.lessonSubtitleParticipantName = '';
+      this.lessonSubtitleParticipantPicture = '';
+      this.lessonSubtitlePlain = '';
+      this.lessonSubtitle = '';
+      return;
     }
+
+    let prefixKey = '';
+    let name = '';
+
+    if (this.isTutor && !this.isTrialLesson) {
+      prefixKey = 'PRE_CALL.TUTOR_SUBTITLE_REGULAR_PREFIX';
+      name = this.studentName || studentFallback;
+    } else if (this.isTutor && this.isTrialLesson) {
+      prefixKey = 'PRE_CALL.TUTOR_SUBTITLE_TRIAL_PREFIX';
+      name = this.studentName || studentFallback;
+    } else if (!this.isTutor && !this.isTrialLesson) {
+      prefixKey = 'PRE_CALL.STUDENT_SUBTITLE_REGULAR_PREFIX';
+      name = this.tutorName || tutorFallback;
+    } else {
+      prefixKey = 'PRE_CALL.STUDENT_SUBTITLE_TRIAL_PREFIX';
+      name = this.tutorName || tutorFallback;
+    }
+
+    this.lessonSubtitlePrefix = prefixKey ? this.t(prefixKey) : '';
+    this.lessonSubtitleParticipantName = name;
+    this.lessonSubtitleParticipantPicture = this.participantPicture;
+    this.lessonSubtitlePlain = '';
+    this.lessonSubtitle = name
+      ? `${this.lessonSubtitlePrefix} ${name}`.trim()
+      : this.lessonSubtitlePrefix;
   }
 
   private refreshPresenceJoinedLine(): void {
@@ -2393,25 +2386,20 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
   private refreshLessonTitles(): void {
     if (this.waitingForTutorAcceptance) {
       this.lessonTitle = this.t('PRE_CALL.WAITING_FOR_TUTOR_TITLE');
+      this.showLessonTitleHeader = true;
       this.participantName = this.t('PRE_CALL.TUTOR_JOIN_SOON');
       this.refreshLessonSubtitle();
       return;
     }
     if (this.isOfficeHoursWaitingRoom && !this.lessonId) {
       this.lessonTitle = this.t('PRE_CALL.OFFICE_HOURS_WAITING_ROOM');
+      this.showLessonTitleHeader = true;
       this.participantName = this.t('PRE_CALL.WAITING_FOR_STUDENT');
       this.refreshLessonSubtitle();
       return;
     }
-    if (this.isTutor && this.studentName) {
-      this.lessonTitle = this.t('PRE_CALL.CLASS_WITH', { name: this.studentName });
-    } else if (!this.isTutor && this.tutorName) {
-      this.lessonTitle = this.t('PRE_CALL.LESSON_WITH', { name: this.tutorName });
-    } else if (!this.lessonTitle) {
-      this.lessonTitle = this.isClass
-        ? this.t('PRE_CALL.LANGUAGE_CLASS')
-        : this.t('PRE_CALL.LANGUAGE_LESSON');
-    }
+    this.showLessonTitleHeader = false;
+    this.lessonTitle = '';
     this.refreshLessonSubtitle();
   }
 
@@ -2434,6 +2422,79 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
     this.planNextFocus = summary.nextLessonFocus || '';
     this.planStudentSummary = summary.studentSummary || '';
     this.planSelfAssessedLevel = summary.selfAssessedLevel || '';
+    this.buildJourneyMap(summary);
+  }
+
+  /** Compute the journey-map visualization shown to both roles. */
+  private buildJourneyMap(summary: LearningPlanSummary): void {
+    const total = summary.totalPhases || 0;
+    const currentIndex = summary.currentPhaseIndex ?? 0;
+    this.journeyPhases = Array.from({ length: total }, (_, i) => ({
+      completed: i < currentIndex,
+      active: i === currentIndex,
+      filled: i <= currentIndex,
+    }));
+    this.journeyPhaseLabel = total
+      ? this.t('PRE_CALL.JOURNEY_PHASE_COUNT', {
+          current: String(currentIndex + 1),
+          total: String(total),
+        })
+      : '';
+    this.journeyPhaseTitle = summary.currentPhase?.title || '';
+    this.journeyProgressPercent = Math.max(
+      0,
+      Math.min(100, Math.round(summary.currentPhase?.windowProgressPercent ?? 0))
+    );
+    this.journeyProgressLabel = this.progressStateLabel(summary.currentPhase?.progressState);
+    this.journeyGoalLevel = summary.goal?.targetLevel || '';
+    // Goal context line: current self-assessed level + pacing (mirrors onboarding).
+    const meta = [
+      this.selfLevelLabel(summary.selfAssessedLevel),
+      this.timelinePressureLabel(summary.goal?.timelinePressure),
+    ].filter(Boolean);
+    this.journeyGoalMeta = meta.join(' · ');
+    this.journeyPaceIcon = this.paceIcon(summary.goal?.timelinePressure);
+    this.journeyGoalOwnerLabel = this.t(
+      this.isTutor ? 'PRE_CALL.STUDENT_GOAL' : 'PRE_CALL.YOUR_GOAL'
+    );
+  }
+
+  private paceIcon(pressure?: string): string {
+    switch (pressure) {
+      case 'specific_date': return 'flag-outline';
+      case 'few_months': return 'calendar-outline';
+      case 'no_rush': return 'leaf-outline';
+      default: return 'leaf-outline';
+    }
+  }
+
+  private selfLevelLabel(level?: string): string {
+    switch (level) {
+      case 'beginner': return this.t('ONBOARDING.STUDENT.LEVEL_BEGINNER');
+      case 'intermediate': return this.t('ONBOARDING.STUDENT.LEVEL_INTERMEDIATE');
+      case 'advanced': return this.t('ONBOARDING.STUDENT.LEVEL_ADVANCED');
+      default: return level || '';
+    }
+  }
+
+  private timelinePressureLabel(pressure?: string): string {
+    switch (pressure) {
+      case 'specific_date': return this.t('ONBOARDING.STUDENT.TIMELINE_OPTION_SPECIFIC_DATE');
+      case 'few_months': return this.t('ONBOARDING.STUDENT.TIMELINE_OPTION_FEW_MONTHS');
+      case 'no_rush': return this.t('ONBOARDING.STUDENT.TIMELINE_OPTION_NO_RUSH');
+      default: return '';
+    }
+  }
+
+  private progressStateLabel(state?: string): string {
+    switch (state) {
+      case 'getting_started': return this.t('PRE_CALL.JOURNEY_GETTING_STARTED');
+      case 'building': return this.t('PRE_CALL.JOURNEY_BUILDING');
+      case 'progressing': return this.t('PRE_CALL.JOURNEY_PROGRESSING');
+      case 'ready_soon': return this.t('PRE_CALL.JOURNEY_READY_SOON');
+      case 'wrapping_up': return this.t('PRE_CALL.JOURNEY_WRAPPING_UP');
+      default: return '';
+    }
   }
 }
 

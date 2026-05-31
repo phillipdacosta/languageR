@@ -90,6 +90,14 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
 
   isMuted = false;
   isVideoOff = false;
+
+  // Self network strength indicator (bottom-left). Derived from Agora's
+  // `network-quality` uplink sample (0=unknown,1=excellent…6=down).
+  selfNetworkBars = 0;            // 0–3 filled bars
+  selfNetworkLevel: 'good' | 'fair' | 'poor' | 'unknown' = 'unknown';
+  selfNetworkLabel = '';
+  selfNetworkColor = 'rgba(255,255,255,0.5)';
+  private selfNetworkInterval: any = null;
   showWhiteboard = false;
   showChat = false;
   showNotes = false;
@@ -117,7 +125,19 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   lessonSelectedStrengths: string[] = [];
   lessonSelectedAreasToImprove: string[] = [];
   lessonSelectedErrorAreas: string[] = [];
+  // Enhanced assessment fields — required when the student has AI analysis OFF
+  // so a tutor can fully complete the mandatory feedback during the call.
+  lessonCefrLevel: string = '';
+  lessonGrammarRating: number = 0;
+  lessonFluencyRating: number = 0;
+  cefrLevels: string[] = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+  ratingScale: number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+  // Template-facing mirrors (avoid function calls in the template / change detection)
+  aiAnalysisDisabledForLesson = false;
+  inCallFeedbackComplete = false;
   savingNotes = false;
+  submittingInCallFeedback = false;
+  inCallFeedbackSubmitted = false;
   notesLastSaved: Date | null = null;
   private notesAutoSaveInterval: any = null;
   
@@ -239,6 +259,9 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   // Participant names
   tutorName: string = '';
   studentName: string = '';
+  // 1:1 lesson session header (Preply-style bar above the stage)
+  lessonSessionHeaderOtherName = '';
+  lessonSessionHeaderOtherAvatar = '';
   tutorUserId: string = ''; // Store tutor's user ID for proper identification
   studentUserId: string = ''; // Store student's user ID
   tutorProfilePicture: string = ''; // Store tutor's profile picture
@@ -337,6 +360,8 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   
   // File upload and voice recording
   isUploading = false;
+  isChatDragOver = false;
+  private chatDragDepth = 0;
   isRecording = false;
   recordingDuration = 0;
   private mediaRecorder: MediaRecorder | null = null;
@@ -467,6 +492,44 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     // field defaults don't re-run — so reset explicitly here.
     this.isEndingCall = false;
     this.hasEndedCall = false;
+    this.startSelfNetworkPolling();
+  }
+
+  // Poll the latest uplink network-quality sample and map it to a 3-bar
+  // indicator the user can see for their OWN connection.
+  private startSelfNetworkPolling() {
+    if (this.selfNetworkInterval) return;
+    const update = () => {
+      let level: 'good' | 'fair' | 'poor' | 'unknown' = 'unknown';
+
+      // Primary: Agora's uplink quality sample (1=excellent … 6=down).
+      const q = this.agoraService.lastNetworkQuality;
+      const fresh = q && Date.now() - q.ts < 10000;
+      const uplink = fresh && q!.uplink > 0 ? q!.uplink : 0;
+      if (uplink >= 1) {
+        level = uplink <= 2 ? 'good' : uplink <= 4 ? 'fair' : 'poor';
+      } else {
+        // Fallback: round-trip time. The quality sample can sit at 0 for a
+        // while (or never arrive on some networks), so derive strength from
+        // RTT to the edge so the indicator is never stuck grey while connected.
+        const rtt = this.agoraService.getCurrentRtt();
+        if (rtt != null) {
+          level = rtt < 200 ? 'good' : rtt < 400 ? 'fair' : 'poor';
+        }
+      }
+
+      this.selfNetworkLevel = level;
+      this.selfNetworkBars = level === 'good' ? 3 : level === 'fair' ? 2 : level === 'poor' ? 1 : 0;
+      this.selfNetworkColor =
+        level === 'good' ? '#34c759' :
+        level === 'fair' ? '#ffcc00' :
+        level === 'poor' ? '#ff3b30' :
+        'rgba(255,255,255,0.5)';
+      this.selfNetworkLabel = this.t(`VIDEO_CALL.NETWORK_${level.toUpperCase()}`);
+      this.cdr.detectChanges();
+    };
+    update();
+    this.selfNetworkInterval = setInterval(update, 2000);
   }
 
   async ngOnInit() {
@@ -821,6 +884,8 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
               this.showIntentBanner = true;
             }
 
+            this.updateLessonSessionHeader();
+
             console.log('🎓 VIDEO-CALL: Session loaded', {
               sessionId: lesson._id,
               isClass: this.isClass,
@@ -944,6 +1009,8 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         // Store the AI analysis snapshot (locked at lesson start, immutable for this lesson)
         if (joinResponse.lesson?.aiAnalysisEnabledAtTime !== undefined) {
           this.aiAnalysisEnabledAtTime = joinResponse.lesson.aiAnalysisEnabledAtTime ?? null;
+          this.aiAnalysisDisabledForLesson = this.aiAnalysisEnabledAtTime === false;
+          this.refreshInCallFeedbackState();
           console.log('📸 AI analysis snapshot from join response:', this.aiAnalysisEnabledAtTime);
         }
         
@@ -1157,12 +1224,13 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         this.isConnected = true;
         this.cdr.detectChanges(); // Force UI update
         
-        // Subscribe to network-quality samples for diagnostics. The previous
-        // implementation also forcibly stepped down the camera encoder on a
-        // single bad sample (and rarely recovered) — that's been retired.
-        // Agora's send-side BWE now drives degradation gracefully on its own.
-        this.agoraService.enableAdaptiveQuality();
       }
+
+      // Subscribe to network-quality samples (idempotent). Drives the self
+      // network-strength indicator and diagnostics overlay. Must run for every
+      // join path — including when we entered already-connected via the
+      // lessons flow — otherwise the indicator never receives samples.
+      this.agoraService.enableAdaptiveQuality();
 
       // Set up local video display - wait for tracks to be ready
       await this.waitForTracksAndSetupVideo();
@@ -1589,6 +1657,19 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       this.isRemoteScreenSharing = false;
     }
     this.cdr.detectChanges();
+  }
+
+  /** Preply-style top bar: other participant avatar + "Lesson with {name}" (1:1 only). */
+  private updateLessonSessionHeader(): void {
+    if (this.isClass) {
+      this.lessonSessionHeaderOtherName = '';
+      this.lessonSessionHeaderOtherAvatar = '';
+      return;
+    }
+    this.lessonSessionHeaderOtherName =
+      this.userRole === 'tutor' ? (this.studentName || '') : (this.tutorName || '');
+    this.lessonSessionHeaderOtherAvatar =
+      this.userRole === 'tutor' ? (this.studentProfilePicture || '') : (this.tutorProfilePicture || '');
   }
 
   private resolveRemoteSharerName(uid: any): string {
@@ -2219,6 +2300,16 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       if (this.isClass) {
         this.updateParticipantsList();
       }
+
+      // While screen-sharing, keep the local PiP tile in sync (placeholder when
+      // off, live camera when on) so the sharer's own tile reflects the toggle.
+      if (this.isScreenSharing) {
+        this.updateScreenSharePipParticipants();
+        this.cdr.detectChanges();
+        // Always refresh: attaches the live track when on, clears the stale
+        // frame when off (so the placeholder isn't doubled over a frozen frame).
+        this.attachRemoteParticipantsToPip();
+      }
       
       // NOTE: We intentionally do NOT clear innerHTML or re-call setupLocalVideoDisplay() here.
       // setMuted(true/false) in agoraService.toggleVideo() pauses/resumes the Agora
@@ -2439,6 +2530,10 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
 
   toggleChat() {
     this.showChat = !this.showChat;
+    if (!this.showChat) {
+      this.isChatDragOver = false;
+      this.chatDragDepth = 0;
+    }
     
     // Adjust whiteboard canvas size when chat opens/closes
     if (this.showWhiteboard) {
@@ -2550,13 +2645,16 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         strengths: this.lessonSelectedStrengths,
         areasToImprove: this.lessonSelectedAreasToImprove,
         errorAreas: this.lessonSelectedErrorAreas,
+        cefrLevel: this.lessonCefrLevel,
+        grammarRating: this.lessonGrammarRating,
+        fluencyRating: this.lessonFluencyRating,
         savedAt: new Date().toISOString()
       };
       
       localStorage.setItem(`lesson_notes_${this.lessonId}`, JSON.stringify(notesData));
-      
-      // TODO: Also save to backend API endpoint for persistence across devices
-      // For now, localStorage is sufficient for same-session persistence
+      // localStorage is the autosave draft; the tutor explicitly submits via
+      // submitInCallFeedback() (or it is auto-submitted on a real call end).
+      this.refreshInCallFeedbackState();
       
       this.notesLastSaved = new Date();
       this.cdr.detectChanges();
@@ -2580,12 +2678,123 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         this.lessonSelectedStrengths = notesData.strengths || [];
         this.lessonSelectedAreasToImprove = notesData.areasToImprove || [];
         this.lessonSelectedErrorAreas = notesData.errorAreas || [];
+        this.lessonCefrLevel = notesData.cefrLevel || '';
+        this.lessonGrammarRating = notesData.grammarRating || 0;
+        this.lessonFluencyRating = notesData.fluencyRating || 0;
         if (notesData.savedAt) {
           this.notesLastSaved = new Date(notesData.savedAt);
         }
       }
+      this.refreshInCallFeedbackState();
     } catch (error) {
       console.error('Error loading notes:', error);
+    }
+  }
+
+  /** True when the student had AI analysis OFF for this lesson — tutor feedback
+   * is then mandatory and must include the structured assessment fields. */
+  get isAiAnalysisDisabledForLesson(): boolean {
+    return this.aiAnalysisEnabledAtTime === false;
+  }
+
+  /** Whether the in-call notes contain enough to count as the tutor's feedback.
+   *  AI on  → a written note is enough (feedback is optional anyway).
+   *  AI off → full assessment required (mirrors the post-lesson form). */
+  get isInCallFeedbackComplete(): boolean {
+    const hasNote = !!this.lessonNoteText.trim();
+    if (!this.isAiAnalysisDisabledForLesson) {
+      return hasNote;
+    }
+    return hasNote
+      && !!this.lessonCefrLevel
+      && this.lessonGrammarRating > 0
+      && this.lessonFluencyRating > 0
+      && this.lessonSelectedStrengths.length > 0
+      && this.lessonSelectedAreasToImprove.length > 0;
+  }
+
+  /** Keep the template-facing completeness flag in sync. */
+  private refreshInCallFeedbackState() {
+    this.inCallFeedbackComplete = this.isInCallFeedbackComplete;
+  }
+
+  selectLessonCefr(level: string) {
+    this.lessonCefrLevel = level;
+    this.autoSaveNotes();
+  }
+
+  setLessonGrammarRating(rating: number) {
+    this.lessonGrammarRating = rating;
+    this.autoSaveNotes();
+  }
+
+  setLessonFluencyRating(rating: number) {
+    this.lessonFluencyRating = rating;
+    this.autoSaveNotes();
+  }
+
+  /** Build the payload for POST /lessons/:id/tutor-note from the in-call notes. */
+  private buildInCallTutorNotePayload(): any {
+    const payload: any = {
+      text: this.lessonNoteText.trim(),
+      quickImpression: this.lessonQuickImpression,
+      homework: this.lessonHomework
+    };
+    if (this.isAiAnalysisDisabledForLesson) {
+      payload.isTutorAssessment = true;
+      payload.cefrLevel = this.lessonCefrLevel;
+      payload.grammarRating = this.lessonGrammarRating;
+      payload.fluencyRating = this.lessonFluencyRating;
+      payload.keyErrorAreas = this.lessonSelectedErrorAreas;
+      payload.strengths = this.lessonSelectedStrengths;
+      payload.areasToImprove = this.lessonSelectedAreasToImprove;
+    }
+    return payload;
+  }
+
+  /** Tutor taps "Save feedback" in the notes panel during the call. */
+  async submitInCallFeedback() {
+    if (this.userRole !== 'tutor' || !this.lessonId) return;
+
+    if (!this.isInCallFeedbackComplete) {
+      const message = this.isAiAnalysisDisabledForLesson
+        ? this.t('VIDEO_CALL.FEEDBACK_INCOMPLETE_REQUIRED')
+        : this.t('VIDEO_CALL.FEEDBACK_INCOMPLETE_NOTE');
+      const toast = await this.toastController.create({
+        message,
+        duration: 2500,
+        color: 'warning',
+        position: 'top'
+      });
+      await toast.present();
+      return;
+    }
+
+    this.submittingInCallFeedback = true;
+    try {
+      await firstValueFrom(
+        this.lessonService.saveTutorNote(this.lessonId, this.buildInCallTutorNotePayload())
+      );
+      this.inCallFeedbackSubmitted = true;
+      const toast = await this.toastController.create({
+        message: this.t('VIDEO_CALL.FEEDBACK_SAVED'),
+        duration: 2500,
+        color: 'success',
+        position: 'top'
+      });
+      await toast.present();
+    } catch (error) {
+      console.error('❌ Failed to submit in-call feedback:', error);
+      const toast = await this.toastController.create({
+        message: this.t('VIDEO_CALL.FEEDBACK_SAVE_FAILED'),
+        duration: 2500,
+        color: 'danger',
+        position: 'top'
+      });
+      await toast.present();
+    } finally {
+      this.submittingInCallFeedback = false;
+      this.cdr.detectChanges();
     }
   }
 
@@ -4087,43 +4296,100 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   triggerFileInput() {
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
-    fileInput.accept = 'image/*,application/pdf,.doc,.docx';
+    fileInput.accept = 'image/*,application/pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx';
+    fileInput.multiple = true;
     fileInput.onchange = (e: any) => {
-      const file = e.target.files[0];
-      if (file) {
-        const messageType = file.type.startsWith('image/') ? 'image' : 'file';
-        this.uploadFile(file, messageType);
+      const files = e.target.files as FileList | null;
+      if (files?.length) {
+        void this.processChatDroppedFiles(files);
       }
     };
     fileInput.click();
   }
 
-  private uploadFile(file: File, messageType: 'image' | 'file' | 'voice', caption?: string) {
-    if (!this.otherUserAuth0Id) {
-      console.error('No other user selected');
-      return;
+  onChatDragOver(event: DragEvent): void {
+    if (!this.canAcceptChatDrop()) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = 'copy';
     }
+    this.chatDragDepth++;
+    this.isChatDragOver = true;
+    this.cdr.detectChanges();
+  }
 
-    this.isUploading = true;
+  onChatDragLeave(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.chatDragDepth = Math.max(0, this.chatDragDepth - 1);
+    if (this.chatDragDepth === 0) {
+      this.isChatDragOver = false;
+      this.cdr.detectChanges();
+    }
+  }
 
-    this.messagingService.uploadFile(this.otherUserAuth0Id, file, messageType, caption).subscribe({
-      next: (response) => {
-        // Don't add message here - let WebSocket handle it to avoid duplicates
-        // The message will come back via newMessage$ subscription
-        this.isUploading = false;
-        this.cdr.detectChanges();
-        
-        // Scroll to bottom after a brief delay (wait for WebSocket)
-        setTimeout(() => {
-          this.scrollChatToBottom();
-        }, 100);
-      },
-      error: (error) => {
-        console.error('❌ Error uploading file:', error);
-        this.isUploading = false;
-        this.cdr.detectChanges();
+  onChatDrop(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.chatDragDepth = 0;
+    this.isChatDragOver = false;
+    const files = event.dataTransfer?.files;
+    if (files?.length && this.canAcceptChatDrop()) {
+      void this.processChatDroppedFiles(files);
+    }
+    this.cdr.detectChanges();
+  }
+
+  private canAcceptChatDrop(): boolean {
+    return !!(this.showChat && this.otherUserAuth0Id && !this.isUploading && !this.isRecording);
+  }
+
+  private isAllowedChatFile(file: File): boolean {
+    if (file.type.startsWith('image/')) return true;
+    const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
+    return ['pdf', 'doc', 'docx', 'txt', 'xls', 'xlsx', 'ppt', 'pptx'].includes(ext);
+  }
+
+  private async processChatDroppedFiles(files: FileList): Promise<void> {
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (!this.isAllowedChatFile(file)) continue;
+      const messageType: 'image' | 'file' = file.type.startsWith('image/') ? 'image' : 'file';
+      try {
+        await this.uploadFileAsync(file, messageType);
+      } catch (_) {
+        break;
       }
+    }
+  }
+
+  private uploadFileAsync(file: File, messageType: 'image' | 'file' | 'voice', caption?: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      if (!this.otherUserAuth0Id) {
+        reject(new Error('No recipient'));
+        return;
+      }
+      this.isUploading = true;
+      this.messagingService.uploadFile(this.otherUserAuth0Id, file, messageType, caption).subscribe({
+        next: () => {
+          this.isUploading = false;
+          this.cdr.detectChanges();
+          setTimeout(() => this.scrollChatToBottom(), 100);
+          resolve();
+        },
+        error: (error) => {
+          console.error('❌ Error uploading file:', error);
+          this.isUploading = false;
+          this.cdr.detectChanges();
+          reject(error);
+        }
+      });
     });
+  }
+
+  private uploadFile(file: File, messageType: 'image' | 'file' | 'voice', caption?: string) {
+    void this.uploadFileAsync(file, messageType, caption);
   }
 
   // Voice recording methods
@@ -4574,6 +4840,18 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     const remoteUsers = this.agoraService.getRemoteUsers();
     const next: typeof this.screenSharePipParticipants = [];
 
+    // Include the LOCAL participant so the sharer sees BOTH people next to the
+    // shared screen — matching the whiteboard panel, which shows local + remote
+    // tiles. Previously only remote users were listed, so the sharer saw just
+    // their shared screen ("only myself") and never the other participant tile.
+    next.push({
+      uid: 'local',
+      name: this.myName || 'You',
+      isVideoOff: this.isVideoOff,
+      isMuted: this.isMuted,
+      profilePicture: this.myProfilePicture || ''
+    });
+
     remoteUsers.forEach((user, uid) => {
       const stateFromMap = this.remoteUserStates.get(uid) || {};
       const isVideoOff = stateFromMap.isVideoOff !== undefined
@@ -4618,11 +4896,21 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     const remoteUsers = this.agoraService.getRemoteUsers();
     setTimeout(() => {
       remoteUsers.forEach((user, uid) => {
-        if (!user.videoTrack) return;
         const pipElement = document.getElementById(`pip-remote-${uid}`);
         if (!pipElement) return;
         const videoContainer = pipElement.querySelector('.pip-video-element') as HTMLElement | null;
         if (!videoContainer) return;
+
+        // Camera off: clear any stale/frozen video frame so only the avatar
+        // placeholder shows (otherwise the last frame sits UNDER the placeholder
+        // → the "double overlay"). When on, attach the live track.
+        const state = this.remoteUserStates.get(uid) || {};
+        const isVideoOff = state.isVideoOff !== undefined ? !!state.isVideoOff : !user.videoTrack;
+        if (isVideoOff || !user.videoTrack) {
+          videoContainer.innerHTML = '';
+          return;
+        }
+
         const existingVideo = videoContainer.querySelector('video');
         if (existingVideo && !existingVideo.paused && existingVideo.readyState >= 2) return;
         try {
@@ -4632,6 +4920,29 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
           console.warn('⚠️ Failed to attach remote video to PiP for uid', uid, e);
         }
       });
+
+      // Attach the local camera into its own PiP slot so the sharer sees
+      // themselves too (the screen track is separate from the camera track).
+      const localTrack = this.agoraService.getLocalVideoTrack();
+      const localPip = document.getElementById('pip-remote-local');
+      if (localPip) {
+        const videoContainer = localPip.querySelector('.pip-video-element') as HTMLElement | null;
+        if (videoContainer) {
+          if (this.isVideoOff || !localTrack) {
+            videoContainer.innerHTML = '';
+          } else {
+            const existingVideo = videoContainer.querySelector('video');
+            if (!existingVideo || existingVideo.paused || existingVideo.readyState < 2) {
+              try {
+                videoContainer.innerHTML = '';
+                localTrack.play(videoContainer);
+              } catch (e) {
+                console.warn('⚠️ Failed to attach local video to PiP', e);
+              }
+            }
+          }
+        }
+      }
     }, 150);
   }
 
@@ -5362,11 +5673,13 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     // Recompute template-bound properties for 1:1 view
     this.updateRemoteUserProperties();
 
-    // While screen-sharing, mirror mute / camera-off state into the PiP roster
-    // and re-attach the video track if the camera just turned back on.
+    // While screen-sharing, mirror mute / camera-off state into the PiP roster.
+    // Refresh on any video-state change: attach when on, clear the stale frame
+    // when off so the avatar placeholder isn't doubled over a frozen frame.
     if (this.isScreenSharing) {
       this.updateScreenSharePipParticipants();
-      if (state.isVideoOff === false) {
+      if (state.isVideoOff !== undefined) {
+        this.cdr.detectChanges();
         this.attachRemoteParticipantsToPip();
       }
     }
@@ -5921,7 +6234,17 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       const transcriptionAlreadyDone = this.transcriptionCompletedEarly || this.isCompletingTranscription;
       const vocabItems = [...this.vocabularyItems];
       const goalItems = [...this.goalItems];
-      
+
+      // If the tutor already gave complete feedback during the call, never send
+      // them to the post-lesson feedback page. Submit it in the background if it
+      // hasn't been pushed to the backend yet.
+      const isRealEnd = isPermanentEnd || otherParticipantEnded;
+      const tutorHasInCallFeedback = userRole === 'tutor' && !isTrialLesson && this.isInCallFeedbackComplete;
+      // Only push to the backend on a real end — an early leave isn't final yet
+      // (the tutor can rejoin and keep editing before the scheduled end).
+      const submitInCallNote = isRealEnd && tutorHasInCallFeedback && !this.inCallFeedbackSubmitted;
+      const inCallNotePayload = submitInCallNote ? this.buildInCallTutorNotePayload() : null;
+
       if (!isPermanentEnd && !otherParticipantEnded) {
         // Early exit — just navigate to tabs.
         // (Post-processing — transcription stop, analysis trigger, billing —
@@ -5934,7 +6257,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         console.log('🚪 On-time exit — navigating to post-lesson page...');
         if (userRole === 'student') {
           await this.router.navigate(['/post-lesson-student', lessonId]);
-        } else if (isTrialLesson) {
+        } else if (isTrialLesson || tutorHasInCallFeedback) {
           await this.router.navigate(['/tabs/lessons']);
         } else {
           await this.router.navigate(['/post-lesson-tutor', lessonId], {
@@ -5946,7 +6269,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         console.log('🚪 Other participant ended — navigating to post-lesson page...');
         if (userRole === 'student') {
           await this.router.navigate(['/post-lesson-student', lessonId]);
-        } else if (isTrialLesson) {
+        } else if (isTrialLesson || tutorHasInCallFeedback) {
           await this.router.navigate(['/tabs/lessons']);
         } else {
           await this.router.navigate(['/post-lesson-tutor', lessonId], {
@@ -5965,7 +6288,8 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       this.runBackgroundCleanup({
         lessonId, userRole, isPermanentEnd, otherParticipantEnded,
         transcriptionEnabled, transcriptId, transcriptionAlreadyDone,
-        vocabItems, goalItems, clientSpeakingSeconds
+        vocabItems, goalItems, clientSpeakingSeconds,
+        inCallNotePayload
       });
       
     } catch (error) {
@@ -5997,8 +6321,21 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     vocabItems: any[];
     goalItems: any[];
     clientSpeakingSeconds: { studentSeconds: number; tutorSeconds: number };
+    inCallNotePayload?: any | null;
   }): Promise<void> {
     try {
+      // 0. Submit the tutor's in-call feedback BEFORE call-end. For AI-disabled
+      //    lessons this upserts a COMPLETED TutorFeedback record, so the
+      //    call-end / auto-finalize jobs won't create a pending one and the
+      //    tutor's profile is never hidden for a lesson they already reviewed.
+      if (ctx.lessonId && ctx.inCallNotePayload) {
+        try {
+          await firstValueFrom(this.lessonService.saveTutorNote(ctx.lessonId, ctx.inCallNotePayload));
+          this.inCallFeedbackSubmitted = true;
+          console.log('✅ Background: in-call tutor feedback submitted');
+        } catch (e) { console.warn('⚠️ Background: in-call feedback submit failed:', e); }
+      }
+
       // 1. Record call-end FIRST (early-exit and on-time alike). This:
       //    - Marks the lesson `ended_early` and stores actualDurationMinutes
       //      so billing/cron logic can finalize it.
@@ -6298,6 +6635,11 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     console.log('🚪 VideoCall: ngOnDestroy called');
 
     this.stopCallStatsPolling();
+
+    if (this.selfNetworkInterval) {
+      clearInterval(this.selfNetworkInterval);
+      this.selfNetworkInterval = null;
+    }
 
     // Unsuppress the lesson reminder now that we're leaving the call
     if (this.lessonId) {

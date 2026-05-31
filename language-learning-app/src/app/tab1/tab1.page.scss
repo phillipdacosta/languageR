@@ -371,6 +371,18 @@ ion-content {
   }
 }
 
+// Reserve the vertical scrollbar gutter on the main (home) content so it never
+// toggles between the long home view (scrollbar present) and the shorter inline
+// earnings/journey panels (no scrollbar). On platforms with classic,
+// space-consuming scrollbars (e.g. Windows/Edge on a large screen) that toggle
+// changes the usable width, which re-centers the `margin: 0 auto` containers and
+// shifts the section — and the FLIP target button — sideways right as the open
+// animation settles. Scoped to the top-level content so modal scroll areas are
+// untouched.
+:host > ion-content::part(scroll) {
+  scrollbar-gutter: stable;
+}
+
 :host-context(html.ion-palette-dark) {
   ion-content {
     @media (max-width: 600px) {

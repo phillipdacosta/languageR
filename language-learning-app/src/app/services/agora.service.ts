@@ -1482,6 +1482,8 @@ export class AgoraService {
         this.client.removeAllListeners();
       } catch (_) {}
       this.client = null;
+      this.adaptiveQualityEnabled = false;
+      this.lastNetworkQuality = null;
 
       // Clear remote users
       this.remoteUsers.clear();
@@ -2408,6 +2410,11 @@ export class AgoraService {
       return;
     }
 
+    // Idempotent: avoid stacking duplicate listeners when called across
+    // multiple join paths (already-connected / reconnecting / fresh join).
+    if (this.adaptiveQualityEnabled) return;
+    this.adaptiveQualityEnabled = true;
+
     this.client.on('network-quality', (stats) => {
       // 0=unknown, 1=excellent, 2=good, 3=poor, 4=bad, 5=very bad, 6=down
       this.lastNetworkQuality = {
@@ -2424,6 +2431,23 @@ export class AgoraService {
 
   /** Last observed network quality samples (for stats overlay / diagnostics). */
   lastNetworkQuality: { uplink: number; downlink: number; ts: number } | null = null;
+  private adaptiveQualityEnabled = false;
+
+  /**
+   * Round-trip time (ms) to the Agora SD-RTN edge, read live from the SDK.
+   * Used as a reliable fallback for the self network-strength indicator when
+   * the `network-quality` sample is still 0/unknown. Returns null if unjoined
+   * or unsupported.
+   */
+  getCurrentRtt(): number | null {
+    try {
+      const rtc = (this.client as any)?.getRTCStats?.();
+      const rtt = rtc?.RTT;
+      return typeof rtt === 'number' && rtt > 0 ? rtt : null;
+    } catch (_) {
+      return null;
+    }
+  }
 
   /**
    * Surfaced to the UI so we can show a one-shot toast when we auto-recover

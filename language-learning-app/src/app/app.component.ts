@@ -14,6 +14,7 @@ import { ReminderService, ReminderEvent } from './services/reminder.service';
 import { LessonService } from './services/lesson.service';
 import { ClassService } from './services/class.service';
 import { TutorFeedbackService } from './services/tutor-feedback.service';
+import { ImagePreloadService } from './services/image-preload.service';
 import { Router, NavigationEnd } from '@angular/router';
 import { Subject, takeUntil, filter, forkJoin, take } from 'rxjs';
 import { AlertController, ToastController } from '@ionic/angular';
@@ -48,10 +49,30 @@ export class AppComponent implements OnInit, OnDestroy {
     private classService: ClassService,
     private tutorFeedbackService: TutorFeedbackService,
     private alertController: AlertController,
-    private toastController: ToastController
+    private toastController: ToastController,
+    private imagePreloadService: ImagePreloadService
   ) {
     this.initializeDeepLinks();
   }
+
+  /** Static home/UI illustrations that render behind *ngIf — warm them so they
+   *  paint instantly on first view instead of fetching in front of the user. */
+  private static readonly HOME_PRELOAD_ASSETS: string[] = [
+    'assets/up-next-empty-light.png',
+    'assets/this-week-empty-calendar.png',
+    'assets/setup-availability-arrow.png',
+    'assets/upnext-schedule-clock.png',
+    'assets/home-earnings-dollar.png',
+    'assets/home-earnings-dollar-dark.png',
+    'assets/quick-actions-classes.png',
+    'assets/quick-actions-classes-original.png',
+    'assets/quick-actions-create-material.png',
+    'assets/quick-actions-create-material-original.png',
+    'assets/quick-actions-forum.png',
+    'assets/quick-actions-forum-original.png',
+    'assets/quick-actions-reviews.png',
+    'assets/quick-actions-reviews-original.png',
+  ];
 
   private initializeDeepLinks() {
     if (!Capacitor.isNativePlatform()) return;
@@ -82,6 +103,9 @@ export class AppComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.languageService.initializeLanguage();
+
+    // Warm static home illustrations during idle time so they paint instantly.
+    this.imagePreloadService.preloadWhenIdle(AppComponent.HOME_PRELOAD_ASSETS);
     
     // Ensure theme is applied immediately when app initializes
     // This ensures dark mode works across all pages, not just the profile page

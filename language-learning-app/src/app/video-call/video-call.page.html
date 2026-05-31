@@ -69,6 +69,27 @@
   </div>
 
   <div class="video-call-wrapper" [class.whiteboard-open]="showWhiteboard" [class.chat-open]="showChat">
+    <!-- 1:1 lessons only — session title on the bezel (Preply-style) -->
+    <div class="lesson-session-header" *ngIf="!isClass && lessonSessionHeaderOtherName">
+      <ion-avatar class="lesson-session-avatar">
+        <img *ngIf="lessonSessionHeaderOtherAvatar" [src]="lessonSessionHeaderOtherAvatar" [alt]="lessonSessionHeaderOtherName" referrerpolicy="no-referrer">
+        <ion-icon *ngIf="!lessonSessionHeaderOtherAvatar" name="person-outline"></ion-icon>
+      </ion-avatar>
+      <span class="lesson-session-title">{{ 'VIDEO_CALL.LESSON_WITH_NAME' | translate:{ name: lessonSessionHeaderOtherName } }}</span>
+      <span class="lesson-session-trial" *ngIf="isTrialLesson">{{ 'VIDEO_CALL.TRIAL_BADGE' | translate }}</span>
+    </div>
+
+    <!-- AI analysis status pill (shown to tutor AND student) -->
+    <div class="ai-status-pill" *ngIf="!isClass && lessonSessionHeaderOtherName"
+         [class.ai-on]="!aiAnalysisDisabledForLesson"
+         [class.ai-off]="aiAnalysisDisabledForLesson">
+      <ion-icon [name]="aiAnalysisDisabledForLesson ? 'create-outline' : 'sparkles'"></ion-icon>
+      <span class="ai-status-pill-title">{{ (aiAnalysisDisabledForLesson ? 'VIDEO_CALL.AI_STATUS_OFF_TITLE' : 'VIDEO_CALL.AI_STATUS_ON_TITLE') | translate }}</span>
+      <span class="ai-status-pill-sep">·</span>
+      <span class="ai-status-pill-body" *ngIf="userRole === 'tutor'">{{ (aiAnalysisDisabledForLesson ? 'VIDEO_CALL.AI_STATUS_OFF_TUTOR' : 'VIDEO_CALL.AI_STATUS_ON_TUTOR') | translate }}</span>
+      <span class="ai-status-pill-body" *ngIf="userRole !== 'tutor'">{{ (aiAnalysisDisabledForLesson ? 'VIDEO_CALL.AI_STATUS_OFF_STUDENT' : 'VIDEO_CALL.AI_STATUS_ON_STUDENT') | translate }}</span>
+    </div>
+
     <!-- Main Content Area (above controls) -->
     <div class="main-content-area">
     <!-- Whiteboard Panel (Left Side) -->
@@ -237,7 +258,8 @@
         </div>
       </div>
       
-      <!-- Picture-in-Picture: show the other participant(s) so the sharer can see them while presenting. -->
+      <!-- Picture-in-Picture: show BOTH participants (local + remote) next to the
+           shared screen, mirroring the whiteboard panel's participant tiles. -->
       <div class="pip-container" *ngIf="screenSharePipParticipants.length > 0">
         <div class="pip-video remote-pip"
              *ngFor="let participant of screenSharePipParticipants; trackBy: trackPipParticipant"
@@ -522,7 +544,16 @@
     </div>
     
     <!-- Chat Panel -->
-    <div class="chat-panel" *ngIf="showChat">
+    <div class="chat-panel"
+         *ngIf="showChat"
+         [class.chat-drag-over]="isChatDragOver"
+         (dragover)="onChatDragOver($event)"
+         (dragleave)="onChatDragLeave($event)"
+         (drop)="onChatDrop($event)">
+      <div class="chat-drop-overlay" *ngIf="isChatDragOver">
+        <ion-icon name="cloud-upload-outline"></ion-icon>
+        <span>{{ 'VIDEO_CALL.CHAT_DROP_HINT' | translate }}</span>
+      </div>
       <div class="chat-header">
         <h3>{{ 'VIDEO_CALL.CHAT_WITH' | translate:{ name: remoteParticipantLabel } }}</h3>
         <ion-button (click)="toggleChat()" size="small" fill="clear">
@@ -565,93 +596,110 @@
       </div>
       
       <div class="chat-messages" #chatMessagesContainer>
-        <!-- Loading state -->
-        <div *ngIf="isLoadingMessages" class="loading-state">
-          <ion-spinner name="crescent"></ion-spinner>
-          <p>{{ 'VIDEO_CALL.LOADING_MESSAGES' | translate }}</p>
-        </div>
-        
-        <!-- Empty state -->
-        <div *ngIf="!isLoadingMessages && chatMessages.length === 0" class="empty-state">
-          <ion-icon name="chatbubbles-outline"></ion-icon>
-          <p>{{ 'VIDEO_CALL.NO_MESSAGES_YET' | translate }}</p>
-        </div>
-        
-        <!-- Messages -->
-        <div *ngFor="let message of chatMessages" class="chat-message" 
-             [class.own-message]="isMyMessage(message)"
-             [class.system-message]="message.type === 'system' || message.isSystemMessage"
-             [class.correction-message]="isCorrection(message)"
-             [attr.data-message-id]="message.id">
-          <div class="message-content"
-               (mousedown)="message.type !== 'system' && !message.isSystemMessage && onMessagePressStart(message, $event)"
-               (touchstart)="message.type !== 'system' && !message.isSystemMessage && onMessagePressStart(message, $event)"
-               (mouseup)="onMessagePressEnd($event)"
-               (touchend)="onMessagePressEnd($event)"
-               (mouseleave)="onMessagePressEnd($event)"
-               (touchcancel)="onMessagePressEnd($event)">
-            <!-- Reply preview -->
-            <div *ngIf="message.replyTo" class="reply-to-preview">
-              <div class="reply-to-line"></div>
-              <div class="reply-to-content">
-                <span class="reply-to-sender">{{ message.replyTo.senderName }}</span>
-                <span class="reply-to-text" *ngIf="message.replyTo.type === 'text'">{{ message.replyTo.content }}</span>
-                <span class="reply-to-text" *ngIf="message.replyTo.type === 'image'">{{ 'VIDEO_CALL.REPLY_PHOTO' | translate }}</span>
-                <span class="reply-to-text" *ngIf="message.replyTo.type === 'file'">{{ 'VIDEO_CALL.REPLY_FILE' | translate }} {{ message.replyTo.fileName }}</span>
-                <span class="reply-to-text" *ngIf="message.replyTo.type === 'voice'">{{ 'VIDEO_CALL.REPLY_VOICE' | translate }}</span>
-              </div>
-            </div>
-            
-            <!-- Correction card (special message type) -->
-            <div *ngIf="isCorrection(message)" class="correction-card">
-              <div class="correction-header">
-                <ion-icon name="school-outline"></ion-icon>
-                <span>{{ 'VIDEO_CALL.CORRECTION' | translate }}</span>
-              </div>
-              <div class="correction-body">
-                <div class="correction-row incorrect">
-                  <span class="correction-label">✗</span>
-                  <span class="correction-text">{{ getCorrectionOriginal(message) }}</span>
-                </div>
-                <div class="correction-row correct">
-                  <span class="correction-label">✓</span>
-                  <span class="correction-text">{{ getCorrectionFixed(message) }}</span>
-                </div>
-              </div>
-              <span class="message-time">{{ formatMessageTime(message.createdAt) }}</span>
-            </div>
-            
-            <!-- Text message content (hide if it's a correction) -->
-            <p class="message-text" *ngIf="message.content && !isCorrection(message)">{{message.content}}</p>
-            
-            <!-- Image message -->
-            <div *ngIf="message.type === 'image'" class="message-image">
-              <img [src]="message.fileUrl" [alt]="message.fileName" />
-              <p *ngIf="message.content" class="image-caption">{{ message.content }}</p>
-            </div>
-            
-            <!-- File message -->
-            <div *ngIf="message.type === 'file'" class="message-file">
-              <div class="file-info" (click)="downloadFile(message, $event)">
-                <ion-icon [name]="getFileIcon(message.fileType!)" class="file-icon"></ion-icon>
-                <div class="file-details">
-                  <p class="file-name">{{ message.fileName }}</p>
-                  <p class="file-size">{{ formatFileSize(message.fileSize!) }}</p>
-                </div>
-                <ion-icon name="download-outline" class="download-icon" (click)="downloadFile(message, $event)"></ion-icon>
-              </div>
-              <p *ngIf="message.content" class="file-caption">{{ message.content }}</p>
-            </div>
-            
-            <!-- Voice message -->
-            <div *ngIf="message.type === 'voice'" class="message-voice">
-              <ion-icon name="play-circle" class="voice-icon"></ion-icon>
-              <audio [src]="message.fileUrl" controls class="voice-player"></audio>
-              <span class="voice-duration" *ngIf="message.duration">{{ message.duration }}s</span>
-            </div>
-            
-            <span class="message-time" *ngIf="!isCorrection(message)">{{formatMessageTime(message.createdAt)}}</span>
+        <div *ngIf="isLoadingMessages" class="loading-overlay">
+          <div class="loading-content">
+            <ion-spinner name="crescent"></ion-spinner>
+            <p>{{ 'VIDEO_CALL.LOADING_MESSAGES' | translate }}</p>
           </div>
+        </div>
+
+        <div class="messages-list" *ngIf="!isLoadingMessages">
+          <div *ngIf="chatMessages.length === 0" class="empty-state">
+            <ion-icon name="chatbubbles-outline"></ion-icon>
+            <p>{{ 'VIDEO_CALL.NO_MESSAGES_YET' | translate }}</p>
+          </div>
+
+          <ng-container *ngFor="let message of chatMessages">
+            <!-- System message -->
+            <div *ngIf="message.type === 'system' || message.isSystemMessage"
+                 class="system-message-row"
+                 [attr.data-message-id]="message.id">
+              <div class="system-message-pill">
+                <p class="message-content">{{ message.content }}</p>
+                <span class="message-time">{{ formatMessageTime(message.createdAt) }}</span>
+              </div>
+            </div>
+
+            <!-- Correction -->
+            <div *ngIf="isCorrection(message)"
+                 class="message-wrapper correction-message"
+                 [attr.data-message-id]="message.id">
+              <div class="message-bubble received">
+                <div class="correction-card">
+                  <div class="correction-header">
+                    <ion-icon name="school-outline"></ion-icon>
+                    <span>{{ 'VIDEO_CALL.CORRECTION' | translate }}</span>
+                  </div>
+                  <div class="correction-body">
+                    <div class="correction-row incorrect">
+                      <span class="correction-label">✗</span>
+                      <span class="correction-text">{{ getCorrectionOriginal(message) }}</span>
+                    </div>
+                    <div class="correction-row correct">
+                      <span class="correction-label">✓</span>
+                      <span class="correction-text">{{ getCorrectionFixed(message) }}</span>
+                    </div>
+                  </div>
+                  <span class="message-time">{{ formatMessageTime(message.createdAt) }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Regular message -->
+            <div *ngIf="message.type !== 'system' && !message.isSystemMessage && !isCorrection(message)"
+                 class="message-wrapper"
+                 [class.is-mine]="isMyMessage(message)"
+                 [attr.data-message-id]="message.id">
+              <div class="message-bubble"
+                   [class.sent]="isMyMessage(message)"
+                   [class.received]="!isMyMessage(message)"
+                   (mousedown)="onMessagePressStart(message, $event)"
+                   (touchstart)="onMessagePressStart(message, $event)"
+                   (mouseup)="onMessagePressEnd($event)"
+                   (touchend)="onMessagePressEnd($event)"
+                   (mouseleave)="onMessagePressEnd($event)"
+                   (touchcancel)="onMessagePressEnd($event)">
+                <div *ngIf="message.replyTo" class="reply-to-preview">
+                  <div class="reply-to-line"></div>
+                  <div class="reply-to-content">
+                    <span class="reply-to-sender">{{ message.replyTo.senderName }}</span>
+                    <span class="reply-to-text" *ngIf="message.replyTo.type === 'text'">{{ message.replyTo.content }}</span>
+                    <span class="reply-to-text" *ngIf="message.replyTo.type === 'image'">{{ 'VIDEO_CALL.REPLY_PHOTO' | translate }}</span>
+                    <span class="reply-to-text" *ngIf="message.replyTo.type === 'file'">{{ 'VIDEO_CALL.REPLY_FILE' | translate }} {{ message.replyTo.fileName }}</span>
+                    <span class="reply-to-text" *ngIf="message.replyTo.type === 'voice'">{{ 'VIDEO_CALL.REPLY_VOICE' | translate }}</span>
+                  </div>
+                </div>
+
+                <div *ngIf="message.type === 'text' || (message.content && message.type !== 'image' && message.type !== 'file' && message.type !== 'voice')"
+                     class="message-content">{{ message.content }}</div>
+
+                <div *ngIf="message.type === 'image'" class="message-image">
+                  <img [src]="message.fileUrl" [alt]="message.fileName" />
+                  <p *ngIf="message.content" class="image-caption">{{ message.content }}</p>
+                </div>
+
+                <div *ngIf="message.type === 'file'" class="message-file">
+                  <div class="file-info" (click)="downloadFile(message, $event)">
+                    <ion-icon [name]="getFileIcon(message.fileType!)" class="file-icon"></ion-icon>
+                    <div class="file-details">
+                      <p class="file-name">{{ message.fileName }}</p>
+                      <p class="file-size">{{ formatFileSize(message.fileSize!) }}</p>
+                    </div>
+                    <ion-icon name="download-outline" class="download-icon"></ion-icon>
+                  </div>
+                  <p *ngIf="message.content" class="file-caption">{{ message.content }}</p>
+                </div>
+
+                <div *ngIf="message.type === 'voice'" class="message-voice">
+                  <ion-icon name="play-circle" class="voice-icon"></ion-icon>
+                  <audio [src]="message.fileUrl" controls class="voice-player"></audio>
+                  <span class="voice-duration" *ngIf="message.duration">{{ message.duration }}s</span>
+                </div>
+
+                <div class="message-time">{{ formatMessageTime(message.createdAt) }}</div>
+              </div>
+            </div>
+          </ng-container>
         </div>
       </div>
       
@@ -736,45 +784,45 @@
         </button>
       </div>
       
-      <div class="chat-input">
-        <!-- File attachment buttons -->
-        <ion-button fill="clear" size="small" (click)="triggerFileInput()" [disabled]="isUploading || isRecording">
-          <ion-icon name="attach-outline"></ion-icon>
-        </ion-button>
-        
-        <!-- Voice recording button -->
-        <ion-button fill="clear" size="small" (click)="toggleVoiceRecording()" [disabled]="isUploading">
-          <ion-icon [name]="isRecording ? 'stop-circle' : 'mic-outline'" [color]="isRecording ? 'danger' : ''"></ion-icon>
-        </ion-button>
-        
-        <!-- Correction button (Tutor Only) -->
-        <ion-button *ngIf="userRole === 'tutor'" fill="clear" size="small" (click)="toggleCorrectionInput()" [class.active-correction-btn]="showCorrectionInput">
-          <ion-icon name="school-outline"></ion-icon>
-        </ion-button>
-        
-        <ion-input 
-          [(ngModel)]="newMessage" 
-          [placeholder]="'VIDEO_CALL.WRITE_MESSAGE' | translate"
-          (keyup.enter)="sendMessage()"
-          class="message-input"
-          [disabled]="isUploading || isRecording">
-        </ion-input>
-        
-        <ion-button (click)="sendMessage()" class="send-button" fill="solid" 
-                    [disabled]="!newMessage.trim() || isSending || isUploading || isRecording">
-          <ion-icon name="send"></ion-icon>
-        </ion-button>
-        
-        <!-- Upload progress indicator -->
-        <div *ngIf="isUploading" class="upload-progress">
-          <ion-spinner name="crescent"></ion-spinner>
-          <span>{{ 'VIDEO_CALL.UPLOADING' | translate }}</span>
-        </div>
-        
-        <!-- Recording indicator -->
-        <div *ngIf="isRecording" class="recording-indicator">
-          <ion-icon name="radio-button-on" color="danger"></ion-icon>
-          <span>{{ 'VIDEO_CALL.RECORDING' | translate:{ duration: recordingDurationLabel } }}</span>
+      <div class="message-composer">
+        <div class="message-composer-card">
+          <div class="message-input-container">
+            <div class="message-input-box">
+              <ion-textarea
+                [(ngModel)]="newMessage"
+                [placeholder]="'VIDEO_CALL.WRITE_MESSAGE' | translate"
+                [autoGrow]="true"
+                [rows]="1"
+                (keyup.enter)="sendMessage()"
+                class="message-input"
+                [disabled]="isUploading || isRecording">
+              </ion-textarea>
+              <div class="message-input-actions">
+                <div class="message-input-actions-start">
+                  <button type="button" class="composer-tool-btn" (click)="triggerFileInput()" [disabled]="isUploading || isRecording" aria-label="Attach file">
+                    <ion-icon name="attach-outline" aria-hidden="true"></ion-icon>
+                  </button>
+                  <button type="button" class="composer-tool-btn" (click)="toggleVoiceRecording()" [disabled]="isUploading" aria-label="Voice message">
+                    <ion-icon [name]="isRecording ? 'stop-circle' : 'mic-outline'" [color]="isRecording ? 'danger' : ''" aria-hidden="true"></ion-icon>
+                  </button>
+                  <button *ngIf="userRole === 'tutor'" type="button" class="composer-tool-btn" [class.composer-tool-btn--active]="showCorrectionInput" (click)="toggleCorrectionInput()" aria-label="Correction">
+                    <ion-icon name="school-outline" aria-hidden="true"></ion-icon>
+                  </button>
+                </div>
+                <button type="button" class="composer-send-btn" (click)="sendMessage()" [disabled]="!newMessage.trim() || isSending || isUploading || isRecording" aria-label="Send">
+                  <ion-icon name="arrow-up" aria-hidden="true"></ion-icon>
+                </button>
+              </div>
+            </div>
+            <div *ngIf="isUploading" class="upload-progress">
+              <ion-spinner name="crescent"></ion-spinner>
+              <span>{{ 'VIDEO_CALL.UPLOADING' | translate }}</span>
+            </div>
+            <div *ngIf="isRecording" class="recording-indicator">
+              <ion-icon name="radio-button-on" color="danger"></ion-icon>
+              <span>{{ 'VIDEO_CALL.RECORDING' | translate:{ duration: recordingDurationLabel } }}</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -798,6 +846,12 @@
         <ion-icon name="eye-off-outline"></ion-icon>
         <span>{{ 'VIDEO_CALL.NOT_VISIBLE_STUDENT' | translate }}</span>
       </div>
+
+      <!-- Feedback requirement hint -->
+      <div class="notes-feedback-hint" [class.required]="aiAnalysisDisabledForLesson">
+        <ion-icon [name]="aiAnalysisDisabledForLesson ? 'alert-circle-outline' : 'sparkles-outline'"></ion-icon>
+        <span>{{ (aiAnalysisDisabledForLesson ? 'VIDEO_CALL.FEEDBACK_HINT_REQUIRED' : 'VIDEO_CALL.FEEDBACK_HINT_OPTIONAL') | translate }}</span>
+      </div>
       
       <div class="floating-notes-content">
         <!-- Quick Impressions -->
@@ -814,6 +868,48 @@
             </button>
           </div>
         </div>
+
+        <!-- Structured assessment (required when student has AI analysis OFF) -->
+        <ng-container *ngIf="aiAnalysisDisabledForLesson">
+          <div class="notes-section">
+            <label class="notes-label">{{ 'VIDEO_CALL.CEFR_LEVEL' | translate }} *</label>
+            <div class="chip-wrap">
+              <button
+                *ngFor="let level of cefrLevels"
+                class="tag"
+                [class.selected]="lessonCefrLevel === level"
+                (click)="selectLessonCefr(level)">
+                {{ level }}
+              </button>
+            </div>
+          </div>
+
+          <div class="notes-section">
+            <label class="notes-label">{{ 'VIDEO_CALL.GRAMMAR' | translate }} *</label>
+            <div class="rating-dots">
+              <button
+                *ngFor="let i of ratingScale"
+                class="rating-dot"
+                [class.active]="lessonGrammarRating >= i"
+                (click)="setLessonGrammarRating(i)">
+              </button>
+              <span class="rating-val" *ngIf="lessonGrammarRating > 0">{{ lessonGrammarRating }}/10</span>
+            </div>
+          </div>
+
+          <div class="notes-section">
+            <label class="notes-label">{{ 'VIDEO_CALL.FLUENCY' | translate }} *</label>
+            <div class="rating-dots">
+              <button
+                *ngFor="let i of ratingScale"
+                class="rating-dot"
+                [class.active]="lessonFluencyRating >= i"
+                (click)="setLessonFluencyRating(i)">
+              </button>
+              <span class="rating-val" *ngIf="lessonFluencyRating > 0">{{ lessonFluencyRating }}/10</span>
+            </div>
+          </div>
+        </ng-container>
         
         <!-- Strengths -->
         <div class="notes-section">
@@ -885,6 +981,23 @@
         <div class="notes-footer" *ngIf="savingNotes">
           <ion-spinner name="crescent" size="small"></ion-spinner>
           <span>{{ 'VIDEO_CALL.SAVING' | translate }}</span>
+        </div>
+
+        <!-- Submit feedback -->
+        <div class="notes-submit-row">
+          <div class="notes-submitted-pill" *ngIf="inCallFeedbackSubmitted">
+            <ion-icon name="checkmark-circle"></ion-icon>
+            <span>{{ 'VIDEO_CALL.FEEDBACK_SAVED_PILL' | translate }}</span>
+          </div>
+          <button
+            *ngIf="!inCallFeedbackSubmitted"
+            type="button"
+            class="notes-submit-btn"
+            [disabled]="!inCallFeedbackComplete || submittingInCallFeedback"
+            (click)="submitInCallFeedback()">
+            <ion-spinner *ngIf="submittingInCallFeedback" name="crescent"></ion-spinner>
+            <span *ngIf="!submittingInCallFeedback">{{ 'VIDEO_CALL.SAVE_FEEDBACK' | translate }}</span>
+          </button>
         </div>
       </div>
     </div>
@@ -1000,6 +1113,16 @@
     
     <!-- Bottom Controls (Separate from main content) -->
     <div class="video-controls">
+      <!-- Self network strength (bottom-left) -->
+      <div class="self-network" [class]="'self-network--' + selfNetworkLevel" *ngIf="isConnected" [title]="selfNetworkLabel">
+        <div class="self-network-bars">
+          <span class="net-bar" [style.background]="selfNetworkBars >= 1 ? selfNetworkColor : null"></span>
+          <span class="net-bar" [style.background]="selfNetworkBars >= 2 ? selfNetworkColor : null"></span>
+          <span class="net-bar" [style.background]="selfNetworkBars >= 3 ? selfNetworkColor : null"></span>
+        </div>
+        <span class="self-network-label">{{ selfNetworkLabel }}</span>
+      </div>
+
       <div class="control-item" (click)="toggleMute()">
         <div class="control-btn" [class.active-danger]="isMuted">
           <ion-icon [name]="isMuted ? 'mic-off' : 'mic-outline'"></ion-icon>
@@ -1013,14 +1136,12 @@
         </div>
         <span class="control-label" [class.danger]="isVideoOff">{{ (isVideoOff ? 'VIDEO_CALL.START_VIDEO' : 'VIDEO_CALL.CAMERA') | translate }}</span>
       </div>
-      
-      <div class="control-item" 
-           *ngIf="!isRemoteScreenSharing || isScreenSharing" 
-           (click)="shareScreen()">
-        <div class="control-btn" [class.active-primary]="isScreenSharing">
-          <ion-icon [name]="isScreenSharing ? 'stop-circle-outline' : 'desktop-outline'"></ion-icon>
+
+      <div class="control-item" (click)="toggleWhiteboard()">
+        <div class="control-btn" [class.active-primary]="showWhiteboard">
+          <ion-icon name="easel-outline"></ion-icon>
         </div>
-        <span class="control-label" [class.primary]="isScreenSharing">{{ (isScreenSharing ? 'VIDEO_CALL.STOP_SHARE' : 'VIDEO_CALL.SHARE') | translate }}</span>
+        <span class="control-label" [class.primary]="showWhiteboard">{{ 'VIDEO_CALL.WHITEBOARD' | translate }}</span>
       </div>
       
       <div class="control-item" (click)="toggleChat()">
@@ -1049,17 +1170,19 @@
     <!-- More Menu Popover -->
     <div class="more-menu-backdrop" *ngIf="showMoreMenu" (click)="toggleMoreMenu()"></div>
     <div class="more-menu" *ngIf="showMoreMenu">
+      <div class="more-menu-item"
+           *ngIf="!isRemoteScreenSharing || isScreenSharing"
+           (click)="shareScreen(); toggleMoreMenu()">
+        <div class="more-menu-icon" [class.active]="isScreenSharing">
+          <ion-icon [name]="isScreenSharing ? 'stop-circle-outline' : 'desktop-outline'"></ion-icon>
+        </div>
+        <span class="more-menu-label">{{ (isScreenSharing ? 'VIDEO_CALL.STOP_SHARE' : 'VIDEO_CALL.SHARE') | translate }}</span>
+      </div>
       <div class="more-menu-item" (click)="toggleVirtualBackgroundControls(); toggleMoreMenu()">
         <div class="more-menu-icon" [class.active]="showVirtualBackgroundControls">
           <ion-icon name="color-filter-outline"></ion-icon>
         </div>
         <span class="more-menu-label">{{ 'VIDEO_CALL.EFFECTS' | translate }}</span>
-      </div>
-      <div class="more-menu-item" (click)="toggleWhiteboard(); toggleMoreMenu()">
-        <div class="more-menu-icon" [class.active]="showWhiteboard">
-          <ion-icon name="easel-outline"></ion-icon>
-        </div>
-        <span class="more-menu-label">{{ 'VIDEO_CALL.WHITEBOARD' | translate }}</span>
       </div>
       <div class="more-menu-item" (click)="toggleVocabulary(); toggleMoreMenu()">
         <div class="more-menu-icon" [class.active]="showVocabulary">
