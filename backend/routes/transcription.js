@@ -1658,10 +1658,108 @@ router.get('/student/:studentId/latest', verifyToken, async (req, res) => {
     }
     
     res.json(result);
-    
+
   } catch (error) {
     console.error('❌ Error getting latest analysis:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+/**
+ * @route   GET /api/transcription/student/:studentId/previous-context
+ * @desc    Pre-call context for the previous lesson with a tutor. Always 200.
+ *          Returns a discriminated state so the client can render the right
+ *          thing instead of conflating "no notes" with "still generating",
+ *          "waiting on tutor feedback", or a genuine load error:
+ *            { state: 'ready', analysis }            — completed analysis
+ *            { state: 'generating', lessonDate }     — analysis still running
+ *            { state: 'awaiting_tutor', lessonDate }  — AI off, no tutor note yet
+ *            { state: 'empty' }                       — first lesson together
+ * @access  Private
+ */
+router.get('/student/:studentId/previous-context', verifyToken, async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    const { tutorId, currentLessonId } = req.query;
+
+    // 1) Most recent COMPLETED, non-trial analysis (excluding the current lesson).
+    const completedQuery = { studentId, status: 'completed' };
+    if (tutorId) completedQuery.tutorId = tutorId;
+    if (currentLessonId) completedQuery.lessonId = { $ne: currentLessonId };
+
+    const analyses = await LessonAnalysis.find(completedQuery)
+      .sort({ lessonDate: -1 })
+      .populate('lessonId')
+      .limit(10);
+
+    const previousAnalysis = analyses.find(a =>
+      a.lessonId && !a.lessonId.isTrialLesson && a.status === 'completed'
+    );
+
+    if (previousAnalysis) {
+      const result = previousAnalysis.toObject();
+      if (result.translations instanceof Map) {
+        result.translations = Object.fromEntries(result.translations);
+      }
+      return res.json({ state: 'ready', analysis: result });
+    }
+
+    // 2) No completed analysis — diagnose WHY via the most recent real lesson.
+    const Lesson = require('../models/Lesson');
+    const lessonQuery = {
+      studentId,
+      isTrialLesson: { $ne: true },
+      status: { $in: ['completed', 'ended_early'] }
+    };
+    if (tutorId) lessonQuery.tutorId = tutorId;
+    if (currentLessonId) lessonQuery._id = { $ne: currentLessonId };
+
+    const lastLesson = await Lesson.findOne(lessonQuery).sort({ endTime: -1 }).lean();
+
+    if (!lastLesson) {
+      return res.json({ state: 'empty' });
+    }
+
+    const anyAnalysis = await LessonAnalysis.findOne({ lessonId: lastLesson._id }).lean();
+
+    // "Generating" must be plausibly true: an analysis only runs for a short
+    // window after a lesson ends. Past that, if nothing completed, the recap
+    // isn't coming (failed / insufficient transcript / never ran), so we stop
+    // promising one. AI off → the tutor still owes manual feedback.
+    const endedMs = lastLesson.endTime ? new Date(lastLesson.endTime).getTime() : 0;
+    const minutesSinceEnd = endedMs ? (Date.now() - endedMs) / 60000 : Infinity;
+    const GENERATING_GRACE_MINUTES = 20;
+    const aiOff = lastLesson.aiAnalysisEnabledAtTime === false;
+
+    let state;
+    if (anyAnalysis) {
+      if (anyAnalysis.status === 'pending' || anyAnalysis.status === 'processing') {
+        // Genuinely still being produced.
+        state = 'generating';
+      } else if (aiOff) {
+        // failed / insufficient_data with AI off → still on the tutor.
+        state = 'awaiting_tutor';
+      } else {
+        // failed / insufficient_data with AI on → nothing useful is coming.
+        state = 'empty';
+      }
+    } else if (aiOff) {
+      // No analysis row and AI was off → waiting on the tutor's note.
+      state = 'awaiting_tutor';
+    } else if (minutesSinceEnd <= GENERATING_GRACE_MINUTES) {
+      // Just ended, AI on → give the pipeline time to generate.
+      state = 'generating';
+    } else {
+      // AI on but no analysis well after the lesson → it isn't coming.
+      state = 'empty';
+    }
+
+    return res.json({ state, lessonDate: lastLesson.endTime });
+
+  } catch (error) {
+    console.error('❌ Error getting previous lesson context:', error);
+    // Surface as an error state to the client (it will offer a retry).
+    res.status(500).json({ state: 'error', message: 'Server error' });
   }
 });
 

@@ -3626,32 +3626,45 @@ router.post('/:id/tutor-note', verifyToken, async (req, res) => {
       }
     }
 
-    // If this was a tutor assessment (AI off), also mark TutorFeedback as completed
+    // If this was a tutor assessment (AI off), mark TutorFeedback complete.
+    // UPSERT semantics: when a tutor submits the assessment DURING the call,
+    // the pending TutorFeedback record may not exist yet (call-end / autoFinalize
+    // create it after the scheduled end). Completing an existing record OR
+    // creating an already-completed one prevents those later jobs from
+    // re-creating a pending record and re-hiding the tutor's profile.
     if (isTutorAssessment) {
       try {
         const TutorFeedback = require('../models/TutorFeedback');
-        const pendingFeedback = await TutorFeedback.findOne({
-          lessonId: lessonId,
-          status: 'pending'
-        });
-        
-        if (pendingFeedback) {
-          pendingFeedback.strengths = strengths || [];
-          pendingFeedback.areasForImprovement = areasToImprove || [];
-          pendingFeedback.homework = homework || '';
-          pendingFeedback.overallNotes = text || '';
-          pendingFeedback.status = 'completed';
-          pendingFeedback.providedAt = new Date();
-          await pendingFeedback.save();
-          
-          // Also clear the lesson's requiresTutorFeedback flag
-          lesson.requiresTutorFeedback = false;
-          await lesson.save();
-          
+        const existingFeedback = await TutorFeedback.findOne({ lessonId: lessonId });
+
+        const completedFields = {
+          strengths: strengths || [],
+          areasForImprovement: areasToImprove || [],
+          homework: homework || '',
+          overallNotes: text || '',
+          estimatedCefrLevel: cefrLevel || undefined,
+          status: 'completed',
+          providedAt: new Date()
+        };
+
+        if (existingFeedback) {
+          Object.assign(existingFeedback, completedFields);
+          await existingFeedback.save();
           console.log(`✅ TutorFeedback record marked as completed for lesson ${lessonId}`);
         } else {
-          console.log(`ℹ️ No pending TutorFeedback record found for lesson ${lessonId}`);
+          await TutorFeedback.create({
+            lessonId: lessonId,
+            tutorId: lesson.tutorId,
+            studentId: lesson.studentId,
+            required: true,
+            ...completedFields
+          });
+          console.log(`✅ TutorFeedback record created (completed) for in-call assessment, lesson ${lessonId}`);
         }
+
+        // Clear the lesson's requiresTutorFeedback flag either way
+        lesson.requiresTutorFeedback = false;
+        await lesson.save();
       } catch (fbError) {
         console.error('⚠️ Error completing TutorFeedback (non-critical):', fbError.message);
       }

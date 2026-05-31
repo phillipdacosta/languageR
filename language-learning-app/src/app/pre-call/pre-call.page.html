@@ -135,14 +135,38 @@
 
     <!-- Right Panel: Lesson Info -->
     <div class="info-panel">
-      <div class="lesson-header">
-        <h1 class="lesson-title">{{ lessonTitle || ('PRE_CALL.LANGUAGE_LESSON' | translate) }}</h1>
+      <div class="lesson-header" *ngIf="showLessonTitleHeader || isTrialLesson">
+        <h1 class="lesson-title" *ngIf="showLessonTitleHeader">{{ lessonTitle }}</h1>
         <div class="trial-badge" *ngIf="isTrialLesson">
           <ion-icon name="star"></ion-icon>
           <span>{{ 'PRE_CALL.TRIAL_LESSON' | translate }}</span>
         </div>
       </div>
-      <p class="lesson-subtitle">{{ lessonSubtitle }}</p>
+      <p class="lesson-subtitle is-primary" *ngIf="lessonSubtitleParticipantName">
+        <span class="lesson-subtitle-prefix">{{ lessonSubtitlePrefix }}</span>
+        <span class="lesson-subtitle-name">{{ lessonSubtitleParticipantName }}</span>
+        <ion-avatar class="lesson-subtitle-avatar">
+          <img
+            [src]="lessonSubtitleParticipantPicture || 'assets/avatar.png'"
+            [alt]="lessonSubtitleParticipantName"
+            referrerpolicy="no-referrer" />
+        </ion-avatar>
+      </p>
+      <p class="lesson-subtitle" *ngIf="lessonSubtitlePlain">{{ lessonSubtitlePlain }}</p>
+
+      <!-- AI Analysis status (shown to tutor AND student) -->
+      <div class="ai-status-card" *ngIf="aiStatusResolved"
+           [class.ai-on]="aiAnalysisEnabled"
+           [class.ai-off]="!aiAnalysisEnabled">
+        <div class="ai-status-icon">
+          <ion-icon [name]="aiAnalysisEnabled ? 'sparkles' : 'create-outline'"></ion-icon>
+        </div>
+        <div class="ai-status-text">
+          <h4 class="ai-status-title">{{ (aiAnalysisEnabled ? 'PRE_CALL.AI_STATUS_ON_TITLE' : 'PRE_CALL.AI_STATUS_OFF_TITLE') | translate }}</h4>
+          <p class="ai-status-body" *ngIf="isTutor">{{ (aiAnalysisEnabled ? 'PRE_CALL.AI_STATUS_ON_TUTOR' : 'PRE_CALL.AI_STATUS_OFF_TUTOR') | translate }}</p>
+          <p class="ai-status-body" *ngIf="!isTutor">{{ (aiAnalysisEnabled ? 'PRE_CALL.AI_STATUS_ON_STUDENT' : 'PRE_CALL.AI_STATUS_OFF_STUDENT') | translate }}</p>
+        </div>
+      </div>
 
       <!-- Student Lesson Intent Chips -->
       <div class="intent-section" *ngIf="roleResolved && !isTutor">
@@ -176,24 +200,14 @@
         </div>
       </div>
       
-      <!-- Learning Plan Context (for tutors) -->
-      <div class="learning-plan-context-card" *ngIf="isTutor && hasPlanData">
-        <div class="notes-header">
-          <h3>{{ 'PRE_CALL.LEARNING_PLAN' | translate }}</h3>
-        </div>
-        <div class="lpc-row" *ngIf="planGoalLabel">
-          <span class="lpc-label">{{ 'PRE_CALL.GOAL' | translate }}</span>
-          <span class="lpc-value">{{ planGoalLabel }}</span>
-        </div>
-        <div class="lpc-row" *ngIf="planPhaseLabel">
-          <span class="lpc-label">{{ 'PRE_CALL.CURRENT_PHASE' | translate }}</span>
-          <span class="lpc-value">{{ planPhaseLabel }}</span>
-        </div>
-        <div class="lpc-row" *ngIf="planNextFocus">
-          <span class="lpc-label">{{ 'PRE_CALL.SUGGESTED_FOCUS' | translate }}</span>
-          <span class="lpc-value">{{ planNextFocus }}</span>
-        </div>
-        <p class="lpc-summary" *ngIf="planStudentSummary">{{ planStudentSummary }}</p>
+      <!-- Learning Journey (goal + pace) — shown to tutor AND student when a plan exists -->
+      <div class="journey-strip" *ngIf="hasPlanData">
+        <span class="journey-strip-label">{{ journeyGoalOwnerLabel }}</span>
+        <span class="journey-strip-goal" *ngIf="planGoalLabel">{{ planGoalLabel }}</span>
+        <span class="journey-strip-meta" *ngIf="journeyGoalMeta">
+          <ion-icon *ngIf="journeyPaceIcon" [name]="journeyPaceIcon" aria-hidden="true"></ion-icon>
+          <span>{{ journeyGoalMeta }}</span>
+        </span>
       </div>
 
       <!-- Trial Lesson Plan Context (shows goal + level only) -->
@@ -213,10 +227,10 @@
       </div>
 
       <!-- Previous Lesson Notes (for tutors and students, not trial lessons) -->
-      <div class="previous-notes-card" *ngIf="!isTrialLesson && !isClass && (loadingPreviousNotes || previousNotesChecked)">
+      <div class="previous-notes-card" *ngIf="notesState !== 'hidden'">
         <div class="notes-header">
           <h3>{{ 'PRE_CALL.LAST_LESSON_NOTES' | translate }}</h3>
-          <div class="notes-header-right" *ngIf="previousLessonNotes && !loadingPreviousNotes">
+          <div class="notes-header-right" *ngIf="notesState === 'ready' && previousLessonNotes">
             <button class="pc-translate-btn" *ngIf="prevNotesAnalysisId && previousLessonNotes?.source !== 'tutor'" (click)="togglePrevNotesTranslation()" [disabled]="prevNotesTranslating" [class.showing-translation]="prevNotesShowingTranslation">
               <ion-icon name="language-outline" aria-hidden="true"></ion-icon>
               <span *ngIf="prevNotesTranslating">{{ 'COMMON.TRANSLATING' | translate }}</span>
@@ -228,14 +242,15 @@
             </div>
           </div>
         </div>
-        
-        <div *ngIf="loadingPreviousNotes" class="loading-notes">
-          <ion-spinner name="crescent" color="medium"></ion-spinner>
+
+        <!-- Loading -->
+        <div *ngIf="notesState === 'loading'" class="loading-notes">
+          <ion-spinner name="crescent" color="light"></ion-spinner>
           <span>{{ 'PRE_CALL.LOADING_PREVIOUS_LESSON' | translate }}</span>
         </div>
 
-        <!-- Empty state — no previous analyses yet -->
-        <div *ngIf="!loadingPreviousNotes && previousNotesChecked && !previousLessonNotes" class="notes-empty-state">
+        <!-- Empty — first lesson together -->
+        <div *ngIf="notesState === 'empty'" class="notes-empty-state">
           <div class="notes-empty-icon">
             <ion-icon name="document-text-outline"></ion-icon>
           </div>
@@ -245,7 +260,42 @@
           </p>
         </div>
 
-        <div *ngIf="previousLessonNotes && !loadingPreviousNotes" class="notes-content">
+        <!-- Generating — analysis still being produced -->
+        <div *ngIf="notesState === 'generating'" class="notes-info-state">
+          <div class="notes-info-icon generating">
+            <ion-spinner name="dots" color="light"></ion-spinner>
+          </div>
+          <h4 class="notes-empty-title">{{ 'PRE_CALL.NOTES_GENERATING_TITLE' | translate }}</h4>
+          <p class="notes-empty-body">
+            {{ (isTutor ? 'PRE_CALL.NOTES_GENERATING_BODY_TUTOR' : 'PRE_CALL.NOTES_GENERATING_BODY_STUDENT') | translate }}
+          </p>
+        </div>
+
+        <!-- Awaiting tutor feedback (AI off, no note submitted yet) -->
+        <div *ngIf="notesState === 'awaiting_tutor'" class="notes-info-state">
+          <div class="notes-info-icon awaiting">
+            <ion-icon name="time-outline"></ion-icon>
+          </div>
+          <h4 class="notes-empty-title">{{ 'PRE_CALL.NOTES_AWAITING_TITLE' | translate }}</h4>
+          <p class="notes-empty-body">
+            {{ (isTutor ? 'PRE_CALL.NOTES_AWAITING_BODY_TUTOR' : 'PRE_CALL.NOTES_AWAITING_BODY_STUDENT') | translate }}
+          </p>
+        </div>
+
+        <!-- Error — load failed (retryable) -->
+        <div *ngIf="notesState === 'error'" class="notes-info-state">
+          <div class="notes-info-icon error">
+            <ion-icon name="cloud-offline-outline"></ion-icon>
+          </div>
+          <h4 class="notes-empty-title">{{ 'PRE_CALL.NOTES_ERROR_TITLE' | translate }}</h4>
+          <p class="notes-empty-body">{{ 'PRE_CALL.NOTES_ERROR_BODY' | translate }}</p>
+          <button class="notes-retry-btn" (click)="retryPreviousLessonNotes()">
+            <ion-icon name="refresh-outline"></ion-icon>
+            <span>{{ 'PRE_CALL.RETRY' | translate }}</span>
+          </button>
+        </div>
+
+        <div *ngIf="notesState === 'ready' && previousLessonNotes" class="notes-content">
           <!-- Topics Discussed / Summary -->
           <div class="notes-section" *ngIf="previousLessonNotes.overallAssessment?.summary">
             <div class="section-label">{{ 'PRE_CALL.WHAT_YOU_WORKED_ON' | translate }}</div>

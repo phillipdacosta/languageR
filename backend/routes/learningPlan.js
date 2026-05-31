@@ -317,7 +317,10 @@ router.get('/:language/recommended-materials', verifyToken, async (req, res) => 
  * @desc    Tutor fetches a student's learning plan
  * @access  Private (tutor)
  */
-router.get('/student/:studentId/:language', verifyToken, async (req, res) => {
+router.get('/student/:studentId/:language', verifyToken, async (req, res, next) => {
+  // `:language` is a wildcard that would otherwise swallow more specific routes
+  // like `/student/:studentId/summary`. Pass those through to their handlers.
+  if (req.params.language === 'summary') return next();
   try {
     const user = await User.findOne({ auth0Id: req.user.sub });
     if (!user) {
@@ -355,11 +358,17 @@ router.get('/student/:studentId/summary', verifyToken, async (req, res) => {
 
     const plans = await LearningPlan.find({
       studentId: req.params.studentId,
-      status: { $in: ['active', 'completed'] }
+      // Include 'draft': a freshly generated plan stays 'draft' until the first
+      // lesson is analyzed (learningPlanService flips it to 'active'). Without
+      // this, the student's goals/journey never show on their FIRST lesson.
+      // Matches the canonical plan-status filter used elsewhere in this file.
+      status: { $in: ['draft', 'active', 'completed', 'mastery_mode', 'unframed', 'paused'] }
     }).lean();
 
     if (!plans.length) {
-      return res.status(404).json({ success: false, message: 'No learning plan found' });
+      // Return 200 with an empty list (not 404) so callers can treat "no plan
+      // yet" as a normal empty state without a red console error on every load.
+      return res.json({ success: true, summaries: [] });
     }
 
     const summaries = plans.map(plan => ({

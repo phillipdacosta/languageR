@@ -1,294 +1,294 @@
 <ion-content class="post-lesson-tutor-content" [scrollY]="false" [fullscreen]="true">
-  <div class="content-wrapper">
+  <div class="plt-page">
 
-    <!-- Back Button -->
-    <button class="back-btn" (click)="goHome()">
-      <ion-icon name="chevron-back"></ion-icon>
-      <span>{{ backButtonLabel }}</span>
-    </button>
-
-    <!-- ==================== MAIN CARD ==================== -->
-    <div class="lesson-card" *ngIf="!noteSubmitted">
-
-      <!-- Header -->
-      <div class="card-header">
-        <span class="header-emoji">🎉</span>
-        <h1>Great Lesson!</h1>
-        <p class="header-subtitle" *ngIf="student">Completed with {{ studentDisplayName }}</p>
-      </div>
-
-      <!-- Student Info -->
-      <div class="student-row" *ngIf="student && lesson">
-        <img class="avatar" [src]="student.picture || 'assets/default-avatar.png'" [alt]="studentDisplayName" />
-        <div class="info">
-          <span class="name">{{ studentDisplayName }}</span>
-          <span class="datetime">{{ lessonDateTime }}</span>
-          <span class="duration">{{ lesson.actualDurationMinutes || lesson.duration }} min lesson</span>
-        </div>
-      </div>
-
-      <!-- Performance Metrics -->
-      <div class="metrics" *ngIf="analysisLoaded && analysis">
-        <div class="metric">
-          <span class="metric-val">{{ analysis.overallAssessment?.proficiencyLevel || 'N/A' }}</span>
-          <span class="metric-lbl">Level</span>
-        </div>
-        <div class="metric">
-          <span class="metric-val">{{ analysis.vocabularyAnalysis?.uniqueWordCount || 0 }}</span>
-          <span class="metric-lbl">Words</span>
-        </div>
-        <div class="metric">
-          <span class="metric-val">{{ analysis.grammarAnalysis?.accuracyScore || 0 }}%</span>
-          <span class="metric-lbl">Grammar</span>
-        </div>
-      </div>
-
-      <div class="divider"></div>
-
-      <!-- ==================== COUNTDOWN TIMER (when feedback is required) ==================== -->
-      <div class="countdown-banner" *ngIf="showCountdown && !noteSubmitted" [class.expired]="countdownExpired">
-        <div class="countdown-icon">
-          <ion-icon [name]="countdownExpired ? 'alert-circle' : 'time-outline'"></ion-icon>
-        </div>
-        <div class="countdown-body">
-          <p class="countdown-title" *ngIf="!countdownExpired">
-            Submit within <strong>{{ countdownDisplay }}</strong> to keep your profile visible
-          </p>
-          <p class="countdown-title" *ngIf="countdownExpired">
-            Your profile is now hidden from students
-          </p>
-          <p class="countdown-sub" *ngIf="!countdownExpired">
-            Your profile will be hidden from search and bookings if feedback isn't submitted in time.
-          </p>
-          <p class="countdown-sub" *ngIf="countdownExpired">
-            Submit your feedback now to restore your profile visibility.
-          </p>
-        </div>
-      </div>
-
-      <!-- ==================== FEEDBACK ENCOURAGEMENT ==================== -->
-      <div class="feedback-tip">
-        <div class="feedback-tip-icon">🎓</div>
-        <div class="feedback-tip-body">
-          <p class="feedback-tip-lead">Your honest feedback helps students grow</p>
-          <p class="feedback-tip-detail">
-            Be specific and objective — constructive notes drive real progress,
-            even when they highlight areas to improve. Students value honesty
-            over praise.
-          </p>
-          <div class="feedback-tip-badge">
-            <ion-icon name="ribbon-outline"></ion-icon>
-            <span>Consistent, quality feedback earns you the <strong>Coaching-Oriented Tutor</strong> badge — visible to all students searching for tutors.</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- ==================== NOTE FORM ==================== -->
-      <h2 class="section-title">Leave a Note</h2>
-      <span class="assessment-badge" *ngIf="!studentAiEnabled">Assessment Required</span>
-
-      <!-- Quick Impressions -->
-      <div class="impressions">
-        <button
-          *ngFor="let option of impressionOptions"
-          class="chip"
-          [class.selected]="quickImpression === option.value"
-          [attr.data-color]="option.color"
-          (click)="selectImpression(option.value)">
-          {{ option.label }}
+    <header class="plt-toolbar" *ngIf="!noteSubmitted">
+      <div class="plt-toolbar__left">
+        <button type="button" class="plt-toolbar__back" (click)="goHome()">
+          <ion-icon name="chevron-back-outline" aria-hidden="true"></ion-icon>
+          <span>{{ backButtonLabel }}</span>
         </button>
       </div>
+      <h1 class="plt-toolbar__title">
+        <span class="plt-toolbar__emoji" aria-hidden="true">🎉</span>
+        {{ 'POST_LESSON.TUTOR.GREAT_LESSON' | translate }}
+      </h1>
+      <div class="plt-toolbar__right" aria-hidden="true"></div>
+    </header>
 
-      <!-- ===== ENHANCED ASSESSMENT (AI off) ===== -->
-      <div class="assessment-form" *ngIf="!studentAiEnabled">
+    <!-- ==================== SPLIT STEP (details | actions) ==================== -->
+    <div class="plt-body" *ngIf="!noteSubmitted">
+      <div class="plt-split approval-split-layout approval-step-card">
 
-        <!-- CEFR Level -->
-        <div class="form-group">
-          <label>CEFR Level <span class="req">*</span></label>
-          <div class="cefr-chips">
-            <button
-              *ngFor="let level of cefrLevels"
-              class="cefr-chip"
-              [class.selected]="cefrLevel === level"
-              (click)="selectCefrLevel(level)">
-              {{ level }}
-            </button>
+        <!-- ── Left: lesson context & guidance ── -->
+        <aside class="plt-details approval-split-guidance">
+          <h3 class="approval-split-guidance__title">{{ 'POST_LESSON.TUTOR.FEEDBACK_FOR' | translate:{ name: studentDisplayName } }}</h3>
+          <p class="approval-split-guidance__desc" *ngIf="student && lesson">
+            {{ lessonDateTime }} · {{ lessonDurationLabel }}
+          </p>
+
+          <div class="plt-student-card" *ngIf="student && lesson">
+            <img class="plt-student-card__avatar" [src]="student.picture || 'assets/default-avatar.png'" [alt]="studentDisplayName" />
+            <div class="plt-student-card__info">
+              <span class="plt-student-card__name">{{ studentDisplayName }}</span>
+              <span class="plt-student-card__meta">{{ lesson.subject || lessonSubjectFallback }}</span>
+            </div>
           </div>
-        </div>
 
-        <!-- Grammar & Fluency Ratings -->
-        <div class="ratings-grid">
-          <div class="form-group">
-            <label>Grammar <span class="req">*</span></label>
-            <div class="dots-row">
-              <button *ngFor="let i of [1,2,3,4,5,6,7,8,9,10]"
-                class="dot"
-                [class.active]="grammarRating >= i"
-                (click)="setGrammarRating(i)">
+          <div class="plt-metrics" *ngIf="analysisLoaded && analysis">
+            <div class="plt-metric">
+              <span class="plt-metric__val">{{ analysisProficiencyLevel }}</span>
+              <span class="plt-metric__lbl">{{ 'POST_LESSON.TUTOR.LEVEL' | translate }}</span>
+            </div>
+            <div class="plt-metric">
+              <span class="plt-metric__val">{{ analysisWordCount }}</span>
+              <span class="plt-metric__lbl">{{ 'POST_LESSON.TUTOR.WORDS' | translate }}</span>
+            </div>
+            <div class="plt-metric">
+              <span class="plt-metric__val">{{ analysisGrammarScore }}</span>
+              <span class="plt-metric__lbl">{{ 'POST_LESSON.TUTOR.GRAMMAR' | translate }}</span>
+            </div>
+          </div>
+
+          <div class="approval-split-guidance-list">
+            <div class="approval-guidance-item" *ngIf="studentAiEnabled">
+              <div class="approval-guidance-item__icon-wrap approval-guidance-item__icon-wrap--light">
+                <ion-icon name="sparkles-outline" aria-hidden="true"></ion-icon>
+              </div>
+              <div class="approval-guidance-item__text">
+                <h4>{{ 'POST_LESSON.TUTOR.AI_ANALYSIS_TITLE' | translate }}</h4>
+                <p>{{ 'POST_LESSON.TUTOR.AI_ANALYSIS_DESC' | translate }}</p>
+              </div>
+            </div>
+
+            <div class="approval-guidance-item" *ngIf="showCountdown && !noteSubmitted">
+              <div class="approval-guidance-item__icon-wrap" [class.approval-guidance-item__icon-wrap--recent]="!countdownExpired" [class.plt-guidance-icon--alert]="countdownExpired">
+                <ion-icon [name]="countdownExpired ? 'alert-circle' : 'time-outline'" aria-hidden="true"></ion-icon>
+              </div>
+              <div class="approval-guidance-item__text">
+                <h4 *ngIf="!countdownExpired">{{ 'POST_LESSON.TUTOR.COUNTDOWN_TITLE' | translate:{ time: countdownDisplay } }}</h4>
+                <h4 *ngIf="countdownExpired">{{ 'POST_LESSON.TUTOR.COUNTDOWN_EXPIRED_TITLE' | translate }}</h4>
+                <p *ngIf="!countdownExpired">{{ 'POST_LESSON.TUTOR.COUNTDOWN_DESC' | translate }}</p>
+                <p *ngIf="countdownExpired">{{ 'POST_LESSON.TUTOR.COUNTDOWN_EXPIRED_DESC' | translate }}</p>
+              </div>
+            </div>
+
+            <div class="approval-guidance-item">
+              <div class="approval-guidance-item__icon-wrap approval-guidance-item__icon-wrap--face">
+                <ion-icon name="school-outline" aria-hidden="true"></ion-icon>
+              </div>
+              <div class="approval-guidance-item__text">
+                <h4>{{ 'POST_LESSON.TUTOR.HONEST_FEEDBACK_TITLE' | translate }}</h4>
+                <p>{{ 'POST_LESSON.TUTOR.HONEST_FEEDBACK_DESC' | translate }}</p>
+              </div>
+            </div>
+
+            <div class="approval-guidance-item">
+              <div class="approval-guidance-item__icon-wrap approval-guidance-item__icon-wrap--star">
+                <ion-icon name="ribbon-outline" aria-hidden="true"></ion-icon>
+              </div>
+              <div class="approval-guidance-item__text">
+                <h4>{{ 'POST_LESSON.TUTOR.BADGE_TITLE' | translate }}</h4>
+                <p>{{ 'POST_LESSON.TUTOR.BADGE_DESC' | translate }}</p>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        <!-- ── Right: actionable form ── -->
+        <div class="plt-actions approval-split-main approval-split-main--scroll">
+          <div class="plt-actions-scroll">
+            <div class="plt-form-header">
+              <h2 class="plt-form-title">{{ 'POST_LESSON.TUTOR.LEAVE_NOTE' | translate }}</h2>
+              <span class="plt-assessment-badge" *ngIf="!studentAiEnabled">{{ 'POST_LESSON.TUTOR.ASSESSMENT_REQUIRED' | translate }}</span>
+            </div>
+
+            <div class="plt-impressions">
+              <button
+                type="button"
+                *ngFor="let option of impressionOptions"
+                class="plt-chip"
+                [class.plt-chip--selected]="quickImpression === option.value"
+                [attr.data-color]="option.color"
+                (click)="selectImpression(option.value)">
+                {{ option.label }}
               </button>
-              <span class="dot-val" *ngIf="grammarRating > 0">{{ grammarRating }}/10</span>
             </div>
-          </div>
-          <div class="form-group">
-            <label>Fluency <span class="req">*</span></label>
-            <div class="dots-row">
-              <button *ngFor="let i of [1,2,3,4,5,6,7,8,9,10]"
-                class="dot"
-                [class.active]="fluencyRating >= i"
-                (click)="setFluencyRating(i)">
+
+            <!-- Enhanced assessment (AI off) -->
+            <div class="plt-assessment-form" *ngIf="!studentAiEnabled">
+              <div class="plt-form-group">
+                <label>{{ 'VIDEO_CALL.CEFR_LEVEL' | translate }} <span class="plt-req">*</span></label>
+                <div class="plt-cefr-chips">
+                  <button
+                    type="button"
+                    *ngFor="let level of cefrLevels"
+                    class="plt-cefr-chip"
+                    [class.plt-cefr-chip--selected]="cefrLevel === level"
+                    (click)="selectCefrLevel(level)">
+                    {{ level }}
+                  </button>
+                </div>
+              </div>
+
+              <div class="plt-ratings-grid">
+                <div class="plt-form-group">
+                  <label>{{ 'VIDEO_CALL.GRAMMAR' | translate }} <span class="plt-req">*</span></label>
+                  <div class="plt-dots-row">
+                    <button type="button" *ngFor="let i of dotIndices"
+                      class="plt-dot"
+                      [class.plt-dot--active]="grammarRating >= i"
+                      (click)="setGrammarRating(i)">
+                    </button>
+                    <span class="plt-dot-val" *ngIf="grammarRating > 0">{{ grammarRating }}/10</span>
+                  </div>
+                </div>
+                <div class="plt-form-group">
+                  <label>{{ 'VIDEO_CALL.FLUENCY' | translate }} <span class="plt-req">*</span></label>
+                  <div class="plt-dots-row">
+                    <button type="button" *ngFor="let i of dotIndices"
+                      class="plt-dot"
+                      [class.plt-dot--active]="fluencyRating >= i"
+                      (click)="setFluencyRating(i)">
+                    </button>
+                    <span class="plt-dot-val" *ngIf="fluencyRating > 0">{{ fluencyRating }}/10</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="plt-form-group">
+                <label>{{ 'POST_LESSON.TUTOR.KEY_ERROR_AREAS' | translate }} <span class="plt-opt">{{ 'POST_LESSON.TUTOR.OPTIONAL' | translate }}</span></label>
+                <div class="plt-tag-wrap">
+                  <button type="button"
+                    *ngFor="let area of errorAreaOptions"
+                    class="plt-tag"
+                    [class.plt-tag--selected]="selectedErrorAreas.includes(area.value)"
+                    (click)="toggleErrorArea(area.value)">
+                    {{ area.label }}
+                  </button>
+                </div>
+              </div>
+
+              <div class="plt-form-group">
+                <label>{{ 'VIDEO_CALL.STRENGTHS' | translate }} <span class="plt-req">*</span></label>
+                <div class="plt-tag-wrap">
+                  <button type="button"
+                    *ngFor="let s of strengthOptions"
+                    class="plt-tag plt-tag--green"
+                    [class.plt-tag--selected]="selectedStrengths.includes(s.value)"
+                    (click)="toggleStrength(s.value)">
+                    {{ s.label }}
+                  </button>
+                </div>
+              </div>
+
+              <div class="plt-form-group">
+                <label>{{ 'VIDEO_CALL.AREAS_IMPROVE' | translate }} <span class="plt-req">*</span></label>
+                <div class="plt-tag-wrap">
+                  <button type="button"
+                    *ngFor="let a of improvementOptions"
+                    class="plt-tag plt-tag--amber"
+                    [class.plt-tag--selected]="selectedAreasToImprove.includes(a.value)"
+                    (click)="toggleAreaToImprove(a.value)">
+                    {{ a.label }}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="plt-textarea-grid">
+              <div class="plt-form-group">
+                <label>{{ 'POST_LESSON.TUTOR.YOUR_NOTE' | translate }} <span class="plt-req">*</span></label>
+                <ion-textarea
+                  [(ngModel)]="noteText"
+                  [placeholder]="notePlaceholder"
+                  rows="3"
+                  maxlength="1000">
+                </ion-textarea>
+              </div>
+              <div class="plt-form-group">
+                <label>{{ 'POST_LESSON.TUTOR.HOMEWORK' | translate }} <span class="plt-opt">{{ 'POST_LESSON.TUTOR.OPTIONAL' | translate }}</span></label>
+                <ion-textarea
+                  [(ngModel)]="homework"
+                  [placeholder]="homeworkPlaceholder"
+                  rows="3"
+                  maxlength="500">
+                </ion-textarea>
+              </div>
+            </div>
+
+            <div class="plt-corrections" #correctionsSection>
+              <div class="plt-corrections__header">
+                <div>
+                  <h3 class="plt-corrections__title">{{ 'POST_LESSON.TUTOR.CAPTURE_CORRECTIONS' | translate }} <span class="plt-opt">{{ 'POST_LESSON.TUTOR.OPTIONAL' | translate }}</span></h3>
+                  <p class="plt-corrections__sub">{{ 'POST_LESSON.TUTOR.CORRECTIONS_SUB' | translate }}</p>
+                </div>
+              </div>
+
+              <div class="plt-corrections__list" *ngIf="capturedCorrections.length">
+                <div class="plt-correction-row" *ngFor="let c of capturedCorrections; let i = index; trackBy: trackByIndex">
+                  <div class="plt-correction-row__fields">
+                    <ion-input [(ngModel)]="c.original" [placeholder]="correctionOriginalPlaceholder" fill="outline"></ion-input>
+                    <ion-input [(ngModel)]="c.corrected" [placeholder]="correctionFixedPlaceholder" fill="outline"></ion-input>
+                    <ion-input [(ngModel)]="c.explanation" [placeholder]="correctionWhyPlaceholder" fill="outline" class="plt-correction-row__why"></ion-input>
+                  </div>
+                  <button type="button" class="plt-correction-remove" (click)="removeCorrectionRow(i)" [attr.aria-label]="removeCorrectionLabel">
+                    <ion-icon name="close-outline"></ion-icon>
+                  </button>
+                </div>
+              </div>
+
+              <button type="button" class="plt-correction-add" (click)="addCorrectionRow()">
+                <ion-icon name="add-outline"></ion-icon>
+                <span>{{ 'POST_LESSON.TUTOR.ADD_CORRECTION' | translate }}</span>
               </button>
-              <span class="dot-val" *ngIf="fluencyRating > 0">{{ fluencyRating }}/10</span>
+            </div>
+
+            <div class="plt-plan-override" *ngIf="hasActivePlan">
+              <div class="plt-plan-override__header" (click)="showPlanOverride = !showPlanOverride">
+                <span class="plt-plan-override__title">{{ 'POST_LESSON.TUTOR.PLAN_ADJUSTMENT' | translate }}</span>
+                <ion-icon [name]="showPlanOverride ? 'chevron-up-outline' : 'chevron-down-outline'"></ion-icon>
+              </div>
+              <div class="plt-plan-override__body" *ngIf="showPlanOverride">
+                <div class="plt-form-group">
+                  <label>{{ 'POST_LESSON.TUTOR.ACTION' | translate }}</label>
+                  <select [(ngModel)]="planOverrideAction" class="plt-plan-override__select">
+                    <option *ngFor="let opt of planOverrideActions" [value]="opt.value">{{ opt.label }}</option>
+                  </select>
+                </div>
+                <div class="plt-form-group" *ngIf="planOverrideAction === 'adjust_focus'">
+                  <label>{{ 'POST_LESSON.TUTOR.SUGGESTED_FOCUS' | translate }}</label>
+                  <ion-input [(ngModel)]="planOverrideFocus" [placeholder]="focusPlaceholder" maxlength="200"></ion-input>
+                </div>
+                <div class="plt-form-group" *ngIf="planOverrideAction">
+                  <label>{{ 'POST_LESSON.TUTOR.PLAN_NOTE' | translate }} <span class="plt-opt">{{ 'POST_LESSON.TUTOR.OPTIONAL' | translate }}</span></label>
+                  <ion-textarea [(ngModel)]="planOverrideNote" [placeholder]="planNotePlaceholder" rows="2" maxlength="300"></ion-textarea>
+                </div>
+              </div>
             </div>
           </div>
         </div>
-
-        <!-- Key Error Areas -->
-        <div class="form-group">
-          <label>Key Error Areas <span class="opt">(Optional)</span></label>
-          <div class="chip-wrap">
-            <button
-              *ngFor="let area of errorAreaOptions"
-              class="tag"
-              [class.selected]="selectedErrorAreas.includes(area)"
-              (click)="toggleErrorArea(area)">
-              {{ area }}
-            </button>
-          </div>
-        </div>
-
-        <!-- Strengths -->
-        <div class="form-group">
-          <label>Strengths <span class="req">*</span></label>
-          <div class="chip-wrap">
-            <button
-              *ngFor="let s of strengthOptions"
-              class="tag tag-green"
-              [class.selected]="selectedStrengths.includes(s)"
-              (click)="toggleStrength(s)">
-              {{ s }}
-            </button>
-          </div>
-        </div>
-
-        <!-- Areas to Improve -->
-        <div class="form-group">
-          <label>Areas to Improve <span class="req">*</span></label>
-          <div class="chip-wrap">
-            <button
-              *ngFor="let a of improvementOptions"
-              class="tag tag-amber"
-              [class.selected]="selectedAreasToImprove.includes(a)"
-              (click)="toggleAreaToImprove(a)">
-              {{ a }}
-            </button>
-          </div>
-        </div>
       </div>
-      <!-- ===== END ENHANCED ASSESSMENT ===== -->
-
-      <!-- Note + Homework -->
-      <div class="textarea-grid">
-        <div class="form-group">
-          <label>Your Note <span class="req">*</span></label>
-          <ion-textarea
-            [(ngModel)]="noteText"
-            placeholder="Share your thoughts..."
-            rows="2"
-            maxlength="1000">
-          </ion-textarea>
-        </div>
-        <div class="form-group">
-          <label>Homework <span class="opt">(Optional)</span></label>
-          <ion-textarea
-            [(ngModel)]="homework"
-            placeholder="Suggest practice..."
-            rows="2"
-            maxlength="500">
-          </ion-textarea>
-        </div>
-      </div>
-
-      <!-- Captured corrections — feed student's spaced-repetition deck -->
-      <div class="corrections-section">
-        <div class="corrections-section-header">
-          <div>
-            <h3 class="corrections-section-title">Capture corrections <span class="opt">(Optional)</span></h3>
-            <p class="corrections-section-sub">Each becomes a flashcard in your student's daily review.</p>
-          </div>
-        </div>
-
-        <div class="corrections-section-list" *ngIf="capturedCorrections.length">
-          <div class="correction-row" *ngFor="let c of capturedCorrections; let i = index; trackBy: trackByIndex">
-            <div class="correction-row-fields">
-              <ion-input
-                [(ngModel)]="c.original"
-                placeholder="Student said…"
-                fill="outline"></ion-input>
-              <ion-input
-                [(ngModel)]="c.corrected"
-                placeholder="Should be…"
-                fill="outline"></ion-input>
-              <ion-input
-                [(ngModel)]="c.explanation"
-                placeholder="Why (optional)"
-                fill="outline"
-                class="correction-input--why"></ion-input>
-            </div>
-            <button type="button" class="correction-remove" (click)="removeCorrectionRow(i)" aria-label="Remove correction">
-              <ion-icon name="close-outline"></ion-icon>
-            </button>
-          </div>
-        </div>
-
-        <button type="button" class="correction-add" (click)="addCorrectionRow()">
-          <ion-icon name="add-outline"></ion-icon>
-          <span>Add a correction</span>
-        </button>
-      </div>
-
-      <!-- Learning Plan Override (optional) -->
-      <div class="plan-override-section" *ngIf="hasActivePlan">
-        <div class="plan-override-header" (click)="showPlanOverride = !showPlanOverride">
-          <span class="plan-override-title">Learning Plan Adjustment</span>
-          <ion-icon [name]="showPlanOverride ? 'chevron-up-outline' : 'chevron-down-outline'"></ion-icon>
-        </div>
-        <div class="plan-override-body" *ngIf="showPlanOverride">
-          <div class="form-group">
-            <label>Action</label>
-            <select [(ngModel)]="planOverrideAction" class="plan-override-select">
-              <option *ngFor="let opt of planOverrideActions" [value]="opt.value">{{ opt.label }}</option>
-            </select>
-          </div>
-          <div class="form-group" *ngIf="planOverrideAction === 'adjust_focus'">
-            <label>Suggested Focus</label>
-            <ion-input [(ngModel)]="planOverrideFocus" placeholder="e.g., past tense conjugation" maxlength="200"></ion-input>
-          </div>
-          <div class="form-group" *ngIf="planOverrideAction">
-            <label>Note <span class="opt">(Optional)</span></label>
-            <ion-textarea [(ngModel)]="planOverrideNote" placeholder="Additional context..." rows="2" maxlength="300"></ion-textarea>
-          </div>
-        </div>
-      </div>
-
-      <!-- Actions -->
-      <div class="actions">
-        <button class="btn-primary" [disabled]="isSubmitDisabled" (click)="submitNote()">
-          <ion-spinner *ngIf="submittingNote" name="crescent"></ion-spinner>
-          <span *ngIf="!submittingNote">Send Note</span>
-        </button>
-        <button class="btn-text" *ngIf="studentAiEnabled" (click)="skipNote()">Skip</button>
-      </div>
-
     </div>
 
+    <footer class="plt-footer" *ngIf="!noteSubmitted">
+      <div class="plt-footer__start">
+        <button type="button" class="plt-footer__skip" *ngIf="studentAiEnabled" (click)="skipNote()">{{ 'POST_LESSON.TUTOR.SKIP' | translate }}</button>
+      </div>
+      <div class="plt-footer__spacer"></div>
+      <button type="button" class="plt-footer__primary" [disabled]="isSubmitDisabled" (click)="submitNote()">
+        <ion-spinner *ngIf="submittingNote" name="crescent"></ion-spinner>
+        <span *ngIf="!submittingNote">{{ 'POST_LESSON.TUTOR.SEND_NOTE' | translate }}</span>
+      </button>
+    </footer>
+
     <!-- ==================== SUCCESS STATE ==================== -->
-    <div class="success-card" *ngIf="noteSubmitted">
-      <div class="success-icon-wrap">
+    <div class="plt-success" *ngIf="noteSubmitted">
+      <div class="plt-success__icon">
         <ion-icon name="checkmark-circle"></ion-icon>
       </div>
-      <h2>Note Sent!</h2>
-      <p>{{ studentDisplayName }} will see your feedback.</p>
-      <button class="btn-primary" (click)="goHome()">Go to Home</button>
+      <h2>{{ 'POST_LESSON.TUTOR.NOTE_SENT' | translate }}</h2>
+      <p>{{ 'POST_LESSON.TUTOR.NOTE_SENT_DESC' | translate:{ name: studentDisplayName } }}</p>
+      <button type="button" class="plt-footer__primary" (click)="goHome()">{{ 'POST_LESSON.TUTOR.GO_TO_HOME' | translate }}</button>
     </div>
 
   </div>

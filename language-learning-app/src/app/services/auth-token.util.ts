@@ -24,10 +24,17 @@ function devTokenForEmail(email: string): string {
 }
 
 async function getValidIdToken(authService: AuthService): Promise<string | null> {
-  const idTokenClaims = await authService.getIdTokenClaims();
-  const idToken = idTokenClaims?.__raw;
-  if (idToken && !isJwtExpired(idToken)) {
-    return idToken;
+  try {
+    // Can throw if the Auth0 SDK hasn't finished initializing yet (transient
+    // race on page load). Swallow so the caller can fall through to refresh /
+    // dev-token instead of aborting the whole request.
+    const idTokenClaims = await authService.getIdTokenClaims();
+    const idToken = idTokenClaims?.__raw;
+    if (idToken && !isJwtExpired(idToken)) {
+      return idToken;
+    }
+  } catch {
+    // fall through
   }
   return null;
 }
@@ -63,7 +70,12 @@ export async function buildBearerToken(authService: AuthService): Promise<string
     return cachedIdToken;
   }
 
-  const user = await authService.user$.pipe(take(1)).toPromise();
+  let user: { email?: string } | null | undefined;
+  try {
+    user = await authService.user$.pipe(take(1)).toPromise();
+  } catch {
+    user = null;
+  }
 
   // Local dev: never block on silent refresh when we already know who the user is.
   if (!environment.production && user?.email) {

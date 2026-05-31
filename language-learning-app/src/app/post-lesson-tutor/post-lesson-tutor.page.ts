@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Location } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
@@ -9,7 +9,9 @@ import { UserService } from '../services/user.service';
 import { LessonService } from '../services/lesson.service';
 import { TutorFeedbackService } from '../services/tutor-feedback.service';
 import { LearningPlanService } from '../services/learning-plan.service';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
+import { TranslateService } from '@ngx-translate/core';
 import { formatTimeInTz, formatDateInTz, isSameDayInTimezone } from '../shared/timezone.utils';
 
 interface LessonInfo {
@@ -34,6 +36,17 @@ interface LessonInfo {
   };
 }
 
+interface LabeledOption {
+  value: string;
+  label: string;
+}
+
+interface ImpressionOption {
+  value: string;
+  label: string;
+  color: string;
+}
+
 @Component({
   selector: 'app-post-lesson-tutor',
   templateUrl: './post-lesson-tutor.page.html',
@@ -41,10 +54,21 @@ interface LessonInfo {
   standalone: false
 })
 export class PostLessonTutorPage implements OnInit, OnDestroy {
+  @ViewChild('correctionsSection') correctionsSectionRef?: ElementRef<HTMLElement>;
+
   lessonId: string = '';
   feedbackId: string = ''; // From TutorFeedback system (if navigated from pending feedback)
   isPostCall: boolean = false; // True when arriving directly after a video call
-  backButtonLabel: string = 'Go back';
+  backButtonLabel: string = '';
+  lessonSubjectFallback: string = '';
+  notePlaceholder: string = '';
+  homeworkPlaceholder: string = '';
+  correctionOriginalPlaceholder: string = '';
+  correctionFixedPlaceholder: string = '';
+  correctionWhyPlaceholder: string = '';
+  removeCorrectionLabel: string = '';
+  focusPlaceholder: string = '';
+  planNotePlaceholder: string = '';
   lesson: LessonInfo | null = null;
   student: any = null;
   analysis: LessonAnalysis | null = null;
@@ -54,8 +78,13 @@ export class PostLessonTutorPage implements OnInit, OnDestroy {
   studentAiEnabled: boolean = true;
   
   // Computed display properties (avoid function calls in template)
-  studentDisplayName: string = 'Student';
+  studentDisplayName: string = '';
   lessonDateTime: string = '';
+  lessonDurationLabel: string = '';
+  analysisProficiencyLevel: string = 'N/A';
+  analysisWordCount: number = 0;
+  analysisGrammarScore: string = '0%';
+  dotIndices: number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
   
   // Countdown timer (2-hour grace period before profile is hidden)
   countdownDisplay: string = '';
@@ -96,54 +125,62 @@ export class PostLessonTutorPage implements OnInit, OnDestroy {
   planStudentId: string = '';
   planLanguage: string = '';
 
-  planOverrideActions = [
-    { value: '', label: 'No change needed' },
-    { value: 'advance_phase', label: 'Student is ready for the next phase' },
-    { value: 'extend_phase', label: 'Student needs more time in this phase' },
-    { value: 'adjust_focus', label: 'Adjust focus for next lesson' },
-    { value: 'add_note', label: 'Add a note for other tutors' }
-  ];
+  impressionOptions: ImpressionOption[] = [];
+  errorAreaOptions: LabeledOption[] = [];
+  strengthOptions: LabeledOption[] = [];
+  improvementOptions: LabeledOption[] = [];
+  planOverrideActions: LabeledOption[] = [];
 
-  impressionOptions = [
-    { value: 'excellent', label: '🌟 Excellent Progress!', color: 'success' },
-    { value: 'great', label: '✅ Great Job!', color: 'primary' },
-    { value: 'good', label: '👍 Good Effort', color: 'secondary' },
-    { value: 'needs-work', label: '💪 Needs More Practice', color: 'warning' }
+  private readonly destroy$ = new Subject<void>();
+
+  private readonly impressionConfig = [
+    { value: 'excellent', key: 'VIDEO_CALL.IMPRESSION_EXCELLENT', color: 'success' },
+    { value: 'great', key: 'VIDEO_CALL.IMPRESSION_GREAT', color: 'primary' },
+    { value: 'good', key: 'VIDEO_CALL.IMPRESSION_GOOD', color: 'secondary' },
+    { value: 'needs-work', key: 'VIDEO_CALL.IMPRESSION_NEEDS_WORK', color: 'warning' }
   ];
 
   cefrLevels = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
 
-  errorAreaOptions = [
-    'Verb conjugation',
-    'Gender agreement',
-    'Prepositions',
-    'Tense usage',
-    'Vocabulary',
-    'Pronunciation',
-    'Sentence structure',
-    'Articles'
+  private readonly errorAreaConfig = [
+    { value: 'Verb conjugation', key: 'VIDEO_CALL.ERROR_VERB_CONJUGATION' },
+    { value: 'Gender agreement', key: 'VIDEO_CALL.ERROR_GENDER_AGREEMENT' },
+    { value: 'Prepositions', key: 'VIDEO_CALL.ERROR_PREPOSITIONS' },
+    { value: 'Tense usage', key: 'VIDEO_CALL.ERROR_TENSE' },
+    { value: 'Vocabulary', key: 'VIDEO_CALL.ERROR_VOCABULARY' },
+    { value: 'Pronunciation', key: 'VIDEO_CALL.ERROR_PRONUNCIATION' },
+    { value: 'Sentence structure', key: 'VIDEO_CALL.ERROR_SENTENCE_STRUCTURE' },
+    { value: 'Articles', key: 'VIDEO_CALL.ERROR_ARTICLES' }
   ];
 
-  strengthOptions = [
-    'Conversational fluency',
-    'Vocabulary usage',
-    'Grammar accuracy',
-    'Pronunciation',
-    'Listening comprehension',
-    'Confidence',
-    'Complex sentences',
-    'Natural expressions'
+  private readonly strengthConfig = [
+    { value: 'Conversational fluency', key: 'VIDEO_CALL.STRENGTH_CONVERSATIONAL_FLUENCY' },
+    { value: 'Vocabulary usage', key: 'VIDEO_CALL.STRENGTH_VOCABULARY' },
+    { value: 'Grammar accuracy', key: 'VIDEO_CALL.STRENGTH_GRAMMAR' },
+    { value: 'Pronunciation', key: 'VIDEO_CALL.STRENGTH_PRONUNCIATION' },
+    { value: 'Listening comprehension', key: 'VIDEO_CALL.STRENGTH_LISTENING' },
+    { value: 'Confidence', key: 'VIDEO_CALL.STRENGTH_CONFIDENCE' },
+    { value: 'Complex sentences', key: 'VIDEO_CALL.STRENGTH_COMPLEX_SENTENCES' },
+    { value: 'Natural expressions', key: 'VIDEO_CALL.STRENGTH_NATURAL_EXPRESSIONS' }
   ];
 
-  improvementOptions = [
-    'Grammar accuracy',
-    'Verb conjugation',
-    'Vocabulary range',
-    'Pronunciation',
-    'Fluency/speed',
-    'Listening skills',
-    'Sentence complexity',
-    'Idiomatic expressions'
+  private readonly improvementConfig = [
+    { value: 'Grammar accuracy', key: 'VIDEO_CALL.IMPROVE_GRAMMAR' },
+    { value: 'Verb conjugation', key: 'VIDEO_CALL.IMPROVE_VERB_CONJUGATION' },
+    { value: 'Vocabulary range', key: 'VIDEO_CALL.IMPROVE_VOCABULARY' },
+    { value: 'Pronunciation', key: 'VIDEO_CALL.IMPROVE_PRONUNCIATION' },
+    { value: 'Fluency/speed', key: 'VIDEO_CALL.IMPROVE_FLUENCY' },
+    { value: 'Listening skills', key: 'VIDEO_CALL.IMPROVE_LISTENING' },
+    { value: 'Sentence complexity', key: 'VIDEO_CALL.IMPROVE_SENTENCE_COMPLEXITY' },
+    { value: 'Idiomatic expressions', key: 'VIDEO_CALL.IMPROVE_IDIOMATIC' }
+  ];
+
+  private readonly planOverrideConfig = [
+    { value: '', key: 'POST_LESSON.TUTOR.PLAN_NO_CHANGE' },
+    { value: 'advance_phase', key: 'POST_LESSON.TUTOR.PLAN_ADVANCE' },
+    { value: 'extend_phase', key: 'POST_LESSON.TUTOR.PLAN_EXTEND' },
+    { value: 'adjust_focus', key: 'POST_LESSON.TUTOR.PLAN_ADJUST_FOCUS' },
+    { value: 'add_note', key: 'POST_LESSON.TUTOR.PLAN_ADD_NOTE' }
   ];
 
   private get userTz(): string | undefined {
@@ -172,14 +209,22 @@ export class PostLessonTutorPage implements OnInit, OnDestroy {
     private alertCtrl: AlertController,
     private toastCtrl: ToastController,
     private tutorFeedbackService: TutorFeedbackService,
-    private learningPlanService: LearningPlanService
+    private learningPlanService: LearningPlanService,
+    private translate: TranslateService
   ) {}
 
   async ngOnInit() {
     this.lessonId = this.route.snapshot.paramMap.get('id') || '';
     this.feedbackId = this.route.snapshot.queryParamMap.get('feedbackId') || '';
     this.isPostCall = this.route.snapshot.queryParamMap.get('fromPostCall') === 'true';
-    this.backButtonLabel = this.isPostCall ? 'Home' : 'Go back';
+    this.buildLocalizedStrings();
+    this.translate.onLangChange.pipe(takeUntil(this.destroy$)).subscribe(() => {
+      this.buildLocalizedStrings();
+      if (this.lesson) {
+        this.lessonDateTime = this.computeLessonDateTime();
+        this.lessonDurationLabel = this.computeLessonDurationLabel();
+      }
+    });
     
     // Wait for user to be loaded first
     await this.ensureUserLoaded();
@@ -191,10 +236,53 @@ export class PostLessonTutorPage implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    this.destroy$.next();
+    this.destroy$.complete();
     if (this.countdownInterval) {
       clearInterval(this.countdownInterval);
       this.countdownInterval = null;
     }
+  }
+
+  private t(key: string, params?: Record<string, unknown>): string {
+    return this.translate.instant(key, params);
+  }
+
+  private buildLocalizedStrings(): void {
+    this.backButtonLabel = this.isPostCall
+      ? this.t('POST_LESSON.TUTOR.HOME')
+      : this.t('POST_LESSON.TUTOR.GO_BACK');
+    this.lessonSubjectFallback = this.t('POST_LESSON.TUTOR.LESSON');
+    this.notePlaceholder = this.t('POST_LESSON.TUTOR.NOTE_PLACEHOLDER');
+    this.homeworkPlaceholder = this.t('POST_LESSON.TUTOR.HOMEWORK_PLACEHOLDER');
+    this.correctionOriginalPlaceholder = this.t('POST_LESSON.TUTOR.STUDENT_SAID_PLACEHOLDER');
+    this.correctionFixedPlaceholder = this.t('POST_LESSON.TUTOR.SHOULD_BE_PLACEHOLDER');
+    this.correctionWhyPlaceholder = this.t('POST_LESSON.TUTOR.WHY_PLACEHOLDER');
+    this.removeCorrectionLabel = this.t('POST_LESSON.TUTOR.REMOVE_CORRECTION');
+    this.focusPlaceholder = this.t('POST_LESSON.TUTOR.FOCUS_PLACEHOLDER');
+    this.planNotePlaceholder = this.t('POST_LESSON.TUTOR.PLAN_NOTE_PLACEHOLDER');
+
+    this.impressionOptions = this.impressionConfig.map(o => ({
+      value: o.value,
+      color: o.color,
+      label: this.t(o.key)
+    }));
+    this.errorAreaOptions = this.errorAreaConfig.map(o => ({
+      value: o.value,
+      label: this.t(o.key)
+    }));
+    this.strengthOptions = this.strengthConfig.map(o => ({
+      value: o.value,
+      label: this.t(o.key)
+    }));
+    this.improvementOptions = this.improvementConfig.map(o => ({
+      value: o.value,
+      label: this.t(o.key)
+    }));
+    this.planOverrideActions = this.planOverrideConfig.map(o => ({
+      value: o.value,
+      label: this.t(o.key)
+    }));
   }
 
   private async ensureUserLoaded(): Promise<void> {
@@ -232,6 +320,7 @@ export class PostLessonTutorPage implements OnInit, OnDestroy {
         // Compute display properties once (avoid function calls in template)
         this.studentDisplayName = this.computeStudentDisplayName();
         this.lessonDateTime = this.computeLessonDateTime();
+        this.lessonDurationLabel = this.computeLessonDurationLabel();
 
         // Start countdown timer if student has AI disabled (feedback is required)
         if (!this.studentAiEnabled) {
@@ -278,6 +367,7 @@ export class PostLessonTutorPage implements OnInit, OnDestroy {
       if (response?.analysis?.status === 'completed') {
         this.analysis = response.analysis;
         this.analysisLoaded = true;
+        this.updateAnalysisDisplay();
         console.log('✅ POST-LESSON-TUTOR: Analysis loaded:', this.analysis);
       }
     } catch (error: any) {
@@ -293,6 +383,13 @@ export class PostLessonTutorPage implements OnInit, OnDestroy {
   addCorrectionRow() {
     if (!this.showCorrections) this.showCorrections = true;
     this.capturedCorrections.push({ original: '', corrected: '', explanation: '' });
+
+    setTimeout(() => {
+      this.correctionsSectionRef?.nativeElement?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start'
+      });
+    }, 0);
   }
 
   removeCorrectionRow(index: number) {
@@ -354,9 +451,9 @@ export class PostLessonTutorPage implements OnInit, OnDestroy {
   async submitNote() {
     if (!this.noteText.trim()) {
       const alert = await this.alertCtrl.create({
-        header: 'Note Required',
-        message: 'Please write a note for your student before submitting.',
-        buttons: ['OK']
+        header: this.t('ALERTS.POST_LESSON.NOTE_REQUIRED_HEADER'),
+        message: this.t('ALERTS.POST_LESSON.NOTE_REQUIRED_MSG'),
+        buttons: [this.t('COMMON.OK')]
       });
       await alert.present();
       return;
@@ -366,9 +463,9 @@ export class PostLessonTutorPage implements OnInit, OnDestroy {
     if (!this.studentAiEnabled && !(this.cefrLevel && this.grammarRating > 0 && this.fluencyRating > 0 &&
         this.selectedStrengths.length > 0 && this.selectedAreasToImprove.length > 0)) {
       const alert = await this.alertCtrl.create({
-        header: 'Assessment Required',
-        message: 'Please complete the CEFR level, grammar rating, fluency rating, strengths, and areas to improve.',
-        buttons: ['OK']
+        header: this.t('ALERTS.POST_LESSON.ASSESSMENT_REQUIRED_HEADER'),
+        message: this.t('ALERTS.POST_LESSON.ASSESSMENT_REQUIRED_MSG'),
+        buttons: [this.t('COMMON.OK')]
       });
       await alert.present();
       return;
@@ -457,7 +554,7 @@ export class PostLessonTutorPage implements OnInit, OnDestroy {
         }
         
         const toast = await this.toastCtrl.create({
-          message: '✅ Note sent to student!',
+          message: this.t('POST_LESSON.TUTOR.NOTE_SENT_TOAST'),
           duration: 3000,
           color: 'success',
           position: 'top'
@@ -473,9 +570,9 @@ export class PostLessonTutorPage implements OnInit, OnDestroy {
       console.error('Error submitting note:', error);
       
       const alert = await this.alertCtrl.create({
-        header: 'Error',
-        message: error.error?.error || 'Failed to send note. Please try again.',
-        buttons: ['OK']
+        header: this.t('ALERTS.POST_LESSON.NOTE_FAILED_HEADER'),
+        message: error.error?.error || this.t('ALERTS.POST_LESSON.NOTE_FAILED_MSG'),
+        buttons: [this.t('COMMON.OK')]
       });
       await alert.present();
     } finally {
@@ -483,37 +580,21 @@ export class PostLessonTutorPage implements OnInit, OnDestroy {
     }
   }
 
-  async skipNote() {
-    const alert = await this.alertCtrl.create({
-      header: 'Skip Note?',
-      message: 'Are you sure you want to skip leaving a note for your student?',
-      buttons: [
-        {
-          text: 'Cancel',
-          role: 'cancel'
-        },
-        {
-          text: 'Skip',
-          handler: () => {
-            this.goHome();
-          }
-        }
-      ]
-    });
-    await alert.present();
+  skipNote() {
+    this.navigateBack();
   }
 
   async goHome() {
     // If AI is disabled and tutor hasn't submitted feedback yet, warn them
     if (!this.studentAiEnabled && !this.noteSubmitted) {
       const alert = await this.alertCtrl.create({
-        header: 'Feedback Required',
+        header: this.t('ALERTS.POST_LESSON.FEEDBACK_REQUIRED_HEADER'),
         message: this.countdownExpired
-          ? 'Your student has AI analysis disabled, so your feedback is mandatory. Your profile is currently hidden from students — submit feedback to restore it.'
-          : 'Your student has AI analysis disabled, so your feedback is mandatory. Your profile will be hidden from students if not submitted within the time shown.',
+          ? this.t('ALERTS.POST_LESSON.FEEDBACK_REQUIRED_EXPIRED')
+          : this.t('ALERTS.POST_LESSON.FEEDBACK_REQUIRED_PENDING'),
         buttons: [
           {
-            text: 'Leave Anyway',
+            text: this.t('ALERTS.POST_LESSON.LEAVE_ANYWAY'),
             role: 'cancel',
             cssClass: 'secondary',
             handler: () => {
@@ -521,7 +602,7 @@ export class PostLessonTutorPage implements OnInit, OnDestroy {
             }
           },
           {
-            text: 'Complete Feedback',
+            text: this.t('ALERTS.POST_LESSON.COMPLETE_FEEDBACK'),
             handler: () => {
               // Stay on the page
             }
@@ -570,7 +651,7 @@ export class PostLessonTutorPage implements OnInit, OnDestroy {
 
     if (remainingMs <= 0) {
       this.countdownExpired = true;
-      this.countdownDisplay = 'Expired';
+      this.countdownDisplay = this.t('POST_LESSON.TUTOR.EXPIRED');
       if (this.countdownInterval) {
         clearInterval(this.countdownInterval);
         this.countdownInterval = null;
@@ -597,10 +678,10 @@ export class PostLessonTutorPage implements OnInit, OnDestroy {
     const yesterday = new Date(Date.now() - 86400000);
 
     if (isSameDayInTimezone(d, today, tz)) {
-      return 'Today';
+      return this.t('MESSAGES.TODAY');
     }
     if (isSameDayInTimezone(d, yesterday, tz)) {
-      return 'Yesterday';
+      return this.t('MESSAGES.YESTERDAY');
     }
 
     return formatDateInTz(d, this.userTz, {
@@ -615,7 +696,7 @@ export class PostLessonTutorPage implements OnInit, OnDestroy {
   }
 
   private computeStudentDisplayName(): string {
-    if (!this.student) return 'Student';
+    if (!this.student) return this.t('VIDEO_CALL.STUDENT');
     
     const firstName = this.student.firstName;
     const lastName = this.student.lastName;
@@ -642,7 +723,7 @@ export class PostLessonTutorPage implements OnInit, OnDestroy {
     }
     
     // Last resort: just return whatever name we have
-    return name || 'Student';
+    return name || this.t('VIDEO_CALL.STUDENT');
   }
 
   private computeLessonDateTime(): string {
@@ -655,6 +736,26 @@ export class PostLessonTutorPage implements OnInit, OnDestroy {
       return `${date} · ${startTime} - ${endTime}`;
     }
     return `${date} · ${startTime}`;
+  }
+
+  private computeLessonDurationLabel(): string {
+    if (!this.lesson) return '';
+    const mins = this.lesson.actualDurationMinutes || this.lesson.duration;
+    return mins ? this.t('POST_LESSON.TUTOR.MIN_LESSON', { mins }) : '';
+  }
+
+  private updateAnalysisDisplay(): void {
+    if (!this.analysis) {
+      this.analysisProficiencyLevel = 'N/A';
+      this.analysisWordCount = 0;
+      this.analysisGrammarScore = '0%';
+      return;
+    }
+    this.analysisProficiencyLevel =
+      this.analysis.overallAssessment?.proficiencyLevel || 'N/A';
+    this.analysisWordCount = this.analysis.vocabularyAnalysis?.uniqueWordCount || 0;
+    const grammar = this.analysis.grammarAnalysis?.accuracyScore || 0;
+    this.analysisGrammarScore = `${grammar}%`;
   }
 }
 
