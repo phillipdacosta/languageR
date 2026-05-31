@@ -2947,7 +2947,11 @@
     "AI_STATUS_ON_TUTOR": "Les commentaires sont générés automatiquement après cette leçon. Vos notes sont facultatives.",
     "AI_STATUS_OFF_TUTOR": "Vous devrez collecter et soumettre des commentaires pour cette leçon.",
     "AI_STATUS_ON_STUDENT": "Vous recevrez des commentaires détaillés sur l'IA après cette leçon.",
-    "AI_STATUS_OFF_STUDENT": "Votre tuteur vous fera part de vos commentaires après cette leçon."
+    "AI_STATUS_OFF_STUDENT": "Votre tuteur vous fera part de vos commentaires après cette leçon.",
+    "AI_TOGGLE_LABEL": "Analyse et commentaires de l'IA",
+    "AI_STATUS_EDITABLE_HINT": "Vous pouvez modifier cela jusqu'au début de la leçon. Cela s’applique à partir de cette leçon.",
+    "AI_STATUS_LOCKED_HINT": "Ce paramètre a été défini au début de la leçon et ne peut pas être modifié pour cette leçon. Tout changement s'applique à votre prochaine leçon.",
+    "AI_TOGGLE_ERROR": "Impossible de mettre à jour votre paramètre. Veuillez réessayer."
   },
   "VIDEO_CALL": {
     "LEAVING": "Sortie...",

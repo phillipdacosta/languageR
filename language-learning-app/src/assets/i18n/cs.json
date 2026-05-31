@@ -2868,7 +2868,11 @@
     "AI_STATUS_ON_TUTOR": "Zpětná vazba je generována automaticky po této lekci. Vaše poznámky jsou volitelné.",
     "AI_STATUS_OFF_TUTOR": "Pro tuto lekci budete muset shromáždit a odeslat zpětnou vazbu.",
     "AI_STATUS_ON_STUDENT": "Po této lekci získáte podrobnou zpětnou vazbu AI.",
-    "AI_STATUS_OFF_STUDENT": "Váš lektor vám po této lekci poskytne zpětnou vazbu."
+    "AI_STATUS_OFF_STUDENT": "Váš lektor vám po této lekci poskytne zpětnou vazbu.",
+    "AI_TOGGLE_LABEL": "Analýza AI a zpětná vazba",
+    "AI_STATUS_EDITABLE_HINT": "Toto můžete změnit, dokud lekce nezačne. Platí to od této lekce dále.",
+    "AI_STATUS_LOCKED_HINT": "Toto bylo nastaveno při zahájení lekce a nelze jej pro tuto lekci změnit. Jakákoli změna se vztahuje na vaši příští lekci.",
+    "AI_TOGGLE_ERROR": "Nastavení se nepodařilo aktualizovat. Zkuste to prosím znovu."
   },
   "VIDEO_CALL": {
     "LEAVING": "Odchod...",

@@ -2869,7 +2869,11 @@
     "NOTES_AWAITING_BODY_TUTOR": "Nie przesłałeś jeszcze opinii na temat ostatniej lekcji z tym uczniem.",
     "NOTES_AWAITING_BODY_STUDENT": "Informacje zwrotne od Twojego nauczyciela z ostatniej lekcji są już przesyłane.",
     "NOTES_ERROR_TITLE": "Nie udało się wczytać notatek",
-    "NOTES_ERROR_BODY": "Coś poszło nie tak podczas ładowania notatek z ostatniej lekcji. Spróbuj ponownie."
+    "NOTES_ERROR_BODY": "Coś poszło nie tak podczas ładowania notatek z ostatniej lekcji. Spróbuj ponownie.",
+    "AI_TOGGLE_LABEL": "Analiza i opinie AI",
+    "AI_STATUS_EDITABLE_HINT": "Możesz to zmienić do momentu rozpoczęcia lekcji. Obowiązuje od tej lekcji.",
+    "AI_STATUS_LOCKED_HINT": "Zostało to ustawione na początku lekcji i nie można go zmienić w przypadku tej lekcji. Wszelkie zmiany obowiązują na następnej lekcji.",
+    "AI_TOGGLE_ERROR": "Nie udało się zaktualizować ustawień. Spróbuj ponownie."
   },
   "VIDEO_CALL": {
     "LEAVING": "Odjazd...",

@@ -66,6 +66,18 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
   // that tells the tutor/student whether feedback is automatic or manual.
   aiAnalysisEnabled: boolean = true;
   aiStatusResolved: boolean = false;
+  /** True once the lesson has started and `aiAnalysisEnabledAtTime` is locked.
+   * While false, the displayed value tracks the student's live setting and the
+   * student can still change it (change applies to THIS lesson). Once locked,
+   * the value is frozen for this lesson and any change only affects the next. */
+  aiStatusLocked: boolean = false;
+  /** True when the local user is the student (owner of the AI setting). Drives
+   * the inline toggle vs. read-only display on the pre-call card. */
+  isStudent: boolean = false;
+  /** Student User._id for this lesson — used to match realtime setting changes. */
+  private lessonStudentId: string | null = null;
+  /** Guards against overlapping inline-toggle persistence requests. */
+  aiToggleSaving: boolean = false;
   otherParticipantJoined: boolean = false;
   otherParticipantName: string = '';
   otherParticipantPicture: string = '';
@@ -413,9 +425,27 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
           this.otherParticipantName = presence.participantName;
           this.otherParticipantPicture = presence.participantPicture || '';
           this.refreshPresenceJoinedLine();
+          // Safety net: when the counterpart joins, re-sync the AI status from
+          // the server so both parties converge even if a realtime setting
+          // event was missed (reconnect, toggled before this screen opened).
+          this.refreshAiStatusFromServer();
         }
       });
-    
+
+    // Keep the AI-analysis card in sync if the student toggles the setting
+    // while we're sitting in pre-call. Only applies before the lesson locks
+    // its snapshot — once locked, the value is frozen for this lesson.
+    this.websocketService.aiAnalysisSettingChanged$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(change => {
+        if (this.aiStatusLocked) return;
+        if (!this.lessonStudentId || String(change.studentId) !== String(this.lessonStudentId)) return;
+        console.log('🤖 PRE-CALL: applying live AI setting change:', change.aiAnalysisEnabled);
+        this.aiAnalysisEnabled = change.aiAnalysisEnabled;
+        this.aiStatusResolved = true;
+        this.cdr.detectChanges();
+      });
+
     // Listen for participant left events
     this.websocketService.lessonPresenceLeft$
       .pipe(takeUntil(this.destroy$))
@@ -534,12 +564,18 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
         // SECURITY: Determine role from authenticated user + lesson data (never trust URL params)
         const tutorId = lesson.tutorId?._id?.toString() || (typeof lesson.tutorId === 'string' ? lesson.tutorId : '');
         this.isTutor = (currentUserId === tutorId);
+        this.isStudent = !this.isTutor;
         this.roleResolved = true;
+        this.lessonStudentId = lesson.studentId?._id?.toString() || (typeof lesson.studentId === 'string' ? lesson.studentId : null);
 
-        // Resolve AI analysis status: prefer the locked snapshot (set once the
-        // lesson starts), otherwise fall back to the student's current setting.
+        // Resolve AI analysis status. The value that governs a lesson is locked
+        // in `aiAnalysisEnabledAtTime` at lesson start (immutable). Before that,
+        // the card mirrors the student's live setting and stays editable; a
+        // change made now still applies to this lesson. Once locked, we show the
+        // snapshot and any further change only affects the NEXT lesson.
         const aiSnapshot = (lesson as any).aiAnalysisEnabledAtTime;
-        this.aiAnalysisEnabled = (aiSnapshot === true || aiSnapshot === false)
+        this.aiStatusLocked = (aiSnapshot === true || aiSnapshot === false);
+        this.aiAnalysisEnabled = this.aiStatusLocked
           ? aiSnapshot
           : (lesson.studentId?.profile?.aiAnalysisEnabled !== false);
         this.aiStatusResolved = true;
@@ -1534,6 +1570,60 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
     this.analyser = null;
     this.audioLevel = 0;
     console.log('🎤 Audio level monitoring stopped');
+  }
+
+  /**
+   * Re-fetch the lesson and re-resolve the AI-analysis status. Used as a safety
+   * net when the counterpart joins, so both sides converge on the current value
+   * even if a realtime setting event was missed. Never overrides a locked
+   * snapshot (the value is frozen for this lesson once it starts).
+   */
+  private async refreshAiStatusFromServer(): Promise<void> {
+    if (this.aiStatusLocked || this.isClass) return;
+    try {
+      const response = await firstValueFrom(this.lessonService.getLesson(this.lessonId));
+      const lesson = (response as any)?.lesson;
+      if (!lesson) return;
+      const aiSnapshot = lesson.aiAnalysisEnabledAtTime;
+      this.aiStatusLocked = (aiSnapshot === true || aiSnapshot === false);
+      this.aiAnalysisEnabled = this.aiStatusLocked
+        ? aiSnapshot
+        : (lesson.studentId?.profile?.aiAnalysisEnabled !== false);
+      this.aiStatusResolved = true;
+      this.cdr.detectChanges();
+    } catch (err) {
+      console.warn('⚠️ PRE-CALL: failed to refresh AI status', err);
+    }
+  }
+
+  /**
+   * Inline toggle on the student's own pre-call card. Persists the student's
+   * setting (which applies to THIS lesson while it hasn't started yet) and
+   * relies on the backend to push the change to the tutor in realtime.
+   */
+  async onToggleAiAnalysis(event: any): Promise<void> {
+    const requested = !!event?.detail?.checked;
+    if (!this.isStudent || this.aiStatusLocked || this.aiToggleSaving) return;
+    if (requested === this.aiAnalysisEnabled) return;
+
+    const previous = this.aiAnalysisEnabled;
+    this.aiAnalysisEnabled = requested; // optimistic
+    this.aiToggleSaving = true;
+    try {
+      await firstValueFrom(this.userService.updateAIAnalysisEnabled(requested));
+    } catch (err) {
+      console.error('❌ PRE-CALL: failed to save AI setting', err);
+      this.aiAnalysisEnabled = previous; // revert on failure
+      const toast = await this.toastController.create({
+        message: this.t('PRE_CALL.AI_TOGGLE_ERROR'),
+        duration: 2500,
+        position: 'bottom'
+      });
+      await toast.present();
+    } finally {
+      this.aiToggleSaving = false;
+      this.cdr.detectChanges();
+    }
   }
 
   // Format user name to "First L." format (e.g., "Phillip D.")

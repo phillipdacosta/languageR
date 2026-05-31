@@ -2869,7 +2869,11 @@
     "NOTES_AWAITING_BODY_TUTOR": "Je hebt nog geen feedback ingediend voor je laatste les met deze leerling.",
     "NOTES_AWAITING_BODY_STUDENT": "De feedback van je docent van de laatste les is onderweg.",
     "NOTES_ERROR_TITLE": "Kan notities niet laden",
-    "NOTES_ERROR_BODY": "Er is iets misgegaan bij het laden van uw laatste lesnotities. Probeer het opnieuw."
+    "NOTES_ERROR_BODY": "Er is iets misgegaan bij het laden van uw laatste lesnotities. Probeer het opnieuw.",
+    "AI_TOGGLE_LABEL": "AI-analyse en feedback",
+    "AI_STATUS_EDITABLE_HINT": "Je kunt dit wijzigen totdat de les begint. Vanaf deze les is dit van toepassing.",
+    "AI_STATUS_LOCKED_HINT": "Dit is ingesteld toen de les begon en kan voor deze les niet worden gewijzigd. Elke wijziging geldt voor uw volgende les.",
+    "AI_TOGGLE_ERROR": "Kan je instelling niet updaten. Probeer het opnieuw."
   },
   "VIDEO_CALL": {
     "LEAVING": "Vertrekken...",

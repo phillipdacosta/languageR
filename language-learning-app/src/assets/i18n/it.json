@@ -2869,7 +2869,11 @@
     "NOTES_AWAITING_BODY_TUTOR": "Non hai ancora inviato feedback per la tua ultima lezione con questo studente.",
     "NOTES_AWAITING_BODY_STUDENT": "Il feedback del tuo tutor sull'ultima lezione è in arrivo.",
     "NOTES_ERROR_TITLE": "Impossibile caricare le note",
-    "NOTES_ERROR_BODY": "Qualcosa è andato storto durante il caricamento degli appunti dell'ultima lezione. Per favore riprova."
+    "NOTES_ERROR_BODY": "Qualcosa è andato storto durante il caricamento degli appunti dell'ultima lezione. Per favore riprova.",
+    "AI_TOGGLE_LABEL": "Analisi e feedback dell'intelligenza artificiale",
+    "AI_STATUS_EDITABLE_HINT": "Puoi cambiarlo fino all'inizio della lezione. Si applica da questa lezione in poi.",
+    "AI_STATUS_LOCKED_HINT": "Questo è stato impostato all'inizio della lezione e non può essere modificato per questa lezione. Qualsiasi modifica si applica alla lezione successiva.",
+    "AI_TOGGLE_ERROR": "Impossibile aggiornare l'impostazione. Per favore riprova."
   },
   "VIDEO_CALL": {
     "LEAVING": "In partenza...",

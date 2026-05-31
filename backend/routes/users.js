@@ -832,6 +832,10 @@ router.put('/profile', verifyToken, async (req, res) => {
     }
     
     console.log('📝 Before update - officeHoursEnabled:', user.profile?.officeHoursEnabled, 'showWalletBalance:', user.profile?.showWalletBalance, 'remindersEnabled:', user.profile?.remindersEnabled, 'aiAnalysisEnabled:', user.profile?.aiAnalysisEnabled);
+
+    // Capture the AI-analysis setting before the profile object is rebuilt so we
+    // can detect a real change and notify any live pre-call counterpart below.
+    const prevAiAnalysisEnabled = user.profile?.aiAnalysisEnabled !== false;
     
     // If timezone is changing and tutor has availability, convert blocks to maintain real-world times
     const oldTimezone = user.profile?.timezone || 'UTC';
@@ -939,6 +943,51 @@ router.put('/profile', verifyToken, async (req, res) => {
     console.log('💾 About to save user with interfaceLanguage:', user.interfaceLanguage);
     await user.save();
     console.log('✅ User saved. Verifying interfaceLanguage:', user.interfaceLanguage);
+
+    // ── Notify a live pre-call counterpart when the student's AI-analysis
+    // setting changes ──────────────────────────────────────────────────────
+    // The pre-call screen shows the student's AI setting to BOTH parties. The
+    // value that governs a lesson is snapshotted at lesson start (immutable),
+    // so a change only affects the NEXT lesson — but while both users sit in
+    // pre-call waiting for a not-yet-started lesson, the displayed value should
+    // reflect the live setting. Without this push, the counterpart keeps the
+    // stale value they loaded. We emit to imminent/active, not-yet-snapshotted
+    // lessons for this student, to both the tutor and the student's own sockets.
+    const newAiAnalysisEnabled = user.profile?.aiAnalysisEnabled !== false;
+    if (aiAnalysisEnabled !== undefined && newAiAnalysisEnabled !== prevAiAnalysisEnabled && req.io && req.connectedUsers) {
+      try {
+        const now = new Date();
+        const windowStart = new Date(now.getTime() - 30 * 60 * 1000); // started up to 30m ago
+        const windowEnd = new Date(now.getTime() + 60 * 60 * 1000);   // starting within 60m
+        const liveLessons = await Lesson.find({
+          studentId: user._id,
+          status: { $in: ['scheduled', 'confirmed', 'in_progress'] },
+          aiAnalysisEnabledAtTime: null, // not yet locked → change still applies
+          startTime: { $gte: windowStart, $lte: windowEnd }
+        }).populate('tutorId', 'auth0Id').select('tutorId studentId').lean();
+
+        const recipientAuth0Ids = new Set();
+        recipientAuth0Ids.add(user.auth0Id); // student's other devices
+        for (const lesson of liveLessons) {
+          const tutorAuth0Id = lesson.tutorId?.auth0Id;
+          if (tutorAuth0Id) recipientAuth0Ids.add(tutorAuth0Id);
+        }
+
+        for (const auth0Id of recipientAuth0Ids) {
+          const socketId = req.connectedUsers.get(auth0Id);
+          if (socketId) {
+            req.io.to(socketId).emit('ai_analysis_setting_changed', {
+              studentId: user._id.toString(),
+              studentAuth0Id: user.auth0Id,
+              aiAnalysisEnabled: newAiAnalysisEnabled
+            });
+            console.log(`📡 Emitted ai_analysis_setting_changed=${newAiAnalysisEnabled} to ${auth0Id}`);
+          }
+        }
+      } catch (emitErr) {
+        console.error('⚠️ Failed to emit ai_analysis_setting_changed:', emitErr);
+      }
+    }
     
     res.json({
       success: true,

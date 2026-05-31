@@ -2868,7 +2868,11 @@
     "AI_STATUS_ON_TUTOR": "Umpan balik dihasilkan secara otomatis setelah pelajaran ini. Catatan Anda bersifat opsional.",
     "AI_STATUS_OFF_TUTOR": "Anda harus mengumpulkan dan mengirimkan masukan untuk pelajaran ini.",
     "AI_STATUS_ON_STUDENT": "Anda akan mendapatkan masukan AI mendetail setelah pelajaran ini.",
-    "AI_STATUS_OFF_STUDENT": "Tutor Anda akan memberikan tanggapan Anda setelah pelajaran ini."
+    "AI_STATUS_OFF_STUDENT": "Tutor Anda akan memberikan tanggapan Anda setelah pelajaran ini.",
+    "AI_TOGGLE_LABEL": "Analisis & umpan balik AI",
+    "AI_STATUS_EDITABLE_HINT": "Anda dapat mengubahnya hingga pelajaran dimulai. Ini berlaku mulai pelajaran ini dan seterusnya.",
+    "AI_STATUS_LOCKED_HINT": "Ini ditetapkan saat pelajaran dimulai dan tidak dapat diubah untuk pelajaran ini. Perubahan apa pun berlaku untuk pelajaran Anda berikutnya.",
+    "AI_TOGGLE_ERROR": "Tidak dapat memperbarui setelan Anda. Silakan coba lagi."
   },
   "VIDEO_CALL": {
     "LEAVING": "Meninggalkan...",

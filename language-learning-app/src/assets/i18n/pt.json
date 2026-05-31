@@ -2947,7 +2947,11 @@
     "NOTES_AWAITING_BODY_TUTOR": "Você ainda não enviou comentários sobre sua última aula com este aluno.",
     "NOTES_AWAITING_BODY_STUDENT": "O feedback do seu tutor sobre a última lição está a caminho.",
     "NOTES_ERROR_TITLE": "Não foi possível carregar as notas",
-    "NOTES_ERROR_BODY": "Algo deu errado ao carregar suas anotações da última lição. Por favor, tente novamente."
+    "NOTES_ERROR_BODY": "Algo deu errado ao carregar suas anotações da última lição. Por favor, tente novamente.",
+    "AI_TOGGLE_LABEL": "Análise e feedback de IA",
+    "AI_STATUS_EDITABLE_HINT": "Você pode alterar isso até o início da aula. Aplica-se a partir desta lição.",
+    "AI_STATUS_LOCKED_HINT": "Isso foi definido quando a lição começou e não pode ser alterado nesta lição. Qualquer alteração se aplica à sua próxima lição.",
+    "AI_TOGGLE_ERROR": "Não foi possível atualizar sua configuração. Por favor, tente novamente."
   },
   "VIDEO_CALL": {
     "LEAVING": "Saindo...",

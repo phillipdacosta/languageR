@@ -759,6 +759,24 @@
       color: rgba(255, 255, 255, 0.72);
     }
 
+    .ai-status-toggle-row {
+      margin-top: 8px;
+
+      ion-toggle {
+        --handle-width: 18px;
+        font-size: 13.5px;
+        font-weight: 600;
+        color: #ffffff;
+      }
+    }
+
+    .ai-status-hint {
+      margin: 6px 0 0;
+      font-size: 12px;
+      line-height: 1.35;
+      color: rgba(255, 255, 255, 0.5);
+    }
+
     &.ai-on {
       .ai-status-icon {
         background: rgba(108, 194, 138, 0.16);

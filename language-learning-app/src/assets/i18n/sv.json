@@ -2869,7 +2869,11 @@
     "NOTES_AWAITING_BODY_TUTOR": "Du har inte skickat feedback för din senaste lektion med den här eleven än.",
     "NOTES_AWAITING_BODY_STUDENT": "Din handledares feedback från den senaste lektionen är på väg.",
     "NOTES_ERROR_TITLE": "Det gick inte att läsa in anteckningar",
-    "NOTES_ERROR_BODY": "Något gick fel när du läste in dina senaste lektionsanteckningar. Försök igen."
+    "NOTES_ERROR_BODY": "Något gick fel när du läste in dina senaste lektionsanteckningar. Försök igen.",
+    "AI_TOGGLE_LABEL": "AI-analys och feedback",
+    "AI_STATUS_EDITABLE_HINT": "Du kan ändra detta tills lektionen börjar. Det gäller från och med den här lektionen.",
+    "AI_STATUS_LOCKED_HINT": "Detta ställdes in när lektionen började och kan inte ändras för den här lektionen. Alla ändringar gäller för din nästa lektion.",
+    "AI_TOGGLE_ERROR": "Det gick inte att uppdatera din inställning. Försök igen."
   },
   "VIDEO_CALL": {
     "LEAVING": "Lämnar...",

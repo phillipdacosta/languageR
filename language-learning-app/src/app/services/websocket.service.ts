@@ -125,6 +125,15 @@ export class WebSocketService {
   private paymentStatusChangedSubject = new Subject<{ paymentId: string; lessonId: string; status: string; updatedAt: Date }>();
   public paymentStatusChanged$ = this.paymentStatusChangedSubject.asObservable();
 
+  // Student AI-analysis setting change — used by the pre-call screen to keep the
+  // displayed AI status in sync for both parties before the lesson starts.
+  private aiAnalysisSettingChangedSubject = new Subject<{
+    studentId: string;
+    studentAuth0Id: string;
+    aiAnalysisEnabled: boolean;
+  }>();
+  public aiAnalysisSettingChanged$ = this.aiAnalysisSettingChangedSubject.asObservable();
+
   /**
    * Real-time class detail updates. Fired for every viewer subscribed to a
    * class room via `joinClassRoom(classId)`. The `state` object is a compact
@@ -365,6 +374,12 @@ export class WebSocketService {
     this.socket.on('payment_status_changed', (data: { paymentId: string; lessonId: string; status: string; updatedAt: Date }) => {
       console.log('💳 Payment status changed:', data);
       this.paymentStatusChangedSubject.next(data);
+    });
+
+    // Listen for a student's AI-analysis setting changing (pre-call sync)
+    this.socket.on('ai_analysis_setting_changed', (data: { studentId: string; studentAuth0Id: string; aiAnalysisEnabled: boolean }) => {
+      console.log('🤖 AI analysis setting changed:', data);
+      this.aiAnalysisSettingChangedSubject.next(data);
     });
 
     // Listen for compact "class state changed" patches. Every viewer of a

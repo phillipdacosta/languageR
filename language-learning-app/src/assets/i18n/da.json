@@ -2869,7 +2869,11 @@
     "AI_STATUS_ON_TUTOR": "Feedback genereres automatisk efter denne lektion. Dine noter er valgfri.",
     "AI_STATUS_OFF_TUTOR": "Du skal indsamle og indsende feedback til denne lektion.",
     "AI_STATUS_ON_STUDENT": "Du får detaljeret AI-feedback efter denne lektion.",
-    "AI_STATUS_OFF_STUDENT": "Din vejleder vil give din feedback efter denne lektion."
+    "AI_STATUS_OFF_STUDENT": "Din vejleder vil give din feedback efter denne lektion.",
+    "AI_TOGGLE_LABEL": "AI analyse og feedback",
+    "AI_STATUS_EDITABLE_HINT": "Du kan ændre dette, indtil lektionen begynder. Det gælder fra denne lektion og frem.",
+    "AI_STATUS_LOCKED_HINT": "Dette blev indstillet, da lektionen startede og kan ikke ændres for denne lektion. Enhver ændring gælder for din næste lektion.",
+    "AI_TOGGLE_ERROR": "Din indstilling kunne ikke opdateres. Prøv venligst igen."
   },
   "VIDEO_CALL": {
     "LEAVING": "Forlader...",

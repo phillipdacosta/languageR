@@ -2869,7 +2869,11 @@
     "NOTES_AWAITING_BODY_TUTOR": "您尚未提交对该学生的上一课的反馈。",
     "NOTES_AWAITING_BODY_STUDENT": "您的导师对上一课的反馈正在发送中。",
     "NOTES_ERROR_TITLE": "无法加载笔记",
-    "NOTES_ERROR_BODY": "加载上一课笔记时出现问题。请再试一次。"
+    "NOTES_ERROR_BODY": "加载上一课笔记时出现问题。请再试一次。",
+    "AI_TOGGLE_LABEL": "AI分析与反馈",
+    "AI_STATUS_EDITABLE_HINT": "您可以在课程开始之前更改此设置。从本课开始适用。",
+    "AI_STATUS_LOCKED_HINT": "这是在课程开始时设置的，本课程无法更改。任何更改都适用于您的下一课。",
+    "AI_TOGGLE_ERROR": "无法更新您的设置。请再试一次。"
   },
   "VIDEO_CALL": {
     "LEAVING": "离开...",

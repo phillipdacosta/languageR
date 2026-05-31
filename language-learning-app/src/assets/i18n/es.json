@@ -2947,7 +2947,11 @@
     "AI_STATUS_ON_TUTOR": "Los comentarios se generan automáticamente después de esta lección. Tus notas son opcionales.",
     "AI_STATUS_OFF_TUTOR": "Deberá recopilar y enviar comentarios para esta lección.",
     "AI_STATUS_ON_STUDENT": "Recibirás comentarios detallados de la IA después de esta lección.",
-    "AI_STATUS_OFF_STUDENT": "Su tutor le proporcionará sus comentarios después de esta lección."
+    "AI_STATUS_OFF_STUDENT": "Su tutor le proporcionará sus comentarios después de esta lección.",
+    "AI_TOGGLE_LABEL": "Análisis y retroalimentación de IA",
+    "AI_STATUS_EDITABLE_HINT": "Puede cambiar esto hasta que comience la lección. Se aplica a partir de esta lección en adelante.",
+    "AI_STATUS_LOCKED_HINT": "Esto se configuró cuando comenzó la lección y no se puede cambiar para esta lección. Cualquier cambio se aplica a su próxima lección.",
+    "AI_TOGGLE_ERROR": "No se pudo actualizar su configuración. Por favor inténtalo de nuevo."
   },
   "VIDEO_CALL": {
     "LEAVING": "Partida...",
