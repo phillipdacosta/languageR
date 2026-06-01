@@ -102,6 +102,12 @@ async function pushLessonToGoogleCalendar(lesson) {
         dateTime: new Date(lesson.endTime).toISOString(),
         timeZone: tutor.profile?.timezone || 'UTC'
       },
+      // Stamp our lesson id as a private extended property so we can later
+      // identify (and safely clean up) Barnabi-authored events without relying
+      // on the summary text — zero false positives against a tutor's own events.
+      extendedProperties: {
+        private: { barnabiLessonId: String(lesson._id) }
+      },
       reminders: {
         useDefault: false,
         overrides: [
@@ -202,6 +208,10 @@ async function updateLessonOnGoogleCalendar(lesson) {
         end: {
           dateTime: new Date(lessonDoc.endTime).toISOString(),
           timeZone: tutor.profile?.timezone || 'UTC'
+        },
+        // Backfill the private tag on legacy events as they get updated.
+        extendedProperties: {
+          private: { barnabiLessonId: String(lessonDoc._id) }
         }
       }
     });
@@ -215,8 +225,87 @@ async function updateLessonOnGoogleCalendar(lesson) {
   }
 }
 
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+// True if a Google event was authored by Barnabi. Primary signal is the private
+// extended property we stamp on push/update; legacy events fall back to our exact
+// push format (summary "Barnabi: …" + the "on Barnabi" description marker).
+function isBarnabiAuthoredEvent(evt) {
+  if (evt?.extendedProperties?.private?.barnabiLessonId) return true;
+  return /^Barnabi:\s/.test(evt?.summary || '') && /on Barnabi\b/.test(evt?.description || '');
+}
+
+// Delete Barnabi-authored Google events that no longer correspond to a live
+// lesson (orphans). Used by the one-time backfill script and as a reusable
+// reconciler. Paginates the window, is idempotent (404/410 swallowed), and
+// throttles deletes to stay well under Google's per-user rate limits.
+async function reconcileOrphansForUser(userId, opts = {}) {
+  const {
+    dryRun = false,
+    daysBack = 90,
+    daysForward = 180,
+    maxDeletes = 1000,
+    deleteSpacingMs = 120
+  } = opts;
+
+  const oauth2Client = await getAuthenticatedClient(userId);
+  if (!oauth2Client) return { skipped: true, reason: 'not-connected' };
+
+  const user = await User.findById(userId);
+  const calendarId = user?.googleCalendar?.calendarId || 'primary';
+  const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+
+  const now = Date.now();
+  const timeMin = new Date(now - daysBack * 86400000).toISOString();
+  const timeMax = new Date(now + daysForward * 86400000).toISOString();
+
+  // Every Google event id currently referenced by one of this tutor's lessons.
+  const linked = await Lesson.find({ tutorId: userId, googleCalendarEventId: { $ne: null } })
+    .select('googleCalendarEventId').lean();
+  const linkedIds = new Set(linked.map(l => l.googleCalendarEventId));
+
+  let pageToken;
+  let scanned = 0;
+  let orphanCount = 0;
+  let deleted = 0;
+
+  do {
+    const resp = await calendar.events.list({
+      calendarId, timeMin, timeMax, singleEvents: true, maxResults: 250, pageToken
+    });
+    const items = resp.data.items || [];
+    scanned += items.length;
+
+    for (const evt of items) {
+      if (evt.status === 'cancelled') continue;
+      if (linkedIds.has(evt.id)) continue;        // backed by a live lesson — keep
+      if (!isBarnabiAuthoredEvent(evt)) continue; // a genuine tutor event — never touch
+
+      orphanCount++;
+      if (deleted >= maxDeletes) continue;
+      if (dryRun) {
+        console.log(`[GCal Cleanup][dry-run] would delete ${evt.id} "${evt.summary}" @ ${evt.start?.dateTime || evt.start?.date}`);
+        continue;
+      }
+      try {
+        await calendar.events.delete({ calendarId, eventId: evt.id });
+        deleted++;
+        await sleep(deleteSpacingMs);
+      } catch (err) {
+        if (err.code === 404 || err.code === 410) continue; // already gone
+        console.warn(`[GCal Cleanup] Failed to delete ${evt.id}: ${err.message}`);
+      }
+    }
+    pageToken = resp.data.nextPageToken;
+  } while (pageToken);
+
+  return { scanned, orphanCount, deleted, dryRun };
+}
+
 module.exports = {
   pushLessonToGoogleCalendar,
   removeLessonFromGoogleCalendar,
-  updateLessonOnGoogleCalendar
+  updateLessonOnGoogleCalendar,
+  isBarnabiAuthoredEvent,
+  reconcileOrphansForUser
 };

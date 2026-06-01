@@ -196,25 +196,21 @@
         <!-- ═══ RIGHT: Content Column ════════════════════════ -->
         <div class="ed-main">
 
-          <div class="ed-title-row">
-            <h1 class="ed-title">{{ lesson?.subject || ('EVENT_DETAILS.LESSON_SCREEN.DEFAULT_SUBJECT' | translate) }}</h1>
-            <button
-              type="button"
-              class="ed-translate-btn ed-page-translate-btn"
-              *ngIf="pageCanTranslate"
-              (click)="togglePageTranslation()"
-              [disabled]="pageTranslating"
-              [class.showing-translation]="pageShowingTranslation">
-              <ion-icon name="language-outline" aria-hidden="true"></ion-icon>
-              <span *ngIf="pageTranslating">{{ 'COMMON.TRANSLATING' | translate }}</span>
-              <span *ngIf="!pageTranslating && !pageShowingTranslation">{{ 'COMMON.TRANSLATE' | translate }}</span>
-              <span *ngIf="!pageTranslating && pageShowingTranslation">{{ 'COMMON.SHOW_ORIGINAL' | translate }}</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            class="ed-translate-btn ed-page-translate-btn ed-main-translate"
+            *ngIf="pageCanTranslate"
+            (click)="togglePageTranslation()"
+            [disabled]="pageTranslating"
+            [class.showing-translation]="pageShowingTranslation">
+            <ion-icon name="language-outline" aria-hidden="true"></ion-icon>
+            <span *ngIf="pageTranslating">{{ 'COMMON.TRANSLATING' | translate }}</span>
+            <span *ngIf="!pageTranslating && !pageShowingTranslation">{{ 'COMMON.TRANSLATE' | translate }}</span>
+            <span *ngIf="!pageTranslating && pageShowingTranslation">{{ 'COMMON.SHOW_ORIGINAL' | translate }}</span>
+          </button>
 
     <!-- ── Plan context (compact — no duplicate briefing content) ── -->
     <ng-container *ngIf="edHasPlan && edPlanNextFocus">
-      <div class="ed-divider"></div>
       <section class="ed-row ed-learning-focus">
         <div class="ed-focus-card">
           <span class="ed-focus-card-eyebrow">{{ edPlanEyebrowKey | translate }}</span>
@@ -911,11 +907,9 @@
 
         <!-- ═══ RIGHT: Content Column ════════════════════════ -->
         <div class="ed-main">
-          <h1 class="ed-title">{{ classData.name }}</h1>
 
           <!-- ── Description (replaces "Last session" from lesson view) ── -->
           <ng-container *ngIf="classData.description">
-            <div class="ed-divider"></div>
             <section class="ed-row">
               <h2 class="ed-section-label">{{ 'EVENT_DETAILS.LESSON_SCREEN.CLASS_ABOUT' | translate }}</h2>
               <div class="ed-rich-body" [innerHTML]="sanitizedDescription"></div>

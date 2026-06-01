@@ -4,9 +4,38 @@ const { google } = require('googleapis');
 const User = require('../models/User');
 const Lesson = require('../models/Lesson');
 const { verifyToken } = require('../middleware/videoUploadMiddleware');
+const { isBarnabiAuthoredEvent } = require('../services/googleCalendarService');
 const crypto = require('crypto');
 
 const webhookDebounceTimers = new Map();
+
+// Cap orphan deletions per fetch so a calendar with a large backlog clears over
+// several views instead of bursting against Google's rate limit. Steady state is
+// ~0 once the backlog is gone, since each orphan is deleted exactly once.
+const MAX_ORPHAN_DELETES_PER_FETCH = 12;
+
+// Fire-and-forget deletion of orphaned Barnabi events found during a fetch. Runs
+// after the response is sent (setImmediate), is idempotent, and capped.
+function scheduleOrphanCleanup(calendar, calendarId, orphans, userId) {
+  if (!orphans || orphans.length === 0) return;
+  const batch = orphans.slice(0, MAX_ORPHAN_DELETES_PER_FETCH);
+  setImmediate(async () => {
+    let removed = 0;
+    for (const evt of batch) {
+      try {
+        await calendar.events.delete({ calendarId, eventId: evt.id });
+        removed++;
+      } catch (err) {
+        if (err.code === 404 || err.code === 410) continue; // already gone
+        console.warn(`[GCal Orphan Cleanup] Failed to delete ${evt.id}: ${err.message}`);
+      }
+    }
+    if (removed > 0) {
+      invalidateBarnabiIdsCache(userId);
+      console.log(`[GCal Orphan Cleanup] user=${userId} removed=${removed}/${orphans.length} orphaned Barnabi events`);
+    }
+  });
+}
 
 // OAuth state is signed (HMAC) and self-contained rather than stored in process
 // memory. The old in-memory `pendingStates` Map broke in production whenever the
@@ -545,25 +574,48 @@ async function fetchEventsForUser(userId, timeMin, timeMax) {
     maxResults: 250
   });
 
-  const rawCount = (response.data.items || []).length;
-  const allMapped = (response.data.items || []).map(evt => ({
-    id: evt.id,
-    summary: evt.summary || '(No title)',
-    start: evt.start?.dateTime || evt.start?.date,
-    end: evt.end?.dateTime || evt.end?.date,
-    allDay: !evt.start?.dateTime,
-    status: evt.status,
-    updated: evt.updated
-  }));
-  const events = allMapped.filter(evt => evt.status !== 'cancelled' && !barnabiEventIds.has(evt.id));
+  const rawItems = response.data.items || [];
+  const rawCount = rawItems.length;
+
+  // Barnabi-authored events are mirrors of real lessons that already render
+  // natively on the tutor calendar, so we never surface them as gray Google
+  // events. `barnabiEventIds` covers events linked to a live lesson;
+  // `isBarnabiAuthoredEvent` additionally catches orphans (private tag or our
+  // push format) whose lesson link was lost.
+  const events = rawItems
+    .filter(evt =>
+      evt.status !== 'cancelled' &&
+      !barnabiEventIds.has(evt.id) &&
+      !isBarnabiAuthoredEvent(evt)
+    )
+    .map(evt => ({
+      id: evt.id,
+      summary: evt.summary || '(No title)',
+      start: evt.start?.dateTime || evt.start?.date,
+      end: evt.end?.dateTime || evt.end?.date,
+      allDay: !evt.start?.dateTime,
+      status: evt.status,
+      updated: evt.updated
+    }));
+
+  // Orphans: Barnabi-authored events with no live lesson referencing them. Clean
+  // them out of Google so the tutor's own calendar stays in sync with Barnabi.
+  // Lazy + capped + async — scales because work is proportional to what tutors
+  // actually view and each orphan is deleted exactly once.
+  const orphans = rawItems.filter(evt =>
+    evt.status !== 'cancelled' &&
+    !barnabiEventIds.has(evt.id) &&
+    isBarnabiAuthoredEvent(evt)
+  );
+  scheduleOrphanCleanup(calendar, calendarId, orphans, userId);
 
   // Diagnostic: log a compact summary so we can see exactly what Google returned
   // for a given window and which events were dropped by our filters. Helps debug
   // "I added an event in Google Calendar but Barnabi doesn't show it" reports.
-  const dropped = allMapped.length - events.length;
+  const dropped = rawCount - events.length;
   console.log(
     `[GCal Fetch] user=${userId} cal=${calendarId} window=${timeMin}..${timeMax} ` +
-    `raw=${rawCount} kept=${events.length} dropped=${dropped} ` +
+    `raw=${rawCount} kept=${events.length} dropped=${dropped} orphans=${orphans.length} ` +
     `titles=${JSON.stringify(events.slice(0, 6).map(e => `${e.summary}@${e.start}${e.allDay ? ' [allDay]' : ''}`))}`
   );
 

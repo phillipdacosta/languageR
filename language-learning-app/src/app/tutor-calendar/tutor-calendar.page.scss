@@ -826,6 +826,48 @@ ion-content {
   }
 }
 
+// Crossfade skeleton / spinner → loaded calendar content.
+.tc-content-swap,
+.mcal-content-swap {
+  display: grid;
+  width: 100%;
+
+  > .tc-content-swap__layer,
+  > .mcal-content-swap__layer {
+    grid-area: 1 / 1;
+    min-width: 0;
+    transition: opacity 0.38s cubic-bezier(0.32, 0.72, 0, 1), visibility 0.38s cubic-bezier(0.32, 0.72, 0, 1);
+
+    &:not(.is-active) {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    &.is-active {
+      opacity: 1;
+      visibility: visible;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    > .tc-content-swap__layer,
+    > .mcal-content-swap__layer {
+      transition: none;
+
+      &:not(.is-active) {
+        display: none;
+      }
+    }
+  }
+}
+
+.tc-content-swap--desktop {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+}
+
 // Loading overlay for desktop calendar
 .calendar-loading-overlay {
   position: absolute;
@@ -1414,6 +1456,25 @@ ion-content {
   display: flex;
   flex-direction: column;
   background: #ffffff;
+
+  &:not(.tc-events-visible) .calendar-event {
+    opacity: 0;
+  }
+
+  &.tc-events-visible .calendar-event {
+    opacity: 1;
+    transition: opacity 0.38s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &:not(.tc-events-visible) .calendar-event {
+      opacity: 1;
+    }
+
+    &.tc-events-visible .calendar-event {
+      transition: none;
+    }
+  }
 }
 
 // Custom Toolbar
@@ -3812,8 +3873,31 @@ ion-app.dark {
   }
 
   .mcal-skeleton,
-  .mcal-empty {
+  .mcal-empty,
+  .mcal-content-swap {
     display: flex;
+  }
+
+  .mcal-content-swap {
+    display: grid;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .mcal-summary {
+    opacity: 0;
+    transition: opacity 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+
+    &.mcal-summary--visible {
+      opacity: 1;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mcal-summary {
+      transition: none;
+      opacity: 1;
+    }
   }
 
   .mobile-header {
@@ -5423,7 +5507,7 @@ ion-app.dark {
 
   // ── Skeleton ──
   .mcal-skeleton {
-    padding: 186px 20px 40px;
+    padding: 8px 20px 40px;
     display: flex;
     flex-direction: column;
     gap: 20px;

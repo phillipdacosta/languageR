@@ -361,65 +361,40 @@ ion-header ion-toolbar {
   border-radius: 20px;
 }
 
-.ed-title-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  padding-top: 8px;
+.ed-main-translate {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
   margin-bottom: 4px;
+  padding: 6px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 500;
+  color: #6b7280;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
 
-  .ed-title {
-    margin: 0;
-    padding-top: 0;
-    flex: 1;
-    min-width: 0;
+  ion-icon { font-size: 14px; }
+
+  &:hover:not(:disabled) {
+    background: #f3f4f6;
+    color: #374151;
   }
 
-  .ed-page-translate-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 6px 12px;
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
-    background: transparent;
-    font-size: 12px;
-    font-weight: 500;
-    color: #6b7280;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: all 0.2s ease;
-    flex-shrink: 0;
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
-
-    ion-icon { font-size: 14px; }
-
-    &:hover:not(:disabled) {
-      background: #f3f4f6;
-      color: #374151;
-    }
-
-    &:disabled {
-      opacity: 0.6;
-      cursor: default;
-    }
-
-    &.showing-translation {
-      border-color: #222;
-      color: #222;
-    }
+  &:disabled {
+    opacity: 0.6;
+    cursor: default;
   }
-}
 
-.ed-title {
-  font-size: 32px;
-  font-weight: 700;
-  color: var(--ed-text-primary);
-  letter-spacing: -0.5px;
-  line-height: 1.2;
-  margin: 0 0 4px;
-  padding-top: 8px;
+  &.showing-translation {
+    border-color: #222;
+    color: #222;
+  }
 }
 
 /* ── Sections / Rows ──────────────────────────────────── */
@@ -1861,6 +1836,12 @@ ion-header {
 .ed-main {
   flex: 1;
   min-width: 0;
+
+  // No top rule under the removed page title — hide the first section divider only.
+  > .ed-divider:first-child,
+  > .ed-main-translate:first-child + .ed-divider {
+    display: none;
+  }
 }
 
 /* ── Profile Panel (left card — Airbnb style) ─────────── */
@@ -3417,12 +3398,6 @@ ion-header {
     font-size: 11px;
   }
 
-  .ed-title {
-    font-size: 26px;
-    font-weight: 700;
-    letter-spacing: -0.5px;
-  }
-
   .ed-divider {
     display: none;
   }
@@ -3546,10 +3521,6 @@ ion-header {
 @media (max-width: 600px) {
   :host {
     --ed-pad-x: 16px;
-  }
-
-  .ed-title {
-    font-size: 24px;
   }
 
   .ed-scores {
