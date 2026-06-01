@@ -249,6 +249,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   timeSlots: string[] = [];
   currentTimePosition: number = 0;
   currentWeekTitle: string = '';
+  calendarToolbarTitle = '';
   private timeUpdateInterval: any;
   
   // ViewChild references for scroll containers
@@ -4060,6 +4061,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       monthLabel: formatDateInTz(date, this.userTz, { month: 'long', day: undefined, year: undefined }, loc),
       year: date.getFullYear()
     };
+    this.updateCalendarToolbarTitle();
   }
   
   getEventsForSelectedDay(): any[] {
@@ -4099,6 +4101,15 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       this.currentWeekTitle = `${startMonth} ${this.currentWeekStart.getFullYear()}`;
     } else {
       this.currentWeekTitle = `${startMonth} - ${endMonth} ${endDate.getFullYear()}`;
+    }
+    this.updateCalendarToolbarTitle();
+  }
+
+  private updateCalendarToolbarTitle(): void {
+    if (this.customView === 'day') {
+      this.calendarToolbarTitle = `${this.selectedDayForDayView.monthLabel} ${this.selectedDayForDayView.year}`;
+    } else {
+      this.calendarToolbarTitle = this.currentWeekTitle;
     }
   }
   
@@ -4355,6 +4366,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   // Switch between week and day view with scroll to now
   switchView(view: 'week' | 'day') {
     this.customView = view;
+    this.updateCalendarToolbarTitle();
     this.hasScrolledToNow = false; // Reset scroll flag
     
     // Wait for view to render, then scroll to now

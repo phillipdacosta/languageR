@@ -20,6 +20,11 @@
     </div>
 
     <ng-container *ngIf="students.length > 0">
+      <div class="actionsheet-status-banner" *ngIf="statusBannerText">
+        <ion-icon name="checkmark-circle"></ion-icon>
+        <span>{{ statusBannerText }}</span>
+      </div>
+
       <!-- Search -->
       <div class="actionsheet-search">
         <ion-icon name="search-outline"></ion-icon>
@@ -55,6 +60,7 @@
           <div class="student-info">
             <span class="student-name">{{ s.name }}</span>
             <span class="student-email">{{ s.email }}</span>
+            <span class="student-access-pill" *ngIf="s.alreadyHasAccess">{{ 'CREATE_MATERIAL.SHARE_MODAL_HAS_ACCESS' | translate }}</span>
           </div>
           <div class="ssa-checkbox" [class.checked]="isSelected(s._id)">
             <ion-icon *ngIf="isSelected(s._id)" name="checkmark"></ion-icon>
@@ -75,7 +81,8 @@
     <button
       type="button"
       class="done-btn"
-      [disabled]="selectedIds.length === 0"
+      [class.done-btn--danger]="isRemoveAllAction"
+      [disabled]="isConfirmDisabled"
       (click)="onDone()">
       {{ confirmText }}
     </button>

@@ -295,7 +295,13 @@
     }
 
     &--secondary {
+      background: #ffffff;
+      border: 1px solid #e6ebf1;
       color: #0a2540;
+
+      &:hover:not(:disabled) {
+        background: #f6f9fc;
+      }
     }
   }
 
@@ -329,7 +335,13 @@
     }
 
     &--secondary {
+      background: #ffffff;
+      border: 1px solid #e6ebf1;
       color: #0a2540;
+
+      &:hover:not(:disabled) {
+        background: #f6f9fc;
+      }
     }
   }
 

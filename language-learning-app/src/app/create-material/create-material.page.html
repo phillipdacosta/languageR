@@ -130,7 +130,10 @@
     <!-- Sticky header -->
     <div class="cm-library-sticky">
       <div class="cm-library-header">
-        <h1>{{ (libraryTab === 'bundles' ? 'CREATE_MATERIAL.LIBRARY_TITLE_BUNDLES' : 'CREATE_MATERIAL.LIBRARY_TITLE') | translate }}</h1>
+        <div class="cm-library-header-copy">
+          <h1>{{ (libraryTab === 'bundles' ? 'CREATE_MATERIAL.LIBRARY_TITLE_BUNDLES' : 'CREATE_MATERIAL.LIBRARY_TITLE') | translate }}</h1>
+          <p class="cm-library-subtitle" *ngIf="showMaterialsList">{{ 'CREATE_MATERIAL.LIBRARY_SUBTITLE' | translate }}</p>
+        </div>
         <div class="cm-library-actions">
           <button class="cm-btn-link-channels" (click)="showChannelLinking = !showChannelLinking">
             <ion-icon [name]="hasLinkedChannel() ? 'link' : 'link-outline'"></ion-icon>
@@ -166,13 +169,13 @@
           <div class="cm-split-label">
             <ion-icon name="layers-outline"></ion-icon>
             <span>{{ 'CREATE_MATERIAL.GATEWAY_COL_MATERIALS' | translate }}</span>
-            <span class="cm-split-count" *ngIf="myMaterials.length > 0">{{ myMaterials.length }}</span>
+            <span class="cm-split-count">{{ myMaterials.length }}</span>
           </div>
           <div class="cm-gateway-card">
             <div class="cm-gateway-hero">
               <img src="assets/materials-gateway.png" alt="" />
             </div>
-            <button class="cm-gateway-row" *ngIf="myMaterials.length > 0" (click)="openMaterialsList()">
+            <button type="button" class="cm-gateway-row" (click)="openMaterialsList()">
               <div class="cm-gateway-row-content">
                 <div class="cm-gateway-icon cm-gateway-icon--view">
                   <ion-icon name="layers-outline"></ion-icon>
@@ -244,7 +247,7 @@
           <div class="cm-gateway-hero">
             <img src="assets/materials-gateway.png" alt="" />
           </div>
-          <button class="cm-gateway-row" *ngIf="myMaterials.length > 0" (click)="openMaterialsList()">
+          <button type="button" class="cm-gateway-row" (click)="openMaterialsList()">
             <div class="cm-gateway-row-content">
               <div class="cm-gateway-icon cm-gateway-icon--view">
                 <ion-icon name="layers-outline"></ion-icon>
@@ -352,94 +355,136 @@
           </button>
         </div>
         <div class="cm-library-list">
-          <div class="cm-material-card" *ngFor="let m of myMaterials" [attr.data-material-id]="m._id" [class.archived]="m.status === 'archived'" [class.cm-material-card--highlight]="m._id === justPublishedId">
+          <div class="cm-material-card" *ngFor="let m of myMaterials" [attr.data-material-id]="m._id" [class.archived]="m.status === 'archived'" [class.cm-material-card--highlight]="m._id === justPublishedId" [class.cm-material-card--draft]="m.status === 'draft'">
             <div class="cm-mc-thumb">
               <img *ngIf="m.thumbnailUrl" [src]="m.thumbnailUrl" [alt]="m.title" />
               <div class="cm-mc-thumb-empty" *ngIf="!m.thumbnailUrl">
                 <img *ngIf="m.materialType === 'reading'" class="cm-mc-type-raster" src="assets/create-material-type-reading.png" alt="" />
                 <img *ngIf="m.materialType === 'listening'" class="cm-mc-type-raster" src="assets/create-material-type-listening.png" alt="" />
-                <ion-icon *ngIf="m.materialType === 'video_quiz'" name="videocam"></ion-icon>
+                <ion-icon *ngIf="m.materialType === 'video_quiz'" name="videocam-outline"></ion-icon>
               </div>
-              <span class="cm-mc-status-badge" 
-                [class.draft]="m.status === 'draft'" 
+              <span class="cm-mc-status-badge"
+                [class.draft]="m.status === 'draft'"
                 [class.archived]="m.status === 'archived'"
                 *ngIf="m.status === 'draft' || m.status === 'archived'">{{ m.status }}</span>
             </div>
             <div class="cm-mc-body">
-              <div class="cm-mc-unavailable" *ngIf="m.mediaUnavailable && m.pricingType === 'paid'">
-                <ion-icon name="warning-outline"></ion-icon>
-                <span>{{ 'CREATE_MATERIAL.CARD_VIDEO_UNAVAILABLE' | translate }}</span>
+              <div class="cm-mc-unavailable-slot" [class.is-active]="m.mediaUnavailable && m.pricingType === 'paid'">
+                <div class="cm-mc-unavailable" *ngIf="m.mediaUnavailable && m.pricingType === 'paid'">
+                  <ion-icon name="warning-outline"></ion-icon>
+                  <span>{{ 'CREATE_MATERIAL.CARD_VIDEO_UNAVAILABLE' | translate }}</span>
+                </div>
               </div>
-              <div class="cm-mc-badges">
-                <span class="cm-mc-type-label">{{ getMaterialTypeLabel(m.materialType) }}</span>
-                <span class="cm-mc-visibility-badge" *ngIf="m.status === 'published' && m.visibility !== 'public'">
+
+              <div class="cm-mc-meta-row">
+                <div class="cm-mc-type-chip">
+                  <ion-icon [name]="getMaterialTypeIcon(m.materialType)"></ion-icon>
+                  <span>{{ getMaterialTypeLabel(m.materialType) }}</span>
+                </div>
+                <span class="cm-mc-privacy-pill cm-mc-privacy-pill--shared" *ngIf="m.status === 'published' && m.visibility === 'past_students'">
+                  <ion-icon name="people-outline"></ion-icon>
+                  {{ 'CREATE_MATERIAL.VISIBILITY_PAST_STUDENTS_SHORT' | translate:{ count: m.sharedStudentIds?.length || 0 } }}
+                </span>
+                <span class="cm-mc-privacy-pill" *ngIf="m.status === 'published' && m.visibility !== 'public' && m.visibility !== 'past_students'">
                   <ion-icon name="lock-closed-outline"></ion-icon>
                   {{ 'CREATE_MATERIAL.VISIBILITY_PRIVATE' | translate }}
                 </span>
-                <span class="cm-mc-visibility-badge cm-mc-visibility-badge--public" *ngIf="m.status === 'published' && m.visibility === 'public'">
+                <span class="cm-mc-privacy-pill" *ngIf="m.status === 'published' && m.visibility === 'public'">
                   <ion-icon name="globe-outline"></ion-icon>
                   {{ 'CREATE_MATERIAL.VISIBILITY_PUBLIC' | translate }}
                 </span>
-                <span class="cm-mc-review-badge verified" *ngIf="m.channelVerified">
-                  <ion-icon name="checkmark-circle"></ion-icon> {{ 'CREATE_MATERIAL.CARD_VERIFIED' | translate }}
-                </span>
-                <span class="cm-mc-review-badge" *ngIf="m.reviewStatus === 'pending_review'">
-                  <ion-icon name="time-outline"></ion-icon> {{ 'CREATE_MATERIAL.CARD_PENDING' | translate }}
-                </span>
-                <span class="cm-mc-review-badge rejected" *ngIf="m.reviewStatus === 'rejected'">
-                  <ion-icon name="close-circle-outline"></ion-icon> {{ 'CREATE_MATERIAL.CARD_REJECTED' | translate }}
+                <span class="cm-mc-privacy-pill" *ngIf="m.status === 'draft'">
+                  <ion-icon name="lock-closed-outline"></ion-icon>
+                  {{ 'CREATE_MATERIAL.VISIBILITY_DRAFT_PRIVATE' | translate }}
                 </span>
               </div>
+
               <h3 class="cm-mc-title">{{ m.title }}</h3>
+
               <div class="cm-mc-price-row">
                 <span class="cm-mc-price" [class.free]="m.pricingType !== 'paid'">{{ m.pricingType === 'paid' ? '$' + m.price : ('CREATE_MATERIAL.CARD_FREE' | translate) }}</span>
+                <span class="cm-mc-price-divider" aria-hidden="true"></span>
                 <span class="cm-mc-questions">{{ m.quiz.length !== 1 ? ('CREATE_MATERIAL.CARD_QUESTIONS_PLURAL' | translate:{count: m.quiz.length}) : ('CREATE_MATERIAL.CARD_QUESTIONS' | translate:{count: m.quiz.length}) }}</span>
               </div>
+
               <div class="cm-mc-details-line">
+                <ion-icon name="globe-outline" aria-hidden="true"></ion-icon>
                 <span class="cm-mc-details-text">{{ m.language }}</span>
                 <span class="cm-mc-details-sep" aria-hidden="true">·</span>
                 <span class="cm-mc-details-text">{{ formatDate(m.createdAt) }}</span>
               </div>
+
               <div class="cm-mc-stats">
-                <div class="cm-mc-stat"><ion-icon name="eye-outline"></ion-icon> {{ m.stats.views }}</div>
-                <div class="cm-mc-stat"><ion-icon name="school-outline"></ion-icon> {{ m.stats.quizAttempts }}</div>
-                <div class="cm-mc-stat" *ngIf="m.stats.averageScore > 0"><ion-icon name="trending-up-outline"></ion-icon> {{ m.stats.averageScore }}%</div>
-                <div class="cm-mc-stat" *ngIf="m.pricingType === 'paid'"><ion-icon name="card-outline"></ion-icon> {{ m.stats.purchases }}</div>
+                <div class="cm-mc-stat">
+                  <ion-icon name="eye-outline"></ion-icon>
+                  <span class="cm-mc-stat-value">{{ m.stats.views }}</span>
+                  <span class="cm-mc-stat-label">{{ 'CREATE_MATERIAL.CARD_STAT_VIEWS' | translate }}</span>
+                </div>
+                <div class="cm-mc-stat">
+                  <ion-icon name="trending-up-outline"></ion-icon>
+                  <span class="cm-mc-stat-value">{{ m.stats.quizAttempts }}</span>
+                  <span class="cm-mc-stat-label">{{ 'CREATE_MATERIAL.CARD_STAT_USES' | translate }}</span>
+                </div>
+                <div class="cm-mc-stat">
+                  <ion-icon name="analytics-outline"></ion-icon>
+                  <span class="cm-mc-stat-value">{{ m.stats.averageScore }}%</span>
+                  <span class="cm-mc-stat-label">{{ 'CREATE_MATERIAL.CARD_STAT_PERFORMANCE' | translate }}</span>
+                </div>
               </div>
 
-              <!-- Private / public toggle (published quizzes) -->
-              <div class="cm-mc-visibility-toggle" *ngIf="m.status === 'published'">
+              <div class="cm-mc-visibility-toggle">
                 <div class="cm-mc-visibility-toggle-copy">
                   <span class="cm-mc-visibility-toggle-label">{{ 'CREATE_MATERIAL.VISIBILITY_TOGGLE_LABEL' | translate }}</span>
                   <span class="cm-mc-visibility-toggle-value">
-                    {{ (m.visibility === 'public' ? 'CREATE_MATERIAL.VISIBILITY_PUBLIC' : 'CREATE_MATERIAL.VISIBILITY_PRIVATE') | translate }}
+                    <ion-icon name="lock-closed-outline"></ion-icon>
+                    <ng-container *ngIf="m.status === 'draft'">{{ 'CREATE_MATERIAL.VISIBILITY_DRAFT_PRIVATE' | translate }}</ng-container>
+                    <ng-container *ngIf="m.status === 'published' && m.visibility === 'past_students'">{{ 'CREATE_MATERIAL.VISIBILITY_PAST_STUDENTS' | translate:{ count: m.sharedStudentIds?.length || 0 } }}</ng-container>
+                    <ng-container *ngIf="m.status === 'published' && m.visibility === 'public'">{{ 'CREATE_MATERIAL.VISIBILITY_PUBLIC' | translate }}</ng-container>
+                    <ng-container *ngIf="m.status === 'published' && m.visibility !== 'public' && m.visibility !== 'past_students'">{{ 'CREATE_MATERIAL.VISIBILITY_PRIVATE' | translate }}</ng-container>
+                    <ng-container *ngIf="m.status === 'archived'">{{ 'CREATE_MATERIAL.VISIBILITY_ARCHIVED' | translate }}</ng-container>
                   </span>
                 </div>
                 <ion-toggle
                   class="cm-mc-visibility-ion-toggle"
-                  [checked]="m.visibility === 'public'"
-                  [disabled]="visibilityUpdatingId === m._id"
+                  [checked]="m.status === 'published' && m.visibility === 'public'"
+                  [disabled]="m.status !== 'published' || visibilityUpdatingId === m._id || sharingMaterialId === m._id"
                   (ionChange)="onMaterialVisibilityToggle(m, $event)">
                 </ion-toggle>
               </div>
 
-              <button class="cm-mc-preview-btn" (click)="previewMaterial(m)">
+              <button
+                type="button"
+                class="cm-btn-share-students"
+                *ngIf="m.status === 'published'"
+                [class.cm-btn-share-students--done]="m.visibility === 'past_students' && (m.sharedStudentIds?.length || 0) > 0"
+                [disabled]="sharingMaterialId === m._id || visibilityUpdatingId === m._id"
+                (click)="openShareStudentsModal(m)">
+                <ion-spinner *ngIf="sharingMaterialId === m._id" name="crescent" class="cm-spinner-sm"></ion-spinner>
+                <ion-icon *ngIf="sharingMaterialId !== m._id" [name]="(m.visibility === 'past_students' && (m.sharedStudentIds?.length || 0) > 0) ? 'checkmark-circle-outline' : 'people-outline'"></ion-icon>
+                <span *ngIf="m.visibility !== 'past_students' || !(m.sharedStudentIds?.length || 0)">{{ 'CREATE_MATERIAL.SHARE_WITH_STUDENTS' | translate }}</span>
+                <span *ngIf="m.visibility === 'past_students' && (m.sharedStudentIds?.length || 0) > 0">{{ 'CREATE_MATERIAL.SHARE_CARD_MANAGE_COUNT' | translate:{ count: m.sharedStudentIds?.length || 0 } }}</span>
+              </button>
+
+              <div class="cm-mc-card-footer">
+              <button type="button" class="cm-mc-preview-btn" (click)="previewMaterial(m)">
                 <ion-icon name="eye-outline"></ion-icon>
                 {{ 'CREATE_MATERIAL.CARD_PREVIEW' | translate }}
               </button>
+
               <div class="cm-mc-actions">
-                <button class="cm-mc-action" (click)="editMaterial(m)" [title]="'COMMON.EDIT' | translate">
+                <button type="button" class="cm-mc-action" (click)="editMaterial(m)" [title]="'COMMON.EDIT' | translate">
                   <ion-icon name="create-outline"></ion-icon>
                 </button>
-                <button class="cm-mc-action" (click)="copyShareLink(m._id)" [title]="'COMMON.SHARE' | translate">
+                <button type="button" class="cm-mc-action" (click)="copyShareLink(m._id)" [title]="'COMMON.SHARE' | translate">
                   <ion-icon [name]="copiedLinkId === m._id ? 'checkmark-outline' : 'link-outline'"></ion-icon>
                 </button>
-                <button class="cm-mc-action" (click)="toggleArchive(m)" [title]="m.status === 'archived' ? ('CREATE_MATERIAL.ALERT_PUBLISH_BTN' | translate) : ('CREATE_MATERIAL.ALERT_ARCHIVE_BTN' | translate)">
-                  <ion-icon [name]="m.status === 'archived' ? 'arrow-undo-outline' : 'archive-outline'"></ion-icon>
+                <button type="button" class="cm-mc-action" (click)="duplicateMaterial(m)" [title]="'CREATE_MATERIAL.CARD_DUPLICATE' | translate">
+                  <ion-icon name="copy-outline"></ion-icon>
                 </button>
-                <button class="cm-mc-action cm-mc-action--danger" (click)="confirmDelete(m)" [title]="'COMMON.DELETE' | translate">
+                <button type="button" class="cm-mc-action cm-mc-action--danger" (click)="confirmDelete(m)" [title]="'COMMON.DELETE' | translate">
                   <ion-icon name="trash-outline"></ion-icon>
                 </button>
+              </div>
               </div>
             </div>
           </div>

@@ -16,6 +16,7 @@ import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { Capacitor } from '@capacitor/core';
 import { environment } from '../../environments/environment';
 import { PlatformService } from '../services/platform.service';
+import { TranslateService } from '@ngx-translate/core';
 
 @Component({
   selector: 'app-material-detail',
@@ -49,6 +50,8 @@ export class MaterialDetailPage implements OnInit, OnDestroy {
   isLoading = true;
   pageReady = false;
   error: string | null = null;
+  errorTitle: string | null = null;
+  accessRevoked = false;
 
   videoEmbedUrl: SafeResourceUrl | null = null;
   videoAutoplayUrl: SafeResourceUrl | null = null;
@@ -96,7 +99,8 @@ export class MaterialDetailPage implements OnInit, OnDestroy {
     private alertCtrl: AlertController,
     private cdr: ChangeDetectorRef,
     private navCtrl: NavController,
-    private platformService: PlatformService
+    private platformService: PlatformService,
+    private translate: TranslateService
   ) {
     this.referrerUrl = sessionStorage.getItem('materialReferrer') || '/tabs/home';
   }
@@ -127,6 +131,9 @@ export class MaterialDetailPage implements OnInit, OnDestroy {
 
   loadMaterial(id: string, ref?: string) {
     this.isLoading = true;
+    this.error = null;
+    this.errorTitle = null;
+    this.accessRevoked = false;
     this.materialService.getMaterial(id, ref).subscribe({
       next: (res) => {
         this.isLoading = false;
@@ -171,6 +178,17 @@ export class MaterialDetailPage implements OnInit, OnDestroy {
       },
       error: (err) => {
         this.isLoading = false;
+        if (err?.status === 401 && err?.error?.requiresAuth) {
+          void this.promptLogin();
+          this.error = err?.error?.message || 'Log in to access this material';
+          return;
+        }
+        if (err?.status === 403 && err?.error?.accessRevoked) {
+          this.accessRevoked = true;
+          this.errorTitle = this.translate.instant('MATERIAL_DETAIL.ACCESS_REVOKED_TITLE');
+          this.error = this.translate.instant('MATERIAL_DETAIL.ACCESS_REVOKED_MSG');
+          return;
+        }
         this.error = err?.error?.message || 'Failed to load material';
       }
     });

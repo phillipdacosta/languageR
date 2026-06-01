@@ -2504,11 +2504,34 @@ html.ion-palette-dark .withdrawal-modal {
       color: white;
     }
 
+    &--lottie {
+      width: 96px;
+      height: 96px;
+      background: transparent;
+      border-radius: 0;
+      margin-bottom: 8px;
+
+      .withdrawal-header-lottie {
+        width: 96px;
+        height: 96px;
+      }
+    }
+
     @media (max-width: 768px) {
       width: 36px;
       height: 36px;
       margin-bottom: 8px;
       ion-icon { font-size: 18px; }
+
+      &--lottie {
+        width: 72px;
+        height: 72px;
+
+        .withdrawal-header-lottie {
+          width: 72px;
+          height: 72px;
+        }
+      }
     }
   }
   

@@ -2,12 +2,14 @@ import { Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, ModalController } from '@ionic/angular';
+import { TranslateModule } from '@ngx-translate/core';
 
 export interface SelectableStudent {
   _id: string;
   name: string;
   email: string;
   picture?: string;
+  alreadyHasAccess?: boolean;
 }
 
 @Component({
@@ -15,7 +17,7 @@ export interface SelectableStudent {
   templateUrl: './student-selection-actionsheet.component.html',
   styleUrls: ['./student-selection-actionsheet.component.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule, FormsModule]
+  imports: [CommonModule, IonicModule, FormsModule, TranslateModule]
 })
 export class StudentSelectionActionsheetComponent implements OnInit {
   @Input() students: SelectableStudent[] = [];
@@ -26,6 +28,12 @@ export class StudentSelectionActionsheetComponent implements OnInit {
   @Input() subtitle = 'Select the students you want to share this quiz with.';
   @Input() isLoading = false;
   @Input() confirmLabel = 'Share';
+  @Input() isManageMode = false;
+  @Input() alreadySharedCount = 0;
+  @Input() materialTitle = '';
+  @Input() statusBannerText = '';
+  @Input() allowRemoveAll = false;
+  @Input() removeAllLabel = 'Remove all sharing';
 
   selectedIds: string[] = [];
   searchQuery = '';
@@ -46,8 +54,22 @@ export class StudentSelectionActionsheetComponent implements OnInit {
 
   get confirmText(): string {
     const n = this.selectedIds.length;
+    if (n === 0 && this.allowRemoveAll) {
+      return this.removeAllLabel;
+    }
     if (n === 0) return this.confirmLabel;
+    if (this.isManageMode) {
+      return `${this.confirmLabel} (${n})`;
+    }
     return `${this.confirmLabel} with ${n} student${n !== 1 ? 's' : ''}`;
+  }
+
+  get isConfirmDisabled(): boolean {
+    return this.selectedIds.length === 0 && !this.allowRemoveAll;
+  }
+
+  get isRemoveAllAction(): boolean {
+    return this.allowRemoveAll && this.selectedIds.length === 0;
   }
 
   isSelected(id: string): boolean {

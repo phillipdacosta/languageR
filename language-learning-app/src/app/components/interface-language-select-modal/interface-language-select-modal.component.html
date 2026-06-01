@@ -32,7 +32,9 @@
         class="language-item"
         [class.selected]="pendingCode === lang.code"
         (click)="selectLanguage(lang.code)">
-        <span class="language-flag" aria-hidden="true">{{ lang.flag }}</span>
+        <span class="language-flag" aria-hidden="true">
+          <app-flag-icon [language]="lang.name" [size]="28"></app-flag-icon>
+        </span>
         <span class="language-labels">
           <span class="language-native">{{ lang.nativeName }}</span>
           <span class="language-english" *ngIf="lang.name && lang.name !== lang.nativeName">{{ lang.name }}</span>

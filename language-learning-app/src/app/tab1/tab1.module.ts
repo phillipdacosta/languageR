@@ -34,6 +34,7 @@ import { MeshGradientBackgroundComponent } from '../components/mesh-gradient-bac
 import { JourneyIntroComponent } from '../journey/journey-intro.component';
 import { JourneyPage } from '../journey/journey.page';
 import { TutorOnboardingComponent } from '../components/tutor-onboarding/tutor-onboarding.component';
+import { SiteFooterComponent } from '../components/site-footer/site-footer.component';
 
 import { Tab1PageRoutingModule } from './tab1-routing.module';
 
@@ -73,7 +74,8 @@ import { Tab1PageRoutingModule } from './tab1-routing.module';
     MeshGradientBackgroundComponent,
     JourneyIntroComponent,
     JourneyPage,
-    TutorOnboardingComponent
+    TutorOnboardingComponent,
+    SiteFooterComponent
   ],
   declarations: [Tab1Page],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],

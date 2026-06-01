@@ -1530,6 +1530,11 @@
 
   </div>
 
+  <app-site-footer
+    *ngIf="!showEarningsView && !showJourneyView && !showExploreView && !(showCreateMaterialView && isMobile) && !(showScheduleClassView && isMobile) && !(showForumView && isMobile)"
+    layout="bar">
+  </app-site-footer>
+
   <!-- Inline Confirm Reschedule Modal (declarative, no programmatic creation) -->
   <ion-modal 
     [isOpen]="isConfirmRescheduleModalOpen" 

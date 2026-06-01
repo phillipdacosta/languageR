@@ -35,10 +35,11 @@
     </div>
 
     <!-- Error -->
-    <div class="md-error" *ngIf="error && !isLoading">
-      <ion-icon name="alert-circle-outline"></ion-icon>
+    <div class="md-error" [class.md-error--revoked]="accessRevoked" *ngIf="error && !isLoading">
+      <ion-icon [name]="accessRevoked ? 'lock-closed-outline' : 'alert-circle-outline'"></ion-icon>
+      <h3 class="md-error-title" *ngIf="errorTitle">{{ errorTitle }}</h3>
       <p>{{ error }}</p>
-      <button class="md-btn-secondary" (click)="goBack()">Go Back</button>
+      <button class="md-btn-secondary" (click)="goBack()">{{ 'MATERIAL_DETAIL.GO_BACK' | translate }}</button>
     </div>
 
     <!-- Material content -->

@@ -11,6 +11,7 @@ import { VideoPlayerModalComponent } from './video-player-modal.component';
 import { CountryFilterPopoverComponent } from './country-filter-popover.component';
 import { SharedModule } from '../shared/shared.module';
 import { TutorFiltersModalComponent } from '../components/tutor-filters-modal/tutor-filters-modal.component';
+import { SiteFooterComponent } from '../components/site-footer/site-footer.component';
 
 @NgModule({
   imports: [
@@ -19,7 +20,8 @@ import { TutorFiltersModalComponent } from '../components/tutor-filters-modal/tu
     IonicModule,
     TutorSearchContentPageRoutingModule,
     SharedModule,
-    TutorFiltersModalComponent // Standalone component
+    TutorFiltersModalComponent,
+    SiteFooterComponent
   ],
   declarations: [TutorSearchContentPage, VideoPlayerModalComponent, CountryFilterPopoverComponent],
   exports: [TutorSearchContentPage, VideoPlayerModalComponent]

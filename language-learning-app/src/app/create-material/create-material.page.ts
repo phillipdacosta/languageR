@@ -9,6 +9,8 @@ import { Router, RouterModule, ActivatedRoute } from '@angular/router';
 import { MaterialService, CreateMaterialPayload, QuizQuestion, QuestionType, MaterialType, TutorMaterial, LinkedChannels } from '../services/material.service';
 import { BundleService, ContentBundle, CreateBundlePayload } from '../services/bundle.service';
 import { UserService } from '../services/user.service';
+import { LessonService } from '../services/lesson.service';
+import { StudentSelectionActionsheetComponent, SelectableStudent } from '../components/student-selection-actionsheet/student-selection-actionsheet.component';
 import { SharedModule } from '../shared/shared.module';
 import { ImageCropperComponent } from '../components/image-cropper/image-cropper.component';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
@@ -155,6 +157,9 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
   isSavingBundle = false;
   justPublishedId: string | null = null;
   visibilityUpdatingId: string | null = null;
+  sharingMaterialId: string | null = null;
+  loadingShareStudents = false;
+  shareableStudents: SelectableStudent[] = [];
   copiedLinkId: string | null = null;
   currentUserId: string | null = null;
 
@@ -301,6 +306,7 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     private http: HttpClient,
     private materialService: MaterialService,
     private userService: UserService,
+    private lessonService: LessonService,
     private toastCtrl: ToastController,
     private alertCtrl: AlertController,
     private sanitizer: DomSanitizer,
@@ -1356,21 +1362,37 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
   editMaterial(m: TutorMaterial) {
     this.editingMaterialId = m._id;
     this.editingMaterialStatus = m.status;
+    this.populateMaterialFormFromMaterial(m);
+    this.viewMode = 'create';
+    this.initDetailsWizard();
+    this.updateNavState();
+  }
+
+  duplicateMaterial(m: TutorMaterial) {
+    this.editingMaterialId = null;
+    this.editingMaterialStatus = 'draft';
+    this.populateMaterialFormFromMaterial(m, { duplicate: true });
+    this.viewMode = 'create';
+    this.initDetailsWizard();
+    this.updateNavState();
+  }
+
+  private populateMaterialFormFromMaterial(m: TutorMaterial, options: { duplicate?: boolean } = {}) {
     this.selectedType = m.materialType;
     this.selectedPricing = m.pricingType;
     this.currentStep = 'details';
 
-    // Pre-populate thumbnail
     this.thumbnailFile = null;
     this.thumbnailPreview = m.thumbnailUrl || null;
     this.existingThumbnailUrl = m.thumbnailUrl || null;
 
-    // Pre-populate topics
     this.selectedTopics = m.topics ? [...m.topics] : [];
     this.selectedStructuredTags = m.structuredTags ? [...m.structuredTags] : [];
 
     this.materialForm.patchValue({
-      title: m.title,
+      title: options.duplicate
+        ? this.translate.instant('CREATE_MATERIAL.CARD_DUPLICATE_TITLE', { title: m.title })
+        : m.title,
       description: m.description,
       whyTakeThis: m.whyTakeThis || '',
       language: m.language,
@@ -1420,10 +1442,6 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
 
     if (m.videoUrl) this.parseVideoUrl(m.videoUrl);
     if (m.audioUrl) this.parseAudioUrl(m.audioUrl);
-
-    this.viewMode = 'create';
-    this.initDetailsWizard();
-    this.updateNavState();
   }
 
   async confirmDelete(m: TutorMaterial) {
@@ -1576,11 +1594,12 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
   ) {
     this.visibilityUpdatingId = m._id;
     this.cdr.markForCheck();
-    this.materialService.updateMaterial(m._id, { visibility }).subscribe({
+    this.materialService.updateMaterial(m._id, { visibility, sharedStudentIds: [] }).subscribe({
       next: (res) => {
         this.visibilityUpdatingId = null;
         if (res.success) {
           m.visibility = visibility;
+          m.sharedStudentIds = [];
           if (toggle) toggle.checked = visibility === 'public';
         } else if (toggle) {
           toggle.checked = m.visibility === 'public';
@@ -1591,6 +1610,211 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
         this.visibilityUpdatingId = null;
         if (toggle) toggle.checked = m.visibility === 'public';
         void this.showTranslatedToast('CREATE_MATERIAL.TOAST_VISIBILITY_FAILED');
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  private formatShareableStudentName(student: any): string {
+    if (student.firstName) {
+      const firstName = student.firstName;
+      const lastName = student.lastName || '';
+      return lastName
+        ? `${firstName} ${lastName.charAt(0).toUpperCase()}.`
+        : firstName;
+    }
+    if (student.name) {
+      const nameParts = student.name.trim().split(' ');
+      if (nameParts.length > 1) {
+        const firstName = nameParts[0];
+        const lastName = nameParts[nameParts.length - 1];
+        return `${firstName} ${lastName.charAt(0).toUpperCase()}.`;
+      }
+      return student.name;
+    }
+    return student.email || 'Unknown';
+  }
+
+  private loadShareableStudentsAsync(): Promise<void> {
+    if (this.shareableStudents.length > 0) {
+      return Promise.resolve();
+    }
+
+    const currentUser = this.userService.getCurrentUserValue();
+    if (!currentUser?.id) {
+      return Promise.resolve();
+    }
+
+    this.loadingShareStudents = true;
+    this.cdr.markForCheck();
+
+    return new Promise(resolve => {
+      this.lessonService.getMyLessons(currentUser.id).subscribe({
+        next: (response) => {
+          const studentMap = new Map<string, SelectableStudent>();
+          if (response.success && response.lessons) {
+            const currentUserId = String(currentUser.id).trim();
+            response.lessons.forEach((lesson) => {
+              let tutorId: string | undefined;
+              if (lesson.tutorId) {
+                if (typeof lesson.tutorId === 'object' && lesson.tutorId !== null) {
+                  tutorId = (lesson.tutorId as any)._id?.toString() || (lesson.tutorId as any)._id;
+                } else {
+                  tutorId = String(lesson.tutorId);
+                }
+              }
+              if (!tutorId || String(tutorId).trim() !== currentUserId) return;
+              if (!lesson.studentId || typeof lesson.studentId !== 'object') return;
+
+              const student = lesson.studentId as any;
+              const studentId = student._id?.toString() || student._id;
+              if (!studentId || studentMap.has(studentId)) return;
+
+              studentMap.set(studentId, {
+                _id: studentId,
+                name: this.formatShareableStudentName(student),
+                email: student.email || '',
+                picture: student.picture,
+              });
+            });
+          }
+          this.shareableStudents = Array.from(studentMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+          this.loadingShareStudents = false;
+          this.cdr.markForCheck();
+          resolve();
+        },
+        error: () => {
+          this.loadingShareStudents = false;
+          this.cdr.markForCheck();
+          resolve();
+        },
+      });
+    });
+  }
+
+  async openShareStudentsModal(m: TutorMaterial) {
+    if (m.status !== 'published' || this.sharingMaterialId === m._id) {
+      return;
+    }
+
+    await this.loadShareableStudentsAsync();
+
+    const sharedCount = m.sharedStudentIds?.length || 0;
+    const isManageMode = m.visibility === 'past_students' && sharedCount > 0;
+    const initialIds = (m.sharedStudentIds || []).map(id => id.toString());
+    const studentsForModal = this.shareableStudents.map(s => ({
+      ...s,
+      alreadyHasAccess: initialIds.includes(s._id),
+    }));
+
+    const isMobile = window.innerWidth <= 768;
+    const modalOpts: any = {
+      component: StudentSelectionActionsheetComponent,
+      componentProps: {
+        students: studentsForModal,
+        selectedStudentIds: m.sharedStudentIds || [],
+        isLoading: this.loadingShareStudents,
+        isManageMode,
+        alreadySharedCount: sharedCount,
+        materialTitle: m.title,
+        statusBannerText: isManageMode
+          ? this.translate.instant('CREATE_MATERIAL.SHARE_MODAL_ALREADY_SHARED', { count: sharedCount })
+          : '',
+        title: this.translate.instant(
+          isManageMode ? 'CREATE_MATERIAL.SHARE_MODAL_TITLE_MANAGE' : 'CREATE_MATERIAL.SHARE_MODAL_TITLE'
+        ),
+        subtitle: this.translate.instant(
+          isManageMode ? 'CREATE_MATERIAL.SHARE_MODAL_SUBTITLE_MANAGE' : 'CREATE_MATERIAL.SHARE_MODAL_SUBTITLE',
+          { title: m.title, count: sharedCount }
+        ),
+        confirmLabel: this.translate.instant(
+          isManageMode ? 'CREATE_MATERIAL.SHARE_MODAL_CONFIRM_UPDATE' : 'CREATE_MATERIAL.SHARE_MODAL_CONFIRM'
+        ),
+        allowRemoveAll: isManageMode,
+        removeAllLabel: this.translate.instant('CREATE_MATERIAL.SHARE_MODAL_CONFIRM_REMOVE_ALL'),
+      },
+      cssClass: 'share-students-modal',
+      showBackdrop: true,
+      backdropDismiss: true,
+    };
+
+    if (isMobile) {
+      modalOpts.breakpoints = [0, 0.5, 0.75, 1];
+      modalOpts.initialBreakpoint = 0.75;
+    }
+
+    const modal = await this.modalCtrl.create(modalOpts);
+    await modal.present();
+    const { data } = await modal.onWillDismiss();
+    if (!data || !Array.isArray(data.selectedIds)) {
+      return;
+    }
+
+    if (data.selectedIds.length === 0) {
+      const confirmed = await this.confirmUnshareAll(m);
+      if (confirmed) {
+        this.applyUnshareAll(m);
+      }
+      return;
+    }
+
+    this.applyShareWithStudents(m, data.selectedIds);
+  }
+
+  async confirmUnshareAll(m: TutorMaterial): Promise<boolean> {
+    const alert = await this.alertCtrl.create({
+      header: this.translate.instant('CREATE_MATERIAL.ALERT_UNSHARE_ALL_TITLE'),
+      message: this.translate.instant('CREATE_MATERIAL.ALERT_UNSHARE_ALL_MSG', { title: m.title }),
+      buttons: [
+        { text: this.translate.instant('COMMON.CANCEL'), role: 'cancel' },
+        {
+          text: this.translate.instant('CREATE_MATERIAL.ALERT_UNSHARE_ALL_BTN'),
+          role: 'destructive',
+        },
+      ],
+    });
+    await alert.present();
+    const { role } = await alert.onDidDismiss();
+    return role === 'destructive';
+  }
+
+  applyUnshareAll(m: TutorMaterial) {
+    this.sharingMaterialId = m._id;
+    this.cdr.markForCheck();
+    this.materialService.shareWithStudents(m._id, []).subscribe({
+      next: (res) => {
+        this.sharingMaterialId = null;
+        if (res.success) {
+          m.visibility = 'private';
+          m.sharedStudentIds = [];
+          void this.showTranslatedToast('CREATE_MATERIAL.TOAST_UNSHARE_DONE');
+        }
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.sharingMaterialId = null;
+        void this.showTranslatedToast('CREATE_MATERIAL.TOAST_SHARE_FAILED');
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  applyShareWithStudents(m: TutorMaterial, studentIds: string[]) {
+    this.sharingMaterialId = m._id;
+    this.cdr.markForCheck();
+    this.materialService.shareWithStudents(m._id, studentIds).subscribe({
+      next: (res) => {
+        this.sharingMaterialId = null;
+        if (res.success) {
+          m.visibility = 'past_students';
+          m.sharedStudentIds = studentIds;
+          void this.showTranslatedToast('CREATE_MATERIAL.PUBLISH_SHARED_DONE', { count: studentIds.length });
+        }
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.sharingMaterialId = null;
+        void this.showTranslatedToast('CREATE_MATERIAL.TOAST_SHARE_FAILED');
         this.cdr.markForCheck();
       },
     });

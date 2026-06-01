@@ -252,7 +252,7 @@ export class NotificationsPage implements OnDestroy {
       }
     } else if (notification.type === 'feedback_reminder' && notification.data?.lessonId) {
       this.router.navigate(['/post-lesson-tutor', notification.data.lessonId]);
-    } else if ((notification.type === 'material_rejected' || notification.type === 'material_approved') && notification.data?.materialId) {
+    } else if ((notification.type === 'material_rejected' || notification.type === 'material_approved' || notification.type === 'material_shared') && notification.data?.materialId) {
       this.router.navigate(['/material', notification.data.materialId]);
     }
   }
@@ -312,7 +312,8 @@ export class NotificationsPage implements OnDestroy {
       'credential_approved': 'shield-checkmark',
       'credential_rejected': 'shield',
       'material_approved': 'checkmark-circle',
-      'material_rejected': 'close-circle'
+      'material_rejected': 'close-circle',
+      'material_shared': 'document-text'
     };
     return iconMap[type] || 'notifications';
   }

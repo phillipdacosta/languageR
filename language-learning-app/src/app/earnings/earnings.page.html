@@ -729,8 +729,13 @@
       <div class="modal-content" *ngIf="!withdrawalSuccess">
         <!-- Header -->
         <div class="modal-header">
-          <div class="icon-wrapper">
-            <ion-icon name="wallet"></ion-icon>
+          <div class="icon-wrapper icon-wrapper--lottie">
+            <dotlottie-player
+              src="/assets/lottie/withdraw-funds-wallet.json"
+              autoplay
+              speed="1"
+              class="withdrawal-header-lottie">
+            </dotlottie-player>
           </div>
           <h2 class="modal-heading">{{ 'EARNINGS.WITHDRAW_TITLE' | translate }}</h2>
           <p class="modal-description">
