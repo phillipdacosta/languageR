@@ -2,6 +2,208 @@
   display: flex;
   flex-direction: column;
   height: 100%;
+  --ssa-cta: #222;
+  --ssa-cta-text: #fff;
+  --ssa-border: #e8e8ec;
+  --ssa-text: #1c1c1e;
+  --ssa-muted: #6b6b6b;
+  --ssa-surface: #fff;
+  --ssa-textarea-bg: #fafafa;
+}
+
+.ssa-top-chrome {
+  flex-shrink: 0;
+  background: var(--ssa-surface);
+}
+
+.ssa-hero {
+  background: var(--ssa-surface);
+  padding: 8px 24px 0;
+  box-sizing: border-box;
+}
+
+.ssa-toolbar-bar {
+  display: grid;
+  grid-template-columns: 1fr 36px;
+  align-items: center;
+  gap: 4px;
+  min-height: 44px;
+  padding: 4px 12px 4px 24px;
+  border-bottom: 1px solid var(--ssa-border);
+  box-sizing: border-box;
+
+  &__title {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: -0.2px;
+    color: var(--ssa-text);
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: none;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--ssa-text);
+    cursor: pointer;
+    transition: background 0.15s ease;
+
+    ion-icon {
+      font-size: 22px;
+    }
+
+    &:hover {
+      background: #f2f2f7;
+    }
+  }
+}
+
+.actionsheet-content {
+  --background: #f5f5f7;
+  --padding-top: 0;
+  --padding-bottom: 0;
+  --padding-start: 0;
+  --padding-end: 0;
+
+  &--mass-message {
+    --background: var(--ssa-surface);
+  }
+}
+
+.ssa-inner {
+  &--mass-message {
+    display: block;
+    background: var(--ssa-surface);
+    padding-bottom: 12px;
+  }
+}
+
+.ssa-intro {
+  padding: 12px 0 0;
+}
+
+.ssa-avatar-stack-wrap {
+  height: 48px;
+  width: min(100%, 260px);
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: visible;
+}
+
+.ssa-avatar-stack {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  height: 44px;
+  min-width: 44px;
+}
+
+.ssa-av {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 3px solid var(--ssa-surface);
+  overflow: hidden;
+  background: var(--ssa-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  margin-left: -14px;
+  flex-shrink: 0;
+  transition: margin-left 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+
+  &:first-of-type {
+    margin-left: 0;
+  }
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+.ssa-av-ini {
+  font-size: 15px;
+  font-weight: 700;
+  color: #555;
+}
+
+.ssa-av--more {
+  background: #eef0f4;
+  font-size: 14px;
+  font-weight: 700;
+  color: #52545a;
+}
+
+.ssa-sub {
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--ssa-muted);
+  margin: 0 24px 18px;
+}
+
+.ssa-message-section {
+  padding: 20px 24px 8px;
+}
+
+.ssa-message-label {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ssa-text);
+  margin: 0 0 12px;
+}
+
+.ssa-textarea {
+  border: 1px solid var(--ssa-border);
+  border-radius: 14px;
+  padding: 14px 16px;
+  font-size: 1rem;
+  line-height: 1.5;
+  --background: var(--ssa-textarea-bg);
+  --padding-start: 0;
+  --padding-end: 0;
+  --padding-top: 0;
+  --padding-bottom: 0;
+  --highlight-height: 0;
+  --highlight-color-focused: transparent;
+  --highlight-color-valid: transparent;
+  --highlight-color-invalid: transparent;
+  min-height: 120px;
+  margin-bottom: 10px;
+  transition: border-color 0.15s ease, background 0.15s ease;
+
+  &:focus-within {
+    border-color: var(--ssa-cta);
+    --background: var(--ssa-surface);
+  }
+}
+
+:host ::ng-deep .ssa-textarea::part(native) {
+  outline: none;
+  caret-color: var(--ssa-text);
+  resize: none;
+}
+
+.ssa-message-counter {
+  font-size: 0.78rem;
+  color: #8e8e8e;
+  margin: 0;
 }
 
 .actionsheet-content {
@@ -12,27 +214,57 @@
   --padding-end: 0;
 }
 
-.actionsheet-header {
-  &::after { display: none; }
+.ssa-toolbar {
+  display: grid;
+  grid-template-columns: 44px 1fr 44px;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 12px;
+  background: #fff;
+  border-bottom: 1px solid #e5e5ea;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  flex-shrink: 0;
 
-  .actionsheet-header-inner {
-    padding: 20px 20px 16px;
-    background: #fff;
-    border-bottom: 1px solid #e5e5ea;
+  &__side {
+    width: 44px;
+    height: 44px;
   }
 
-  h2 {
-    margin: 0 0 4px;
-    font-size: 18px;
+  &__title {
+    margin: 0;
+    font-size: 17px;
     font-weight: 700;
     color: #1c1c1e;
+    text-align: center;
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
-  .actionsheet-subtitle {
-    margin: 0;
-    font-size: 13px;
-    color: #717171;
-    line-height: 1.4;
+  &__close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: none;
+    border-radius: 12px;
+    background: transparent;
+    color: #1c1c1e;
+    cursor: pointer;
+    transition: background 0.15s ease;
+
+    ion-icon {
+      font-size: 24px;
+    }
+
+    &:hover {
+      background: #f2f2f7;
+    }
   }
 }
 
@@ -63,36 +295,71 @@
   p { margin: 0; font-size: 14px; color: #717171; line-height: 1.5; }
 }
 
-.actionsheet-search {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.actionsheet-search-wrap {
+  padding: 12px 20px 16px;
   background: #fff;
   border-bottom: 1px solid #e5e5ea;
-  padding: 10px 16px;
 
-  ion-icon { font-size: 17px; color: #86868b; flex-shrink: 0; }
-
-  .actionsheet-search-input {
-    flex: 1;
-    border: none;
-    background: transparent;
-    font-size: 15px;
-    color: #1c1c1e;
-    outline: none;
-
-    &::placeholder { color: #aeaeb2; }
+  .ssa-inner--mass-message & {
+    padding-left: 24px;
+    padding-right: 24px;
+    background: var(--ssa-surface);
+    border-bottom-color: var(--ssa-border);
   }
+}
 
-  .actionsheet-search-clear {
-    background: none;
-    border: none;
-    padding: 0;
-    cursor: pointer;
+.actionsheet-search-pill {
+  display: flex;
+  align-items: center;
+  height: 44px;
+  border-radius: 22px;
+  background: #f7f7f7;
+  border: 2px solid #222222;
+  box-sizing: border-box;
+  overflow: hidden;
+
+  &__icon {
+    flex-shrink: 0;
+    width: 40px;
+    font-size: 16px;
+    color: #717171;
     display: flex;
     align-items: center;
+    justify-content: center;
+    pointer-events: none;
+  }
 
-    ion-icon { font-size: 18px; color: #aeaeb2; }
+  &__input {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    padding: 0 12px 0 0;
+    border: none;
+    background: transparent;
+    font-size: 14px;
+    outline: none;
+    color: #222222;
+
+    &::placeholder {
+      color: #717171;
+    }
+  }
+
+  &__clear {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-right: 12px;
+    padding: 0;
+    border: none;
+    background: none;
+    cursor: pointer;
+
+    ion-icon {
+      font-size: 18px;
+      color: #717171;
+    }
   }
 }
 
@@ -103,6 +370,12 @@
   padding: 10px 20px;
   background: #f5f5f7;
   cursor: pointer;
+
+  .ssa-inner--mass-message & {
+    padding-left: 24px;
+    padding-right: 24px;
+    background: var(--ssa-surface);
+  }
 
   span {
     font-size: 13px;
@@ -132,6 +405,10 @@
 
 .students-list {
   background: #fff;
+
+  .ssa-inner--mass-message & {
+    background: var(--ssa-surface);
+  }
 }
 
 .student-item {
@@ -142,6 +419,12 @@
   border-bottom: 1px solid #f5f5f7;
   cursor: pointer;
   transition: background 0.12s ease;
+
+  .ssa-inner--mass-message & {
+    padding-left: 24px;
+    padding-right: 24px;
+    border-bottom-color: var(--ssa-border);
+  }
 
   &:active, &.selected { background: #f9f9fb; }
 
@@ -177,15 +460,6 @@
     font-size: 15px;
     font-weight: 600;
     color: #1c1c1e;
-  }
-
-  .student-email {
-    display: block;
-    font-size: 12px;
-    color: #86868b;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
 
   .student-access-pill {
@@ -243,6 +517,30 @@
     border-top: 1px solid #e5e5ea;
   }
 
+  :host-context(.actionsheet-content--mass-message) &,
+  .actionsheet-content--mass-message ~ & {
+    .actionsheet-footer-inner {
+      background: var(--ssa-surface);
+      border-top-color: var(--ssa-border);
+      padding-left: 24px;
+      padding-right: 24px;
+    }
+  }
+
+  &--mass-message {
+    .actionsheet-footer-inner {
+      background: var(--ssa-surface);
+      border-top-color: var(--ssa-border);
+      padding-left: 24px;
+      padding-right: 24px;
+    }
+
+    .done-btn {
+      border-radius: 14px;
+      height: 52px;
+    }
+  }
+
   .cancel-btn {
     flex: 1;
     min-width: 0;
@@ -284,4 +582,14 @@
       &:hover:not(:disabled) { background: #b91c1c; opacity: 1; }
     }
   }
+}
+
+html.ion-palette-dark :host {
+  --ssa-cta: #4298d2;
+  --ssa-cta-text: #fff;
+  --ssa-border: #3a3a3c;
+  --ssa-text: var(--ion-text-color, #f5f5f7);
+  --ssa-muted: #9b9ba0;
+  --ssa-surface: var(--ion-background-color, #1c1c1e);
+  --ssa-textarea-bg: #2c2c2e;
 }

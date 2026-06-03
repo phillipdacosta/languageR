@@ -3,40 +3,37 @@
     <ion-refresher-content></ion-refresher-content>
   </ion-refresher>
 
-  <!-- Sticky header: sticks to the top of the ion-content scroll area -->
-  <div class="lessons-sticky-header">
-    <div class="lessons-sticky-inner">
-      <h1 class="page-title">{{ 'LESSONS_PAGE.PAGE_TITLE' | translate }}</h1>
+  <div class="lessons-container">
+    <div class="lessons-layout">
+      <aside class="lessons-layout__sidebar" aria-label="Lessons filters">
+        <h1 class="lessons-layout__page-title">{{ 'LESSONS_PAGE.PAGE_TITLE' | translate }}</h1>
 
-      <!-- Airbnb-style Filters Trigger -->
-      <div class="filters-trigger-container">
-        <button class="filters-trigger-btn" (click)="openFiltersModal()">
-          <ion-icon name="options-outline"></ion-icon>
-          <span>{{ 'LESSONS_PAGE.FILTERS' | translate }}</span>
-          <span class="filter-count" *ngIf="activeFilterCount > 0">{{ activeFilterCount }}</span>
-        </button>
+        <div class="lessons-layout__filters">
+          <button class="filters-trigger-btn" (click)="openFiltersModal()">
+            <ion-icon name="options-outline"></ion-icon>
+            <span>{{ 'LESSONS_PAGE.FILTERS' | translate }}</span>
+            <span class="filter-count" *ngIf="activeFilterCount > 0">{{ activeFilterCount }}</span>
+          </button>
 
-        <!-- Active Filter Chips -->
-        <div class="active-filters-preview" *ngIf="activeFilterCount > 0">
-          <span class="filter-chip-preview" *ngIf="statusFilterLabel">
-            {{ statusFilterLabel }}
-          </span>
-          <span class="filter-chip-preview" *ngIf="timeFilterLabel">
-            {{ timeFilterLabel }}
-          </span>
-          <span class="filter-chip-preview" *ngIf="participantFilterLabel">
-            {{ participantFilterLabel }}
-          </span>
+          <div class="active-filters-preview" *ngIf="activeFilterCount > 0">
+            <span class="filter-chip-preview" *ngIf="statusFilterLabel">
+              {{ statusFilterLabel }}
+            </span>
+            <span class="filter-chip-preview" *ngIf="timeFilterLabel">
+              {{ timeFilterLabel }}
+            </span>
+            <span class="filter-chip-preview" *ngIf="participantFilterLabel">
+              {{ participantFilterLabel }}
+            </span>
+          </div>
+
+          <button class="clear-all-inline" *ngIf="activeFilterCount > 0" (click)="clearSecondaryFilters()">
+            {{ 'LESSONS_PAGE.CLEAR_ALL' | translate }}
+          </button>
         </div>
+      </aside>
 
-        <button class="clear-all-inline" *ngIf="activeFilterCount > 0" (click)="clearSecondaryFilters()">
-          {{ 'LESSONS_PAGE.CLEAR_ALL' | translate }}
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <div class="lessons-page">
+      <main class="lessons-layout__main">
 
     <!-- Loading State -->
     <div class="loading-container" *ngIf="isLoading">
@@ -240,6 +237,8 @@
     <div class="end-message" *ngIf="!isLoading && processedDisplayed.length > 0 && !hasMoreLessonsAvailable">
       <p>{{ 'LESSONS_PAGE.THATS_EVERYTHING' | translate }}</p>
     </div>
+      </main>
+    </div>
   </div>
 </ion-content>
 
@@ -251,12 +250,12 @@
   <ng-template>
     <ion-header class="lf-header ion-no-border">
       <ion-toolbar>
-        <ion-buttons slot="start">
+        <ion-title>{{ 'LESSONS_PAGE.MODAL_FILTERS_TITLE' | translate }}</ion-title>
+        <ion-buttons slot="end">
           <ion-button (click)="closeFiltersModal()" class="lf-close-btn">
             <ion-icon name="close" slot="icon-only"></ion-icon>
           </ion-button>
         </ion-buttons>
-        <ion-title>{{ 'LESSONS_PAGE.MODAL_FILTERS_TITLE' | translate }}</ion-title>
       </ion-toolbar>
     </ion-header>
 

@@ -108,6 +108,9 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
   // Virtual background properties
   showVirtualBackgroundControls = false;
   isVirtualBackgroundEnabled = false;
+
+  // Tutor-facing recording/privacy disclosure (collapsed by default)
+  showRecordingInfo = false;
   
   // Previous Lesson Notes (tutor + student). Single state drives the card so
   // "no notes", "still generating", "waiting on tutor" and "load error" never

@@ -12,6 +12,7 @@ import { formatTimeInTz, formatDateInTz } from '../shared/timezone.utils';
 import { PlatformService } from '../services/platform.service';
 import { ClassInvitationModalComponent } from '../components/class-invitation-modal/class-invitation-modal.component';
 import { PaymentDisputeModalComponent } from '../components/payment-dispute-modal/payment-dispute-modal.component';
+import { getNotificationNavigationTarget } from '../shared/notification-navigation.util';
 
 // 🚀 PERFORMANCE FIX: Type for cached, formatted notifications
 interface FormattedNotification extends Notification {
@@ -218,43 +219,19 @@ export class NotificationsPage implements OnDestroy {
       });
     }
 
-    if (notification.type === 'lesson_created' && notification.data?.lessonId) {
-      // Navigate to lessons page with lesson ID to scroll to
-      this.router.navigate(['/tabs/lessons'], { 
-        queryParams: { 
-          scrollToLesson: notification.data.lessonId 
-        } 
-      });
-    } else if (notification.type === 'lesson_analysis_ready' && notification.data?.lessonId) {
-      // Navigate to lesson analysis page
-      this.router.navigate(['/lesson-analysis', notification.data.lessonId]);
-    } else if (notification.type === 'class_invitation' && notification.data?.classId) {
-      // Open class invitation modal
-      this.openClassInvitation(notification.data.classId, notification);
-    } else if (notification.type === 'message' && notification.data?.conversationId) {
-      this.router.navigate(['/tabs/messages', notification.data.conversationId]);
-    } else if (notification.type === 'payment_received' && notification.data?.lessonId) {
-      // Navigate to earnings page with lesson ID to scroll to
-      this.router.navigate(['/tabs/home/earnings'], { 
-        queryParams: { 
-          scrollToLesson: notification.data.lessonId 
-        } 
-      });
-    } else if (notification.type === 'tutor_video_approved' && notification.data?.actionRoute) {
-      // Navigate to the action route (e.g., tutor calendar for availability)
-      this.router.navigate([notification.data.actionRoute]);
-    } else if (notification.type === 'lesson_completed' && notification.data?.lessonId) {
-      // Student notification - Navigate to post-lesson page or lesson analysis
-      if (notification.data?.action === 'view_analysis') {
-        this.router.navigate(['/post-lesson-student', notification.data.lessonId]);
-      } else {
-        this.router.navigate(['/lesson-analysis', notification.data.lessonId]);
-      }
-    } else if (notification.type === 'feedback_reminder' && notification.data?.lessonId) {
-      this.router.navigate(['/post-lesson-tutor', notification.data.lessonId]);
-    } else if ((notification.type === 'material_rejected' || notification.type === 'material_approved' || notification.type === 'material_shared') && notification.data?.materialId) {
-      this.router.navigate(['/material', notification.data.materialId]);
+    const target = getNotificationNavigationTarget(notification);
+    if (!target) {
+      return;
     }
+
+    if (target.kind === 'class_invitation') {
+      void this.openClassInvitation(target.classId, notification);
+      return;
+    }
+
+    this.router.navigate(target.commands, {
+      queryParams: target.queryParams,
+    });
   }
 
   navigateToTutorCalendar() {

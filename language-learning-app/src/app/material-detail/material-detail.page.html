@@ -5,7 +5,8 @@
         <ion-icon name="chevron-back-outline" aria-hidden="true"></ion-icon>
       </button>
       <div class="app-icon-container md-toolbar-brand md-toolbar-brand-desktop" (click)="goHome()">
-        <img src="assets/icons-app-bird-2.png" alt="Barnabi" class="app-icon">
+        <img src="assets/mascot-toolbar.png" alt="Barnabi" class="app-icon app-icon--mascot barnabi-mascot-for-light-ui" width="48" height="48" decoding="sync">
+        <img src="assets/mascot-toolbar-dark.png" alt="" class="app-icon app-icon--mascot barnabi-mascot-for-dark-ui" width="48" height="48" decoding="sync" aria-hidden="true">
         <img src="assets/barnabi-logo.png" alt="Barnabi" class="app-name-logo barnabi-wordmark-for-light-ui" />
         <img src="assets/barnabi-logo-wordmark-white.png" alt="" class="app-name-logo barnabi-wordmark-for-dark-ui" aria-hidden="true" />
       </div>
@@ -39,7 +40,6 @@
       <ion-icon [name]="accessRevoked ? 'lock-closed-outline' : 'alert-circle-outline'"></ion-icon>
       <h3 class="md-error-title" *ngIf="errorTitle">{{ errorTitle }}</h3>
       <p>{{ error }}</p>
-      <button class="md-btn-secondary" (click)="goBack()">{{ 'MATERIAL_DETAIL.GO_BACK' | translate }}</button>
     </div>
 
     <!-- Material content -->
@@ -66,8 +66,9 @@
         <!-- LEFT: Main content -->
         <div class="md-main" [@collapseLeft]="leftPanelHidden ? 'hidden' : 'visible'">
 
+          <div [class.md-content-card]="hasQuizSidebar">
           <!-- Media -->
-          <div class="md-media-wrap">
+          <div class="md-media-wrap" [class.md-media-wrap--in-card]="hasQuizSidebar">
             <div class="md-hero-thumb" *ngIf="material.thumbnailUrl && material.materialType !== 'reading' && material.materialType !== 'video_quiz'">
               <img [src]="material.thumbnailUrl" [alt]="material.title" />
             </div>
@@ -103,15 +104,41 @@
               <audio controls [src]="material.audioUrl">Your browser does not support audio playback.</audio>
             </div>
             <div class="md-passage-section" *ngIf="material.materialType === 'reading' && material.passage">
-              <div class="md-passage-text">
-                <h2 class="md-passage-label">Reading Passage</h2>
+              <div class="md-passage-header" *ngIf="hasQuizSidebar">
+                <ion-icon name="book-outline"></ion-icon>
+                <span>{{ 'MATERIAL_DETAIL.READING_PASSAGE' | translate }}</span>
+              </div>
+              <div class="md-passage-divider" *ngIf="hasQuizSidebar"></div>
+              <div class="md-passage-text" [class.md-passage-text--card]="hasQuizSidebar">
+                <h2 class="md-passage-label" *ngIf="!hasQuizSidebar">Reading Passage</h2>
                 <div [innerHTML]="material.passage"></div>
               </div>
             </div>
           </div>
 
+          <!-- Card footer (quiz sidebar layout) -->
+          <div class="md-content-card-footer" *ngIf="hasQuizSidebar">
+            <div class="md-content-card-title-row">
+              <ion-icon name="key-outline"></ion-icon>
+              <h1 class="md-title">{{ material.title }}</h1>
+            </div>
+            <div class="md-content-card-meta-row">
+              <div class="md-meta-row">
+                <span class="md-type-badge">{{ typeLabel }}</span>
+                <span class="md-badge">{{ material.language }}</span>
+                <span class="md-badge">{{ levelLabel }}</span>
+                <span class="md-badge" *ngIf="material.pricingType === 'free'">Free</span>
+                <span class="md-badge paid" *ngIf="material.pricingType === 'paid'">${{ material.price }}</span>
+              </div>
+              <button type="button" class="md-hide-btn" (click)="toggleLeftPanel()">
+                <ion-icon name="eye-off-outline"></ion-icon>
+                {{ 'MATERIAL_DETAIL.HIDE_PREVIEW' | translate }}
+              </button>
+            </div>
+          </div>
+
           <!-- Info below media -->
-          <div class="md-info-section">
+          <div class="md-info-section" *ngIf="!hasQuizSidebar">
             <h1 class="md-title">{{ material.title }}</h1>
 
             <div class="md-meta-row">
@@ -120,10 +147,6 @@
               <span class="md-badge">{{ levelLabel }}</span>
               <span class="md-badge" *ngIf="material.pricingType === 'free'">Free</span>
               <span class="md-badge paid" *ngIf="material.pricingType === 'paid'">${{ material.price }}</span>
-              <button type="button" class="md-hide-btn" *ngIf="hasQuizSidebar" (click)="toggleLeftPanel()">
-                <ion-icon name="eye-off-outline"></ion-icon>
-                Hide
-              </button>
             </div>
 
             <div class="md-divider"></div>
@@ -182,6 +205,7 @@
               Report a problem
             </button>
           </div>
+          </div>
         </div>
 
         <!-- RIGHT: Quiz sidebar -->
@@ -193,8 +217,8 @@
           <div class="md-quiz-card">
             <!-- Idle: quiz details -->
             <div class="md-quiz-idle" *ngIf="quizMode === 'idle'">
-              <div class="md-quiz-idle-icon">
-                <ion-icon name="school-outline"></ion-icon>
+              <div class="md-quiz-idle-hero">
+                <img src="assets/material-quiz-hero.png" alt="" class="md-quiz-hero-img" />
               </div>
               <div class="md-quiz-header">
                 <h3 class="md-quiz-type">{{ typeLabel }}</h3>
@@ -207,7 +231,7 @@
                   <span>{{ material.stats.views }} views</span>
                 </div>
                 <div class="md-quiz-stat-pill">
-                  <ion-icon name="school-outline"></ion-icon>
+                  <ion-icon name="layers-outline"></ion-icon>
                   <span>{{ material.stats.quizAttempts }} attempts</span>
                 </div>
                 <div class="md-quiz-stat-pill" *ngIf="material.stats.averageScore > 0">
@@ -228,7 +252,10 @@
               </div>
 
               <p class="md-quiz-why" *ngIf="material.whyTakeThis">{{ material.whyTakeThis }}</p>
-              <p class="md-quiz-owner-note" *ngIf="isTutorOwner">Preview — you're the owner. Students see Start Quiz here.</p>
+              <div class="md-quiz-preview-banner" *ngIf="isMaterialPreviewing">
+                <ion-icon name="information-circle-outline"></ion-icon>
+                <span>{{ 'MATERIAL_DETAIL.PREVIEW_MODE_BANNER' | translate }}</span>
+              </div>
             </div>
 
             <!-- Taking: current question -->
@@ -340,16 +367,18 @@
                 </div>
               </div>
             </div>
-          </div>
 
           <!-- Action button -->
           <div class="md-quiz-actions">
             <button class="md-btn-secondary md-prev-btn" *ngIf="quizMode === 'taking' && currentQuestionIndex > 0" (click)="prevQuestion()">
               Previous
             </button>
-            <button class="md-btn-primary md-action-btn" *ngIf="quizMode === 'idle' && (!material.quizLocked || isTutorOwner)" (click)="startQuiz()" [disabled]="isCheckingMedia">
+            <button class="md-btn-primary md-btn-start md-action-btn" *ngIf="quizMode === 'idle' && (!material.quizLocked || isTutorOwner)" (click)="startQuiz()" [disabled]="isCheckingMedia">
               <ion-spinner *ngIf="isCheckingMedia" name="crescent" class="md-spinner"></ion-spinner>
-              <ng-container *ngIf="!isCheckingMedia">Start Quiz</ng-container>
+              <ng-container *ngIf="!isCheckingMedia">
+                <span>{{ 'ALERTS.MATERIAL.START_QUIZ' | translate }}</span>
+                <ion-icon name="arrow-forward-outline"></ion-icon>
+              </ng-container>
             </button>
             <button class="md-btn-primary md-btn-purchase md-action-btn" *ngIf="quizMode === 'idle' && material.quizLocked && !isTutorOwner" (click)="purchaseQuiz()" [disabled]="isPurchasing">
               <ion-spinner *ngIf="isPurchasing" name="crescent" class="md-spinner"></ion-spinner>
@@ -366,6 +395,7 @@
               <button class="md-btn-secondary" (click)="retakeQuiz()">Retake Quiz</button>
               <button class="md-btn-primary" (click)="goBack()">Done</button>
             </div>
+          </div>
           </div>
         </aside>
       </div>

@@ -40,6 +40,8 @@ import { TranslateService } from '@ngx-translate/core';
 export class MaterialDetailPage implements OnInit, OnDestroy {
   /** Rendered inside desktop home materials modal (child of /tabs/home). */
   embedInHomeMaterialsModal = false;
+  /** Opened from the messages thread (shows a top-right close button). */
+  fromMessages = false;
 
   @HostBinding('class.md-embed-in-modal')
   get mdEmbedHostClass(): boolean {
@@ -107,6 +109,7 @@ export class MaterialDetailPage implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.embedInHomeMaterialsModal = !!this.route.snapshot.data['embedInHomeMaterialsModal'];
+    this.fromMessages = this.route.snapshot.queryParamMap.get('from') === 'messages';
     this.userService.currentUser$.subscribe(u => {
       this.currentUser = u;
       if (u) this.isAuthenticated = true;
@@ -157,6 +160,7 @@ export class MaterialDetailPage implements OnInit, OnDestroy {
           this.isTutorOwner = this.currentUser?.id === tutorId || this.currentUser?._id === tutorId;
           if (
             !this.embedInHomeMaterialsModal &&
+            !this.fromMessages &&
             this.isTutorOwner &&
             !this.platformService.isMobile()
           ) {
@@ -327,6 +331,14 @@ export class MaterialDetailPage implements OnInit, OnDestroy {
     }
   }
 
+  /** Tutor previewing content before starting the quiz (not embedded home management view). */
+  get isMaterialPreviewing(): boolean {
+    if (this.quizMode !== 'idle' || !this.isTutorOwner) return false;
+    if (this.material?.status === 'draft') return true;
+    if (this.fromMessages) return true;
+    return !this.embedInHomeMaterialsModal;
+  }
+
   // ── Quiz flow ──────────────────────────────────────────
 
   isCheckingMedia = false;
@@ -384,7 +396,7 @@ export class MaterialDetailPage implements OnInit, OnDestroy {
       cssClass: 'md-quiz-confirm-alert',
       buttons: [
         { text: 'Cancel', role: 'cancel' },
-        { text: 'Start Quiz', cssClass: 'alert-button-confirm', handler: () => true }
+        { text: this.translate.instant('ALERTS.MATERIAL.START_QUIZ'), cssClass: 'alert-button-confirm', handler: () => true }
       ]
     });
     await confirm.present();

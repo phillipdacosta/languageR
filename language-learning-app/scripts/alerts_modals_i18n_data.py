@@ -206,7 +206,7 @@ ALERTS_EN: dict = {
         "QUIZ_START_HEADER": "Ready to start?",
         "QUIZ_START_MSG": "This quiz has {{count}} question. You can review the content while answering. Good luck!",
         "QUIZ_START_MSG_PLURAL": "This quiz has {{count}} questions. You can review the content while answering. Good luck!",
-        "START_QUIZ": "Start Quiz",
+        "START_QUIZ": "Start",
         "VIDEO_UNAVAILABLE_HEADER": "Video Unavailable",
         "VIDEO_UNAVAILABLE_MSG": "The video for this material has been removed by the tutor. We've been notified and will process a refund if you purchased this quiz.",
         "REPORT_PROBLEM": "Report Problem",

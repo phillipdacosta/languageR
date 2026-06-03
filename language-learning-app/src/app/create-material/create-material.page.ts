@@ -1,6 +1,6 @@
 import { Component, OnInit, OnDestroy, Input, Output, EventEmitter, ChangeDetectorRef, HostBinding, ElementRef } from '@angular/core';
 import { animate, style, transition, trigger } from '@angular/animations';
-import { Subscription } from 'rxjs';
+import { Subscription, firstValueFrom } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, FormArray, Validators } from '@angular/forms';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
@@ -10,6 +10,7 @@ import { MaterialService, CreateMaterialPayload, QuizQuestion, QuestionType, Mat
 import { BundleService, ContentBundle, CreateBundlePayload } from '../services/bundle.service';
 import { UserService } from '../services/user.service';
 import { LessonService } from '../services/lesson.service';
+import { MessagingService, SharedMaterialCard } from '../services/messaging.service';
 import { StudentSelectionActionsheetComponent, SelectableStudent } from '../components/student-selection-actionsheet/student-selection-actionsheet.component';
 import { SharedModule } from '../shared/shared.module';
 import { ImageCropperComponent } from '../components/image-cropper/image-cropper.component';
@@ -158,6 +159,7 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
   justPublishedId: string | null = null;
   visibilityUpdatingId: string | null = null;
   sharingMaterialId: string | null = null;
+  loadingShareStudentsMaterialId: string | null = null;
   loadingShareStudents = false;
   shareableStudents: SelectableStudent[] = [];
   copiedLinkId: string | null = null;
@@ -307,6 +309,7 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     private materialService: MaterialService,
     private userService: UserService,
     private lessonService: LessonService,
+    private messagingService: MessagingService,
     private toastCtrl: ToastController,
     private alertCtrl: AlertController,
     private sanitizer: DomSanitizer,
@@ -1672,6 +1675,7 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
 
               studentMap.set(studentId, {
                 _id: studentId,
+                auth0Id: student.auth0Id || '',
                 name: this.formatShareableStudentName(student),
                 email: student.email || '',
                 picture: student.picture,
@@ -1693,58 +1697,82 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
   }
 
   async openShareStudentsModal(m: TutorMaterial) {
-    if (m.status !== 'published' || this.sharingMaterialId === m._id) {
+    if (
+      m.status !== 'published' ||
+      this.sharingMaterialId === m._id ||
+      this.loadingShareStudentsMaterialId === m._id
+    ) {
       return;
     }
 
-    await this.loadShareableStudentsAsync();
-
-    const sharedCount = m.sharedStudentIds?.length || 0;
-    const isManageMode = m.visibility === 'past_students' && sharedCount > 0;
-    const initialIds = (m.sharedStudentIds || []).map(id => id.toString());
-    const studentsForModal = this.shareableStudents.map(s => ({
-      ...s,
-      alreadyHasAccess: initialIds.includes(s._id),
-    }));
-
-    const isMobile = window.innerWidth <= 768;
-    const modalOpts: any = {
-      component: StudentSelectionActionsheetComponent,
-      componentProps: {
-        students: studentsForModal,
-        selectedStudentIds: m.sharedStudentIds || [],
-        isLoading: this.loadingShareStudents,
-        isManageMode,
-        alreadySharedCount: sharedCount,
-        materialTitle: m.title,
-        statusBannerText: isManageMode
-          ? this.translate.instant('CREATE_MATERIAL.SHARE_MODAL_ALREADY_SHARED', { count: sharedCount })
-          : '',
-        title: this.translate.instant(
-          isManageMode ? 'CREATE_MATERIAL.SHARE_MODAL_TITLE_MANAGE' : 'CREATE_MATERIAL.SHARE_MODAL_TITLE'
-        ),
-        subtitle: this.translate.instant(
-          isManageMode ? 'CREATE_MATERIAL.SHARE_MODAL_SUBTITLE_MANAGE' : 'CREATE_MATERIAL.SHARE_MODAL_SUBTITLE',
-          { title: m.title, count: sharedCount }
-        ),
-        confirmLabel: this.translate.instant(
-          isManageMode ? 'CREATE_MATERIAL.SHARE_MODAL_CONFIRM_UPDATE' : 'CREATE_MATERIAL.SHARE_MODAL_CONFIRM'
-        ),
-        allowRemoveAll: isManageMode,
-        removeAllLabel: this.translate.instant('CREATE_MATERIAL.SHARE_MODAL_CONFIRM_REMOVE_ALL'),
-      },
-      cssClass: 'share-students-modal',
-      showBackdrop: true,
-      backdropDismiss: true,
-    };
-
-    if (isMobile) {
-      modalOpts.breakpoints = [0, 0.5, 0.75, 1];
-      modalOpts.initialBreakpoint = 0.75;
+    const needsStudentFetch = this.shareableStudents.length === 0;
+    if (needsStudentFetch) {
+      this.loadingShareStudentsMaterialId = m._id;
+      this.cdr.markForCheck();
     }
 
-    const modal = await this.modalCtrl.create(modalOpts);
-    await modal.present();
+    let modal: HTMLIonModalElement | null = null;
+    try {
+      await this.loadShareableStudentsAsync();
+
+      const sharedCount = m.sharedStudentIds?.length || 0;
+      const isManageMode = m.visibility === 'past_students' && sharedCount > 0;
+      const initialIds = (m.sharedStudentIds || []).map(id => id.toString());
+      const studentsForModal = this.shareableStudents.map(s => ({
+        ...s,
+        alreadyHasAccess: initialIds.includes(s._id),
+      }));
+
+      const isMobile = window.innerWidth <= 768;
+      const modalOpts: any = {
+        component: StudentSelectionActionsheetComponent,
+        componentProps: {
+          students: studentsForModal,
+          selectedStudentIds: initialIds,
+          isLoading: false,
+          isManageMode,
+          alreadySharedCount: sharedCount,
+          materialTitle: m.title,
+          statusBannerText: isManageMode
+            ? this.translate.instant('CREATE_MATERIAL.SHARE_MODAL_ALREADY_SHARED', { count: sharedCount })
+            : '',
+          title: this.translate.instant(
+            isManageMode ? 'CREATE_MATERIAL.SHARE_MODAL_TITLE_MANAGE' : 'CREATE_MATERIAL.SHARE_MODAL_TITLE'
+          ),
+          subtitle: this.translate.instant(
+            isManageMode ? 'CREATE_MATERIAL.SHARE_MODAL_SUBTITLE_MANAGE' : 'CREATE_MATERIAL.SHARE_MODAL_SUBTITLE_WITH_MESSAGE',
+            { title: m.title, count: sharedCount }
+          ),
+          confirmLabel: this.translate.instant(
+            isManageMode ? 'CREATE_MATERIAL.SHARE_MODAL_CONFIRM_UPDATE' : 'CREATE_MATERIAL.SHARE_MODAL_CONFIRM'
+          ),
+          allowRemoveAll: isManageMode,
+          removeAllLabel: this.translate.instant('CREATE_MATERIAL.SHARE_MODAL_CONFIRM_REMOVE_ALL'),
+          enableMassMessage: true,
+        },
+        cssClass: 'share-students-modal',
+        showBackdrop: true,
+        backdropDismiss: true,
+      };
+
+      if (isMobile) {
+        modalOpts.breakpoints = [0, 0.5, 0.75, 1];
+        modalOpts.initialBreakpoint = 0.75;
+      }
+
+      modal = await this.modalCtrl.create(modalOpts);
+      await modal.present();
+    } finally {
+      if (needsStudentFetch) {
+        this.loadingShareStudentsMaterialId = null;
+        this.cdr.markForCheck();
+      }
+    }
+
+    if (!modal) {
+      return;
+    }
+
     const { data } = await modal.onWillDismiss();
     if (!data || !Array.isArray(data.selectedIds)) {
       return;
@@ -1758,7 +1786,7 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
       return;
     }
 
-    this.applyShareWithStudents(m, data.selectedIds);
+    this.applyShareWithStudents(m, data.selectedIds, data.messageText, data.selectedAuth0Ids);
   }
 
   async confirmUnshareAll(m: TutorMaterial): Promise<boolean> {
@@ -1799,7 +1827,7 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     });
   }
 
-  applyShareWithStudents(m: TutorMaterial, studentIds: string[]) {
+  applyShareWithStudents(m: TutorMaterial, studentIds: string[], messageText?: string, auth0Ids?: string[]) {
     this.sharingMaterialId = m._id;
     this.cdr.markForCheck();
     this.materialService.shareWithStudents(m._id, studentIds).subscribe({
@@ -1809,6 +1837,20 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
           m.visibility = 'past_students';
           m.sharedStudentIds = studentIds;
           void this.showTranslatedToast('CREATE_MATERIAL.PUBLISH_SHARED_DONE', { count: studentIds.length });
+          // Always notify each student with a material card (note optional).
+          const trimmed = (messageText || '').trim();
+          const recipientIds = (auth0Ids && auth0Ids.length === studentIds.length)
+            ? auth0Ids
+            : studentIds;
+          const materialCard: SharedMaterialCard = {
+            materialId: m._id,
+            title: m.title,
+            thumbnailUrl: m.thumbnailUrl || null,
+            materialType: m.materialType || null,
+            level: m.level || null,
+            language: m.language || null,
+          };
+          void this.sendMassMessagesToStudents(recipientIds, trimmed, materialCard);
         }
         this.cdr.markForCheck();
       },
@@ -1818,6 +1860,31 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
         this.cdr.markForCheck();
       },
     });
+  }
+
+  private async sendMassMessagesToStudents(studentIds: string[], body: string, material?: SharedMaterialCard): Promise<void> {
+    const messageType = material ? 'material' : 'text';
+    let succeeded = 0;
+    for (const id of studentIds) {
+      try {
+        await firstValueFrom(this.messagingService.sendMessage(id, body, messageType, undefined, material));
+        succeeded += 1;
+      } catch {
+        // Continue sending to remaining students.
+      }
+    }
+    if (succeeded === studentIds.length) {
+      void this.showTranslatedToast('CREATE_MATERIAL.TOAST_MASS_MESSAGE_SENT', { count: succeeded });
+      return;
+    }
+    if (succeeded > 0) {
+      void this.showTranslatedToast('CREATE_MATERIAL.TOAST_MASS_MESSAGE_PARTIAL', {
+        sent: succeeded,
+        total: studentIds.length,
+      });
+      return;
+    }
+    void this.showTranslatedToast('CREATE_MATERIAL.TOAST_MASS_MESSAGE_FAILED');
   }
 
   // ── Thumbnail ─────────────────────────────────────────

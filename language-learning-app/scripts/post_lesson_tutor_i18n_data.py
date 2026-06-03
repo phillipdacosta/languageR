@@ -11,6 +11,8 @@ POST_LESSON_TUTOR_EN = {
     "GRAMMAR": "Grammar",
     "AI_ANALYSIS_TITLE": "AI analysis in progress",
     "AI_ANALYSIS_DESC": "Your note is optional but recommended — a personal touch helps your student even more.",
+    "WHY_REQUIRED_TITLE": "Why your feedback is required",
+    "WHY_REQUIRED_DESC": "{{name}} has AI analysis turned off, so your note is the only input to their learning journey. That's why it's required for this lesson.",
     "COUNTDOWN_TITLE": "Submit within {{time}}",
     "COUNTDOWN_EXPIRED_TITLE": "Profile hidden from students",
     "COUNTDOWN_DESC": "Your profile will be hidden from search and bookings if feedback isn't submitted in time.",

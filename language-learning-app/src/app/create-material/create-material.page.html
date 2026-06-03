@@ -457,12 +457,12 @@
                 class="cm-btn-share-students"
                 *ngIf="m.status === 'published'"
                 [class.cm-btn-share-students--done]="m.visibility === 'past_students' && (m.sharedStudentIds?.length || 0) > 0"
-                [disabled]="sharingMaterialId === m._id || visibilityUpdatingId === m._id"
+                [disabled]="sharingMaterialId === m._id || loadingShareStudentsMaterialId === m._id || visibilityUpdatingId === m._id"
                 (click)="openShareStudentsModal(m)">
-                <ion-spinner *ngIf="sharingMaterialId === m._id" name="crescent" class="cm-spinner-sm"></ion-spinner>
-                <ion-icon *ngIf="sharingMaterialId !== m._id" [name]="(m.visibility === 'past_students' && (m.sharedStudentIds?.length || 0) > 0) ? 'checkmark-circle-outline' : 'people-outline'"></ion-icon>
-                <span *ngIf="m.visibility !== 'past_students' || !(m.sharedStudentIds?.length || 0)">{{ 'CREATE_MATERIAL.SHARE_WITH_STUDENTS' | translate }}</span>
-                <span *ngIf="m.visibility === 'past_students' && (m.sharedStudentIds?.length || 0) > 0">{{ 'CREATE_MATERIAL.SHARE_CARD_MANAGE_COUNT' | translate:{ count: m.sharedStudentIds?.length || 0 } }}</span>
+                <ion-spinner *ngIf="sharingMaterialId === m._id || loadingShareStudentsMaterialId === m._id" name="crescent" class="cm-spinner-sm"></ion-spinner>
+                <ion-icon *ngIf="sharingMaterialId !== m._id && loadingShareStudentsMaterialId !== m._id" [name]="(m.visibility === 'past_students' && (m.sharedStudentIds?.length || 0) > 0) ? 'checkmark-circle-outline' : 'people-outline'"></ion-icon>
+                <span *ngIf="sharingMaterialId !== m._id && loadingShareStudentsMaterialId !== m._id && (m.visibility !== 'past_students' || !(m.sharedStudentIds?.length || 0))">{{ 'CREATE_MATERIAL.SHARE_WITH_STUDENTS' | translate }}</span>
+                <span *ngIf="sharingMaterialId !== m._id && loadingShareStudentsMaterialId !== m._id && m.visibility === 'past_students' && (m.sharedStudentIds?.length || 0) > 0">{{ 'CREATE_MATERIAL.SHARE_CARD_MANAGE_COUNT' | translate:{ count: m.sharedStudentIds?.length || 0 } }}</span>
               </button>
 
               <div class="cm-mc-card-footer">

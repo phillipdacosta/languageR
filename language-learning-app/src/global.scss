@@ -245,11 +245,11 @@ ion-input.modern-input {
 ion-modal.share-students-modal {
   --z-index: 100010;
   z-index: 100010;
-  --width: min(480px, 95vw);
-  --max-width: 480px;
-  --height: min(560px, 80vh);
-  --min-height: 420px;
-  --max-height: 80vh;
+  --width: min(560px, 96vw);
+  --max-width: 560px;
+  --height: min(720px, 92vh);
+  --min-height: 620px;
+  --max-height: 92vh;
   --border-radius: 20px;
   --box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
   --backdrop-opacity: 0.45;
@@ -267,7 +267,7 @@ ion-modal.share-students-modal {
     min-height: 0;
     height: 100%;
 
-    ion-header {
+    .ssa-top-chrome {
       flex-shrink: 0;
     }
 
@@ -284,8 +284,8 @@ ion-modal.share-students-modal {
   @media (max-width: 768px) {
     --width: 100%;
     --max-width: 100%;
-    --height: min(640px, 85vh);
-    --min-height: 360px;
+    --height: min(720px, 92vh);
+    --min-height: 480px;
     --border-radius: 20px 20px 0 0;
     align-items: flex-end;
   }
@@ -367,6 +367,11 @@ ion-modal.withdrawal-modal {
   ion-content {
     flex: 1;
     min-height: 0;
+    --overflow: hidden;
+
+    &::part(scroll) {
+      overflow: hidden;
+    }
   }
 
   ion-footer.withdrawal-modal-footer {
@@ -396,8 +401,8 @@ ion-modal.withdrawal-modal.withdrawal-modal--home-context {
 }
 
 .ion-palette-dark ion-modal.withdrawal-modal {
-  --background: #000000;
-  --ion-background-color: #000000;
+  --background: #242426;
+  --ion-background-color: #242426;
 }
 
 .ion-palette-dark ion-modal.withdrawal-modal.withdrawal-modal--home-context {
@@ -3433,23 +3438,39 @@ html.ion-palette-dark {
 
   // ── Withdrawal Modal (overlay — must be in global.scss) ───────
   .withdrawal-modal {
-    --background: #000000 !important;
+    --background: #242426 !important;
 
-    ion-content { --background: #000000 !important; }
+    ion-content { --background: #242426 !important; }
 
-    .floating-close-button {
+    .floating-close-button,
+    .modal-header-close {
       --color: #8e8e93 !important;
+      --background: rgba(255, 255, 255, 0.1) !important;
+      --background-hover: rgba(255, 255, 255, 0.16) !important;
+
       &:hover { --color: #f5f5f7 !important; }
     }
 
     .modal-header {
-      .icon-wrapper { background: #008A05 !important; }
+      .icon-wrapper:not(.icon-wrapper--lottie) {
+        background: #008A05 !important;
+      }
+
+      .icon-wrapper--lottie {
+        background: transparent !important;
+
+        dotlottie-player,
+        .withdrawal-header-lottie {
+          background: transparent !important;
+        }
+      }
+
       .modal-heading { color: #f5f5f7 !important; }
       .modal-description { color: #8e8e93 !important; }
     }
 
     .fee-breakdown-card {
-      background: #141414 !important;
+      background: #2c2c2e !important;
       border: none !important;
 
       .breakdown-row {
@@ -3471,7 +3492,7 @@ html.ion-palette-dark {
         border: none !important;
 
         .no-fee-badge {
-          background: #1c1c1e !important;
+          background: #3a3a3c !important;
 
           ion-icon,
           span {
@@ -3503,8 +3524,8 @@ html.ion-palette-dark {
     .amount-section {
       .section-label { color: #f5f5f7 !important; }
       .amount-input-wrapper {
-        background: #333336 !important;
-        border: 1px solid rgba(255, 255, 255, 0.15) !important;
+        background: #2c2c2e !important;
+        border: 1px solid rgba(255, 255, 255, 0.12) !important;
         &:focus-within { border-color: #f5f5f7 !important; }
         .currency-symbol { color: #f5f5f7 !important; }
         .amount-input {
@@ -3527,10 +3548,10 @@ html.ion-palette-dark {
       .section-label,
       .method-card-inline-label { color: #f5f5f7 !important; }
       .method-card {
-        background: #141414 !important;
+        background: #2c2c2e !important;
         border: none !important;
-        &:hover { background: #1c1c1e !important; }
-        &.selected { background: #1c1c1e !important; }
+        &:hover { background: #3a3a3c !important; }
+        &.selected { background: #3a3a3c !important; }
         .method-info {
           .method-name { color: #f5f5f7 !important; }
           .method-detail { color: #8e8e93 !important; }
@@ -3550,9 +3571,9 @@ html.ion-palette-dark {
     }
 
     ion-footer.withdrawal-modal-footer {
-      --background: #000000 !important;
-      background: #000000 !important;
-      border-top: none !important;
+      --background: #242426 !important;
+      background: #242426 !important;
+      border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
       box-shadow: none !important;
     }
 
@@ -3570,7 +3591,7 @@ html.ion-palette-dark {
     }
 
     .withdrawal-modal .balance-card {
-      background: #141414 !important;
+      background: #2c2c2e !important;
     }
 
     .withdrawal-modal-actions ion-button.withdrawal-action-btn--cancel {

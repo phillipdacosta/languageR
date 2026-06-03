@@ -3286,7 +3286,7 @@
       "QUIZ_START_HEADER": "Klar til å starte?",
       "QUIZ_START_MSG": "Denne quizen har {{count}} spørsmål. Du kan se gjennom innholdet mens du svarer. Lykke til!",
       "QUIZ_START_MSG_PLURAL": "Denne quizen har {{count}} spørsmål. Du kan se gjennom innholdet mens du svarer. Lykke til!",
-      "START_QUIZ": "Start Quiz",
+      "START_QUIZ": "Start",
       "VIDEO_UNAVAILABLE_HEADER": "Video utilgjengelig",
       "VIDEO_UNAVAILABLE_MSG": "Videoen for dette materialet er fjernet av veilederen. Vi har blitt varslet og vil behandle en refusjon hvis du kjøpte denne quizen.",
       "REPORT_PROBLEM": "Rapporter problem",

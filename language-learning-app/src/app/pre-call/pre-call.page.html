@@ -166,6 +166,19 @@
           <p class="ai-status-body" *ngIf="isTutor">{{ (aiAnalysisEnabled ? 'PRE_CALL.AI_STATUS_ON_TUTOR' : 'PRE_CALL.AI_STATUS_OFF_TUTOR') | translate }}</p>
           <p class="ai-status-body" *ngIf="!isTutor">{{ (aiAnalysisEnabled ? 'PRE_CALL.AI_STATUS_ON_STUDENT' : 'PRE_CALL.AI_STATUS_OFF_STUDENT') | translate }}</p>
 
+          <!-- Tutor recording/privacy disclosure (collapsible) -->
+          <div class="ai-status-privacy" *ngIf="isTutor">
+            <button type="button" class="ai-status-privacy__toggle" (click)="showRecordingInfo = !showRecordingInfo">
+              <ion-icon [name]="showRecordingInfo ? 'chevron-up-outline' : 'shield-checkmark-outline'" aria-hidden="true"></ion-icon>
+              <span>{{ 'PRE_CALL.RECORDING_INFO_LINK' | translate }}</span>
+            </button>
+            <div class="ai-status-privacy__body" *ngIf="showRecordingInfo">
+              <p>{{ 'PRE_CALL.RECORDING_INFO_WHAT' | translate }}</p>
+              <p>{{ 'PRE_CALL.RECORDING_INFO_WHY' | translate }}</p>
+              <p>{{ 'PRE_CALL.RECORDING_INFO_NOT' | translate }}</p>
+            </div>
+          </div>
+
           <!-- Student: inline toggle while the setting is still editable (lesson not started) -->
           <div class="ai-status-toggle-row" *ngIf="isStudent && !aiStatusLocked">
             <ion-toggle

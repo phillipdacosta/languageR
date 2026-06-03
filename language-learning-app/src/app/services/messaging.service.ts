@@ -110,6 +110,35 @@ export interface Message {
   triggerType?: 'favorite' | 'book_lesson';
   // Reactions
   reactions?: Array<{ emoji: string; userId: string; userName: string }>;
+  // Shared-material card payload (type === 'material')
+  material?: SharedMaterialCard;
+  /** Set client-side for students receiving a shared material card. */
+  materialShareLabel?: string;
+  systemMessage?: {
+    template?: string;
+    params?: {
+      tutorName?: string;
+      impression?: string;
+      variation?: number;
+      iconKey?: string;
+      [key: string]: unknown;
+    };
+    locale?: string;
+  };
+  // Precomputed display fields for impression celebration cards
+  isImpressionCelebration?: boolean;
+  impressionIconUrl?: string;
+  impressionIconEmoji?: string;
+  impressionLabel?: string;
+}
+
+export interface SharedMaterialCard {
+  materialId: string;
+  title?: string;
+  thumbnailUrl?: string | null;
+  materialType?: string | null;
+  level?: string | null;
+  language?: string | null;
 }
 
 @Injectable({
@@ -265,12 +294,16 @@ export class MessagingService {
       type?: string;
       fileUrl?: string;
       fileName?: string;
-    }
+    },
+    material?: SharedMaterialCard
   ): Observable<{ success: boolean; message: Message }> {
     
     const body: any = { content, type };
     if (replyTo) {
       body.replyTo = replyTo;
+    }
+    if (material) {
+      body.material = material;
     }
     
     return this.http.post<{ success: boolean; message: Message }>(

@@ -206,6 +206,7 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
   withdrawalSuccessAmount: string = '';
   withdrawalSuccessMethod: string = '';
   withdrawalModalDismissing: boolean = false;
+  withdrawalHeaderRevealed = false;
   
   // Wallet visibility (tied to profile setting)
   showWalletBalance = true;
@@ -1241,12 +1242,14 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
       this.selectedWithdrawalMethod = 'paypal';
     }
 
+    this.withdrawalHeaderRevealed = false;
     this.isWithdrawalModalOpen = true;
     this.cdr.detectChanges();
   }
 
   closeWithdrawalModal() {
     this.isWithdrawalModalOpen = false;
+    this.withdrawalHeaderRevealed = false;
   }
 
   openWithdrawalSupport(): void {
@@ -1255,18 +1258,42 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
   }
 
   onWithdrawalModalDismissed() {
+    // Keep the bound flag in sync for *every* dismiss path (backdrop tap, swipe,
+    // Esc, hardware back). Otherwise isWithdrawalModalOpen stays true and the next
+    // open is a no-op (no value change → modal silently fails to reopen).
+    this.isWithdrawalModalOpen = false;
     this.withdrawalSuccess = false;
     this.withdrawalSuccessRevealed = false;
     this.withdrawalSuccessAmount = '';
     this.withdrawalSuccessMethod = '';
     this.withdrawalModalDismissing = false;
+    this.withdrawalHeaderRevealed = false;
+    this.cdr.detectChanges();
   }
 
   onWithdrawalModalPresented(): void {
     if (this.withdrawalSuccess) {
       return;
     }
+    this.revealWithdrawalHeader();
     this.focusWithdrawalAmountInput();
+  }
+
+  private revealWithdrawalHeader(): void {
+    this.withdrawalHeaderRevealed = false;
+    this.cdr.detectChanges();
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        this.withdrawalHeaderRevealed = true;
+        this.cdr.detectChanges();
+        setTimeout(() => {
+          const player = document.querySelector(
+            '.withdrawal-modal .withdrawal-header-lottie'
+          ) as { play?: () => void } | null;
+          player?.play?.();
+        }, 650);
+      }, 50);
+    });
   }
 
   onWithdrawalAmountWrapperClick(event: MouseEvent): void {

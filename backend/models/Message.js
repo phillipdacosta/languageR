@@ -53,8 +53,18 @@ const messageSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['text', 'image', 'file', 'voice', 'system'],
+    enum: ['text', 'image', 'file', 'voice', 'system', 'material'],
     default: 'text'
+  },
+  // Shared-material card payload (type === 'material'). `content` may carry an
+  // optional note from the tutor, rendered as a caption beneath the card.
+  material: {
+    materialId: { type: String, default: null },
+    title: { type: String, default: null },
+    thumbnailUrl: { type: String, default: null },
+    materialType: { type: String, default: null },
+    level: { type: String, default: null },
+    language: { type: String, default: null }
   },
   // System message fields
   isSystemMessage: {

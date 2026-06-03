@@ -60,6 +60,16 @@
               </div>
             </div>
 
+            <div class="approval-guidance-item" *ngIf="!studentAiEnabled">
+              <div class="approval-guidance-item__icon-wrap approval-guidance-item__icon-wrap--light">
+                <ion-icon name="map-outline" aria-hidden="true"></ion-icon>
+              </div>
+              <div class="approval-guidance-item__text">
+                <h4>{{ 'POST_LESSON.TUTOR.WHY_REQUIRED_TITLE' | translate }}</h4>
+                <p>{{ 'POST_LESSON.TUTOR.WHY_REQUIRED_DESC' | translate:{ name: studentDisplayName } }}</p>
+              </div>
+            </div>
+
             <div class="approval-guidance-item" *ngIf="showCountdown && !noteSubmitted">
               <div class="approval-guidance-item__icon-wrap" [class.approval-guidance-item__icon-wrap--recent]="!countdownExpired" [class.plt-guidance-icon--alert]="countdownExpired">
                 <ion-icon [name]="countdownExpired ? 'alert-circle' : 'time-outline'" aria-hidden="true"></ion-icon>

@@ -1,3 +1,17 @@
+$msg-panel-refine-bp: 901px;
+$msg-panel-border: #ebebeb;
+$msg-panel-text: #222222;
+$msg-panel-card-radius: 12px;
+$msg-panel-card-hover-border: #dddddd;
+$msg-panel-card-active-bg: #f3f4f6;
+$msg-page-gutter-left: 50px;
+$msg-page-gutter-right: 80px;
+$msg-page-gutter-right-wide: 120px;
+$msg-page-top: 84px;
+$msg-layout-pt: 8px;
+$msg-main-pl: 32px;
+$msg-sidebar-w: 360px;
+
 .messages-content {
   --background: #f5f5f7;
   --padding-top: 0; /* flush under toolbar */
@@ -253,10 +267,29 @@
   background: #ffffff;
   margin-top: 0;
   padding-top: 0;
+
+  &.desktop-layout {
+    @media (min-width: $msg-panel-refine-bp) {
+      --messages-page-gutter: #{$msg-page-gutter-left};
+      box-sizing: border-box;
+      height: 100vh;
+      min-height: 0;
+      overflow: hidden;
+      padding-top: $msg-page-top;
+      padding-left: $msg-page-gutter-left;
+      padding-right: $msg-page-gutter-right;
+    }
+
+    @media (min-width: 1280px) {
+      padding-right: $msg-page-gutter-right-wide;
+    }
+  }
 }
 
 .desktop-layout {
   height: 100vh;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .desktop-messages-wrapper {
@@ -269,14 +302,62 @@
   padding-top: 0;
   transition: grid-template-columns 0.3s ease;
 
+  @media (min-width: $msg-panel-refine-bp) {
+    height: calc(100vh - #{$msg-page-top});
+    padding-top: $msg-layout-pt;
+    box-sizing: border-box;
+    min-height: 0;
+    overflow: hidden;
+  }
+
   &.details-open {
     grid-template-columns: 360px 1fr 380px;
   }
 
-  // ── Desktop chat: clean Airbnb-style thread ──
-  .chat-messages {
-    padding: 24px 32px;
-    background: #fff;
+  @media (min-width: $msg-panel-refine-bp) {
+    .chat-messages {
+      padding: 24px 32px 24px 0;
+      background: #fff;
+    }
+
+    .chat-header {
+      padding-left: 0;
+    }
+
+    .message-composer {
+      padding-left: 0;
+    }
+
+    .chat-panel {
+      height: 100%;
+      min-height: 0;
+      overflow: hidden;
+      padding-top: 0;
+      padding-left: $msg-main-pl;
+      box-sizing: border-box;
+    }
+
+    .conversations-panel {
+      min-height: 0;
+    }
+
+    .chat-panel-empty {
+      height: 100%;
+      padding-left: $msg-main-pl;
+      box-sizing: border-box;
+    }
+
+    .details-panel {
+      height: 100%;
+      margin-top: 0;
+    }
+  }
+
+  @media (max-width: 900px) {
+    .chat-messages {
+      padding: 24px 32px;
+      background: #fff;
+    }
   }
 
   .message-wrapper {
@@ -287,12 +368,19 @@
     padding: 26px 16px;
     border-bottom: none;
     border-radius: 10px;
-    transition: background 0.15s ease;
-    cursor: pointer;
+    transition: background 0.15s ease, box-shadow 0.15s ease;
 
-    &:hover,
+    @media (hover: hover) and (pointer: fine) {
+      &:hover,
+      &.message-row-hovered {
+        background: #f7f7f7;
+        box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.04);
+      }
+    }
+
     &.message-actions-visible {
-      background: #f5f5f5;
+      background: #f7f7f7;
+      box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.04);
     }
   }
 
@@ -304,6 +392,16 @@
     object-fit: cover;
     flex-shrink: 0;
     margin-top: 0;
+
+    &.msg-avatar--barnabi {
+      border-radius: 0;
+      object-fit: contain;
+      background: transparent;
+
+      &.barnabi-mascot-for-dark-ui {
+        display: none;
+      }
+    }
   }
 
   .msg-avatar-fallback {
@@ -570,10 +668,10 @@
     top: 50%;
     transform: translateY(-50%);
     height: 44px;
-    // Align with heading: 28px inset + 40px compose + 6px gap = 74px from right
-    right: 74px;
-    // Closed: 40px wide, tight to compose pill
-    left: calc(100% - 74px - 40px);
+    // Align with heading: 28px inset + 40px settings + 12px gap = 80px from right
+    right: 80px;
+    // Closed: 40px wide, tight to settings pill
+    left: calc(100% - 80px - 40px);
     cursor: pointer;
 
     display: flex;
@@ -708,7 +806,7 @@
   flex-shrink: 0;
   align-items: center;
   justify-content: flex-end;
-  gap: 6px;
+  gap: 12px;
 
   ion-button {
     --color: #717171;
@@ -785,6 +883,103 @@
     
     &:active {
       transform: scale(0.97);
+    }
+  }
+}
+
+// Desktop inbox column — match profile/lessons page gutters + sidebar spacing.
+.desktop-messages-wrapper .conversations-panel {
+  @media (min-width: $msg-panel-refine-bp) {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    padding-top: 0;
+    border-right: 1px solid $msg-panel-border;
+
+    .messages-header-switcher {
+      height: 52px;
+      margin-bottom: 16px;
+    }
+
+    .messages-main-heading {
+      padding: 0 12px 0 0;
+    }
+
+    .messages-main-heading--title-only {
+      padding-bottom: 0;
+    }
+
+    .messages-main-title {
+      font-size: 32px;
+      font-weight: 800;
+      letter-spacing: -0.6px;
+      line-height: 1.2;
+      margin: 0;
+    }
+
+    .conversations-filter-container {
+      padding: 0 12px;
+      margin-bottom: 0;
+      border-bottom: none;
+      gap: 12px;
+
+      .filter-button:not(.active):hover {
+        background: rgba(0, 0, 0, 0.04);
+      }
+    }
+
+    .messages-header-layer--search {
+      .search-pill {
+        right: 64px;
+        left: calc(100% - 64px - 40px);
+      }
+
+      .search-cancel-btn {
+        right: 12px;
+      }
+    }
+
+    .messages-header-switcher.search-is-open .messages-header-layer--search {
+      .search-pill {
+        left: 0;
+        right: 86px;
+      }
+    }
+
+    .conversations-list {
+      padding: 40px 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 4px;
+      box-sizing: border-box;
+      width: 100%;
+    }
+
+    .conversation-item {
+      align-self: stretch;
+      width: 100%;
+      max-width: none;
+      margin: 0;
+      padding: 12px 14px;
+      border-radius: $msg-panel-card-radius;
+      border: none;
+      background: #ffffff;
+      box-sizing: border-box;
+      transition: background-color 0.2s ease, box-shadow 0.2s ease;
+
+      &:hover {
+        background-color: #f7f7f7;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+      }
+
+      &.active {
+        background-color: $msg-panel-card-active-bg;
+
+        &:hover {
+          background-color: $msg-panel-card-active-bg;
+        }
+      }
     }
   }
 }
@@ -1012,6 +1207,19 @@
     object-fit: cover;
     border-radius: 50%;
     z-index: 1;
+
+    &.barnabi-mascot-for-light-ui,
+    &.barnabi-mascot-for-dark-ui,
+    &.conversation-avatar__barnabi {
+      object-fit: contain;
+      padding: 4px;
+      box-sizing: border-box;
+      background: #eaf3ff;
+    }
+
+    &.barnabi-mascot-for-dark-ui {
+      display: none;
+    }
   }
 
   .avatar-fallback {
@@ -1297,6 +1505,11 @@
   background: white;
   padding: 0px 0;
   transition: opacity 0.15s ease-in-out;
+
+  @media (min-width: $msg-panel-refine-bp) {
+    top: calc(#{$msg-page-top} + #{$msg-layout-pt} + 11px);
+    left: calc(var(--messages-page-gutter, #{$msg-page-gutter-left}) + #{$msg-sidebar-w} + #{$msg-main-pl});
+  }
   
   ion-button {
     text-transform: none !important;
@@ -1773,89 +1986,6 @@
 }
 
 // ── Tutor → student plan strip ────────────────────────────────────
-// Sits between the chat header and the messages list. Two compact rows:
-// row 1 = phase number + title pill, row 2 = next-lesson focus. Reads
-// like a quiet inline banner — purposefully not interactive (the lesson
-// briefing is the source of truth for actions).
-.plan-strip {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 10px 16px;
-  background: linear-gradient(180deg, #F5F8FF 0%, #EEF3FF 100%);
-  border-bottom: 1px solid rgba(76, 126, 244, 0.12);
-  border-top: 1px solid rgba(0, 0, 0, 0.04);
-  font-size: 13px;
-  color: #1f2a44;
-  flex-shrink: 0;
-}
-
-.plan-strip--mobile {
-  padding: 8px 14px;
-  font-size: 12.5px;
-}
-
-.plan-strip-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.plan-strip-leading {
-  font-size: 16px;
-  color: #4C7EF4;
-  flex: 0 0 auto;
-}
-
-.plan-strip-phase-idx {
-  flex: 0 0 auto;
-  background: #4C7EF4;
-  color: #fff;
-  font-weight: 700;
-  border-radius: 6px;
-  padding: 2px 8px;
-  font-size: 11px;
-  letter-spacing: 0.02em;
-}
-
-.plan-strip-phase-title {
-  font-weight: 600;
-  color: #1f3a8a;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-  flex: 1 1 auto;
-}
-
-.plan-strip-row--focus {
-  color: #4b5563;
-  font-weight: 500;
-  padding-left: 24px;
-
-  ion-icon { font-size: 14px; color: #f59e0b; flex: 0 0 auto; }
-}
-
-.plan-strip-focus {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-  flex: 1 1 auto;
-}
-
-@media (prefers-color-scheme: dark) {
-  .plan-strip {
-    background: linear-gradient(180deg, rgba(76, 126, 244, 0.08) 0%, rgba(76, 126, 244, 0.05) 100%);
-    border-bottom-color: rgba(76, 126, 244, 0.22);
-    border-top-color: rgba(255, 255, 255, 0.04);
-    color: #dbe5ff;
-  }
-  .plan-strip-phase-title { color: #dbe5ff; }
-  .plan-strip-row--focus { color: #c5c8d0; }
-}
-
 .chat-messages {
   flex: 1;
   overflow-y: auto;
@@ -2094,6 +2224,55 @@
   }
 }
 
+.message-wrapper--barnabi {
+  cursor: default;
+
+  &:hover,
+  &.message-row-hovered,
+  &.message-actions-visible {
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .msg-avatar--barnabi {
+    object-fit: contain;
+    background: transparent;
+    padding: 0;
+    box-sizing: border-box;
+
+    &.barnabi-mascot-for-dark-ui {
+      display: none;
+    }
+  }
+
+  @media (max-width: 768px) {
+    width: 100%;
+    max-width: 100%;
+    margin-left: 0 !important;
+
+    .msg-body {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      min-width: 0;
+      flex: 1;
+    }
+
+    .msg-header {
+      display: flex;
+    }
+
+    .msg-avatar--barnabi {
+      display: block;
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      border-radius: 0;
+      object-fit: contain;
+    }
+  }
+}
+
 .message-toolbar {
   position: absolute;
   top: 0;
@@ -2113,6 +2292,7 @@
 }
 
 .message-wrapper:hover .message-toolbar,
+.message-wrapper.message-row-hovered .message-toolbar,
 .message-wrapper.message-actions-visible .message-toolbar {
   opacity: 1;
   pointer-events: auto;
@@ -2195,12 +2375,17 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    position: relative;
   }
 
   &__avatar {
     width: 44px;
     height: 44px;
     object-fit: contain;
+
+    &.barnabi-mascot-for-dark-ui {
+      display: none;
+    }
   }
 
   &__intro {
@@ -2513,6 +2698,82 @@
   &.sent.highlighted {
     box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.4), 0 2px 4px rgba(0, 0, 0, 0.1);
   }
+}
+
+// Desktop thread uses inline pill reactions — reset mobile floating styles that
+// share the same selectors and would otherwise win by source order.
+.desktop-messages-wrapper .message-bubble .message-reactions {
+  position: static;
+  top: auto;
+  right: auto;
+  left: auto;
+  margin-top: 6px;
+  opacity: 1;
+  transform: none;
+  animation: none;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 4px;
+  z-index: auto;
+
+  .reaction-bubble {
+    position: static;
+    top: auto;
+    width: auto;
+    height: auto;
+
+    .bubble-tail {
+      display: none;
+    }
+
+    .reaction-main {
+      position: static;
+      top: auto;
+      right: auto;
+      left: auto;
+      bottom: auto;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: auto;
+      height: auto;
+      min-height: 28px;
+      padding: 4px 10px;
+      font-size: 16px;
+      line-height: 1;
+      border-radius: 999px;
+      background: #f7f7f7;
+      border: 1px solid rgba(0, 0, 0, 0.06);
+      box-shadow: none;
+      cursor: pointer;
+      animation: none;
+      user-select: none;
+      transition: background 0.15s ease;
+
+      &:hover {
+        transform: none;
+        background: #eeeeee;
+        box-shadow: none;
+      }
+
+      &:active {
+        transform: none;
+      }
+    }
+  }
+}
+
+.desktop-messages-wrapper .message-bubble.sent .message-reactions,
+.desktop-messages-wrapper .message-bubble.received .message-reactions {
+  right: auto;
+  left: auto;
+  margin-top: 6px;
+}
+
+.desktop-messages-wrapper .message-bubble.sent .message-reactions .reaction-bubble .reaction-main,
+.desktop-messages-wrapper .message-bubble.received .message-reactions .reaction-bubble .reaction-main {
+  background: #f7f7f7;
 }
 
 @keyframes highlightPulse {
@@ -3317,6 +3578,18 @@
   }
 }
 
+// Material-card bubbles: strip the chat bubble chrome so the card stands alone.
+.message-bubble:has(> .message-material) {
+  background: transparent !important;
+  padding: 0;
+  border: none;
+  box-shadow: none;
+
+  .message-time {
+    margin-top: 4px;
+  }
+}
+
 // Image-only bubbles: strip background & padding so the image fills cleanly
 .message-bubble:has(> .message-image):not(:has(> .reply-to-preview)) {
   background: transparent !important;
@@ -3324,6 +3597,10 @@
   border: none;
   box-shadow: none;
   overflow: hidden;
+
+  &:has(> .message-reactions) {
+    overflow: visible;
+  }
 
   .message-time {
     position: absolute;
@@ -3436,6 +3713,143 @@
   .file-caption {
     margin-top: 8px;
     margin-bottom: 0;
+    font-size: 14px;
+  }
+}
+
+// Shared material card (type === 'material'). Always a clean white card with
+// dark text so it reads clearly inside both sent (dark) and received bubbles.
+.message-material {
+  .material-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    max-width: 320px;
+    padding: 10px;
+    background: #ffffff;
+    border: 1px solid #ebebeb;
+    border-radius: 14px;
+    cursor: pointer;
+    text-align: left;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+
+    &:hover {
+      border-color: #d1d1d1;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+    }
+
+    &:active {
+      transform: scale(0.99);
+    }
+
+    &__thumb {
+      width: 56px;
+      height: 56px;
+      flex-shrink: 0;
+      border-radius: 10px;
+      overflow: hidden;
+      background: #f2f2f2;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      ion-icon {
+        font-size: 26px;
+        color: #9b9b9b;
+      }
+    }
+
+    &__body {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    &__title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #222222;
+      line-height: 1.3;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    &__meta {
+      font-size: 12px;
+      color: #717171;
+      text-transform: capitalize;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    &__cta {
+      margin-top: 2px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #222222;
+    }
+
+    &__chevron {
+      flex-shrink: 0;
+      font-size: 18px;
+      color: #b0b0b0;
+    }
+
+    &--static {
+      cursor: default;
+
+      &:hover {
+        border-color: #ebebeb;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+        transform: none;
+      }
+
+      &:active {
+        transform: none;
+      }
+    }
+
+    &__thumb--feedback {
+      background: #f7f7f7;
+
+      .material-card__thumb-emoji {
+        font-size: 28px;
+        line-height: 1;
+      }
+
+      img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        padding: 8px;
+        box-sizing: border-box;
+      }
+    }
+  }
+
+  .material-share-label {
+    margin: 0 0 8px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #484848;
+    line-height: 1.4;
+  }
+
+  .material-caption {
+    margin: 8px 0 0;
     font-size: 14px;
   }
 }
@@ -4246,6 +4660,31 @@
     background: #000000;
   }
 
+  .msg-avatar.msg-avatar--barnabi.barnabi-mascot-for-light-ui {
+    display: none !important;
+  }
+
+  .msg-avatar.msg-avatar--barnabi.barnabi-mascot-for-dark-ui {
+    display: block !important;
+  }
+
+  .system-message-card__avatar.barnabi-mascot-for-light-ui {
+    display: none !important;
+  }
+
+  .system-message-card__avatar.barnabi-mascot-for-dark-ui {
+    display: block !important;
+  }
+
+  .conversation-avatar img.barnabi-mascot-for-light-ui {
+    display: none !important;
+  }
+
+  .conversation-avatar img.barnabi-mascot-for-dark-ui {
+    display: block !important;
+    background: #2c2c2e;
+  }
+
   .desktop-messages-wrapper {
     background: #000000;
 
@@ -4254,9 +4693,17 @@
     }
 
     .message-wrapper {
-      &:hover,
+      @media (hover: hover) and (pointer: fine) {
+        &:hover,
+        &.message-row-hovered {
+          background: #1c1c1e;
+          box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+        }
+      }
+
       &.message-actions-visible {
         background: #1c1c1e;
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
       }
     }
 
@@ -4315,6 +4762,60 @@
         &:hover {
           background: #2c2c2e;
         }
+      }
+    }
+
+    .message-material {
+      .material-card {
+        background: #1c1c1e;
+        border-color: rgba(255, 255, 255, 0.12);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+
+        &:hover {
+          border-color: rgba(255, 255, 255, 0.2);
+          box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+        }
+
+        &--static:hover {
+          border-color: rgba(255, 255, 255, 0.12);
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+        }
+
+        &__thumb {
+          background: #2c2c2e;
+
+          ion-icon {
+            color: #8e8e93;
+          }
+        }
+
+        &__thumb--feedback {
+          background: #2c2c2e;
+        }
+
+        &__title {
+          color: #f5f5f7;
+        }
+
+        &__meta {
+          color: #8e8e93;
+        }
+
+        &__cta {
+          color: #f5f5f7;
+        }
+
+        &__chevron {
+          color: #636366;
+        }
+      }
+
+      .material-share-label {
+        color: #c7c7cc;
+      }
+
+      .material-caption {
+        color: #c7c7cc;
       }
     }
   }
@@ -4386,6 +4887,29 @@
   .conversations-panel {
     background: #000000;
     border-right-color: rgba(255, 255, 255, 0.12);
+  }
+
+  .desktop-messages-wrapper .conversations-panel {
+    @media (min-width: $msg-panel-refine-bp) {
+      border-right-color: rgba(255, 255, 255, 0.12);
+
+      .conversation-item {
+        background: #000000;
+
+        &:hover {
+          background: #1c1c1e;
+          box-shadow: none;
+        }
+
+        &.active {
+          background: #2c2c2e;
+
+          &:hover {
+            background: #2c2c2e;
+          }
+        }
+      }
+    }
   }
 
   .messages-main-heading {
@@ -4645,6 +5169,10 @@
 
     &__badge {
       background: rgba(66, 152, 211, 0.15);
+
+      span:last-child {
+        color: #6ab4e8;
+      }
     }
 
     &__text {
@@ -4675,6 +5203,60 @@
 
     &__time {
       color: #636366;
+    }
+  }
+
+  .message-material {
+    .material-card {
+      background: #1c1c1e;
+      border-color: rgba(255, 255, 255, 0.12);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+
+      &:hover {
+        border-color: rgba(255, 255, 255, 0.2);
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+      }
+
+      &--static:hover {
+        border-color: rgba(255, 255, 255, 0.12);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+      }
+
+      &__thumb {
+        background: #2c2c2e;
+
+        ion-icon {
+          color: #8e8e93;
+        }
+      }
+
+      &__thumb--feedback {
+        background: #2c2c2e;
+      }
+
+      &__title {
+        color: #f5f5f7;
+      }
+
+      &__meta {
+        color: #8e8e93;
+      }
+
+      &__cta {
+        color: #f5f5f7;
+      }
+
+      &__chevron {
+        color: #636366;
+      }
+    }
+
+    .material-share-label {
+      color: #c7c7cc;
+    }
+
+    .material-caption {
+      color: #c7c7cc;
     }
   }
 

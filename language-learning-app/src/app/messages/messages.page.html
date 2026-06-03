@@ -98,8 +98,8 @@
           <div class="messages-main-heading messages-header-layer">
             <h2 class="messages-main-title">{{ 'MESSAGES.TITLE' | translate }}</h2>
             <div class="messages-heading-actions">
-              <ion-button fill="clear" size="small">
-                <ion-icon name="create-outline"></ion-icon>
+              <ion-button fill="clear" size="small" [attr.aria-label]="'MESSAGES.SETTINGS' | translate">
+                <ion-icon name="settings-outline"></ion-icon>
               </ion-button>
             </div>
           </div>
@@ -195,8 +195,14 @@
               <ion-avatar class="conversation-avatar">
                 <!-- System message: show app icon -->
                 <img *ngIf="conversation.lastMessage?.isSystemMessage || conversation.lastMessage?.type === 'system'"
-                     src="assets/icons-app-bird-2.png"
-                     alt="Barnabi" />
+                     src="assets/mascot-toolbar.png"
+                     alt="Barnabi"
+                     class="barnabi-mascot-for-light-ui conversation-avatar__barnabi" />
+                <img *ngIf="conversation.lastMessage?.isSystemMessage || conversation.lastMessage?.type === 'system'"
+                     src="assets/mascot-toolbar-dark.png"
+                     alt=""
+                     class="barnabi-mascot-for-dark-ui conversation-avatar__barnabi"
+                     aria-hidden="true" />
                 <!-- Regular message: show user picture or fallback -->
                 <img #avatarImg
                      *ngIf="!conversation.lastMessage?.isSystemMessage && conversation.lastMessage?.type !== 'system' && conversation.otherUser?.picture"
@@ -231,8 +237,10 @@
                     {{ 'MESSAGES.YOU' | translate }}: <span [innerHTML]="conversation.lastMessage.content | highlight:searchTerm"></span>
                   </span>
                   <span *ngIf="conversation.lastMessage.type !== 'reaction' && conversation.lastMessage.senderId === getCurrentUserId()">{{ 'MESSAGES.YOU' | translate }}: </span>
+                  <!-- Shared material preview (when no accompanying note) -->
+                  <span *ngIf="conversation.lastMessage.type === 'material' && !conversation.lastMessage.content">{{ 'CREATE_MATERIAL.SHARE_MODAL_PREVIEW' | translate }}</span>
                   <!-- Regular message content -->
-                  <span *ngIf="conversation.lastMessage.type !== 'reaction' && conversation.lastMessage.type !== 'system' && !conversation.lastMessage.isSystemMessage"
+                  <span *ngIf="conversation.lastMessage.type !== 'reaction' && conversation.lastMessage.type !== 'system' && !conversation.lastMessage.isSystemMessage && !(conversation.lastMessage.type === 'material' && !conversation.lastMessage.content)"
                         [innerHTML]="conversation.lastMessage.content | highlight:searchTerm"></span>
                   <!-- System messages with HTML (no highlight to avoid breaking markup) -->
                   <span *ngIf="conversation.lastMessage.type !== 'reaction' && (conversation.lastMessage.type === 'system' || conversation.lastMessage.isSystemMessage)" [innerHTML]="conversation.lastMessage.content"></span>
@@ -395,22 +403,6 @@
           </div>
         </div>
 
-        <!-- Tutor → student plan strip (desktop). Renders just below the
-             chat header so it's the first thing the tutor sees when they
-             open the thread. Surface-only: tap the briefing CTA to open
-             the lesson briefing for full context. -->
-        <div class="plan-strip" *ngIf="studentPlanStrip as plan">
-          <div class="plan-strip-row">
-            <ion-icon name="map-outline" class="plan-strip-leading"></ion-icon>
-            <span class="plan-strip-phase-idx">{{ plan.phaseIndex }}/{{ plan.totalPhases }}</span>
-            <span class="plan-strip-phase-title">{{ plan.phaseLabel }}</span>
-          </div>
-          <div class="plan-strip-row plan-strip-row--focus" *ngIf="plan.focus">
-            <ion-icon name="flash-outline"></ion-icon>
-            <span class="plan-strip-focus">{{ plan.focus }}</span>
-          </div>
-        </div>
-
         <div class="chat-messages" #chatContainer>
           <!-- Loading Overlay - covers entire messages area with smooth fade -->
           <div *ngIf="isLoadingMessages" class="loading-overlay">
@@ -444,12 +436,43 @@
                   {{ formatDate(message.createdAt) }}
                 </div>
 
+            <!-- Barnabi impression celebration (material-card style) -->
+            <div *ngIf="(message.type === 'system' || message.isSystemMessage) && message.isImpressionCelebration"
+                 class="message-wrapper message-wrapper--barnabi received">
+              <img class="msg-avatar msg-avatar--barnabi barnabi-mascot-for-light-ui" src="assets/mascot-toolbar.png" alt="Barnabi" />
+              <img class="msg-avatar msg-avatar--barnabi barnabi-mascot-for-dark-ui" src="assets/mascot-toolbar-dark.png" alt="" aria-hidden="true" />
+              <div class="msg-body">
+                <div class="msg-header">
+                  <span class="msg-sender-name">{{ barnabiBrandName }}</span>
+                  <span class="msg-header-time">{{ formatTime(message.createdAt) }}</span>
+                </div>
+                <div class="message-bubble received">
+                  <div class="message-material">
+                    <div class="material-card material-card--static">
+                      <div class="material-card__thumb material-card__thumb--feedback">
+                        <img *ngIf="message.impressionIconUrl"
+                             [src]="message.impressionIconUrl"
+                             alt=""
+                             (error)="onImpressionIconError(message)" />
+                        <span *ngIf="!message.impressionIconUrl" class="material-card__thumb-emoji">{{ message.impressionIconEmoji }}</span>
+                      </div>
+                      <div class="material-card__body">
+                        <span class="material-card__title">{{ message.content }}</span>
+                        <span class="material-card__meta">{{ message.impressionLabel }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <!-- System Message -->
-            <div *ngIf="message.type === 'system' || message.isSystemMessage" class="system-message-row">
+            <div *ngIf="(message.type === 'system' || message.isSystemMessage) && !message.isImpressionCelebration" class="system-message-row">
               <article class="system-message-card" (click)="handleSystemMessageClick($event)">
                 <div class="system-message-card__top">
                   <div class="system-message-card__avatar-wrap">
-                    <img src="assets/icons-app-bird-2.png" alt="" class="system-message-card__avatar">
+                    <img src="assets/mascot-toolbar.png" alt="Barnabi" class="system-message-card__avatar barnabi-mascot-for-light-ui" />
+                    <img src="assets/mascot-toolbar-dark.png" alt="" class="system-message-card__avatar barnabi-mascot-for-dark-ui" aria-hidden="true" />
                   </div>
                   <div class="system-message-card__intro">
                     <div class="system-message-card__badge">
@@ -470,7 +493,10 @@
                    class="message-wrapper"
                    [class.has-reactions]="message.reactions && message.reactions.length > 0"
                    [class.is-mine]="message.senderId === getCurrentUserId()"
-                   [class.message-actions-visible]="activeToolbarMessageId === message.id">
+                   [class.message-row-hovered]="hoveredMessageId === message.id"
+                   [class.message-actions-visible]="activeToolbarMessageId === message.id"
+                   (mouseenter)="onMessageRowEnter(message)"
+                   (mouseleave)="onMessageRowLeave()">
               <!-- Desktop avatar -->
               <img class="msg-avatar"
                    *ngIf="message.senderId === getCurrentUserId() && currentUser?.picture"
@@ -529,6 +555,24 @@
                      class="message-content"
                      [class.emoji-only]="isEmojiOnly(message.content)">
                   {{ message.content }}
+                </div>
+
+                <!-- Shared material card -->
+                <div *ngIf="message.type === 'material' && message.material" class="message-material">
+                  <p *ngIf="message.materialShareLabel" class="material-share-label">{{ message.materialShareLabel }}</p>
+                  <button type="button" class="material-card" (click)="openMaterial(message.material.materialId)">
+                    <div class="material-card__thumb">
+                      <img *ngIf="message.material.thumbnailUrl" [src]="message.material.thumbnailUrl" [alt]="message.material.title" referrerpolicy="no-referrer" />
+                      <ion-icon *ngIf="!message.material.thumbnailUrl" name="document-text-outline"></ion-icon>
+                    </div>
+                    <div class="material-card__body">
+                      <span class="material-card__title">{{ message.material.title }}</span>
+                      <span class="material-card__meta" *ngIf="message.material.materialType || message.material.level">{{ message.material.materialType }}<ng-container *ngIf="message.material.materialType && message.material.level"> · </ng-container>{{ message.material.level }}</span>
+                      <span class="material-card__cta">{{ 'CREATE_MATERIAL.SHARE_MODAL_VIEW_MATERIAL' | translate }}</span>
+                    </div>
+                    <ion-icon name="chevron-forward" class="material-card__chevron"></ion-icon>
+                  </button>
+                  <p *ngIf="message.content" class="material-caption">{{ message.content }}</p>
                 </div>
                 
                 <!-- Image message -->
@@ -894,8 +938,14 @@
             <ion-avatar class="conversation-avatar">
               <!-- System message: show app icon -->
               <img *ngIf="conversation.lastMessage?.isSystemMessage || conversation.lastMessage?.type === 'system'" 
-                   src="assets/icons-app-bird-2.png" 
-                   alt="Barnabi" />
+                   src="assets/mascot-toolbar.png" 
+                   alt="Barnabi"
+                   class="barnabi-mascot-for-light-ui conversation-avatar__barnabi" />
+              <img *ngIf="conversation.lastMessage?.isSystemMessage || conversation.lastMessage?.type === 'system'" 
+                   src="assets/mascot-toolbar-dark.png" 
+                   alt=""
+                   class="barnabi-mascot-for-dark-ui conversation-avatar__barnabi"
+                   aria-hidden="true" />
               <!-- Regular message: show user picture or fallback -->
               <img #mobileAvatarImg
                    *ngIf="!conversation.lastMessage?.isSystemMessage && conversation.lastMessage?.type !== 'system' && conversation.otherUser?.picture" 
@@ -925,8 +975,10 @@
                   <span *ngIf="conversation.lastMessage.type === 'reaction' && conversation.lastMessage.senderId === getCurrentUserId()">
                     {{ 'MESSAGES.YOU' | translate }}: {{ conversation.lastMessage.content }}
                   </span>
+                  <!-- Shared material preview (when no accompanying note) -->
+                  <span *ngIf="conversation.lastMessage.type === 'material' && !conversation.lastMessage.content">{{ 'CREATE_MATERIAL.SHARE_MODAL_PREVIEW' | translate }}</span>
                   <!-- Regular message content -->
-                  <span *ngIf="conversation.lastMessage.type !== 'reaction' && conversation.lastMessage.type !== 'system' && !conversation.lastMessage.isSystemMessage">{{ conversation.lastMessage.content }}</span>
+                  <span *ngIf="conversation.lastMessage.type !== 'reaction' && conversation.lastMessage.type !== 'system' && !conversation.lastMessage.isSystemMessage && !(conversation.lastMessage.type === 'material' && !conversation.lastMessage.content)">{{ conversation.lastMessage.content }}</span>
                   <!-- System messages with HTML -->
                   <span *ngIf="conversation.lastMessage.type !== 'reaction' && (conversation.lastMessage.type === 'system' || conversation.lastMessage.isSystemMessage)" [innerHTML]="conversation.lastMessage.content"></span>
                 </p>
@@ -1033,21 +1085,6 @@
           </ion-button>
         </div>
 
-        <!-- Tutor → student plan strip (mobile). Same data as the desktop
-             strip; rendered between the mobile chat header and the message
-             list so it sits above the conversation. -->
-        <div class="plan-strip plan-strip--mobile" *ngIf="studentPlanStrip as plan">
-          <div class="plan-strip-row">
-            <ion-icon name="map-outline" class="plan-strip-leading"></ion-icon>
-            <span class="plan-strip-phase-idx">{{ plan.phaseIndex }}/{{ plan.totalPhases }}</span>
-            <span class="plan-strip-phase-title">{{ plan.phaseLabel }}</span>
-          </div>
-          <div class="plan-strip-row plan-strip-row--focus" *ngIf="plan.focus">
-            <ion-icon name="flash-outline"></ion-icon>
-            <span class="plan-strip-focus">{{ plan.focus }}</span>
-          </div>
-        </div>
-
         <div class="chat-messages" #chatContainer>
           <!-- Loading Overlay - covers entire messages area with smooth fade -->
           <div *ngIf="isLoadingMessages" class="loading-overlay">
@@ -1080,12 +1117,43 @@
                   {{ formatDate(message.createdAt) }}
                 </div>
 
+            <!-- Barnabi impression celebration (Mobile) -->
+            <div *ngIf="(message.type === 'system' || message.isSystemMessage) && message.isImpressionCelebration"
+                 class="message-wrapper message-wrapper--barnabi received">
+              <img class="msg-avatar msg-avatar--barnabi barnabi-mascot-for-light-ui" src="assets/mascot-toolbar.png" alt="Barnabi" />
+              <img class="msg-avatar msg-avatar--barnabi barnabi-mascot-for-dark-ui" src="assets/mascot-toolbar-dark.png" alt="" aria-hidden="true" />
+              <div class="msg-body">
+                <div class="msg-header">
+                  <span class="msg-sender-name">{{ barnabiBrandName }}</span>
+                  <span class="msg-header-time">{{ formatTime(message.createdAt) }}</span>
+                </div>
+                <div class="message-bubble received">
+                  <div class="message-material">
+                    <div class="material-card material-card--static">
+                      <div class="material-card__thumb material-card__thumb--feedback">
+                        <img *ngIf="message.impressionIconUrl"
+                             [src]="message.impressionIconUrl"
+                             alt=""
+                             (error)="onImpressionIconError(message)" />
+                        <span *ngIf="!message.impressionIconUrl" class="material-card__thumb-emoji">{{ message.impressionIconEmoji }}</span>
+                      </div>
+                      <div class="material-card__body">
+                        <span class="material-card__title">{{ message.content }}</span>
+                        <span class="material-card__meta">{{ message.impressionLabel }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <!-- System Message (Mobile) -->
-            <div *ngIf="message.type === 'system' || message.isSystemMessage" class="system-message-row">
+            <div *ngIf="(message.type === 'system' || message.isSystemMessage) && !message.isImpressionCelebration" class="system-message-row">
               <article class="system-message-card" (click)="handleSystemMessageClick($event)">
                 <div class="system-message-card__top">
                   <div class="system-message-card__avatar-wrap">
-                    <img src="assets/icons-app-bird-2.png" alt="" class="system-message-card__avatar">
+                    <img src="assets/mascot-toolbar.png" alt="Barnabi" class="system-message-card__avatar barnabi-mascot-for-light-ui" />
+                    <img src="assets/mascot-toolbar-dark.png" alt="" class="system-message-card__avatar barnabi-mascot-for-dark-ui" aria-hidden="true" />
                   </div>
                   <div class="system-message-card__intro">
                     <div class="system-message-card__badge">
@@ -1106,7 +1174,10 @@
                    class="message-wrapper"
                    [class.has-reactions]="message.reactions && message.reactions.length > 0"
                    [class.is-mine]="message.senderId === getCurrentUserId()"
-                   [class.message-actions-visible]="activeToolbarMessageId === message.id">
+                   [class.message-row-hovered]="hoveredMessageId === message.id"
+                   [class.message-actions-visible]="activeToolbarMessageId === message.id"
+                   (mouseenter)="onMessageRowEnter(message)"
+                   (mouseleave)="onMessageRowLeave()">
               <div class="message-toolbar">
                 <button type="button"
                         class="message-toolbar-btn"
@@ -1145,6 +1216,24 @@
                 <div *ngIf="message.type === 'text'" 
                      class="message-content"
                      [class.emoji-only]="isEmojiOnly(message.content)">{{ message.content }}</div>
+
+                <!-- Shared material card -->
+                <div *ngIf="message.type === 'material' && message.material" class="message-material">
+                  <p *ngIf="message.materialShareLabel" class="material-share-label">{{ message.materialShareLabel }}</p>
+                  <button type="button" class="material-card" (click)="openMaterial(message.material.materialId)">
+                    <div class="material-card__thumb">
+                      <img *ngIf="message.material.thumbnailUrl" [src]="message.material.thumbnailUrl" [alt]="message.material.title" referrerpolicy="no-referrer" />
+                      <ion-icon *ngIf="!message.material.thumbnailUrl" name="document-text-outline"></ion-icon>
+                    </div>
+                    <div class="material-card__body">
+                      <span class="material-card__title">{{ message.material.title }}</span>
+                      <span class="material-card__meta" *ngIf="message.material.materialType || message.material.level">{{ message.material.materialType }}<ng-container *ngIf="message.material.materialType && message.material.level"> · </ng-container>{{ message.material.level }}</span>
+                      <span class="material-card__cta">{{ 'CREATE_MATERIAL.SHARE_MODAL_VIEW_MATERIAL' | translate }}</span>
+                    </div>
+                    <ion-icon name="chevron-forward" class="material-card__chevron"></ion-icon>
+                  </button>
+                  <p *ngIf="message.content" class="material-caption">{{ message.content }}</p>
+                </div>
                 
                 <!-- Image message -->
                 <div *ngIf="message.type === 'image'" class="message-image">

@@ -14,6 +14,7 @@ import { TranslateService } from '@ngx-translate/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { PaymentDisputeModalComponent } from '../components/payment-dispute-modal/payment-dispute-modal.component';
 import { HomeInlineToolbarService } from '../services/home-inline-toolbar.service';
+import { getNotificationNavigationTarget } from '../shared/notification-navigation.util';
 
 // 🚀 PERFORMANCE FIX: Type for formatted notifications with cached values
 interface FormattedNotification extends Notification {
@@ -1152,36 +1153,21 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       });
     }
 
-    // Navigate based on notification type
-    if (notification.type === 'lesson_created' && notification.data?.lessonId) {
-      // Navigate to lessons page with lesson ID to scroll to
-      this.router.navigate(['/tabs/lessons'], { 
-        queryParams: { 
-          scrollToLesson: notification.data.lessonId 
-        } 
-      });
-      this.closeNotificationDropdown(); // Close for lessons
-    } else if (notification.type === 'message') {
-      this.router.navigate(['/tabs/messages']);
-      this.closeNotificationDropdown(); // Close for messages
-    } else if (notification.type === 'payment_received' && notification.data?.lessonId) {
-      // Navigate to earnings page with lesson ID to scroll to
-      this.router.navigate(['/tabs/home/earnings'], { 
-        queryParams: { 
-          scrollToLesson: notification.data.lessonId 
-        } 
-      });
-      this.closeNotificationDropdown(); // Close for earnings
-    } else if (notification.type === 'lesson_analysis_ready' && notification.data?.lessonId) {
-      // Navigate to lesson analysis page
-      this.router.navigate(['/lesson-analysis', notification.data.lessonId]);
-      this.closeNotificationDropdown(); // Close for analysis
-    } else if (notification.type === 'class_invitation' && notification.data?.classId) {
-      // Note: Class invitation modal would need to be opened here if needed
-      this.router.navigate(['/tabs/home']);
-      this.closeNotificationDropdown(); // Close for home
+    const target = getNotificationNavigationTarget(notification);
+    if (!target) {
+      return;
     }
-    // If no navigation happens, dropdown stays open (notification just gets marked as read)
+
+    if (target.kind === 'class_invitation') {
+      this.router.navigate(['/tabs/lessons', target.classId]);
+      this.closeNotificationDropdown();
+      return;
+    }
+
+    this.router.navigate(target.commands, {
+      queryParams: target.queryParams,
+    });
+    this.closeNotificationDropdown();
   }
 
   closeNotificationDropdown() {
