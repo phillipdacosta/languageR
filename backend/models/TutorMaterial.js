@@ -104,7 +104,15 @@ const TutorMaterialSchema = new mongoose.Schema({
   reviewNote: { type: String },
   reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   reviewedAt: { type: Date },
-  channelVerified: { type: Boolean, default: false }
+  channelVerified: { type: Boolean, default: false },
+
+  visibility: {
+    type: String,
+    enum: ['private', 'public', 'past_students'],
+    default: 'private'
+  },
+  sharedStudentIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  revokedStudentIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }]
 }, { timestamps: true });
 
 TutorMaterialSchema.index({ tutorId: 1, status: 1 });

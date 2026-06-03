@@ -249,6 +249,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   timeSlots: string[] = [];
   currentTimePosition: number = 0;
   currentWeekTitle: string = '';
+  calendarToolbarTitle = '';
   private timeUpdateInterval: any;
   
   // ViewChild references for scroll containers
@@ -287,6 +288,8 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   mobileTimeline: TimelineEntry[] = [];
   mobileTimelineEvents: TimelineEntry[] = [];
   isLoadingMobileData = true;
+  /** Desktop grid: soft fade-in for event blocks after load swap settles. */
+  desktopCalendarEventsVisible = false;
 
   // Plan-context chips for upcoming-lesson cards. Keyed by lessonId so the
   // template can read directly without method calls. Populated lazily from
@@ -1158,7 +1161,8 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       .subscribe(() => {
         if (!this.gcalConnected) return;
         this.gcalLoadingInProgress = false;
-        this.loadGoogleCalendarEvents();
+        this.invalidateGcalWeekCache();
+        this.loadGoogleCalendarEvents({ forceRefresh: true });
       });
 
     // Backward-compat: the old payload-carrying event is still emitted by older
@@ -1170,7 +1174,8 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       .subscribe(() => {
         if (!this.gcalConnected) return;
         this.gcalLoadingInProgress = false;
-        this.loadGoogleCalendarEvents();
+        this.invalidateGcalWeekCache();
+        this.loadGoogleCalendarEvents({ forceRefresh: true });
       });
 
     // Re-fetch Google Calendar events whenever WebSocket reconnects,
@@ -1181,7 +1186,8 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
         if (connected && this.gcalConnected) {
           const elapsed = Date.now() - this.gcalLastFetchTime;
           if (elapsed > TutorCalendarPage.GCAL_DEBOUNCE_MS) {
-            this.loadGoogleCalendarEvents();
+            this.invalidateGcalWeekCache();
+            this.loadGoogleCalendarEvents({ forceRefresh: true });
           }
         }
       });
@@ -1533,15 +1539,19 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       if (!isCacheFresh) {
         this.availabilityLoaded = false;
         this.lessonsLoaded = false;
+        this.desktopCalendarEventsVisible = false;
         if (this.isMobileView) {
           this.isLoadingMobileData = true;
         }
+      } else if (!this.isMobileView) {
+        this.desktopCalendarEventsVisible = true;
       }
     }
 
     // Always refresh Google Calendar events on re-entry to catch deletions/changes
     if (this.gcalConnected && this.gcalEventsLoaded) {
-      this.loadGoogleCalendarEvents();
+      this.invalidateGcalWeekCache();
+      this.loadGoogleCalendarEvents({ forceRefresh: true });
     }
 
     // Refresh gcal events when the user switches back from another app (e.g. Google Calendar)
@@ -1798,16 +1808,23 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
             
           });
           
-          // Filter out ALL class events (from availability AND from previous loads)
-          const nonClassEvents = this.events.filter(event => {
+          // Merge class events by id (same range-scoped reasoning as lessons):
+          // keep classes loaded for other windows so navigating away and back
+          // doesn't drop them. Always strip ghost availability "class" blocks
+          // (type === 'class' with no classId) — real class events replace them.
+          const fetchedClassIds = new Set(
+            classEvents.map(e => (e.extendedProps as any)?.classId).filter(Boolean)
+          );
+          const preservedEvents = this.events.filter(event => {
             const extendedProps = event.extendedProps as any;
-            // Remove if it's a class OR if it's an availability block of type 'class'
-            return !extendedProps?.isClass && !extendedProps?.classId && extendedProps?.type !== 'class';
+            const isClassEvent = extendedProps?.isClass || extendedProps?.classId || extendedProps?.type === 'class';
+            if (!isClassEvent) return true; // non-class event — always keep
+            // Keep real class events from other windows; drop ghosts + refreshed ones.
+            return extendedProps?.classId ? !fetchedClassIds.has(extendedProps.classId) : false;
           });
-          
-          
+
           // Merge new class events
-          this.events = [...nonClassEvents, ...classEvents];
+          this.events = [...preservedEvents, ...classEvents];
           
           
           // Rebuild mobile views
@@ -1971,16 +1988,22 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       return eventData;
     });
     
-    // Merge lesson events with existing events (availability/classes)
-    // Remove any existing lesson events first to avoid duplicates, but keep classes and availability
-    const nonLessonEvents = this.events.filter(event => {
-      const extendedProps = event.extendedProps as any;
-      // Keep everything except lessons (we're replacing lessons)
-      return !extendedProps?.lessonId;
+    // Merge lesson events by id. Lessons are fetched per date-window, so a
+    // wholesale "drop all lessons, add this fetch" replace would wipe lessons
+    // from other weeks when the user navigates to a non-overlapping window
+    // (and they'd never reappear because that range is already marked loaded).
+    // Keep non-lesson events plus any previously-loaded lessons NOT in this
+    // fetch; only the lessons present in this fetch are refreshed/replaced.
+    const fetchedLessonIds = new Set(
+      lessonEvents.map(e => (e.extendedProps as any)?.lessonId).filter(Boolean)
+    );
+    const preservedEvents = this.events.filter(event => {
+      const lessonId = (event.extendedProps as any)?.lessonId;
+      if (!lessonId) return true; // non-lesson event — always keep
+      return !fetchedLessonIds.has(lessonId); // lesson from another window — keep
     });
-    
-    
-    this.events = [...nonLessonEvents, ...lessonEvents];
+
+    this.events = [...preservedEvents, ...lessonEvents];
     
     
     // Don't trigger change detection here - let the caller handle it
@@ -2311,9 +2334,13 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       this.computeWeekAvailability();
       this.cdr.detectChanges();
       
-      // Mark mobile data as loaded
       if (this.isMobileView) {
         this.isLoadingMobileData = false;
+      } else if (!this.desktopCalendarEventsVisible) {
+        requestAnimationFrame(() => {
+          this.desktopCalendarEventsVisible = true;
+          this.cdr.markForCheck();
+        });
       }
     } else {
       
@@ -3127,6 +3154,8 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   gcalLastSyncAt: Date | null = null;
   private gcalEventsLoaded = false;
   private gcalLoadingInProgress = false;
+  /** Per visible-week cache so navigating back to a week does not re-hit the API. */
+  private gcalWeekCache = new Map<string, EventInput[]>();
   private gcalPollInterval: any = null;
   private gcalLastFetchTime = 0;
   private gcalWatchActive = false;
@@ -3278,6 +3307,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
         this.gcalLastSyncAt = null;
         this.stopGcalPolling();
         this.gcalEventsLoaded = false;
+        this.invalidateGcalWeekCache();
         this.events = this.events.filter(e => !(e.extendedProps as any)?.isGoogleCalendar);
         this.updateCalendarEvents();
         this.cdr.detectChanges();
@@ -3481,7 +3511,8 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     if (!this.gcalConnected || this.gcalSyncing) return;
     this.gcalSyncing = true;
     this.cdr.detectChanges();
-    this.loadGoogleCalendarEvents();
+    this.invalidateGcalWeekCache();
+    this.loadGoogleCalendarEvents({ forceRefresh: true });
   }
 
   private startGcalPolling() {
@@ -3491,7 +3522,8 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       : TutorCalendarPage.GCAL_POLL_FAST_MS;
     this.gcalPollInterval = setInterval(() => {
       if (this.gcalConnected) {
-        this.loadGoogleCalendarEvents();
+        this.invalidateGcalWeekCache(this.getGcalVisibleWeekRange().cacheKey);
+        this.loadGoogleCalendarEvents({ forceRefresh: true });
       }
     }, intervalMs);
   }
@@ -3509,23 +3541,80 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       const elapsed = Date.now() - this.gcalLastFetchTime;
       if (elapsed > TutorCalendarPage.GCAL_DEBOUNCE_MS) {
         this.gcalLoadingInProgress = false;
-        this.loadGoogleCalendarEvents();
+        this.invalidateGcalWeekCache();
+        this.loadGoogleCalendarEvents({ forceRefresh: true });
       }
     }
   }
 
-  private loadGoogleCalendarEvents() {
-    if (!this.gcalConnected || this.gcalLoadingInProgress) return;
-    this.gcalLoadingInProgress = true;
-    this.gcalLastFetchTime = Date.now();
+  private getGcalWeekCacheKey(weekStart: Date): string {
+    const normalized = new Date(weekStart);
+    normalized.setHours(0, 0, 0, 0);
+    return normalized.toISOString().slice(0, 10);
+  }
 
+  private getGcalVisibleWeekRange(): { weekStart: Date; weekEnd: Date; cacheKey: string } {
     const weekStart = new Date(this.currentWeekStart);
     weekStart.setHours(0, 0, 0, 0);
     const weekEnd = new Date(weekStart);
     weekEnd.setDate(weekEnd.getDate() + 6);
     weekEnd.setHours(23, 59, 59, 999);
+    return { weekStart, weekEnd, cacheKey: this.getGcalWeekCacheKey(weekStart) };
+  }
 
-    // Safety: reset loading flag after 15s if the request hangs (prevents stuck state)
+  private invalidateGcalWeekCache(cacheKey?: string): void {
+    if (cacheKey) {
+      this.gcalWeekCache.delete(cacheKey);
+    } else {
+      this.gcalWeekCache.clear();
+    }
+  }
+
+  private mapGoogleApiEventsToCalendar(raw: any[]): EventInput[] {
+    return (raw || [])
+      .filter((evt: any) => !evt.allDay)
+      .map((evt: any) => ({
+        id: `gcal-${evt.id}`,
+        title: evt.summary || 'Busy',
+        start: new Date(evt.start).toISOString(),
+        end: new Date(evt.end).toISOString(),
+        backgroundColor: '#6b7280',
+        borderColor: '#4b5563',
+        textColor: '#ffffff',
+        classNames: ['calendar-gcal-event'],
+        extendedProps: {
+          isGoogleCalendar: true,
+          summary: evt.summary || 'Busy',
+          type: 'google-calendar'
+        }
+      }));
+  }
+
+  private applyGcalEventsToCalendar(gcalEvents: EventInput[]): void {
+    const nonGcalEvents = this.events.filter(e => !(e.extendedProps as any)?.isGoogleCalendar);
+    this.events = [...nonGcalEvents, ...gcalEvents];
+    this.gcalEventsLoaded = true;
+    this.updateCalendarEvents();
+  }
+
+  private loadGoogleCalendarEvents(options: { forceRefresh?: boolean } = {}): void {
+    if (!this.gcalConnected || this.gcalLoadingInProgress) return;
+
+    const { weekStart, weekEnd, cacheKey } = this.getGcalVisibleWeekRange();
+
+    if (!options.forceRefresh) {
+      const cached = this.gcalWeekCache.get(cacheKey);
+      if (cached) {
+        this.applyGcalEventsToCalendar(cached);
+        this.gcalSyncing = false;
+        this.gcalLoadingInProgress = false;
+        this.cdr.detectChanges();
+        return;
+      }
+    }
+
+    this.gcalLoadingInProgress = true;
+    this.gcalLastFetchTime = Date.now();
     const safetyTimer = setTimeout(() => {
       if (this.gcalLoadingInProgress) {
         this.gcalLoadingInProgress = false;
@@ -3535,31 +3624,11 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     this.userService.getGoogleCalendarEvents(weekStart.toISOString(), weekEnd.toISOString()).subscribe({
       next: (res) => {
         clearTimeout(safetyTimer);
-        const nonGcalEvents = this.events.filter(e => !(e.extendedProps as any)?.isGoogleCalendar);
-
-        const gcalEvents: EventInput[] = (res.events || [])
-          .filter((evt: any) => !evt.allDay)
-          .map((evt: any) => ({
-            id: `gcal-${evt.id}`,
-            title: evt.summary || 'Busy',
-            start: new Date(evt.start).toISOString(),
-            end: new Date(evt.end).toISOString(),
-            backgroundColor: '#6b7280',
-            borderColor: '#4b5563',
-            textColor: '#ffffff',
-            classNames: ['calendar-gcal-event'],
-            extendedProps: {
-              isGoogleCalendar: true,
-              summary: evt.summary || 'Busy',
-              type: 'google-calendar'
-            }
-          }));
-
-        this.events = [...nonGcalEvents, ...gcalEvents];
-        this.gcalEventsLoaded = true;
+        const gcalEvents = this.mapGoogleApiEventsToCalendar(res.events);
+        this.gcalWeekCache.set(cacheKey, gcalEvents);
+        this.applyGcalEventsToCalendar(gcalEvents);
         this.gcalSyncing = false;
         this.gcalLoadingInProgress = false;
-        this.updateCalendarEvents();
         this.cdr.detectChanges();
       },
       error: () => {
@@ -3992,6 +4061,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       monthLabel: formatDateInTz(date, this.userTz, { month: 'long', day: undefined, year: undefined }, loc),
       year: date.getFullYear()
     };
+    this.updateCalendarToolbarTitle();
   }
   
   getEventsForSelectedDay(): any[] {
@@ -4031,6 +4101,15 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       this.currentWeekTitle = `${startMonth} ${this.currentWeekStart.getFullYear()}`;
     } else {
       this.currentWeekTitle = `${startMonth} - ${endMonth} ${endDate.getFullYear()}`;
+    }
+    this.updateCalendarToolbarTitle();
+  }
+
+  private updateCalendarToolbarTitle(): void {
+    if (this.customView === 'day') {
+      this.calendarToolbarTitle = `${this.selectedDayForDayView.monthLabel} ${this.selectedDayForDayView.year}`;
+    } else {
+      this.calendarToolbarTitle = this.currentWeekTitle;
     }
   }
   
@@ -4287,6 +4366,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   // Switch between week and day view with scroll to now
   switchView(view: 'week' | 'day') {
     this.customView = view;
+    this.updateCalendarToolbarTitle();
     this.hasScrolledToNow = false; // Reset scroll flag
     
     // Wait for view to render, then scroll to now

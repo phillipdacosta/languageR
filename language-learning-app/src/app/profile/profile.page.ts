@@ -72,8 +72,9 @@ export class ProfilePage implements OnInit, ViewWillEnter {
   // Language support
   availableLanguages: LanguageOption[] = [];
   selectedInterfaceLanguage: SupportedLanguage = 'en';
-  /** Shown on the settings row (flag + native name). */
+  /** Shown on the settings row (native name only; flag via app-flag-icon). */
   interfaceLanguageLabel = '';
+  selectedInterfaceLanguageEnglishName = 'English';
 
   // Stripe Connect (for tutors)
   stripeConnectOnboarded = false;
@@ -90,6 +91,7 @@ export class ProfilePage implements OnInit, ViewWillEnter {
   profilePayoutMethodReasonParams: Record<string, string> = {};
   readonly stripePrivacyPolicyUrl = 'https://stripe.com/privacy';
   readonly paypalPrivacyPolicyUrl = 'https://www.paypal.com/us/legalhub/privacy-full';
+  readonly supportEmail = 'support@languageapp.com';
   profilePaypalEmail = '';
   profilePaypalEmailError = '';
   profilePaypalConnectDisabled = true;
@@ -1761,7 +1763,23 @@ export class ProfilePage implements OnInit, ViewWillEnter {
 
   private refreshInterfaceLanguageLabel(): void {
     const opt = this.languageService.getLanguageOption(this.selectedInterfaceLanguage);
-    this.interfaceLanguageLabel = opt ? `${opt.flag} ${opt.nativeName}` : this.selectedInterfaceLanguage;
+    this.interfaceLanguageLabel = opt?.nativeName || this.selectedInterfaceLanguage;
+    this.selectedInterfaceLanguageEnglishName = opt?.name || 'English';
+  }
+
+  openHelpSupport(): void {
+    window.open(`mailto:${this.supportEmail}`, '_blank', 'noopener,noreferrer');
+  }
+
+  openTermsOfService(): void {
+    const lang = this.selectedInterfaceLanguage || this.languageService.getCurrentLanguage();
+    window.open(`/terms?lang=${lang}`, '_blank', 'noopener,noreferrer');
+  }
+
+  openPrivacyPolicy(): void {
+    void this.router.navigate(['/privacy'], {
+      queryParams: { lang: this.selectedInterfaceLanguage || this.languageService.getCurrentLanguage() },
+    });
   }
 
   async openInterfaceLanguageModal(): Promise<void> {

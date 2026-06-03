@@ -28,6 +28,11 @@ $lesson-card-avatar: 80px;
 $lesson-card-avatar-radius: $lesson-card-avatar * 0.25; // rounded square tile (~Up Next proportion)
 $lesson-grid-gap: 20px;
 
+/* Split layout: sidebar + main (matches messages panel density). */
+$lessons-split-bp: 901px;
+$lessons-split-max: 900px;
+$lessons-sidebar-w: 200px;
+
 // ─── Host / ion-content setup ────────────
 :host {
   ion-content {
@@ -41,34 +46,101 @@ $lesson-grid-gap: 20px;
   }
 }
 
-// ─── Sticky header (inside ion-content scroll area) ───
-// Sits at top: 0 of the scroll viewport so its white background
-// also covers the strip beneath the fixed desktop nav toolbar.
-// Inner content gets padding-top on desktop to clear the toolbar.
-.lessons-sticky-header {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  background: #ffffff;
-  border-bottom: 1px solid $border-light;
-}
-
-.lessons-sticky-inner {
+// ─── Page container ────────────────────────
+.lessons-container {
   max-width: 1100px;
   margin: 0 auto;
-  padding: 14px 16px;
-  display: flex;
-  align-items: center;
-  gap: 24px;
+  position: relative;
+  padding: 20px 16px 50px;
+  animation: fadeIn 0.35s ease-out;
 
-  // Desktop: push inner content below the fixed 54px global nav toolbar
   @media (min-width: 769px) {
-    padding-top: calc(14px + 54px);
+    padding-top: 90px;
   }
 
-  @media (max-width: 600px) {
-    padding: 12px 16px;
-    gap: 16px;
+  @media (max-width: 768px) {
+    max-width: 100%;
+    padding: 16px 16px 50px;
+  }
+
+  @media (min-width: $lessons-split-bp) {
+    max-width: none;
+    padding-left: 80px;
+    padding-right: 80px;
+  }
+
+  @media (min-width: 1280px) {
+    padding-left: 120px;
+    padding-right: 120px;
+  }
+}
+
+// ─── Split layout (sidebar + main) ─────────
+.lessons-layout {
+  @media (min-width: $lessons-split-bp) {
+    display: grid;
+    grid-template-columns: $lessons-sidebar-w 1fr;
+    grid-template-areas: 'sidebar main';
+    column-gap: 0;
+    row-gap: 0;
+    align-items: stretch;
+    padding-top: 8px;
+  }
+
+  @media (max-width: $lessons-split-max) {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    max-width: 100%;
+  }
+}
+
+.lessons-layout__sidebar {
+  grid-area: sidebar;
+
+  @media (min-width: $lessons-split-bp) {
+    align-self: stretch;
+    padding-left: 0;
+    padding-right: 0;
+    margin: 0;
+    box-sizing: border-box;
+    border-right: 1px solid $border-light;
+  }
+}
+
+.lessons-layout__page-title {
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -0.6px;
+  color: $text-primary;
+  margin: 0 0 20px;
+  line-height: 1.1;
+}
+
+.lessons-layout__filters {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+
+  @media (max-width: $lessons-split-max) {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+  }
+}
+
+.lessons-layout__main {
+  grid-area: main;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+
+  @media (min-width: $lessons-split-bp) {
+    padding-left: 32px;
+    box-sizing: border-box;
   }
 }
 
@@ -86,30 +158,6 @@ $lesson-grid-gap: 20px;
   to {
     opacity: 1;
     transform: translateY(0);
-  }
-}
-
-// ─── Page Title ─────────────────────────────
-.page-title {
-  font-size: 22px;
-  font-weight: 700;
-  color: $text-primary;
-  letter-spacing: -0.3px;
-  margin: 0;
-  line-height: 1.2;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-// ─── Page Container ────────────────────────
-.lessons-page {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 24px 16px 40px;
-  animation: fadeIn 0.35s ease-out;
-
-  @media (max-width: 600px) {
-    padding: 20px 16px 32px;
   }
 }
 
@@ -160,18 +208,6 @@ $lesson-grid-gap: 20px;
 }
 
 // ─── Airbnb-style Filters Trigger ─────────
-.filters-trigger-container {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-  flex: 1;
-
-  @media (max-width: 600px) {
-    gap: 10px;
-  }
-}
-
 .filters-trigger-btn {
   display: inline-flex;
   align-items: center;
@@ -218,11 +254,10 @@ $lesson-grid-gap: 20px;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  flex: 1;
 
-  @media (max-width: 600px) {
-    order: 3;
-    flex-basis: 100%;
+  @media (min-width: $lessons-split-bp) {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
 
@@ -350,9 +385,15 @@ $lesson-grid-gap: 20px;
 
 .lessons-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, $lesson-card-w);
+  grid-template-columns: repeat(auto-fill, minmax(260px, $lesson-card-w));
   justify-content: center;
   gap: 42px;
+
+  @media (min-width: $lessons-split-bp) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    justify-content: stretch;
+    gap: 32px;
+  }
 
   @media (max-width: 400px) {
     grid-template-columns: 1fr;
@@ -365,6 +406,11 @@ $lesson-grid-gap: 20px;
   height: 100%;
   box-sizing: border-box;
   margin: 0 auto;
+
+  @media (min-width: $lessons-split-bp) {
+    max-width: none;
+    margin: 0;
+  }
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1764,6 +1810,9 @@ $spinner-colors: #8b5cf6, #3b82f6, #06b6d4, #10b981, #f59e0b, #ec4899;
       font-size: 16px;
       font-weight: 600;
       letter-spacing: -0.2px;
+      text-align: start;
+      padding-inline-start: 24px;
+      padding-inline-end: 56px;
     }
   }
 
@@ -2252,17 +2301,12 @@ $spinner-colors: #8b5cf6, #3b82f6, #06b6d4, #10b981, #f59e0b, #ec4899;
     --background: #000000;
   }
 
-  .lessons-sticky-header {
-    background: #000000;
-    border-bottom-color: rgba(255, 255, 255, 0.08);
+  .lessons-layout__sidebar {
+    border-right-color: rgba(255, 255, 255, 0.12);
   }
 
-  .page-title {
+  .lessons-layout__page-title {
     color: #f5f5f7;
-  }
-
-  .lessons-page {
-    background: transparent;
   }
 
   .filters-trigger-btn {

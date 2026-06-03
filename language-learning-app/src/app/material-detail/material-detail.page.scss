@@ -2,6 +2,7 @@
 :host ::ng-deep ion-content {
   --padding-start: 0;
   --padding-end: 0;
+  --background: #ffffff;
 }
 
 // ── Toolbar ───────────────────────────────────────────────
@@ -105,7 +106,6 @@
     border-radius: 50% !important;
   }
 }
-
 // ── Page container ────────────────────────────────────────
 .md-page {
   max-width: 1200px;
@@ -126,35 +126,43 @@
   margin-bottom: 24px;
 
   @media (min-width: 769px) {
-    margin-bottom: 32px;
-    margin-left: -180px;
+    position: fixed;
+    top: 88px;
+    left: 48px;
+    z-index: 999;
+    margin: 0;
+  }
+
+  @media (min-width: 1100px) {
+    left: 64px;
   }
 }
 
 .md-back-btn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  background: none;
-  border: none;
+  justify-content: center;
+  gap: 6px;
+  background: #fff;
+  border: 1px solid #ddd;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   color: #222;
   cursor: pointer;
-  padding: 8px 12px 8px 6px;
-  border-radius: 8px;
-  transition: background 0.15s ease, color 0.15s ease;
+  padding: 10px 18px;
+  border-radius: 10px;
+  transition: all 0.15s ease;
 
   ion-icon {
-    font-size: 18px;
+    font-size: 16px;
   }
 
   &:hover {
-    background: #f5f5f5;
+    border-color: #222;
   }
 
   &:active {
-    background: #ebebeb;
+    transform: scale(0.98);
   }
 }
 
@@ -172,9 +180,21 @@
 
 .md-error {
   text-align: center;
-  padding: 80px 20px;
+  padding: 120px 20px 80px;
   ion-icon { font-size: 44px; color: #e04848; margin-bottom: 12px; }
+  .md-error-title {
+    margin: 0 0 8px;
+    font-size: 20px;
+    font-weight: 700;
+    color: #1c1c1e;
+  }
   p { font-size: 15px; color: #717171; margin-bottom: 20px; }
+
+  &.md-error--revoked {
+    ion-icon { color: #86868b; }
+    .md-error-title { color: #1c1c1e; }
+    p { color: #86868b; }
+  }
 }
 
 // ── Banners ───────────────────────────────────────────────
@@ -215,7 +235,7 @@
   @media (min-width: 960px) {
     &.md-has-sidebar {
       flex-direction: row;
-      gap: 0;
+      gap: 24px;
       align-items: stretch;
     }
   }
@@ -231,7 +251,15 @@
 
   @media (min-width: 960px) {
     .md-layout.md-has-sidebar & {
-      padding-right: 20px;
+      padding-right: 0;
+    }
+
+    .md-layout.md-has-sidebar:not(.md-collapsed) & {
+      overflow: visible;
+    }
+
+    .md-layout.md-has-sidebar & > .md-content-card {
+      flex: 1;
     }
   }
 
@@ -254,6 +282,96 @@
 
   @media (min-width: 769px) {
     margin-bottom: 24px;
+  }
+
+  &.md-media-wrap--in-card {
+    margin-bottom: 0;
+  }
+}
+
+// ── Content card (quiz sidebar layout) ────────────────────
+.md-content-card {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow:
+    0 6px 20px rgba(0, 0, 0, 0.12),
+    0 2px 8px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+  border: 1px solid #ebebeb;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+
+  .md-media-wrap--in-card {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .md-passage-section {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+.md-content-card-footer {
+  padding: 20px 24px 24px;
+  border-top: 1px solid #ebebeb;
+  flex-shrink: 0;
+}
+
+.md-content-card-title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 14px;
+
+  ion-icon {
+    font-size: 16px;
+    color: #4298d2;
+    flex-shrink: 0;
+    margin-top: 4px;
+  }
+
+  .md-title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.35;
+  }
+}
+
+.md-content-card-meta-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+
+  .md-meta-row {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .md-type-badge {
+    border: 1px solid #4298d2;
+    border-radius: 20px;
+    padding: 5px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: 0;
+    background: #fff;
+  }
+
+  .md-badge {
+    border: 1px solid #ddd;
+    background: #fff;
+    border-radius: 20px;
   }
 }
 
@@ -382,6 +500,31 @@
   }
 }
 
+.md-passage-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 20px 24px 0;
+
+  ion-icon {
+    font-size: 18px;
+    color: #4298d2;
+  }
+
+  span {
+    font-size: 15px;
+    font-weight: 700;
+    color: #222;
+    letter-spacing: -0.2px;
+  }
+}
+
+.md-passage-divider {
+  height: 1px;
+  background: #ebebeb;
+  margin: 16px 24px 0;
+}
+
 .md-passage-text {
   font-size: 14px;
   color: #333;
@@ -397,6 +540,24 @@
   p { margin: 0 0 12px; }
   ul, ol { margin: 0 0 12px; padding-left: 24px; }
   blockquote { border-left: 3px solid #ddd; padding-left: 14px; color: #555; margin: 0 0 12px; }
+
+  &.md-passage-text--card {
+    margin: 16px 24px 24px;
+    padding: 20px 24px;
+    background: #fff;
+    border: none;
+    border-radius: 0;
+    flex: 1;
+    min-height: 0;
+    max-height: none;
+
+    &::-webkit-scrollbar { width: 5px; }
+    &::-webkit-scrollbar-thumb {
+      background: #4298d2;
+      border-radius: 4px;
+    }
+    &::-webkit-scrollbar-track { background: #f0f0f0; }
+  }
 }
 
 // ── Info section ──────────────────────────────────────────
@@ -688,7 +849,10 @@
       width: 380px;
       min-width: 380px;
       flex-shrink: 0;
-      padding-left: 20px;
+      padding-left: 0;
+      align-self: stretch;
+      display: flex;
+      flex-direction: column;
     }
 
     .md-layout.md-collapsed & {
@@ -705,16 +869,26 @@
 // ── Quiz card ─────────────────────────────────────────────
 .md-quiz-card {
   background: #fff;
-  border: 1px solid #ddd;
-  border-radius: 12px;
+  border: 1px solid #ebebeb;
+  border-radius: 16px;
   overflow: hidden;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+  box-shadow:
+    0 6px 20px rgba(0, 0, 0, 0.12),
+    0 2px 8px rgba(0, 0, 0, 0.06);
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+}
 
-  @media (min-width: 960px) {
-    height: 420px;
-    display: flex;
-    flex-direction: column;
-  }
+.md-quiz-actions {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 0 24px 24px;
 }
 
 .md-quiz-idle,
@@ -735,8 +909,7 @@
 
 // ── Quiz idle ─────────────────────────────────────────────
 .md-quiz-idle {
-  padding: 24px;
-  text-align: center;
+  padding: 28px 24px 20px;
   animation: mdIdleFadeIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
@@ -745,20 +918,28 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 
-.md-quiz-idle-icon {
-  width: 56px;
-  height: 56px;
-  border-radius: 16px;
-  background: linear-gradient(135deg, #f0f0f5 0%, #e8e8f0 100%);
+.md-quiz-idle-hero {
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #eef6fc 0%, #e3f0fa 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 auto 16px;
+  margin: 0 auto 20px;
+  overflow: hidden;
+}
 
-  ion-icon {
-    font-size: 28px;
-    color: #555;
-  }
+.md-quiz-hero-img {
+  width: 110px;
+  height: 110px;
+  object-fit: contain;
+  display: block;
+}
+
+.md-quiz-header {
+  margin-bottom: 16px;
+  text-align: center;
 }
 
 .md-quiz-stats-row {
@@ -787,16 +968,13 @@
   }
 }
 
-.md-quiz-header {
-  margin-bottom: 16px;
-}
-
 .md-quiz-type {
   font-size: 22px;
   font-weight: 700;
   color: #222;
   margin: 0;
   letter-spacing: -0.4px;
+  text-align: center;
 }
 
 .md-quiz-count {
@@ -804,6 +982,7 @@
   color: #717171;
   margin: 4px 0 0;
   font-weight: 500;
+  text-align: center;
 }
 
 .md-quiz-tutor {
@@ -812,8 +991,8 @@
   gap: 12px;
   padding: 16px 0;
   border-top: 1px solid #ebebeb;
-  border-bottom: 1px solid #ebebeb;
   margin-bottom: 16px;
+  text-align: left;
 }
 
 .md-quiz-tutor-avatar {
@@ -853,16 +1032,31 @@
   font-size: 14px;
   color: #484848;
   line-height: 1.6;
-  margin: 0 0 8px;
+  margin: 0 0 16px;
+  text-align: left;
 }
 
-.md-quiz-owner-note {
-  font-size: 12px;
-  color: #717171;
-  margin: 12px 0 0;
-  font-style: italic;
-  padding-top: 16px;
-  border-top: 1px solid #ebebeb;
+.md-quiz-preview-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 16px;
+  background: #eef6fc;
+  border-radius: 12px;
+  text-align: left;
+
+  ion-icon {
+    font-size: 20px;
+    color: #4298d2;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  span {
+    font-size: 13px;
+    color: #2a6a96;
+    line-height: 1.5;
+  }
 }
 
 // ── Quiz entrance animations ──────────────────────────────
@@ -1422,14 +1616,6 @@
 }
 
 // ── Quiz actions ──────────────────────────────────────────
-.md-quiz-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  padding: 0;
-}
-
 .md-action-btn {
   flex: 1;
   min-width: 140px;
@@ -1480,6 +1666,17 @@
   }
 
   ion-icon { font-size: 16px; }
+
+  &.md-btn-start {
+    width: 100%;
+    background: #4298d2;
+    border-radius: 12px;
+    padding: 16px 24px;
+    font-size: 16px;
+    justify-content: center;
+
+    &:hover:not(:disabled) { background: #3580b8; }
+  }
 }
 
 .md-btn-secondary {
@@ -1631,7 +1828,9 @@
   .md-quiz-card {
     border: none;
     border-radius: 16px;
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+    box-shadow:
+      0 6px 20px rgba(0, 0, 0, 0.12),
+      0 2px 8px rgba(0, 0, 0, 0.06);
     opacity: 0;
     transform: translateY(18px);
     transition: opacity 0.55s cubic-bezier(0.25, 0.1, 0.25, 1) 0.28s,
@@ -1894,8 +2093,10 @@
   ion-content { --background: #000000; }
 
   .md-back-btn {
+    background: #2c2c2e;
+    border-color: #3a3a3c;
     color: #e5e5e5;
-    &:hover { background: rgba(255, 255, 255, 0.08); }
+    &:hover { border-color: #f5f5f7; }
   }
 
   .md-title { color: #f5f5f7; }
@@ -1923,12 +2124,41 @@
   .md-quiz-card {
     background: #1c1c1e;
     border-color: #3a3a3c;
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+    box-shadow:
+      0 6px 20px rgba(0, 0, 0, 0.4),
+      0 2px 8px rgba(0, 0, 0, 0.25);
   }
 
-  .md-quiz-idle-icon {
-    background: linear-gradient(135deg, #2c2c2e 0%, #3a3a3c 100%);
-    ion-icon { color: #aeaeb2; }
+  .md-quiz-idle-hero {
+    background: linear-gradient(145deg, #1e3a4f 0%, #2c2c2e 100%);
+  }
+
+  .md-content-card {
+    background: #1c1c1e;
+    border-color: #3a3a3c;
+    box-shadow:
+      0 6px 20px rgba(0, 0, 0, 0.4),
+      0 2px 8px rgba(0, 0, 0, 0.25);
+  }
+
+  .md-content-card-footer { border-top-color: #3a3a3c; }
+  .md-passage-header span { color: #f5f5f7; }
+  .md-passage-divider { background: rgba(255, 255, 255, 0.08); }
+
+  .md-passage-text.md-passage-text--card {
+    background: #1c1c1e;
+    color: #e5e5e5;
+  }
+
+  .md-content-card-meta-row {
+    .md-type-badge {
+      background: transparent;
+      border-color: #4298d2;
+    }
+    .md-badge {
+      background: transparent;
+      border-color: #3a3a3c;
+    }
   }
 
   .md-quiz-stat-pill {
@@ -1952,7 +2182,11 @@
   .md-quiz-tutor-name { color: #e5e5e5; }
   .md-quiz-tutor-date { color: #8e8e93; }
   .md-quiz-why { color: #aaa; }
-  .md-quiz-owner-note { color: #8e8e93; border-top-color: #3a3a3c; }
+  .md-quiz-preview-banner {
+    background: rgba(66, 152, 210, 0.15);
+    span { color: #7eb8dc; }
+    ion-icon { color: #4298d2; }
+  }
 
   .md-quiz-progress { color: #8e8e93; }
   .md-quiz-q { color: #f5f5f7; }
@@ -2014,6 +2248,11 @@
     color: #000;
     &:hover:not(:disabled) { background: #fff; }
     &.md-btn-purchase { background: #f5f5f7; &:hover:not(:disabled) { background: #fff; } }
+    &.md-btn-start {
+      background: #4298d2;
+      color: #fff;
+      &:hover:not(:disabled) { background: #3580b8; }
+    }
   }
   .md-btn-secondary {
     background: #2c2c2e;

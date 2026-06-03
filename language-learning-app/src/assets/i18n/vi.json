@@ -2868,7 +2868,11 @@
     "NOTES_AWAITING_BODY_TUTOR": "Bạn chưa gửi phản hồi cho bài học cuối cùng của mình với học sinh này.",
     "NOTES_AWAITING_BODY_STUDENT": "Phản hồi của gia sư về bài học trước đang được gửi đến bạn.",
     "NOTES_ERROR_TITLE": "Không thể tải ghi chú",
-    "NOTES_ERROR_BODY": "Đã xảy ra lỗi khi tải ghi chú bài học cuối cùng của bạn. Vui lòng thử lại."
+    "NOTES_ERROR_BODY": "Đã xảy ra lỗi khi tải ghi chú bài học cuối cùng của bạn. Vui lòng thử lại.",
+    "AI_TOGGLE_LABEL": "Phân tích và phản hồi AI",
+    "AI_STATUS_EDITABLE_HINT": "Bạn có thể thay đổi điều này cho đến khi bài học bắt đầu. Nó áp dụng từ bài học này trở đi.",
+    "AI_STATUS_LOCKED_HINT": "Điều này đã được đặt khi bài học bắt đầu và không thể thay đổi cho bài học này. Mọi thay đổi đều áp dụng cho bài học tiếp theo của bạn.",
+    "AI_TOGGLE_ERROR": "Không thể cập nhật cài đặt của bạn. Vui lòng thử lại."
   },
   "VIDEO_CALL": {
     "LEAVING": "Rời đi...",

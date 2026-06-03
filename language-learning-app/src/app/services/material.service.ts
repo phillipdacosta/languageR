@@ -175,6 +175,9 @@ export class MaterialService {
   }
 
   shareWithStudents(id: string, studentIds: string[]): Observable<{ success: boolean; material: TutorMaterial }> {
+    if (!studentIds.length) {
+      return this.updateMaterial(id, { visibility: 'private', sharedStudentIds: [] });
+    }
     return this.updateMaterial(id, { visibility: 'past_students', sharedStudentIds: studentIds });
   }
 

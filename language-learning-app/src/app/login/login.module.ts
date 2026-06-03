@@ -6,6 +6,7 @@ import { TranslateModule } from '@ngx-translate/core';
 
 import { LoginPageRoutingModule } from './login-routing.module';
 import { LoginPage } from './login.page';
+import { SiteFooterComponent } from '../components/site-footer/site-footer.component';
 
 @NgModule({
   imports: [
@@ -13,7 +14,8 @@ import { LoginPage } from './login.page';
     FormsModule,
     IonicModule,
     TranslateModule,
-    LoginPageRoutingModule
+    LoginPageRoutingModule,
+    SiteFooterComponent
   ],
   declarations: [LoginPage]
 })

@@ -2869,7 +2869,11 @@
     "AI_STATUS_ON_TUTOR": "Feedback genereres automatisk efter denne lektion. Dine noter er valgfri.",
     "AI_STATUS_OFF_TUTOR": "Du skal indsamle og indsende feedback til denne lektion.",
     "AI_STATUS_ON_STUDENT": "Du får detaljeret AI-feedback efter denne lektion.",
-    "AI_STATUS_OFF_STUDENT": "Din vejleder vil give din feedback efter denne lektion."
+    "AI_STATUS_OFF_STUDENT": "Din vejleder vil give din feedback efter denne lektion.",
+    "AI_TOGGLE_LABEL": "AI analyse og feedback",
+    "AI_STATUS_EDITABLE_HINT": "Du kan ændre dette, indtil lektionen begynder. Det gælder fra denne lektion og frem.",
+    "AI_STATUS_LOCKED_HINT": "Dette blev indstillet, da lektionen startede og kan ikke ændres for denne lektion. Enhver ændring gælder for din næste lektion.",
+    "AI_TOGGLE_ERROR": "Din indstilling kunne ikke opdateres. Prøv venligst igen."
   },
   "VIDEO_CALL": {
     "LEAVING": "Forlader...",
@@ -3282,7 +3286,7 @@
       "QUIZ_START_HEADER": "Klar til at starte?",
       "QUIZ_START_MSG": "Denne quiz har {{count}} spørgsmål. Du kan gennemgå indholdet, mens du svarer. Held og lykke!",
       "QUIZ_START_MSG_PLURAL": "Denne quiz har {{count}} spørgsmål. Du kan gennemgå indholdet, mens du svarer. Held og lykke!",
-      "START_QUIZ": "Start Quiz",
+      "START_QUIZ": "Start",
       "VIDEO_UNAVAILABLE_HEADER": "Video ikke tilgængelig",
       "VIDEO_UNAVAILABLE_MSG": "Videoen til dette materiale er blevet fjernet af underviseren. Vi er blevet underrettet og vil behandle en refusion, hvis du har købt denne quiz.",
       "REPORT_PROBLEM": "Rapportér problem",

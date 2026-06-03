@@ -165,6 +165,33 @@
           <h4 class="ai-status-title">{{ (aiAnalysisEnabled ? 'PRE_CALL.AI_STATUS_ON_TITLE' : 'PRE_CALL.AI_STATUS_OFF_TITLE') | translate }}</h4>
           <p class="ai-status-body" *ngIf="isTutor">{{ (aiAnalysisEnabled ? 'PRE_CALL.AI_STATUS_ON_TUTOR' : 'PRE_CALL.AI_STATUS_OFF_TUTOR') | translate }}</p>
           <p class="ai-status-body" *ngIf="!isTutor">{{ (aiAnalysisEnabled ? 'PRE_CALL.AI_STATUS_ON_STUDENT' : 'PRE_CALL.AI_STATUS_OFF_STUDENT') | translate }}</p>
+
+          <!-- Tutor recording/privacy disclosure (collapsible) -->
+          <div class="ai-status-privacy" *ngIf="isTutor">
+            <button type="button" class="ai-status-privacy__toggle" (click)="showRecordingInfo = !showRecordingInfo">
+              <ion-icon [name]="showRecordingInfo ? 'chevron-up-outline' : 'shield-checkmark-outline'" aria-hidden="true"></ion-icon>
+              <span>{{ 'PRE_CALL.RECORDING_INFO_LINK' | translate }}</span>
+            </button>
+            <div class="ai-status-privacy__body" *ngIf="showRecordingInfo">
+              <p>{{ 'PRE_CALL.RECORDING_INFO_WHAT' | translate }}</p>
+              <p>{{ 'PRE_CALL.RECORDING_INFO_WHY' | translate }}</p>
+              <p>{{ 'PRE_CALL.RECORDING_INFO_NOT' | translate }}</p>
+            </div>
+          </div>
+
+          <!-- Student: inline toggle while the setting is still editable (lesson not started) -->
+          <div class="ai-status-toggle-row" *ngIf="isStudent && !aiStatusLocked">
+            <ion-toggle
+              [checked]="aiAnalysisEnabled"
+              [disabled]="aiToggleSaving"
+              (ionChange)="onToggleAiAnalysis($event)">
+              {{ 'PRE_CALL.AI_TOGGLE_LABEL' | translate }}
+            </ion-toggle>
+          </div>
+
+          <!-- Editable hint (student, before start) vs locked hint (after start) -->
+          <p class="ai-status-hint" *ngIf="isStudent && !aiStatusLocked">{{ 'PRE_CALL.AI_STATUS_EDITABLE_HINT' | translate }}</p>
+          <p class="ai-status-hint" *ngIf="aiStatusLocked">{{ 'PRE_CALL.AI_STATUS_LOCKED_HINT' | translate }}</p>
         </div>
       </div>
 

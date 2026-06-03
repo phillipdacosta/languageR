@@ -1,81 +1,146 @@
-<ion-header class="actionsheet-header">
-  <div class="actionsheet-header-inner">
-    <h2>{{ title }}</h2>
-    <p class="actionsheet-subtitle">{{ subtitle }}</p>
+<div class="ssa-top-chrome" *ngIf="enableMassMessage">
+  <div class="ssa-hero">
+    <div class="ssa-avatar-stack-wrap" aria-hidden="true">
+      <div class="ssa-avatar-stack">
+        <div
+          class="ssa-av"
+          *ngFor="let row of selectedDisplays; trackBy: trackByAvatarId; let i = index"
+          [@avatarEnter]
+          [style.z-index]="10 - i">
+          <img *ngIf="row.imageUrl" [src]="row.imageUrl" alt="" referrerpolicy="no-referrer" />
+          <span *ngIf="!row.imageUrl" class="ssa-av-ini">{{ row.initials }}</span>
+        </div>
+        <div
+          class="ssa-av ssa-av--more"
+          *ngIf="extraSelectedCount > 0"
+          [@avatarEnter]
+          [style.z-index]="0">
+          <span>+{{ extraSelectedCount }}</span>
+        </div>
+      </div>
+    </div>
   </div>
-</ion-header>
 
-<ion-content class="actionsheet-content">
+  <div class="ssa-toolbar-bar">
+    <h2 class="ssa-toolbar-bar__title">{{ shareHeading }}</h2>
+    <button type="button" class="ssa-toolbar-bar__close" (click)="onCancel()" [attr.aria-label]="'COMMON.CLOSE' | translate">
+      <ion-icon name="close-outline"></ion-icon>
+    </button>
+  </div>
+</div>
+
+<ion-content
+  class="actionsheet-content"
+  [class.actionsheet-content--mass-message]="enableMassMessage">
+  <div class="ssa-toolbar" *ngIf="!enableMassMessage">
+    <div class="ssa-toolbar__side" aria-hidden="true"></div>
+    <h2 class="ssa-toolbar__title">{{ title }}</h2>
+    <button type="button" class="ssa-toolbar__close" (click)="onCancel()" aria-label="Close">
+      <ion-icon name="close-outline"></ion-icon>
+    </button>
+  </div>
+
   <!-- Loading -->
   <div class="actionsheet-loading" *ngIf="isLoading">
     <ion-spinner name="crescent"></ion-spinner>
-    <p>Finding your past students…</p>
+    <p>{{ 'CREATE_MATERIAL.SHARE_MODAL_LOADING' | translate }}</p>
   </div>
 
   <ng-container *ngIf="!isLoading">
     <!-- Empty state -->
-    <div class="actionsheet-empty" *ngIf="students.length === 0">
+    <div class="actionsheet-empty" *ngIf="!hasStudents">
       <ion-icon name="people-outline"></ion-icon>
-      <p>No past students found.<br />Teach a lesson first and students will appear here.</p>
+      <p>{{ 'CREATE_MATERIAL.SHARE_MODAL_EMPTY' | translate }}</p>
     </div>
 
-    <ng-container *ngIf="students.length > 0">
-      <!-- Search -->
-      <div class="actionsheet-search">
-        <ion-icon name="search-outline"></ion-icon>
-        <input
-          type="text"
-          [(ngModel)]="searchQuery"
-          placeholder="Search students…"
-          class="actionsheet-search-input" />
-        <button *ngIf="searchQuery" (click)="searchQuery = ''" class="actionsheet-search-clear">
-          <ion-icon name="close-circle"></ion-icon>
-        </button>
-      </div>
-
-      <!-- Select all -->
-      <div class="actionsheet-select-all" (click)="toggleAll()">
-        <span>{{ allSelected ? 'Deselect all' : 'Select all' }}</span>
-        <div class="ssa-checkbox" [class.checked]="allSelected">
-          <ion-icon *ngIf="allSelected" name="checkmark"></ion-icon>
+    <ng-container *ngIf="hasStudents">
+      <div class="ssa-inner" [class.ssa-inner--mass-message]="enableMassMessage">
+        <div class="ssa-intro" *ngIf="enableMassMessage">
+          <p class="ssa-sub">{{ subtitle }}</p>
         </div>
-      </div>
 
-      <!-- Students list -->
-      <div class="students-list">
-        <div
-          *ngFor="let s of filteredStudents"
-          class="student-item"
-          [class.selected]="isSelected(s._id)"
-          (click)="toggle(s._id)">
-          <div class="student-avatar">
-            <img *ngIf="s.picture" [src]="s.picture" [alt]="s.name" referrerpolicy="no-referrer" />
-            <div *ngIf="!s.picture" class="avatar-placeholder">{{ s.name.charAt(0).toUpperCase() }}</div>
-          </div>
-          <div class="student-info">
-            <span class="student-name">{{ s.name }}</span>
-            <span class="student-email">{{ s.email }}</span>
-          </div>
-          <div class="ssa-checkbox" [class.checked]="isSelected(s._id)">
-            <ion-icon *ngIf="isSelected(s._id)" name="checkmark"></ion-icon>
+        <div class="actionsheet-status-banner" *ngIf="statusBannerText">
+          <ion-icon name="checkmark-circle"></ion-icon>
+          <span>{{ statusBannerText }}</span>
+        </div>
+
+        <!-- Search -->
+        <div class="actionsheet-search-wrap">
+          <div class="actionsheet-search-pill">
+            <ion-icon name="search-outline" class="actionsheet-search-pill__icon"></ion-icon>
+            <input
+              type="text"
+              [ngModel]="searchQuery"
+              (ngModelChange)="onSearchChange($event)"
+              [placeholder]="'CREATE_MATERIAL.SHARE_MODAL_SEARCH' | translate"
+              class="actionsheet-search-pill__input" />
+            <button *ngIf="searchQuery" type="button" (click)="clearSearch()" class="actionsheet-search-pill__clear" aria-label="Clear search">
+              <ion-icon name="close-circle"></ion-icon>
+            </button>
           </div>
         </div>
 
-        <div class="actionsheet-no-results" *ngIf="filteredStudents.length === 0">
-          No students match "{{ searchQuery }}"
+        <!-- Select all -->
+        <div class="actionsheet-select-all" (click)="toggleAll()">
+          <span>{{ allSelected ? ('CREATE_MATERIAL.SHARE_MODAL_DESELECT_ALL' | translate) : ('CREATE_MATERIAL.SHARE_MODAL_SELECT_ALL' | translate) }}</span>
+          <div class="ssa-checkbox" [class.checked]="allSelected">
+            <ion-icon *ngIf="allSelected" name="checkmark"></ion-icon>
+          </div>
         </div>
+
+        <!-- Students list -->
+        <div class="students-list">
+          <div
+            *ngFor="let s of displayStudents; trackBy: trackById"
+            class="student-item"
+            [class.selected]="s.selected"
+            (click)="toggle(s._id)">
+            <div class="student-avatar">
+              <img *ngIf="s.picture" [src]="s.picture" [alt]="s.name" referrerpolicy="no-referrer" />
+              <div *ngIf="!s.picture" class="avatar-placeholder">{{ s.name.charAt(0).toUpperCase() }}</div>
+            </div>
+            <div class="student-info">
+              <span class="student-name">{{ s.name }}</span>
+              <span class="student-access-pill" *ngIf="s.alreadyHasAccess">{{ 'CREATE_MATERIAL.SHARE_MODAL_HAS_ACCESS' | translate }}</span>
+            </div>
+            <div class="ssa-checkbox" [class.checked]="s.selected">
+              <ion-icon *ngIf="s.selected" name="checkmark"></ion-icon>
+            </div>
+          </div>
+
+          <div class="actionsheet-no-results" *ngIf="noResults">
+            {{ 'CREATE_MATERIAL.SHARE_MODAL_NO_RESULTS' | translate:{ query: searchQuery } }}
+          </div>
+        </div>
+
+        <section class="ssa-message-section" *ngIf="enableMassMessage">
+          <p class="ssa-message-label">{{ 'CREATE_MATERIAL.SHARE_MODAL_MESSAGE_LABEL' | translate }}</p>
+          <ion-textarea
+            class="ssa-textarea"
+            [(ngModel)]="messageText"
+            (ngModelChange)="onMessageTextChange()"
+            [maxlength]="maxMessageChars"
+            [placeholder]="'CREATE_MATERIAL.SHARE_MODAL_MESSAGE_PLACEHOLDER' | translate"
+            rows="4"
+          ></ion-textarea>
+          <p class="ssa-message-counter">
+            {{ messageCharCount }}/{{ maxMessageChars }}
+            {{ 'CREATE_MATERIAL.SHARE_MODAL_MESSAGE_OPTIONAL' | translate }}
+          </p>
+        </section>
       </div>
     </ng-container>
   </ng-container>
 </ion-content>
 
-<ion-footer class="actionsheet-footer" *ngIf="!isLoading">
+<ion-footer class="actionsheet-footer" [class.actionsheet-footer--mass-message]="enableMassMessage" *ngIf="!isLoading">
   <div class="actionsheet-footer-inner">
-    <button type="button" class="cancel-btn" (click)="onCancel()">Cancel</button>
+    <button type="button" class="cancel-btn" (click)="onCancel()">{{ 'COMMON.CANCEL' | translate }}</button>
     <button
       type="button"
       class="done-btn"
-      [disabled]="selectedIds.length === 0"
+      [class.done-btn--danger]="isRemoveAllAction"
+      [disabled]="isConfirmDisabled"
       (click)="onDone()">
       {{ confirmText }}
     </button>

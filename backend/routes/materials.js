@@ -9,6 +9,7 @@ const LessonAnalysis = require('../models/LessonAnalysis');
 const User = require('../models/User');
 const Payment = require('../models/Payment');
 const SavedMaterial = require('../models/SavedMaterial');
+const Notification = require('../models/Notification');
 const { verifyToken, getUserFromRequest, uploadImage, uploadImageToGCS } = require('../middleware/videoUploadMiddleware');
 
 // ── Helpers ──────────────────────────────────────────────────────
@@ -187,6 +188,97 @@ function validateQuiz(quiz) {
   return null;
 }
 
+function getMaterialVisibility(material) {
+  return material.visibility || 'public';
+}
+
+function isSharedWithStudent(material, userId) {
+  if (!userId) return false;
+  const uid = userId.toString();
+  return (material.sharedStudentIds || []).some(sid => sid.toString() === uid);
+}
+
+function formatTutorDisplayName(user) {
+  if (!user) return 'Your tutor';
+  if (user.firstName) {
+    const last = user.lastName || '';
+    return last ? `${user.firstName} ${last.charAt(0).toUpperCase()}.` : user.firstName;
+  }
+  return user.name || 'Your tutor';
+}
+
+async function notifyNewlySharedStudents(req, material, tutor, previousIds, nextIds) {
+  const prevSet = new Set((previousIds || []).map(id => id.toString()));
+  const newlyAdded = (nextIds || []).filter(id => !prevSet.has(id.toString()));
+  if (newlyAdded.length === 0) return;
+
+  const students = await User.find({ _id: { $in: newlyAdded } })
+    .select('name firstName lastName email picture auth0Id')
+    .lean();
+
+  const tutorName = formatTutorDisplayName(tutor);
+  const materialTitle = material.title || 'Untitled material';
+
+  for (const student of students) {
+    try {
+      const notificationMessage = `<strong>${tutorName}</strong> shared material with you. See <strong>"${materialTitle}"</strong>.`;
+      await Notification.create({
+        userId: student._id,
+        type: 'material_shared',
+        title: 'Material shared with you',
+        message: notificationMessage,
+        relatedUserPicture: tutor.picture || null,
+        relatedUserId: tutor._id,
+        data: {
+          materialId: material._id.toString(),
+          materialTitle: material.title,
+          tutorId: tutor._id.toString(),
+          tutorName,
+          tutorPicture: tutor.picture || null,
+          materialType: material.materialType,
+          pricingType: material.pricingType
+        }
+      });
+
+      if (req.io && req.connectedUsers && student.auth0Id) {
+        const socketId = req.connectedUsers.get(student.auth0Id);
+        if (socketId) {
+          req.io.to(socketId).emit('new_notification', {
+            type: 'material_shared',
+            title: 'Material shared with you',
+            message: `${tutorName} shared material with you. See "${materialTitle}".`,
+            materialId: material._id.toString(),
+            tutorId: tutor._id.toString()
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Error notifying student of shared material:', err.message);
+    }
+  }
+}
+
+function isRevokedForStudent(material, userId) {
+  if (!userId) return false;
+  const uid = userId.toString();
+  return (material.revokedStudentIds || []).some(sid => sid.toString() === uid);
+}
+
+function addRevokedStudents(material, studentIds) {
+  if (!studentIds?.length) return;
+  const revoked = new Set((material.revokedStudentIds || []).map(id => id.toString()));
+  studentIds.forEach(id => revoked.add(id.toString()));
+  material.revokedStudentIds = Array.from(revoked);
+}
+
+function clearRevokedStudents(material, studentIds) {
+  if (!studentIds?.length) return;
+  const active = new Set(studentIds.map(id => id.toString()));
+  material.revokedStudentIds = (material.revokedStudentIds || []).filter(
+    id => !active.has(id.toString())
+  );
+}
+
 async function hasPurchased(studentId, materialId) {
   const directPurchase = await MaterialPurchase.findOne({
     studentId,
@@ -226,7 +318,7 @@ router.post('/', verifyToken, async (req, res) => {
     const {
       title, description, whyTakeThis, language, level, topics, structuredTags, materialType,
       videoUrl, passage, audioUrl, thumbnailUrl: customThumbnail,
-      pricingType, price, quiz, status, contentAttested
+      pricingType, price, quiz, status, contentAttested, visibility, sharedStudentIds
     } = req.body;
 
     const isDraft = status === 'draft';
@@ -279,6 +371,13 @@ router.post('/', verifyToken, async (req, res) => {
       quiz: Array.isArray(quiz) ? quiz : [],
       status: isDraft ? 'draft' : (status || 'published')
     };
+
+    if (Array.isArray(sharedStudentIds) && sharedStudentIds.length > 0) {
+      doc.visibility = 'past_students';
+      doc.sharedStudentIds = sharedStudentIds.filter(Boolean);
+    } else {
+      doc.visibility = visibility || 'private';
+    }
 
     // Type-specific validation & fields
     if (type === 'video_quiz') {
@@ -580,7 +679,12 @@ router.get('/my', verifyToken, async (req, res) => {
       .sort({ createdAt: -1 })
       .lean();
 
-    res.json({ success: true, materials });
+    const normalized = materials.map(m => ({
+      ...m,
+      visibility: m.visibility || 'public'
+    }));
+
+    res.json({ success: true, materials: normalized });
   } catch (error) {
     console.error('Error fetching my materials:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
@@ -629,7 +733,11 @@ router.get('/tutor/:tutorId', async (req, res) => {
   try {
     const materials = await TutorMaterial.find({
       tutorId: req.params.tutorId,
-      status: { $in: ['published', 'draft'] }
+      status: 'published',
+      $or: [
+        { visibility: 'public' },
+        { visibility: { $exists: false } }
+      ]
     })
       .select('-quiz.options.isCorrect')
       .sort({ createdAt: -1 })
@@ -665,7 +773,13 @@ router.get('/my-progress', verifyToken, async (req, res) => {
 router.get('/browse', async (req, res) => {
   try {
     const { language, level, tags, type, search, sort, page, limit: lim } = req.query;
-    const filter = { status: 'published' };
+    const filter = {
+      status: 'published',
+      $or: [
+        { visibility: 'public' },
+        { visibility: { $exists: false } }
+      ]
+    };
 
     if (language) filter.language = language;
     if (level && level !== 'any') filter.level = level;
@@ -809,6 +923,10 @@ router.get('/recommended/:language', verifyToken, async (req, res) => {
       language: { $regex: new RegExp(`^${language}$`, 'i') },
       level: { $in: [studentLevel, 'any'] },
       status: 'published',
+      $or: [
+        { visibility: 'public' },
+        { visibility: { $exists: false } }
+      ],
       _id: { $nin: completedIds },
       tutorId: { $ne: user._id }
     })
@@ -997,6 +1115,35 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Material not found' });
     }
 
+    if (!isOwner && !purchased && material.status === 'published') {
+      const visibility = getMaterialVisibility(material);
+
+      if (user && isRevokedForStudent(material, user._id)) {
+        return res.status(403).json({
+          success: false,
+          message: 'This is no longer accessible.',
+          accessRevoked: true
+        });
+      }
+
+      if (visibility === 'past_students') {
+        if (!user) {
+          return res.status(401).json({
+            success: false,
+            message: 'Log in to access this material',
+            requiresAuth: true
+          });
+        }
+        if (!isSharedWithStudent(material, user._id)) {
+          return res.status(403).json({
+            success: false,
+            message: 'You do not have access to this material',
+            accessRevoked: false
+          });
+        }
+      }
+    }
+
     // Track unique views only for authenticated non-owners
     if (user && !isOwner) {
       let isNewView = false;
@@ -1071,7 +1218,9 @@ router.put('/:id', verifyToken, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Not authorized' });
     }
 
-    const { title, description, whyTakeThis, language, level, topics, structuredTags, videoUrl, passage, audioUrl, thumbnailUrl: customThumbnail, pricingType, price, quiz, status, contentAttested } = req.body;
+    const previousSharedIds = (material.sharedStudentIds || []).map(id => id.toString());
+
+    const { title, description, whyTakeThis, language, level, topics, structuredTags, videoUrl, passage, audioUrl, thumbnailUrl: customThumbnail, pricingType, price, quiz, status, contentAttested, visibility, sharedStudentIds } = req.body;
 
     // Video quiz URL update
     if (material.materialType === 'video_quiz' && videoUrl && videoUrl !== material.videoUrl) {
@@ -1112,6 +1261,36 @@ router.put('/:id', verifyToken, async (req, res) => {
     if (quiz !== undefined) material.quiz = quiz;
     if (status !== undefined) material.status = status;
 
+    if (visibility !== undefined) {
+      const allowed = ['private', 'public', 'past_students'];
+      if (!allowed.includes(visibility)) {
+        return res.status(400).json({ success: false, message: 'Invalid visibility' });
+      }
+      material.visibility = visibility;
+      if (visibility === 'private' || visibility === 'public') {
+        addRevokedStudents(material, previousSharedIds);
+        material.sharedStudentIds = [];
+      }
+    }
+
+    if (sharedStudentIds !== undefined) {
+      if (!Array.isArray(sharedStudentIds)) {
+        return res.status(400).json({ success: false, message: 'sharedStudentIds must be an array' });
+      }
+      if (sharedStudentIds.length > 0) {
+        const nextIds = sharedStudentIds.filter(Boolean).map(id => id.toString());
+        const removedIds = previousSharedIds.filter(id => !nextIds.includes(id));
+        addRevokedStudents(material, removedIds);
+        material.sharedStudentIds = sharedStudentIds.filter(Boolean);
+        clearRevokedStudents(material, nextIds);
+        material.visibility = 'past_students';
+      } else {
+        addRevokedStudents(material, previousSharedIds);
+        material.sharedStudentIds = [];
+        material.visibility = 'private';
+      }
+    }
+
     if (topics !== undefined) {
       material.topics = Array.isArray(topics) ? topics.map(t => t.trim().toLowerCase()).filter(Boolean) : [];
     }
@@ -1140,6 +1319,11 @@ router.put('/:id', verifyToken, async (req, res) => {
     }
 
     await material.save();
+
+    if (sharedStudentIds !== undefined && material.sharedStudentIds?.length > 0) {
+      await notifyNewlySharedStudents(req, material, tutor, previousSharedIds, material.sharedStudentIds);
+    }
+
     res.json({ success: true, material });
   } catch (error) {
     console.error('Error updating material:', error);

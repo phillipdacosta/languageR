@@ -789,6 +789,15 @@ server.listen(PORT, '0.0.0.0', () => {
     runMasteryModeWeeklyCron().catch(err => console.error('[Cron] Mastery weekly error:', err));
   });
   console.log('⏰ Cron job started: Mastery Mode weekly sweep (09:30 daily)');
+
+  // Escalating reminders for outstanding tutor feedback (AI-off lessons).
+  // Runs hourly; per-item cadence (6h/24h/72h) and a hard cap are enforced
+  // inside the job via remindersSent / lastReminderAt, so it's idempotent.
+  const { sendFeedbackReminders } = require('./jobs/feedbackReminders');
+  cron.schedule('20 * * * *', () => {
+    sendFeedbackReminders().catch(err => console.error('[Cron] Feedback reminders error:', err));
+  });
+  console.log('⏰ Cron job started: Feedback reminders (hourly)');
   
   // Run auto-cancel immediately on startup for testing
   console.log('🚀 Running auto-cancel check immediately on startup...');

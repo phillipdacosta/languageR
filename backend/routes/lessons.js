@@ -13,6 +13,7 @@ const stripeService = require('../services/stripeService');
 const { RtcRole, RtcTokenBuilder } = require('agora-token');
 const { verifyToken, getUserFromRequest } = require('../middleware/videoUploadMiddleware');
 const { buildSystemMessage } = require('../utils/systemMessages');
+const { sendTutorImpressionCelebrationMessage } = require('../utils/tutorImpressionMessages');
 const { formatNameWithInitial } = require('../utils/nameFormatter');
 const { pushLessonToGoogleCalendar, removeLessonFromGoogleCalendar, updateLessonOnGoogleCalendar } = require('../services/googleCalendarService');
 const { translateAnalysisFields, translateFeedbackFields, translateGenericFields } = require('../services/aiService');
@@ -294,28 +295,20 @@ router.post('/', verifyToken, async (req, res) => {
       });
     }
 
-    // Check if tutor has REQUIRED pending feedback (block new bookings)
-    // Only count feedback where required !== false (true or undefined/legacy)
-    // GRACE PERIOD: Only count feedback older than 2 hours — gives tutors time to submit
-    // after a lesson ends without immediately blocking new bookings.
-    const FEEDBACK_GRACE_MS = 2 * 60 * 60 * 1000; // 2 hours
-    const pendingFeedbackCount = await TutorFeedback.countDocuments({
-      $or: [
-        { tutorId: tutor._id },
-        { tutorId: tutor.auth0Id }
-      ],
-      status: 'pending',
-      required: { $ne: false },
-      createdAt: { $lt: new Date(Date.now() - FEEDBACK_GRACE_MS) }
-    });
-    
-    if (pendingFeedbackCount > 0) {
-      console.log(`🚫 Blocking lesson creation - tutor ${tutor.email} has ${pendingFeedbackCount} required pending feedback (older than 2h)`);
+    // Check if tutor should be hard-blocked from new bookings.
+    // GRADUATED: only repeat offenders (>= violation threshold) with currently
+    // overdue feedback are blocked. A first/occasional miss is handled by
+    // escalating reminders + search deprioritization instead of a hard block.
+    const { evaluateBookingBlock } = require('../utils/feedbackPolicy');
+    const bookingBlock = await evaluateBookingBlock(tutor);
+
+    if (bookingBlock.blocked) {
+      console.log(`🚫 Blocking lesson creation - repeat-offender tutor ${tutor.email} has ${bookingBlock.pendingCount} overdue feedback (${bookingBlock.violations} lifetime violations)`);
       return res.status(403).json({
         success: false,
-        message: `This tutor has ${pendingFeedbackCount} outstanding feedback item${pendingFeedbackCount > 1 ? 's' : ''} to complete before accepting new lessons.`,
+        message: `This tutor has ${bookingBlock.pendingCount} outstanding feedback item${bookingBlock.pendingCount > 1 ? 's' : ''} to complete before accepting new lessons.`,
         code: 'PENDING_FEEDBACK',
-        pendingCount: pendingFeedbackCount
+        pendingCount: bookingBlock.pendingCount
       });
     }
 
@@ -862,27 +855,18 @@ router.post('/office-hours', verifyToken, async (req, res) => {
       });
     }
 
-    // Check if tutor has REQUIRED pending feedback (block new bookings)
-    // GRACE PERIOD: Only count feedback older than 2 hours — gives tutors time to submit
-    // after a lesson ends without immediately blocking office hours.
-    const FEEDBACK_GRACE_MS_OH = 2 * 60 * 60 * 1000; // 2 hours
-    const pendingFeedbackCount = await TutorFeedback.countDocuments({
-      $or: [
-        { tutorId: tutor._id },
-        { tutorId: tutor.auth0Id }
-      ],
-      status: 'pending',
-      required: { $ne: false },
-      createdAt: { $lt: new Date(Date.now() - FEEDBACK_GRACE_MS_OH) }
-    });
-    
-    if (pendingFeedbackCount > 0) {
-      console.log(`🚫 Blocking office hours - tutor ${tutor.email} has ${pendingFeedbackCount} required pending feedback (older than 2h)`);
+    // Check if tutor should be hard-blocked from office hours (graduated — only
+    // repeat offenders with overdue feedback; otherwise reminders + deprioritization).
+    const { evaluateBookingBlock: evaluateOhBlock } = require('../utils/feedbackPolicy');
+    const ohBlock = await evaluateOhBlock(tutor);
+
+    if (ohBlock.blocked) {
+      console.log(`🚫 Blocking office hours - repeat-offender tutor ${tutor.email} has ${ohBlock.pendingCount} overdue feedback (${ohBlock.violations} lifetime violations)`);
       return res.status(403).json({
         success: false,
-        message: `You have ${pendingFeedbackCount} outstanding feedback item${pendingFeedbackCount > 1 ? 's' : ''} to complete before starting new lessons.`,
+        message: `You have ${ohBlock.pendingCount} outstanding feedback item${ohBlock.pendingCount > 1 ? 's' : ''} to complete before starting new lessons.`,
         code: 'PENDING_FEEDBACK',
-        pendingCount: pendingFeedbackCount
+        pendingCount: ohBlock.pendingCount
       });
     }
 
@@ -1105,7 +1089,7 @@ router.get('/by-tutor/:tutorId', verifyToken, async (req, res) => {
     // Find lessons for this tutor
     const dbStartTime = Date.now();
     const lessons = await Lesson.find(query)
-    .populate('studentId', 'name email picture firstName lastName')
+    .populate('studentId', 'name email picture firstName lastName auth0Id')
     .sort({ startTime: 1 });
     const dbDuration = Date.now() - dbStartTime;
     console.log(`⏱️ [Lessons By Tutor] DB query took: ${dbDuration}ms`);
@@ -1176,8 +1160,8 @@ router.get('/my-lessons', verifyToken, async (req, res) => {
         { studentId: userId }
       ]
     })
-    .populate('tutorId', 'name email picture firstName lastName nativeLanguage interfaceLanguage')
-    .populate('studentId', 'name email picture firstName lastName nativeLanguage interfaceLanguage')
+    .populate('tutorId', 'name email picture firstName lastName nativeLanguage interfaceLanguage auth0Id')
+    .populate('studentId', 'name email picture firstName lastName nativeLanguage interfaceLanguage auth0Id')
     .sort({ startTime: 1 });
 
     // Load LessonAnalysis for each lesson to check if analysis exists
@@ -3583,6 +3567,24 @@ router.post('/:id/tutor-note', verifyToken, async (req, res) => {
     await analysis.save();
 
     console.log(`✅ Tutor note saved for lesson ${lessonId}`);
+
+    // Surface quick-impression chip to the student's messages (excellent/great/good only).
+    if (quickImpression) {
+      try {
+        const studentForMessage = await User.findById(lesson.studentId)
+          .select('auth0Id interfaceLanguage firstName lastName name picture');
+        await sendTutorImpressionCelebrationMessage({
+          lesson,
+          tutor: user,
+          student: studentForMessage,
+          quickImpression,
+          io: req.io,
+          connectedUsers: req.connectedUsers
+        });
+      } catch (celebrationErr) {
+        console.error('⚠️ Failed to send tutor impression celebration (non-critical):', celebrationErr.message);
+      }
+    }
 
     // If the tutor captured structured corrections, push them onto BOTH the
     // analysis (so the student sees them on the recap) and the student's

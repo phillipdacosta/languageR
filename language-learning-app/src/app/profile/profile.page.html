@@ -583,7 +583,14 @@
               </div>
               <div class="timezone-info">
                 <h3>{{ 'PROFILE_SCREEN.INTERFACE_LANGUAGE' | translate }}</h3>
-                <p class="timezone-value">{{ interfaceLanguageLabel }}</p>
+                <p class="timezone-value interface-language-value">
+                  <app-flag-icon
+                    [language]="selectedInterfaceLanguageEnglishName"
+                    [size]="16"
+                    cssClass="interface-language-flag">
+                  </app-flag-icon>
+                  <span>{{ interfaceLanguageLabel }}</span>
+                </p>
               </div>
               <ion-icon name="chevron-forward" class="chevron-icon"></ion-icon>
             </div>
@@ -611,9 +618,17 @@
             </ion-label>
             <ion-toggle slot="end" [checked]="aiAnalysisEnabled" (ionChange)="toggleAIAnalysis($event)"></ion-toggle>
           </ion-item>
-          <ion-item button>
+          <ion-item button (click)="openHelpSupport()">
             <ion-icon name="help-circle" slot="start"></ion-icon>
             <ion-label>{{ 'PROFILE_SCREEN.HELP_SUPPORT' | translate }}</ion-label>
+          </ion-item>
+          <ion-item button (click)="openTermsOfService()">
+            <ion-icon name="document-text-outline" slot="start"></ion-icon>
+            <ion-label>{{ 'SITE_FOOTER.TERMS' | translate }}</ion-label>
+          </ion-item>
+          <ion-item button (click)="openPrivacyPolicy()" lines="none">
+            <ion-icon name="shield-checkmark-outline" slot="start"></ion-icon>
+            <ion-label>{{ 'SITE_FOOTER.PRIVACY' | translate }}</ion-label>
           </ion-item>
         </ion-list>
       </ion-card-content>

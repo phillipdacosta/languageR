@@ -832,6 +832,10 @@ router.put('/profile', verifyToken, async (req, res) => {
     }
     
     console.log('📝 Before update - officeHoursEnabled:', user.profile?.officeHoursEnabled, 'showWalletBalance:', user.profile?.showWalletBalance, 'remindersEnabled:', user.profile?.remindersEnabled, 'aiAnalysisEnabled:', user.profile?.aiAnalysisEnabled);
+
+    // Capture the AI-analysis setting before the profile object is rebuilt so we
+    // can detect a real change and notify any live pre-call counterpart below.
+    const prevAiAnalysisEnabled = user.profile?.aiAnalysisEnabled !== false;
     
     // If timezone is changing and tutor has availability, convert blocks to maintain real-world times
     const oldTimezone = user.profile?.timezone || 'UTC';
@@ -939,6 +943,51 @@ router.put('/profile', verifyToken, async (req, res) => {
     console.log('💾 About to save user with interfaceLanguage:', user.interfaceLanguage);
     await user.save();
     console.log('✅ User saved. Verifying interfaceLanguage:', user.interfaceLanguage);
+
+    // ── Notify a live pre-call counterpart when the student's AI-analysis
+    // setting changes ──────────────────────────────────────────────────────
+    // The pre-call screen shows the student's AI setting to BOTH parties. The
+    // value that governs a lesson is snapshotted at lesson start (immutable),
+    // so a change only affects the NEXT lesson — but while both users sit in
+    // pre-call waiting for a not-yet-started lesson, the displayed value should
+    // reflect the live setting. Without this push, the counterpart keeps the
+    // stale value they loaded. We emit to imminent/active, not-yet-snapshotted
+    // lessons for this student, to both the tutor and the student's own sockets.
+    const newAiAnalysisEnabled = user.profile?.aiAnalysisEnabled !== false;
+    if (aiAnalysisEnabled !== undefined && newAiAnalysisEnabled !== prevAiAnalysisEnabled && req.io && req.connectedUsers) {
+      try {
+        const now = new Date();
+        const windowStart = new Date(now.getTime() - 30 * 60 * 1000); // started up to 30m ago
+        const windowEnd = new Date(now.getTime() + 60 * 60 * 1000);   // starting within 60m
+        const liveLessons = await Lesson.find({
+          studentId: user._id,
+          status: { $in: ['scheduled', 'confirmed', 'in_progress'] },
+          aiAnalysisEnabledAtTime: null, // not yet locked → change still applies
+          startTime: { $gte: windowStart, $lte: windowEnd }
+        }).populate('tutorId', 'auth0Id').select('tutorId studentId').lean();
+
+        const recipientAuth0Ids = new Set();
+        recipientAuth0Ids.add(user.auth0Id); // student's other devices
+        for (const lesson of liveLessons) {
+          const tutorAuth0Id = lesson.tutorId?.auth0Id;
+          if (tutorAuth0Id) recipientAuth0Ids.add(tutorAuth0Id);
+        }
+
+        for (const auth0Id of recipientAuth0Ids) {
+          const socketId = req.connectedUsers.get(auth0Id);
+          if (socketId) {
+            req.io.to(socketId).emit('ai_analysis_setting_changed', {
+              studentId: user._id.toString(),
+              studentAuth0Id: user.auth0Id,
+              aiAnalysisEnabled: newAiAnalysisEnabled
+            });
+            console.log(`📡 Emitted ai_analysis_setting_changed=${newAiAnalysisEnabled} to ${auth0Id}`);
+          }
+        }
+      } catch (emitErr) {
+        console.error('⚠️ Failed to emit ai_analysis_setting_changed:', emitErr);
+      }
+    }
     
     res.json({
       success: true,
@@ -1315,12 +1364,14 @@ router.get('/tutors', verifyToken, async (req, res) => {
 
     // Get all matching tutor IDs (for accurate totalCount after filtering hidden tutors)
     // We need to filter out tutors with pending feedback before counting
-    const allMatchingTutorIds = await User.find(filterQuery).select('_id auth0Id').lean();
+    const allMatchingTutorIds = await User.find(filterQuery)
+      .select('_id auth0Id stats.feedbackMetrics.feedbackGraceViolations')
+      .lean();
     
-    // Get tutors with pending feedback (hidden from search)
+    // Get tutors with overdue pending feedback.
     // TutorFeedback.tutorId can be either MongoDB _id or auth0Id, so check both
     // GRACE PERIOD: Only count feedback older than 2 hours — gives tutors time to submit
-    // after a lesson ends without immediately hiding their profile from search.
+    // after a lesson ends without immediately penalizing their profile.
     const FEEDBACK_GRACE_MS = 2 * 60 * 60 * 1000; // 2 hours
     const graceDeadline = new Date(Date.now() - FEEDBACK_GRACE_MS);
     const allTutorMongoIds = allMatchingTutorIds.map(t => t._id);
@@ -1333,12 +1384,34 @@ router.get('/tutors', verifyToken, async (req, res) => {
       status: 'pending',
       createdAt: { $lt: graceDeadline }
     });
-    const blockedIdSet = new Set(feedbackBlocked.map(id => id.toString()));
+
+    // Map tutorId (both _id and auth0Id forms) → cumulative grace violations.
+    const violationsById = {};
+    for (const t of allMatchingTutorIds) {
+      const v = t.stats?.feedbackMetrics?.feedbackGraceViolations || 0;
+      violationsById[t._id.toString()] = v;
+      if (t.auth0Id) violationsById[t.auth0Id] = v;
+    }
+
+    // GRADUATED PENALTY:
+    //   • Every overdue item still records a violation and applies a ranking
+    //     penalty (see sort below) so a single miss costs visibility, not income.
+    //   • Full removal from discovery search is reserved for *repeat* offenders
+    //     (cumulative violations >= threshold). This keeps a tutor's first slip
+    //     from blacking out their livelihood, and never strands existing students
+    //     (who reach tutors via messaging/booking, not this discovery search).
+    const { HIDE_VIOLATION_THRESHOLD } = require('../utils/feedbackPolicy');
+    const overdueIdSet = new Set(feedbackBlocked.map(id => id.toString()));
+    const blockedIdSet = new Set(
+      [...overdueIdSet].filter(id => (violationsById[id] || 0) >= HIDE_VIOLATION_THRESHOLD)
+    );
 
     // ── Record grace-period violations (lazy, at-query-time) ──
     // Find expired feedback items that haven't been flagged yet and mark them.
     // This avoids needing a cron job — violations are detected whenever search runs.
-    if (blockedIdSet.size > 0) {
+    // Gated on ALL overdue items (not just hidden tutors) so violations keep
+    // accruing toward the hide threshold even before a tutor is removed.
+    if (overdueIdSet.size > 0) {
       try {
         const newlyExpired = await TutorFeedback.find({
           $or: [
@@ -1419,7 +1492,7 @@ router.get('/tutors', verifyToken, async (req, res) => {
       tutors = tutors.filter(t => 
         !blockedIdSet.has(t._id.toString()) && !blockedIdSet.has(t.auth0Id)
       );
-      console.log(`🚫 Hiding ${beforeCount - tutors.length} tutor(s) with pending feedback from search results`);
+      console.log(`🚫 Hiding ${beforeCount - tutors.length} repeat-offender tutor(s) (>= ${HIDE_VIOLATION_THRESHOLD} grace violations) from discovery search`);
     }
 
     // ── Deprioritize tutors with grace-period violations ──
@@ -2029,16 +2102,18 @@ router.get('/tutors-with-new-availability', verifyToken, async (req, res) => {
       lastAvailabilityUpdate: { $gte: fourHoursAgo },
       // Make sure they have actual availability blocks
       'availability.0': { $exists: true }
-    }).select('_id firstName lastName picture lastAvailabilityUpdate availability');
+    }).select('_id firstName lastName picture lastAvailabilityUpdate availability stats.feedbackMetrics.feedbackGraceViolations');
     
-    // Filter out tutors with pending feedback (not accepting bookings)
-    const TutorFeedback = require('../models/TutorFeedback');
+    // Filter out tutors who are HARD-blocked (graduated — only repeat offenders
+    // with overdue feedback). Occasional misses are handled by reminders +
+    // search deprioritization, so a first slip doesn't drop them from discovery.
+    const { evaluateBookingBlock } = require('../utils/feedbackPolicy');
     const blockedTutorIds = [];
     for (const tutor of tutorsWithNewAvailability) {
-      const pendingCount = await TutorFeedback.countDocuments({ tutorId: tutor._id, status: 'pending', required: { $ne: false } });
-      if (pendingCount > 0) {
+      const { blocked, pendingCount, violations } = await evaluateBookingBlock(tutor);
+      if (blocked) {
         blockedTutorIds.push(tutor._id.toString());
-        console.log(`⚠️ Tutor ${tutor.firstName} has ${pendingCount} pending feedback - excluding from availability`);
+        console.log(`⚠️ Tutor ${tutor.firstName} has ${pendingCount} overdue feedback (${violations} violations) - excluding from availability`);
       }
     }
     const availableTutors = tutorsWithNewAvailability.filter(t => !blockedTutorIds.includes(t._id.toString()));
@@ -2231,10 +2306,10 @@ router.get('/:userId/availability', publicProfileLimiter, async (req, res) => {
     console.log('📅 Availability blocks (filtered, excluding classes and old blocks):', actualAvailability.length);
     console.log('📅 Filtered from', withoutClasses.length, 'to', actualAvailability.length, 'blocks');
 
-    // Check if tutor has pending feedback (blocks new bookings)
+    // Check if tutor has overdue pending feedback.
     // GRACE PERIOD: Only count feedback older than 2 hours — gives tutors time to submit
     // after a lesson ends without immediately blocking their availability calendar.
-    const FEEDBACK_GRACE_MS = 2 * 60 * 60 * 1000; // 2 hours
+    const { FEEDBACK_GRACE_MS, HIDE_VIOLATION_THRESHOLD, getViolationCount } = require('../utils/feedbackPolicy');
     const graceDeadline = new Date(Date.now() - FEEDBACK_GRACE_MS);
     const TutorFeedback = require('../models/TutorFeedback');
     const pendingFeedbackCount = await TutorFeedback.countDocuments({
@@ -2243,12 +2318,20 @@ router.get('/:userId/availability', publicProfileLimiter, async (req, res) => {
       required: { $ne: false },
       createdAt: { $lt: graceDeadline }
     });
-    const acceptingBookings = pendingFeedbackCount === 0;
+    // GRADUATED: only repeat offenders (>= threshold lifetime violations) are
+    // hard-blocked from bookings. Occasional misses still accrue violations
+    // (below) and are deprioritized in search, but stay bookable.
+    const tutorViolations = getViolationCount(tutor);
+    const acceptingBookings = !(pendingFeedbackCount > 0 && tutorViolations >= HIDE_VIOLATION_THRESHOLD);
 
-    if (!acceptingBookings) {
-      console.log(`⚠️ Tutor ${tutor._id} has ${pendingFeedbackCount} pending feedback (older than 2h) - not accepting bookings`);
+    if (pendingFeedbackCount > 0) {
+      if (!acceptingBookings) {
+        console.log(`⚠️ Tutor ${tutor._id} has ${pendingFeedbackCount} overdue feedback (${tutorViolations} violations) - not accepting bookings`);
+      }
 
       // ── Record grace-period violations (lazy detection) ──
+      // Runs on ANY overdue item (not just hard-blocked tutors) so violations
+      // keep accruing toward the hard-block threshold.
       try {
         const newlyExpired = await TutorFeedback.updateMany(
           {

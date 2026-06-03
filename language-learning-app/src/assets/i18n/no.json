@@ -2869,7 +2869,11 @@
     "NOTES_AWAITING_BODY_TUTOR": "Du har ikke sendt inn tilbakemelding for den siste leksjonen din med denne studenten ennå.",
     "NOTES_AWAITING_BODY_STUDENT": "Veilederens tilbakemelding fra forrige leksjon er på vei.",
     "NOTES_ERROR_TITLE": "Kunne ikke laste inn notater",
-    "NOTES_ERROR_BODY": "Noe gikk galt med å laste inn notatene fra forrige leksjon. Vennligst prøv igjen."
+    "NOTES_ERROR_BODY": "Noe gikk galt med å laste inn notatene fra forrige leksjon. Vennligst prøv igjen.",
+    "AI_TOGGLE_LABEL": "AI-analyse og tilbakemelding",
+    "AI_STATUS_EDITABLE_HINT": "Du kan endre dette til timen starter. Det gjelder fra og med denne leksjonen.",
+    "AI_STATUS_LOCKED_HINT": "Dette ble satt da leksjonen startet og kan ikke endres for denne leksjonen. Enhver endring gjelder for neste leksjon.",
+    "AI_TOGGLE_ERROR": "Kunne ikke oppdatere innstillingen. Vennligst prøv igjen."
   },
   "VIDEO_CALL": {
     "LEAVING": "Forlater...",
@@ -3282,7 +3286,7 @@
       "QUIZ_START_HEADER": "Klar til å starte?",
       "QUIZ_START_MSG": "Denne quizen har {{count}} spørsmål. Du kan se gjennom innholdet mens du svarer. Lykke til!",
       "QUIZ_START_MSG_PLURAL": "Denne quizen har {{count}} spørsmål. Du kan se gjennom innholdet mens du svarer. Lykke til!",
-      "START_QUIZ": "Start Quiz",
+      "START_QUIZ": "Start",
       "VIDEO_UNAVAILABLE_HEADER": "Video utilgjengelig",
       "VIDEO_UNAVAILABLE_MSG": "Videoen for dette materialet er fjernet av veilederen. Vi har blitt varslet og vil behandle en refusjon hvis du kjøpte denne quizen.",
       "REPORT_PROBLEM": "Rapporter problem",

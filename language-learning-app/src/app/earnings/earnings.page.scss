@@ -2241,6 +2241,11 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
   ion-content {
     --background: var(--wd-bg);
     --color: var(--wd-text);
+    --overflow: hidden;
+
+    &::part(scroll) {
+      overflow: hidden;
+    }
 
     @media (max-width: 768px) {
       --padding-top: env(safe-area-inset-top, 0px);
@@ -2250,11 +2255,12 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
   ion-footer.withdrawal-modal-footer {
     --background: var(--wd-bg);
     background: var(--wd-bg);
-    border-top: none;
+    border-top: 1px solid var(--wd-border-subtle);
     box-shadow: none;
   }
 
-  .floating-close-button {
+  .floating-close-button,
+  .modal-header-close {
     --color: var(--wd-text-muted);
 
     &:hover {
@@ -2280,11 +2286,11 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
   .withdrawal-available-badge {
     display: inline-flex;
     align-items: center;
-    padding: 4px 10px;
+    padding: 5px 12px;
     background: var(--wd-surface);
     border: 1px solid var(--wd-border-subtle);
     border-radius: 8px;
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 600;
     color: var(--wd-text);
     letter-spacing: -0.2px;
@@ -2295,12 +2301,12 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
     max-width: 880px;
     margin: 0 auto;
     width: 100%;
-    padding: 12px 20px 0;
+    padding: 8px 20px 0;
     box-sizing: border-box;
     text-align: center;
 
     @media (max-width: 768px) {
-      padding: 8px 16px 0;
+      padding: 4px 14px 0;
     }
   }
 
@@ -2308,16 +2314,24 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-bottom: 10px;
+    margin-bottom: 6px;
     line-height: 0;
+
+    @media (max-width: 768px) {
+      margin-bottom: 4px;
+    }
   }
 
   .withdrawal-powered-by-badge {
-    height: 28px;
+    height: 24px;
     width: auto;
     max-width: min(100%, 220px);
     display: block;
     object-fit: contain;
+
+    @media (max-width: 768px) {
+      height: 20px;
+    }
   }
 
   .withdrawal-powered-by-badge--dark {
@@ -2325,17 +2339,18 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
   }
 
   .withdrawal-terms {
-    margin: 0 0 14px;
-    font-size: 12px;
-    line-height: 1.45;
+    margin: 0 0 8px;
+    font-size: 11px;
+    line-height: 1.35;
     color: var(--wd-text-muted);
     max-width: 520px;
     margin-left: auto;
     margin-right: auto;
 
     @media (max-width: 768px) {
-      font-size: 11px;
-      margin-bottom: 10px;
+      font-size: 10px;
+      margin-bottom: 6px;
+      line-height: 1.25;
     }
   }
 
@@ -2359,9 +2374,9 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
   .withdrawal-modal-actions {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 12px;
-    padding: 16px 20px;
-    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+    gap: 10px;
+    padding: 10px 20px;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom));
     max-width: 880px;
     margin: 0 auto;
     width: 100%;
@@ -2369,9 +2384,9 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
 
     @media (max-width: 768px) {
       grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      padding: 10px 16px;
-      padding-bottom: calc(10px + env(safe-area-inset-bottom));
+      gap: 8px;
+      padding: 8px 14px;
+      padding-bottom: calc(8px + env(safe-area-inset-bottom));
     }
   }
 
@@ -2379,15 +2394,15 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
     margin: 0;
     --border-radius: 12px;
     font-weight: 600;
-    font-size: 15px;
+    font-size: 14px;
     text-transform: none;
     letter-spacing: 0;
-    min-height: 48px;
+    min-height: 44px;
     transition: all 0.2s ease;
 
     @media (max-width: 768px) {
-      min-height: 44px;
-      font-size: 14px;
+      min-height: 40px;
+      font-size: 13px;
       --border-radius: 10px;
     }
   }
@@ -2418,31 +2433,103 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
   .modal-content {
     max-width: 880px;
     margin: 0 auto;
-    padding: 40px 20px 28px;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    padding: 28px 32px 0;
     display: flex;
     flex-direction: column;
-    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    justify-content: flex-start;
+    gap: 24px;
 
     @media (max-width: 768px) {
-      padding: 20px 16px 12px;
+      padding: 16px 16px 0;
+      gap: 16px;
+    }
+  }
+
+  .modal-header {
+    flex-shrink: 0;
+    margin-bottom: 0;
+  }
+
+  .withdrawal-amount-hero {
+    flex-shrink: 0;
+    margin: 8px 0 !important;
+
+    @media (max-width: 768px) {
+      margin: 4px 0 !important;
+    }
+  }
+
+  .withdrawal-container {
+    flex: 0 0 auto;
+    margin-top: auto;
+    margin-bottom: 16px !important;
+    align-items: stretch;
+    grid-template-rows: auto;
+    column-gap: 24px;
+    row-gap: 16px;
+
+    @media (max-width: 768px) {
+      margin-bottom: 12px !important;
+      column-gap: 12px;
+      row-gap: 12px;
+    }
+
+    .withdrawal-grid-fees,
+    .method-section.withdrawal-grid-method {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    > .withdrawal-grid-fees .fee-breakdown-card,
+    .method-section.withdrawal-grid-method .method-card {
+      flex: none;
+      height: 196px;
+      min-height: 196px;
+      max-height: 196px;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      gap: 10px;
+      padding: 20px;
+      overflow: hidden;
+
+      @media (max-width: 768px) {
+        height: 168px;
+        min-height: 168px;
+        max-height: 168px;
+        padding: 14px;
+      }
+    }
+
+    .fee-breakdown-card.stripe-card .stripe-receive-section,
+    .method-section.withdrawal-grid-method .method-card .method-content {
+      margin-top: auto;
     }
   }
 }
 
 :host-context(html.ion-palette-dark) .withdrawal-modal,
 html.ion-palette-dark .withdrawal-modal {
-  --wd-bg: #000000;
-  --wd-surface: #141414;
-  --wd-balance-bg: #141414;
+  --wd-bg: #242426;
+  --wd-surface: #2c2c2e;
+  --wd-balance-bg: #2c2c2e;
   --wd-balance-label: rgba(255, 255, 255, 0.85);
   --wd-balance-amount: #f5f5f7;
   --wd-balance-note: rgba(255, 255, 255, 0.7);
   --wd-text: #f5f5f7;
   --wd-text-muted: #8e8e93;
   --wd-border-subtle: rgba(255, 255, 255, 0.08);
-  --wd-input-focus-bg: #1c1c1e;
-  --wd-selected-bg: #1c1c1e;
-  --wd-no-fee-badge-bg: #1c1c1e;
+  --wd-input-focus-bg: #3a3a3c;
+  --wd-selected-bg: #3a3a3c;
+  --wd-no-fee-badge-bg: #3a3a3c;
   --wd-no-fee-badge-text: #f5f5f7;
   --wd-btn-primary-bg: #f5f5f7;
   --wd-btn-primary-color: #000000;
@@ -2485,9 +2572,227 @@ html.ion-palette-dark .withdrawal-modal {
   }
 }
 
+.withdrawal-modal .modal-header {
+  text-align: center;
+  margin-bottom: 0;
+
+  .modal-header-top {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 0;
+    margin-bottom: 0;
+  }
+
+  .withdrawal-header-hero {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    justify-content: flex-start;
+    padding: 12px 0 4px;
+    transition: padding 0.55s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  &.modal-header--revealed .withdrawal-header-hero {
+    padding: 0 0 4px;
+  }
+
+  .withdrawal-header-cluster {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    column-gap: 12px;
+    align-items: end;
+    width: 100%;
+    min-width: 0;
+    transition: align-items 0.55s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  &.modal-header--revealed .withdrawal-header-cluster {
+    align-items: center;
+  }
+
+  .icon-wrapper--lottie {
+    grid-column: 1;
+    grid-row: 1;
+    width: 140px;
+    height: 140px;
+    margin: 0;
+    align-self: end;
+    transform: translateY(20px);
+    transition:
+      width 0.55s cubic-bezier(0.32, 0.72, 0, 1),
+      height 0.55s cubic-bezier(0.32, 0.72, 0, 1),
+      transform 0.55s cubic-bezier(0.32, 0.72, 0, 1);
+
+    .withdrawal-header-lottie {
+      width: 140px;
+      height: 140px;
+      display: block;
+    }
+
+    @media (max-width: 768px) {
+      width: 112px;
+      height: 112px;
+      transform: translateY(16px);
+
+      .withdrawal-header-lottie {
+        width: 112px;
+        height: 112px;
+      }
+    }
+  }
+
+  &.modal-header--revealed .icon-wrapper--lottie {
+    width: 80px;
+    height: 80px;
+    transform: translateY(0);
+
+    .withdrawal-header-lottie {
+      width: 80px;
+      height: 80px;
+    }
+
+    @media (max-width: 768px) {
+      width: 64px;
+      height: 64px;
+
+      .withdrawal-header-lottie {
+        width: 64px;
+        height: 64px;
+      }
+    }
+  }
+
+  .withdrawal-header-copy {
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+    text-align: center;
+    opacity: 0;
+    transform: translateY(20px);
+    pointer-events: none;
+    transition:
+      opacity 0.45s ease 0.12s,
+      transform 0.55s cubic-bezier(0.32, 0.72, 0, 1) 0.12s;
+  }
+
+  &.modal-header--revealed .withdrawal-header-copy {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+
+  .modal-heading {
+    margin: 0 0 8px;
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    line-height: 1.15;
+    text-align: center;
+    opacity: 0;
+    transform: translateY(12px);
+    transition: opacity 0.45s ease 0.12s, transform 0.45s ease 0.12s;
+
+    @media (max-width: 768px) {
+      font-size: 22px;
+      margin-bottom: 6px;
+    }
+  }
+
+  &.modal-header--revealed .modal-heading {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .modal-description {
+    margin: 0 auto;
+    font-size: 15px;
+    line-height: 1.45;
+    text-align: center;
+    justify-content: center;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 0.45s ease 0.2s, transform 0.45s ease 0.2s;
+
+    @media (max-width: 768px) {
+      font-size: 13px;
+    }
+  }
+
+  &.modal-header--revealed .modal-description {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .modal-header-close {
+    position: static;
+    top: auto;
+    right: auto;
+    transform: none;
+    flex-shrink: 0;
+    margin: 4px 0 0;
+    align-self: flex-start;
+  }
+
+  &.modal-header--revealed .modal-header-close {
+    align-self: center;
+    margin-top: 0;
+  }
+}
+
 .modal-header {
   text-align: center;
   margin-bottom: 24px;
+
+  .modal-header-top {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 64px;
+    margin-bottom: 4px;
+
+    @media (max-width: 768px) {
+      min-height: 52px;
+      margin-bottom: 2px;
+    }
+  }
+
+  .modal-header-close {
+    position: absolute;
+    top: 50%;
+    right: 0;
+    transform: translateY(-50%);
+    z-index: 2;
+    margin: 0;
+    --color: #{$text-secondary};
+    --padding-start: 8px;
+    --padding-end: 8px;
+    --border-radius: 50%;
+    --background: #f7f7f7;
+    --background-hover: #ebebeb;
+    width: 36px;
+    height: 36px;
+
+    ion-icon {
+      font-size: 24px;
+    }
+
+    &:hover {
+      --color: #{$text-primary};
+    }
+
+    @media (max-width: 768px) {
+      width: 32px;
+      height: 32px;
+
+      ion-icon {
+        font-size: 22px;
+      }
+    }
+  }
   
   .icon-wrapper {
     width: 48px;
@@ -2504,61 +2809,78 @@ html.ion-palette-dark .withdrawal-modal {
       color: white;
     }
 
+    &--lottie {
+      width: 64px;
+      height: 64px;
+      background: transparent;
+      border-radius: 0;
+      margin: 0;
+
+      .withdrawal-header-lottie {
+        width: 64px;
+        height: 64px;
+      }
+    }
+
     @media (max-width: 768px) {
       width: 36px;
       height: 36px;
       margin-bottom: 8px;
       ion-icon { font-size: 18px; }
+
+      &--lottie {
+        width: 52px;
+        height: 52px;
+
+        .withdrawal-header-lottie {
+          width: 52px;
+          height: 52px;
+        }
+      }
     }
+  }
+
+  .modal-header-top .icon-wrapper--lottie {
+    margin-bottom: 0;
   }
   
   .modal-heading {
-    font-size: 22px;
+    font-size: 20px;
     font-weight: 600;
     color: $text-primary;
-    margin: 0 0 4px;
+    margin: 0 0 2px;
     letter-spacing: -0.3px;
 
-    @media (max-width: 768px) { font-size: 18px; }
+    @media (max-width: 768px) { font-size: 17px; }
   }
   
   .modal-description {
-    font-size: 14px;
+    font-size: 13px;
     color: $text-secondary;
     margin: 0;
+    line-height: 1.35;
 
-    @media (max-width: 768px) { font-size: 13px; }
+    @media (max-width: 768px) { font-size: 12px; }
   }
-
-  @media (max-width: 768px) { margin-bottom: 14px; }
 }
 
 .withdrawal-container {
   display: grid;
   grid-template-columns: 1fr 1fr;
   grid-template-rows: auto;
-  column-gap: 24px;
-  row-gap: 16px;
-  margin-bottom: 20px;
-  align-items: stretch;
+  column-gap: 16px;
+  row-gap: 12px;
+  margin-bottom: 12px;
+  align-items: start;
 
   .withdrawal-grid-fees {
     grid-column: 1;
     grid-row: 1;
-    display: flex;
-    flex-direction: column;
+    display: block;
     min-height: 0;
 
     > .fee-breakdown-card {
-      flex: 1 1 auto;
-      min-height: 0;
-      display: flex;
-      flex-direction: column;
-    }
-
-    > .fee-breakdown-card--paypal .fee-breakdown-swap {
-      flex: 1 1 auto;
-      min-height: 292px;
+      height: auto;
     }
   }
 
@@ -2566,14 +2888,12 @@ html.ion-palette-dark .withdrawal-modal {
     grid-column: 2;
     grid-row: 1;
     margin-bottom: 0;
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    align-self: stretch;
+    display: block;
+    align-self: start;
 
     .method-card-inline-label {
       display: block;
-      font-size: 14px;
+      font-size: 15px;
       font-weight: 600;
       color: var(--wd-text);
       margin: 0 0 12px;
@@ -2583,35 +2903,27 @@ html.ion-palette-dark .withdrawal-modal {
     }
 
     .method-card {
-      flex: 1 1 auto;
-      display: flex;
-      flex-direction: column;
-      align-items: stretch;
-      justify-content: flex-start;
+      display: block;
       margin-bottom: 0;
-      min-height: 0;
       border-radius: $radius;
-      padding: 16px;
+      padding: 20px;
 
       &.selected {
-        padding: 16px;
+        padding: 20px;
       }
 
       .method-content {
         width: 100%;
-        flex: 1;
         display: flex;
         align-items: center;
-        min-height: 0;
       }
     }
 
     .no-method-message {
-      flex: 1 1 auto;
       margin-bottom: 0;
       flex-direction: column;
       align-items: stretch;
-      gap: 12px;
+      gap: 8px;
 
       .no-method-message-row {
         display: flex;
@@ -2622,23 +2934,16 @@ html.ion-palette-dark .withdrawal-modal {
   }
 
   @media (max-width: 768px) {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
+    column-gap: 10px;
+    row-gap: 0;
     margin-bottom: 8px;
 
     .withdrawal-grid-method .method-card {
-      flex: 0 1 auto;
-      min-height: auto;
-    }
+      padding: 10px;
 
-    .withdrawal-grid-fees > .fee-breakdown-card {
-      flex: 0 1 auto;
-    }
-
-    .withdrawal-grid-fees > .fee-breakdown-card--paypal .fee-breakdown-swap {
-      flex: 0 1 auto;
-      min-height: auto;
+      &.selected {
+        padding: 10px;
+      }
     }
   }
 }
@@ -2647,16 +2952,22 @@ html.ion-palette-dark .withdrawal-modal {
 .withdrawal-modal .fee-breakdown-card {
   background: var(--wd-surface);
   border-radius: $radius;
-  padding: 16px;
+  padding: 12px;
   border: none;
+  min-height: 0;
+  overflow: hidden;
 
-  @media (max-width: 768px) { padding: 12px; }
+  @media (max-width: 768px) { padding: 8px; }
   
   .breakdown-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 8px 0;
+    padding: 6px 0;
+
+    @media (max-width: 768px) {
+      padding: 3px 0;
+    }
     
     .breakdown-label {
       font-size: 13px;
@@ -2771,6 +3082,10 @@ html.ion-palette-dark .withdrawal-modal {
     height: 1px;
     background: var(--wd-border-subtle);
     margin: 8px 0;
+
+    @media (max-width: 768px) {
+      margin: 4px 0;
+    }
   }
   
   &.stripe-card {
@@ -2810,55 +3125,70 @@ html.ion-palette-dark .withdrawal-modal {
       display: flex;
       align-items: center;
       gap: 6px;
-      padding: 8px 12px;
+      padding: 0;
       background: transparent;
-      border-radius: 8px;
-      margin-top: 8px;
+      border-radius: 0;
+      margin-top: 6px;
       
       ion-icon {
-        font-size: 16px;
+        font-size: 14px;
         color: var(--wd-text-muted);
         flex-shrink: 0;
       }
       
       span {
-        font-size: 12px;
+        font-size: 11px;
+        line-height: 1.3;
         color: var(--wd-text-muted);
       }
 
       @media (max-width: 768px) {
-        padding: 6px 10px;
         margin-top: 4px;
-        ion-icon { font-size: 14px; }
-        span { font-size: 11px; }
+        ion-icon { font-size: 13px; }
+        span { font-size: 10px; }
       }
     }
 
     .stripe-receive-section {
-      margin-top: 4px;
+      margin-top: 8px;
+
+      @media (max-width: 768px) {
+        margin-top: 6px;
+      }
     }
 
     .stripe-receive-value {
+      display: inline-block;
+      min-width: 5ch;
+      min-height: 1.35em;
+      font-size: 18px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      line-height: 1.35;
       transition:
         color 0.32s cubic-bezier(0.4, 0, 0.2, 1),
         opacity 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+
+      @media (max-width: 768px) {
+        font-size: 16px;
+      }
     }
 
     .stripe-receive-value--muted {
       color: var(--wd-text-muted);
       opacity: 0.72;
-      font-weight: 600;
+      font-weight: 700;
     }
   }
 }
 
-// PayPal fee card: crossfade panels inside fixed min-height (no jump when amount crosses $10)
+// PayPal fee card: crossfade panels inside compact min-height (no jump when amount crosses $10)
 .withdrawal-modal .fee-breakdown-card--paypal {
   .fee-breakdown-swap {
     position: relative;
-    min-height: 292px;
-
-    @media (max-width: 768px) { min-height: 220px; }
+    flex: 1;
+    min-height: 0;
+    height: 100%;
   }
 
   .fee-breakdown-panel {
@@ -2881,14 +3211,20 @@ html.ion-palette-dark .withdrawal-modal {
   }
 
   .breakdown-placeholder {
-    padding: 32px 16px 24px;
-    min-height: 200px;
+    padding: 12px 8px;
+    min-height: 132px;
     justify-content: center;
 
     @media (max-width: 768px) {
-      padding: 16px 12px;
-      min-height: 140px;
-      ion-icon { font-size: 22px; margin-bottom: 4px; }
+      padding: 8px 6px;
+      min-height: 132px;
+
+      p {
+        font-size: 11px;
+        line-height: 1.3;
+      }
+
+      ion-icon { font-size: 18px; margin-bottom: 2px; }
     }
   }
 }
@@ -2900,28 +3236,52 @@ html.ion-palette-dark .withdrawal-modal {
 
   &.withdrawal-amount-hero {
     text-align: center;
-    margin-bottom: 20px;
+    margin-bottom: 0;
 
     .section-label {
       text-align: center;
+      font-size: 16px;
+      margin-bottom: 12px;
+
+      @media (max-width: 768px) {
+        font-size: 14px;
+        margin-bottom: 8px;
+      }
     }
 
     .amount-input-wrapper {
-      max-width: 300px;
+      max-width: 360px;
       margin: 0 auto;
       cursor: text;
+      padding: 6px;
+
+      @media (max-width: 768px) {
+        max-width: 100%;
+      }
     }
 
     .withdrawal-min-note {
-      margin: 8px 0 0;
-      font-size: 12px;
+      margin: 4px 0 0;
+      font-size: 11px;
       color: var(--wd-text-muted);
     }
 
     .amount-error-slot {
-      max-width: 300px;
-      margin-left: auto;
-      margin-right: auto;
+      max-width: 360px;
+      margin: 8px auto 0;
+      min-height: 44px;
+      box-sizing: border-box;
+
+      @media (max-width: 768px) {
+        min-height: 40px;
+        margin-top: 6px;
+
+        .amount-error {
+          font-size: 11px;
+          line-height: 1.25;
+          margin: 4px 0 0;
+        }
+      }
     }
   }
 
@@ -2952,13 +3312,13 @@ html.ion-palette-dark .withdrawal-modal {
     }
 
     .currency-symbol {
-      padding-left: 10px;
-      font-size: 18px;
+      padding-left: 12px;
+      font-size: 22px;
       font-weight: 600;
       color: var(--wd-text);
       flex-shrink: 0;
 
-      @media (max-width: 768px) { padding-left: 8px; font-size: 16px; }
+      @media (max-width: 768px) { padding-left: 10px; font-size: 18px; }
     }
 
     .amount-input {
@@ -2966,8 +3326,8 @@ html.ion-palette-dark .withdrawal-modal {
       min-width: 0;
       border: none;
       outline: none;
-      padding: 8px 4px;
-      font-size: 18px;
+      padding: 12px 6px;
+      font-size: 22px;
       font-weight: 600;
       color: var(--wd-text);
       background: transparent;
@@ -2978,7 +3338,7 @@ html.ion-palette-dark .withdrawal-modal {
 
       &::placeholder { color: var(--wd-text-muted); }
 
-      @media (max-width: 768px) { padding: 8px 2px; font-size: 16px; }
+      @media (max-width: 768px) { padding: 10px 4px; font-size: 18px; }
     }
 
     .max-button {
@@ -3000,12 +3360,12 @@ html.ion-palette-dark .withdrawal-modal {
   }
 
   .amount-error-slot {
-    min-height: 40px;
-    margin-top: 8px;
+    min-height: 20px;
+    margin-top: 6px;
 
     @media (max-width: 768px) {
       min-height: 0;
-      margin-top: 4px;
+      margin-top: 2px;
     }
   }
 
@@ -3072,6 +3432,10 @@ html.ion-palette-dark .withdrawal-modal {
       display: flex;
       align-items: center;
       gap: 12px;
+
+      @media (max-width: 768px) {
+        gap: 8px;
+      }
       
       .method-icon {
         width: 44px;
@@ -3117,7 +3481,7 @@ html.ion-palette-dark .withdrawal-modal {
           font-weight: 500;
           margin-top: 2px;
 
-          @media (max-width: 768px) { font-size: 11px; }
+          @media (max-width: 768px) { display: none; }
         }
       }
       

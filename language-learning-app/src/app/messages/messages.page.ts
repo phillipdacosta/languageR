@@ -6,7 +6,6 @@ import { MessagingService, Conversation, Message } from '../services/messaging.s
 import { WebSocketService } from '../services/websocket.service';
 import { AuthService } from '../services/auth.service';
 import { UserService } from '../services/user.service';
-import { LearningPlanService, LearningPlanSummary } from '../services/learning-plan.service';
 import { ImageViewerModal } from './image-viewer-modal.component';
 import { MessageContextMenuComponent } from './message-context-menu.component';
 import { TutorAvailabilityViewerComponent } from '../components/tutor-availability-viewer/tutor-availability-viewer.component';
@@ -136,20 +135,6 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
   currentUserType: 'student' | 'tutor' | null = null;
   currentUser: any = null;
 
-  // Plan-context strip shown above the chat thread when a tutor opens a
-  // 1:1 conversation with one of their students. Null = nothing to render
-  // (not a tutor, group thread, no plan, or still loading).
-  studentPlanStrip: {
-    studentId: string;
-    language: string;
-    phaseLabel: string;
-    phaseIndex: number;
-    totalPhases: number;
-    focus: string;
-  } | null = null;
-  // Cache by studentId to avoid re-fetching when the tutor flips between
-  // threads with the same student.
-  private studentPlanCache = new Map<string, LearningPlanSummary[]>();
   // Conversations search
   searchTerm = '';
   searchOpen = false;
@@ -181,7 +166,9 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
   contextMenuPosition: any = null;
   contextMenuMessage: Message | null = null;
   activeToolbarMessageId: string | null = null;
+  hoveredMessageId: string | null = null;
   messageToolbarEmojiLabel = 'Add reaction';
+  barnabiBrandName = 'Barnabi';
   messageToolbarMoreLabel = 'Message options';
   
   // Track optimistic reaction updates to prevent flicker
@@ -285,14 +272,14 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     private alertController: AlertController,
     private toastController: ToastController,
     private cdr: ChangeDetectorRef,
-    private translateService: TranslateService,
-    private learningPlanService: LearningPlanService
+    private translateService: TranslateService
   ) {}
 
   ngOnInit() {
     this.isDesktop = !this.platformService.isSmallScreen();
     this.messageToolbarEmojiLabel = this.translateService.instant('MESSAGES.ADD_REACTION') || 'Add reaction';
     this.messageToolbarMoreLabel = this.translateService.instant('MESSAGES.MESSAGE_OPTIONS') || 'Message options';
+    this.barnabiBrandName = this.translateService.instant('LOGIN.BRAND_NAME') || 'Barnabi';
     
     // Check if we're actually on the messages page
     const isOnMessagesPage = this.router.url.includes('/messages');
@@ -493,7 +480,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
           if (!existingMessage) {
             console.log('[MessagesPage] ✅ Adding new message to UI:', message.content?.slice(0, 30));
             // Create new array reference for better change detection
-            this.messages = [...this.messages, message];
+            this.messages = [...this.messages, this.decorateMessage(message)];
             this.cdr.detectChanges(); // Force Angular to detect changes
             this.scrollToBottom(true); // Skip animation check for new incoming messages
           } else {
@@ -801,6 +788,85 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  private readonly impressionIconEmojiMap: Record<string, string> = {
+    'excellent-rock-on': '🤟',
+    'excellent-star': '⭐',
+    'excellent-fire': '🔥',
+    'excellent-trophy': '🏆',
+    'excellent-sparkles': '✨',
+    'great-clap': '👏',
+    'great-muscle': '💪',
+    'great-check': '✅',
+    'great-star': '🌟',
+    'great-hands': '🙌',
+    'good-thumbs': '👍',
+    'good-heart': '💚',
+    'good-seedling': '🌱',
+    'good-sun': '☀️',
+    'good-chart': '📈'
+  };
+
+  private buildImpressionLabel(impression: string): string {
+    const impressionKeys: Record<string, string> = {
+      excellent: 'MESSAGES.IMPRESSION_EXCELLENT',
+      great: 'MESSAGES.IMPRESSION_GREAT',
+      good: 'MESSAGES.IMPRESSION_GOOD'
+    };
+    const categoryKey = impressionKeys[impression] || impressionKeys['good'];
+    const category = this.translateService.instant(categoryKey);
+    const prefix = this.translateService.instant('MESSAGES.LESSON_FEEDBACK');
+    return `${prefix} · ${category}`;
+  }
+
+  onImpressionIconError(message: Message): void {
+    message.impressionIconUrl = '';
+  }
+
+  onMessageRowEnter(message: Message): void {
+    if (!this.isDesktop) {
+      return;
+    }
+    this.hoveredMessageId = this.getMessageId(message);
+  }
+
+  onMessageRowLeave(): void {
+    this.hoveredMessageId = null;
+  }
+
+  private decorateMessage(message: Message): Message {
+    let decorated: Message = { ...message };
+
+    if (message.systemMessage?.template === 'tutor_impression_celebration') {
+      const iconKey = message.systemMessage?.params?.iconKey || '';
+      const impression = String(message.systemMessage?.params?.impression || 'good').toLowerCase();
+      decorated = {
+        ...decorated,
+        isImpressionCelebration: true,
+        impressionIconUrl: iconKey ? `assets/feedback-icons/${iconKey}.png` : '',
+        impressionIconEmoji: this.impressionIconEmojiMap[iconKey] || '🎉',
+        impressionLabel: this.buildImpressionLabel(impression)
+      };
+    }
+
+    const materialShareLabel = this.getMaterialShareLabel(message);
+    if (materialShareLabel) {
+      decorated.materialShareLabel = materialShareLabel;
+    }
+
+    return decorated;
+  }
+
+  private getMaterialShareLabel(message: Message): string | null {
+    if (message.type !== 'material' || !message.material || this.isMyMessage(message)) {
+      return null;
+    }
+    return this.translateService.instant('MESSAGES.MATERIAL_SHARED_WITH_YOU');
+  }
+
+  private decorateMessages(messages: Message[]): Message[] {
+    return (messages || []).map((message) => this.decorateMessage(message));
+  }
+
   private getMessagePreviewText(message: Message): string {
     if (message.type === 'text') {
       return message.content;
@@ -815,6 +881,9 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
       return message.content ? message.content : '🎤 Voice message';
     }
     if (message.type === 'system' || message.isSystemMessage) {
+      if (message.isImpressionCelebration) {
+        return message.content;
+      }
       // For system messages, extract just the first line (title) but keep HTML formatting
       const firstLine = message.content.split('\n')[0].trim();
       return firstLine;
@@ -822,6 +891,12 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     if ((message as any).type === 'reaction') {
       // Reactions show as "reacted with emoji"
       return message.content;
+    }
+    if (message.type === 'material') {
+      if (message.content) {
+        return message.content;
+      }
+      return message.materialShareLabel || this.getMaterialShareLabel(message) || this.translateService.instant('CREATE_MATERIAL.SHARE_MODAL_PREVIEW');
     }
     return message.content;
   }
@@ -2201,11 +2276,6 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     this.refreshSelectedThreadTypeFlags();
     this.hasConversationSelected = true;
     this.startLocalTimeClock();
-    // Surface the student's current phase + focus when a tutor is opening
-    // a 1:1 thread with a student. Cleared first so previous strip doesn't
-    // flash before the new fetch resolves.
-    this.studentPlanStrip = null;
-    void this.loadStudentPlanStrip(conversation);
     console.log(`✅ [${Date.now()}] selectedConversation SET, hasConversationSelected: ${this.hasConversationSelected}`);
     
     // Force immediate change detection
@@ -2236,69 +2306,6 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
       this.markConversationAsRead(conversation);
     }
   }
-
-  /**
-   * For tutor → student 1:1 threads, fetch the student's plan summary so
-   * we can show a tiny phase + focus strip above the chat. No-op in any
-   * other configuration (student viewer, group thread, no other user, etc.).
-   * Cached per-student so flipping back and forth is instant.
-   */
-  private async loadStudentPlanStrip(conversation: Conversation): Promise<void> {
-    const other = conversation?.otherUser;
-    if (
-      this.currentUserType !== 'tutor' ||
-      !other ||
-      other.userType !== 'student' ||
-      conversation.isGroup ||
-      this.selectedIsClassBroadcast
-    ) {
-      this.studentPlanStrip = null;
-      return;
-    }
-    const studentId = other.id;
-    if (!studentId) { this.studentPlanStrip = null; return; }
-
-    let summaries = this.studentPlanCache.get(studentId) || null;
-    if (!summaries) {
-      try {
-        const resp = await this.learningPlanService.getStudentPlanSummary(studentId).toPromise();
-        summaries = resp?.summaries || [];
-        this.studentPlanCache.set(studentId, summaries);
-      } catch {
-        // 404 — student has no plan yet. Cache empty so we don't keep retrying.
-        this.studentPlanCache.set(studentId, []);
-        summaries = [];
-      }
-    }
-
-    // Bail if the conversation changed under us during the fetch.
-    if (this.selectedConversation?.otherUser?.id !== studentId) return;
-
-    if (!summaries.length) { this.studentPlanStrip = null; this.cdr.markForCheck(); return; }
-
-    // Prefer an active plan; if multiple languages, pick the one whose
-    // language matches a language tag on the conversation's other-user
-    // (which may include `languages: string[]`).
-    const userLangs: string[] = Array.isArray((other as any).languages)
-      ? (other as any).languages.map((l: string) => (l || '').toLowerCase().trim())
-      : [];
-    const match = summaries.find(s =>
-      s.status === 'active' && userLangs.includes((s.language || '').toLowerCase().trim())
-    ) || summaries.find(s => s.status === 'active') || summaries[0];
-
-    if (!match || !match.currentPhase) { this.studentPlanStrip = null; this.cdr.markForCheck(); return; }
-
-    this.studentPlanStrip = {
-      studentId,
-      language: match.language,
-      phaseLabel: match.currentPhase.title || `Phase ${match.currentPhaseIndex + 1}`,
-      phaseIndex: match.currentPhaseIndex + 1,
-      totalPhases: match.totalPhases,
-      focus: (match.nextLessonFocus || '').trim()
-    };
-    this.cdr.markForCheck();
-  }
-  
 
   loadMessages(unreadCount?: number, requestId?: number) {
     console.log(`📥 [${Date.now()}] loadMessages START for: ${this.selectedConversation?.otherUser?.name}`);
@@ -2356,7 +2363,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
         }
         
         // Set messages
-        this.messages = response.messages || [];
+        this.messages = this.decorateMessages(response.messages || []);
         console.log(`💬 [${Date.now()}] Messages set (no cdr call)`);
         
         // Track oldest message for pagination and determine if there are more messages
@@ -2434,7 +2441,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     
     this.fetchMessagesForSelection(this.MESSAGE_PAGE_SIZE).subscribe({
       next: (response) => {
-        this.messages = response.messages || [];
+        this.messages = this.decorateMessages(response.messages || []);
         this.cdr.detectChanges();
         
         // Restore scroll position after messages are loaded
@@ -2510,7 +2517,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
         
         if (olderMessages.length > 0) {
           // Prepend older messages to the beginning
-          this.messages = [...olderMessages, ...this.messages];
+          this.messages = [...this.decorateMessages(olderMessages), ...this.messages];
           
           // Update oldest message ID
           this.oldestMessageId = olderMessages[0].id;
@@ -2704,7 +2711,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
         
         if (existingMessage) {
         } else {
-          this.messages.push(message);
+          this.messages.push(this.decorateMessage(message));
           this.scrollToBottom(true); // Skip animation check for sent messages
         }
         
@@ -3850,6 +3857,15 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   // Open file - images in modal viewer, other files for download
+  // Open a shared material card → material detail page.
+  openMaterial(materialId?: string | null) {
+    if (!materialId) { return; }
+    try {
+      sessionStorage.setItem('materialReferrer', this.router.url || '/tabs/messages');
+    } catch {}
+    this.router.navigate(['/material', materialId], { queryParams: { from: 'messages' } });
+  }
+
   async openFile(fileUrl: string, fileType?: string, fileName?: string) {
     // Check if it's an image
     const isImage = fileType?.startsWith('image/') || 

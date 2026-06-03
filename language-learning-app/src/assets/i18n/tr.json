@@ -2869,7 +2869,11 @@
     "NOTES_AWAITING_BODY_TUTOR": "Bu öğrenciyle yaptığınız son dersiniz için henüz geri bildirim göndermediniz.",
     "NOTES_AWAITING_BODY_STUDENT": "Öğretmeninizin son derse ilişkin geri bildirimi yolda.",
     "NOTES_ERROR_TITLE": "Notlar yüklenemedi",
-    "NOTES_ERROR_BODY": "Son ders notlarınız yüklenirken bir şeyler ters gitti. Lütfen tekrar deneyin."
+    "NOTES_ERROR_BODY": "Son ders notlarınız yüklenirken bir şeyler ters gitti. Lütfen tekrar deneyin.",
+    "AI_TOGGLE_LABEL": "Yapay zeka analizi ve geri bildirimi",
+    "AI_STATUS_EDITABLE_HINT": "Bunu ders başlayana kadar değiştirebilirsiniz. Bu dersten itibaren geçerlidir.",
+    "AI_STATUS_LOCKED_HINT": "Bu, ders başladığında ayarlandı ve bu ders için değiştirilemez. Herhangi bir değişiklik bir sonraki dersiniz için geçerlidir.",
+    "AI_TOGGLE_ERROR": "Ayarınız güncellenemedi. Lütfen tekrar deneyin."
   },
   "VIDEO_CALL": {
     "LEAVING": "Ayrılıyorum...",

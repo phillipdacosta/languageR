@@ -2869,7 +2869,11 @@
     "NOTES_AWAITING_BODY_TUTOR": "この生徒との最後のレッスンに対するフィードバックをまだ送信していません。",
     "NOTES_AWAITING_BODY_STUDENT": "前回のレッスンからの講師のフィードバックが到着中です。",
     "NOTES_ERROR_TITLE": "メモを読み込めませんでした",
-    "NOTES_ERROR_BODY": "最後のレッスンノートのロード中に問題が発生しました。もう一度試してください。"
+    "NOTES_ERROR_BODY": "最後のレッスンノートのロード中に問題が発生しました。もう一度試してください。",
+    "AI_TOGGLE_LABEL": "AI分析とフィードバック",
+    "AI_STATUS_EDITABLE_HINT": "レッスンが始まるまでは変更できます。このレッスン以降に適用されます。",
+    "AI_STATUS_LOCKED_HINT": "これはレッスンの開始時に設定されたもので、このレッスンでは変更できません。変更は次のレッスンに適用されます。",
+    "AI_TOGGLE_ERROR": "設定を更新できませんでした。もう一度試してください。"
   },
   "VIDEO_CALL": {
     "LEAVING": "出発中...",

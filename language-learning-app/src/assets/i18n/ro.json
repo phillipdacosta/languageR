@@ -2868,7 +2868,11 @@
     "NOTES_AWAITING_BODY_TUTOR": "Încă nu ați trimis feedback pentru ultima dvs. lecție cu acest student.",
     "NOTES_AWAITING_BODY_STUDENT": "Feedback-ul profesorului tău de la ultima lecție este pe drum.",
     "NOTES_ERROR_TITLE": "Nu s-au putut încărca notele",
-    "NOTES_ERROR_BODY": "Ceva a mers prost la încărcarea ultimelor note de lecție. Vă rugăm să încercați din nou."
+    "NOTES_ERROR_BODY": "Ceva a mers prost la încărcarea ultimelor note de lecție. Vă rugăm să încercați din nou.",
+    "AI_TOGGLE_LABEL": "Analiză și feedback AI",
+    "AI_STATUS_EDITABLE_HINT": "Puteți schimba acest lucru până când începe lecția. Se aplică începând cu această lecție.",
+    "AI_STATUS_LOCKED_HINT": "Acesta a fost setat când a început lecția și nu poate fi schimbat pentru această lecție. Orice modificare se aplică pentru următoarea dvs. lecție.",
+    "AI_TOGGLE_ERROR": "Nu s-a putut actualiza setarea. Vă rugăm să încercați din nou."
   },
   "VIDEO_CALL": {
     "LEAVING": "Plecare...",

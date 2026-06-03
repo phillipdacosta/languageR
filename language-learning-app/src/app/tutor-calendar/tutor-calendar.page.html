@@ -177,7 +177,7 @@
               <span class="mcal-date-day">{{ activeDay.isToday ? ('TUTOR_CALENDAR.TODAY' | translate) : activeDay.dayName }}</span>
               <span class="mcal-date-month">{{ activeDay.monthLabel }} {{ activeDay.dayNumber }}</span>
             </div>
-            <div class="mcal-summary" *ngIf="!isLoadingMobileData">
+            <div class="mcal-summary" [class.mcal-summary--visible]="!isLoadingMobileData">
               <span class="mcal-summary-pill" *ngIf="todaySummaryLessonCount > 0">
                 <ion-icon name="calendar-outline"></ion-icon>
                 {{ todaySummaryLessonCount }} {{ todaySummaryLessonCount === 1 ? ('HOME.LESSON_SINGULAR' | translate) : ('HOME.LESSON_PLURAL' | translate) }}
@@ -192,8 +192,10 @@
             </div>
           </div>
 
-          <!-- Skeleton loading -->
-          <div class="mcal-skeleton" *ngIf="isLoadingMobileData">
+          <!-- Mobile timeline — crossfade skeleton → events -->
+          <div class="mcal-content-swap">
+            <div class="mcal-content-swap__layer" [class.is-active]="isLoadingMobileData">
+          <div class="mcal-skeleton">
             <div class="mcal-skel-row" *ngFor="let s of [1,2,3]; trackBy: trackByIndex">
               <div class="mcal-skel-time"><ion-skeleton-text animated style="width: 60px; height: 14px;"></ion-skeleton-text></div>
               <div class="mcal-skel-card">
@@ -202,9 +204,8 @@
               </div>
             </div>
           </div>
-
-          <!-- Day content (loaded) -->
-          <ng-container *ngIf="!isLoadingMobileData">
+            </div>
+            <div class="mcal-content-swap__layer" [class.is-active]="!isLoadingMobileData">
             <div class="mcal-timeline" *ngIf="mobileTimelineEvents.length > 0 || mobileAvailabilityBlocks.length > 0; else emptyTimeline">
 
               <!-- Availability chips (compact) -->
@@ -305,7 +306,8 @@
                 </button>
               </div>
             </ng-template>
-          </ng-container>
+            </div>
+          </div>
 
           <!-- FAB -->
           <div class="mcal-fab-backdrop" *ngIf="fabMenuOpen" (click)="fabMenuOpen = false"></div>
@@ -539,14 +541,15 @@
 
       <!-- Main Calendar Area -->
       <div class="main-calendar">
-        <!-- Loading State for Desktop Calendar -->
-        <div class="calendar-loading-overlay" *ngIf="!isDesktopCalendarReady">
-          <ion-spinner name="crescent"></ion-spinner>
-          <p>{{ 'TUTOR_CALENDAR.LOADING_CALENDAR' | translate }}</p>
-        </div>
-        
-        <!-- CUSTOM CALENDAR (NEW) -->
-        <div class="custom-calendar-wrapper" [style.opacity]="isDesktopCalendarReady ? '1' : '0'" [style.transition]="'opacity 0.3s ease-in-out'">
+        <div class="tc-content-swap tc-content-swap--desktop">
+          <div class="tc-content-swap__layer" [class.is-active]="!isDesktopCalendarReady">
+            <div class="calendar-loading-overlay">
+              <ion-spinner name="crescent"></ion-spinner>
+              <p>{{ 'TUTOR_CALENDAR.LOADING_CALENDAR' | translate }}</p>
+            </div>
+          </div>
+          <div class="tc-content-swap__layer" [class.is-active]="isDesktopCalendarReady">
+        <div class="custom-calendar-wrapper" [class.tc-events-visible]="desktopCalendarEventsVisible">
           <!-- Calendar Toolbar -->
           <div class="custom-toolbar"
                [class.has-toolbar-banner]="isOnboardingIncomplete || pendingFeedbackCount > 0"
@@ -579,8 +582,7 @@
                 </div>
               </div>
               <div class="toolbar-center">
-                <h2 class="calendar-title" *ngIf="customView === 'week'">{{ currentWeekTitle }}</h2>
-                <h2 class="calendar-title" *ngIf="customView === 'day'">{{ selectedDayForDayView.monthLabel }} {{ selectedDayForDayView.year }}</h2>
+                <h2 class="calendar-title">{{ calendarToolbarTitle }}</h2>
               </div>
               <div class="toolbar-right" *ngIf="!isCompactToolbar">
                 <div class="view-switcher">
@@ -814,6 +816,8 @@
                 <div class="time-indicator" *ngIf="selectedDayForDayView.date | isToday" [style.top.px]="currentTimePosition"></div>
               </div>
             </div>
+          </div>
+        </div>
           </div>
         </div>
 

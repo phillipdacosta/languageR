@@ -155,24 +155,19 @@ router.post('/book-lesson-with-payment', verifyToken, async (req, res) => {
     // VALIDATION CHECKS - Must all pass before creating lesson
     // ==========================================
 
-    // 0. CHECK: Tutor has no REQUIRED pending feedback (block new bookings)
-    // GRACE PERIOD: Only count feedback older than 2 hours — gives tutors time to submit
-    // after a lesson ends without immediately blocking new bookings.
-    const FEEDBACK_GRACE_MS = 2 * 60 * 60 * 1000; // 2 hours
-    const pendingFeedbackCount = await TutorFeedback.countDocuments({
-      tutorId: tutor._id,
-      status: 'pending',
-      required: { $ne: false },
-      createdAt: { $lt: new Date(Date.now() - FEEDBACK_GRACE_MS) }
-    });
+    // 0. CHECK: Tutor hard-block from new bookings (graduated — only repeat
+    // offenders with overdue feedback; first/occasional misses are handled by
+    // escalating reminders + search deprioritization).
+    const { evaluateBookingBlock } = require('../utils/feedbackPolicy');
+    const bookingBlock = await evaluateBookingBlock(tutor);
 
-    if (pendingFeedbackCount > 0) {
-      console.log(`🚫 Blocking payment booking - tutor ${tutor.email} has ${pendingFeedbackCount} pending feedback (older than 2h)`);
+    if (bookingBlock.blocked) {
+      console.log(`🚫 Blocking payment booking - repeat-offender tutor ${tutor.email} has ${bookingBlock.pendingCount} overdue feedback (${bookingBlock.violations} lifetime violations)`);
       return res.status(403).json({
         success: false,
         message: 'Tutor not accepting bookings at this time.',
         code: 'PENDING_FEEDBACK',
-        pendingCount: pendingFeedbackCount
+        pendingCount: bookingBlock.pendingCount
       });
     }
     

@@ -317,7 +317,8 @@ router.get('/conversations', verifyToken, async (req, res) => {
             createdAt: conv.lastMessage.createdAt,
             type: conv.lastMessage.type || (conv.lastMessage.isSystemMessage ? 'system' : 'text'),
             isSystemMessage: conv.lastMessage.isSystemMessage || false,
-            reactions: conv.lastMessage.reactions || [] // Include reactions array
+            reactions: conv.lastMessage.reactions || [], // Include reactions array
+            material: conv.lastMessage.material && conv.lastMessage.material.materialId ? conv.lastMessage.material : undefined
           },
           unreadCount: conv.unreadCount,
           updatedAt: conv.lastMessage.createdAt
@@ -325,14 +326,23 @@ router.get('/conversations', verifyToken, async (req, res) => {
       })
     );
 
-    // Deduplicate conversations by conversationId (keep the most recent one)
-    // Use conversationId instead of otherUser.auth0Id to handle cases where otherUser might not be found
+    // Deduplicate conversations. Key by the resolved user (id/auth0Id) rather
+    // than the raw conversationId so that threads pointing at the same person
+    // via different identifier variants (Mongo _id, email, dev-user- prefix)
+    // collapse into a single conversation item instead of showing duplicates.
     const deduplicatedMap = new Map();
     for (const conv of conversations) {
-      // Use conversationId as the key to ensure all conversations are included
-      const existingConv = deduplicatedMap.get(conv.conversationId);
-      if (!existingConv || new Date(conv.updatedAt) > new Date(existingConv.updatedAt)) {
-        deduplicatedMap.set(conv.conversationId, conv);
+      const key = (conv.otherUser && (conv.otherUser.id || conv.otherUser.auth0Id)) || conv.conversationId;
+      const existingConv = deduplicatedMap.get(key);
+      if (!existingConv) {
+        deduplicatedMap.set(key, conv);
+      } else {
+        existingConv.unreadCount += conv.unreadCount || 0;
+        if (new Date(conv.updatedAt) > new Date(existingConv.updatedAt)) {
+          const mergedUnread = existingConv.unreadCount;
+          deduplicatedMap.set(key, conv);
+          conv.unreadCount = mergedUnread;
+        }
       }
     }
     
@@ -829,12 +839,16 @@ router.post('/conversations/:receiverId/upload', verifyToken, upload.single('fil
 router.post('/conversations/:receiverId/messages', verifyToken, async (req, res) => {
   try {
     const senderId = req.user.sub;
-    const { receiverId } = req.params;
-    const { content, type = 'text', replyTo } = req.body;
+    let { receiverId } = req.params;
+    const { content, type = 'text', replyTo, material } = req.body;
 
     console.log('📨 HTTP POST /conversations/:receiverId/messages', { senderId, receiverId, content, type, replyTo });
 
-    if (!content || !content.trim()) {
+    const isMaterialShare = type === 'material' && material && material.materialId;
+
+    // Material cards may carry an empty note, so only text messages strictly
+    // require content.
+    if (!isMaterialShare && (!content || !content.trim())) {
       return res.status(400).json({
         success: false,
         message: 'Message content is required'
@@ -849,6 +863,70 @@ router.post('/conversations/:receiverId/messages', verifyToken, async (req, res)
       });
     }
 
+    // Conversations are keyed by auth0Id. Callers may pass a Mongo ObjectId
+    // (share-with-students flow), a raw email, or a dev-user variant of the
+    // auth0Id. If we don't normalise to the SAME identifier the existing thread
+    // already uses, the message lands in a brand-new conversation and the
+    // recipient ends up with a duplicate conversation item.
+    let receiverUser = null;
+    if (/^[a-f0-9]{24}$/i.test(receiverId)) {
+      receiverUser = await User.findById(receiverId).select('auth0Id email');
+    } else {
+      receiverUser = await User.findOne({ auth0Id: receiverId }).select('auth0Id email');
+      if (!receiverUser && !receiverId.startsWith('dev-user-')) {
+        receiverUser = await User.findOne({ auth0Id: `dev-user-${receiverId}` }).select('auth0Id email');
+      }
+      if (!receiverUser && receiverId.includes('@')) {
+        receiverUser = await User.findOne({ email: receiverId }).select('auth0Id email');
+      }
+    }
+
+    if (!receiverUser && /^[a-f0-9]{24}$/i.test(receiverId)) {
+      console.error('❌ Could not resolve receiver Mongo _id to a user:', receiverId);
+      return res.status(404).json({
+        success: false,
+        message: 'Receiver not found'
+      });
+    }
+
+    // Build the set of identifiers this receiver could be keyed under, then
+    // prefer the one that already has a conversation with the sender so the
+    // message threads into the existing conversation.
+    const receiverCandidates = new Set();
+    const addCandidate = (val) => {
+      if (!val) return;
+      const v = String(val).trim();
+      if (!v) return;
+      receiverCandidates.add(v);
+      if (v.includes('@') && !v.startsWith('dev-user-')) {
+        receiverCandidates.add(`dev-user-${v}`);
+      }
+      if (v.startsWith('dev-user-')) {
+        receiverCandidates.add(v.slice('dev-user-'.length));
+      }
+    };
+    if (receiverUser) {
+      addCandidate(receiverUser.auth0Id);
+      addCandidate(receiverUser.email);
+    }
+    if (!/^[a-f0-9]{24}$/i.test(receiverId)) {
+      addCandidate(receiverId);
+    }
+
+    let resolvedReceiverId = receiverUser?.auth0Id || receiverId;
+    for (const candidate of receiverCandidates) {
+      const candidateConversationId = [senderId, candidate].sort().join('_');
+      const existing = await Message.exists({ conversationId: candidateConversationId });
+      if (existing) {
+        resolvedReceiverId = candidate;
+        break;
+      }
+    }
+    if (resolvedReceiverId !== receiverId) {
+      console.log('🔄 Normalised receiver id for conversation threading:', receiverId, '→', resolvedReceiverId);
+    }
+    receiverId = resolvedReceiverId;
+
     const ids = [senderId, receiverId].sort();
     const conversationId = `${ids[0]}_${ids[1]}`;
 
@@ -858,9 +936,21 @@ router.post('/conversations/:receiverId/messages', verifyToken, async (req, res)
       conversationId,
       senderId,
       receiverId,
-      content: content.trim(),
+      content: (content || '').trim(),
       type
     };
+
+    // Attach shared-material card payload.
+    if (isMaterialShare) {
+      messageData.material = {
+        materialId: material.materialId,
+        title: material.title || null,
+        thumbnailUrl: material.thumbnailUrl || null,
+        materialType: material.materialType || null,
+        level: material.level || null,
+        language: material.language || null
+      };
+    }
 
     // Add replyTo if provided and valid (must have messageId)
     if (replyTo && typeof replyTo === 'object' && replyTo.messageId) {
@@ -920,6 +1010,11 @@ router.post('/conversations/:receiverId/messages', verifyToken, async (req, res)
     // Include replyTo in response only if it's valid (has messageId)
     if (savedMessage.replyTo && typeof savedMessage.replyTo === 'object' && savedMessage.replyTo.messageId) {
       messageResponse.replyTo = savedMessage.replyTo;
+    }
+
+    // Include shared-material card payload.
+    if (savedMessage.material && savedMessage.material.materialId) {
+      messageResponse.material = savedMessage.material;
     }
 
     // Get receiver user to create notification

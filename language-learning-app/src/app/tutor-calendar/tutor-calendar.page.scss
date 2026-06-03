@@ -826,6 +826,48 @@ ion-content {
   }
 }
 
+// Crossfade skeleton / spinner → loaded calendar content.
+.tc-content-swap,
+.mcal-content-swap {
+  display: grid;
+  width: 100%;
+
+  > .tc-content-swap__layer,
+  > .mcal-content-swap__layer {
+    grid-area: 1 / 1;
+    min-width: 0;
+    transition: opacity 0.38s cubic-bezier(0.32, 0.72, 0, 1), visibility 0.38s cubic-bezier(0.32, 0.72, 0, 1);
+
+    &:not(.is-active) {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    &.is-active {
+      opacity: 1;
+      visibility: visible;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    > .tc-content-swap__layer,
+    > .mcal-content-swap__layer {
+      transition: none;
+
+      &:not(.is-active) {
+        display: none;
+      }
+    }
+  }
+}
+
+.tc-content-swap--desktop {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+}
+
 // Loading overlay for desktop calendar
 .calendar-loading-overlay {
   position: absolute;
@@ -1414,6 +1456,25 @@ ion-content {
   display: flex;
   flex-direction: column;
   background: #ffffff;
+
+  &:not(.tc-events-visible) .calendar-event {
+    opacity: 0;
+  }
+
+  &.tc-events-visible .calendar-event {
+    opacity: 1;
+    transition: opacity 0.38s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &:not(.tc-events-visible) .calendar-event {
+      opacity: 1;
+    }
+
+    &.tc-events-visible .calendar-event {
+      transition: none;
+    }
+  }
 }
 
 // Custom Toolbar
@@ -1430,12 +1491,14 @@ ion-content {
   gap: 0;
 
   .toolbar-primary {
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: space-between;
     width: 100%;
     gap: 12px;
     min-width: 0;
+    min-height: 36px;
   }
 
   .toolbar-banner {
@@ -3573,22 +3636,32 @@ ion-app.dark {
   }
 }
 
-// Toolbar center layout
+// Toolbar center layout — absolute center so title stays fixed when left/right
+// controls (avail pill, sync, view switcher) appear or change width.
 .custom-toolbar {
   .toolbar-center {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 0;
-    flex: 1;
     min-width: 0;
+    max-width: min(420px, calc(100% - 240px));
     text-align: center;
+    pointer-events: none;
+    z-index: 1;
   }
 
-  &.has-toolbar-banner .toolbar-center {
-    flex: 1;
-    text-align: center;
+  .calendar-title {
+    pointer-events: auto;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
   }
 }
 
@@ -3812,8 +3885,31 @@ ion-app.dark {
   }
 
   .mcal-skeleton,
-  .mcal-empty {
+  .mcal-empty,
+  .mcal-content-swap {
     display: flex;
+  }
+
+  .mcal-content-swap {
+    display: grid;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .mcal-summary {
+    opacity: 0;
+    transition: opacity 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+
+    &.mcal-summary--visible {
+      opacity: 1;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mcal-summary {
+      transition: none;
+      opacity: 1;
+    }
   }
 
   .mobile-header {
@@ -5423,7 +5519,7 @@ ion-app.dark {
 
   // ── Skeleton ──
   .mcal-skeleton {
-    padding: 186px 20px 40px;
+    padding: 8px 20px 40px;
     display: flex;
     flex-direction: column;
     gap: 20px;
@@ -7794,7 +7890,6 @@ ion-app.dark {
   position: relative;
 
   .toolbar-primary {
-    position: relative;
     justify-content: center;
   }
 
@@ -7834,17 +7929,11 @@ ion-app.dark {
   }
 
   .toolbar-center {
-    position: absolute;
-    left: 0;
-    right: 0;
-    text-align: center;
-    pointer-events: none;
-    z-index: 1;
+    max-width: min(280px, calc(100% - 180px));
 
     .calendar-title {
       font-size: 16px;
       font-weight: 600;
-      pointer-events: auto;
     }
   }
 

@@ -2947,7 +2947,11 @@
     "AI_STATUS_ON_TUTOR": "Nach dieser Lektion wird automatisch Feedback generiert. Ihre Notizen sind optional.",
     "AI_STATUS_OFF_TUTOR": "Für diese Lektion müssen Sie Feedback sammeln und einreichen.",
     "AI_STATUS_ON_STUDENT": "Nach dieser Lektion erhalten Sie detailliertes KI-Feedback.",
-    "AI_STATUS_OFF_STUDENT": "Ihr Tutor wird Ihnen nach dieser Lektion Ihr Feedback geben."
+    "AI_STATUS_OFF_STUDENT": "Ihr Tutor wird Ihnen nach dieser Lektion Ihr Feedback geben.",
+    "AI_TOGGLE_LABEL": "KI-Analyse und Feedback",
+    "AI_STATUS_EDITABLE_HINT": "Sie können dies bis zum Unterrichtsbeginn ändern. Es gilt ab dieser Lektion.",
+    "AI_STATUS_LOCKED_HINT": "Dies wurde zu Beginn der Lektion festgelegt und kann für diese Lektion nicht geändert werden. Jede Änderung gilt für Ihre nächste Lektion.",
+    "AI_TOGGLE_ERROR": "Ihre Einstellung konnte nicht aktualisiert werden. Bitte versuchen Sie es erneut."
   },
   "VIDEO_CALL": {
     "LEAVING": "Verlassen...",

@@ -1,0 +1,38 @@
+<footer
+  class="site-footer"
+  [class.site-footer--compact]="layout === 'compact'"
+  [attr.aria-label]="'SITE_FOOTER.A11Y' | translate">
+  <div class="site-footer__inner">
+    <div class="site-footer__left">
+      <span class="site-footer__copy">
+        {{ 'SITE_FOOTER.COPYRIGHT' | translate:{ year: copyrightYear } }}
+      </span>
+      <nav class="site-footer__links" [attr.aria-label]="'SITE_FOOTER.LEGAL_NAV_A11Y' | translate">
+        <a class="site-footer__link" [routerLink]="['/privacy']" [queryParams]="{ lang: currentLang }">{{ 'SITE_FOOTER.PRIVACY' | translate }}</a>
+        <span class="site-footer__sep" aria-hidden="true">·</span>
+        <a
+          class="site-footer__link"
+          [href]="termsHref"
+          target="_blank"
+          rel="noopener noreferrer">{{ 'SITE_FOOTER.TERMS' | translate }}</a>
+        <span class="site-footer__sep" aria-hidden="true">·</span>
+        <a
+          class="site-footer__link"
+          [href]="'mailto:' + supportEmail"
+          target="_blank"
+          rel="noopener noreferrer">{{ 'SITE_FOOTER.HELP' | translate }}</a>
+      </nav>
+    </div>
+
+    <div class="site-footer__right" *ngIf="showLanguage">
+      <button
+        type="button"
+        class="site-footer__locale"
+        (click)="openLanguageModal()"
+        [attr.aria-label]="'SITE_FOOTER.LANGUAGE_A11Y' | translate">
+        <ion-icon name="globe-outline" aria-hidden="true"></ion-icon>
+        <span>{{ languageLabel }}</span>
+      </button>
+    </div>
+  </div>
+</footer>

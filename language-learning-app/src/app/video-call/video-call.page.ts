@@ -8691,7 +8691,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   private playJoinSound(): void {
     console.log('🔔 [VIDEO-CALL] Attempting to play join notification sound...');
     try {
-      const audio = new Audio('assets/participant-entry-tone.wav');
+      const audio = new Audio('assets/participant-entry-tone.mp3');
       audio.volume = 0.6; // 60% volume
       
       const playPromise = audio.play();

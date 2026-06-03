@@ -200,6 +200,26 @@ ${prevList ? `- Phases they had before (do NOT repeat them as-is, vary topics + 
   const pace = require('./paceService');
   const paceDescriptor = pace.describe(goal);
 
+  // Cold-start guard. A self-declared complete beginner with no lesson data
+  // yet must get a roadmap that genuinely starts from zero — otherwise the
+  // model tends to assume some prior exposure and opens mid-A1. We only
+  // force this when there's no real lesson signal to contradict it.
+  const isAbsoluteBeginner = !hasLessonData && selfLevel === 'complete_beginner';
+  const beginnerGuidance = isAbsoluteBeginner ? `
+
+ABSOLUTE BEGINNER — CRITICAL:
+This student has NEVER studied ${language}. Assume zero prior knowledge: they do
+not know the alphabet, sounds, greetings, numbers, or any words.
+- Phase 1 MUST start from the true foundations: pronunciation/sounds, the
+  alphabet/script if relevant, greetings and introductions, and the most basic
+  high-frequency words. Do NOT assume any vocabulary or grammar is already known.
+- Introduce only ${language}'s most fundamental grammar first (e.g. the verb
+  "to be", basic word order, articles/gender if applicable) — nothing advanced.
+- suggestedTopics for early phases must be survival-level (say hello, introduce
+  yourself, count, order a drink), not open conversation.
+- studentSummary must reassure a nervous first-timer that they are starting at
+  the very beginning and nothing is assumed.` : '';
+
   const prompt = `You are an expert language teacher creating a personalized learning plan.
 
 STUDENT PROFILE:
@@ -219,7 +239,7 @@ Create a structured learning plan. Phase count and lesson budget MUST follow the
 - urgent / focused → fewer phases (3), tighter lessons each (3-4)
 - steady           → 4 phases × ~5 lessons
 - relaxed          → up to 5 phases × ~5 lessons
-The plan should be specific to ${language}, not generic.
+The plan should be specific to ${language}, not generic.${beginnerGuidance}
 
 IMPORTANT:
 - The first phase should be "active" status, all others "locked"

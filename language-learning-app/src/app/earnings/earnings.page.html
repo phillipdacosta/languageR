@@ -695,8 +695,12 @@
   
   <ng-template>
     <ion-content>
-      <!-- Floating close button -->
-      <ion-button class="floating-close-button" fill="clear" (click)="closeWithdrawalModal()">
+      <!-- Close (success view only; form header aligns close with lottie) -->
+      <ion-button
+        *ngIf="withdrawalSuccess"
+        class="floating-close-button"
+        fill="clear"
+        (click)="closeWithdrawalModal()">
         <ion-icon name="close" slot="icon-only"></ion-icon>
       </ion-button>
 
@@ -728,15 +732,35 @@
       <!-- Standard Withdrawal Form -->
       <div class="modal-content" *ngIf="!withdrawalSuccess">
         <!-- Header -->
-        <div class="modal-header">
-          <div class="icon-wrapper">
-            <ion-icon name="wallet"></ion-icon>
+        <div class="modal-header" [class.modal-header--revealed]="withdrawalHeaderRevealed">
+          <div class="modal-header-top">
+            <div class="withdrawal-header-hero">
+              <div class="withdrawal-header-cluster">
+                <div class="icon-wrapper icon-wrapper--lottie">
+                  <dotlottie-player
+                    src="/assets/lottie/withdraw-funds-wallet.json"
+                    autoplay
+                    speed="1"
+                    class="withdrawal-header-lottie">
+                  </dotlottie-player>
+                </div>
+                <div class="withdrawal-header-copy">
+                  <h2 class="modal-heading">{{ 'EARNINGS.WITHDRAW_TITLE' | translate }}</h2>
+                  <p class="modal-description">
+                    {{ 'EARNINGS.WITHDRAW_DESC' | translate }}
+                    <span class="withdrawal-available-badge">${{ formatCurrency(balance.available) }}</span>
+                  </p>
+                </div>
+              </div>
+            </div>
+            <ion-button
+              class="modal-header-close"
+              fill="clear"
+              (click)="closeWithdrawalModal()"
+              [attr.aria-label]="'COMMON.CLOSE' | translate">
+              <ion-icon name="close" slot="icon-only"></ion-icon>
+            </ion-button>
           </div>
-          <h2 class="modal-heading">{{ 'EARNINGS.WITHDRAW_TITLE' | translate }}</h2>
-          <p class="modal-description">
-            {{ 'EARNINGS.WITHDRAW_DESC' | translate }}
-            <span class="withdrawal-available-badge">${{ formatCurrency(balance.available) }}</span>
-          </p>
         </div>
 
         <div class="amount-section withdrawal-amount-hero">

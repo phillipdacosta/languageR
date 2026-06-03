@@ -2868,7 +2868,11 @@
     "AI_STATUS_ON_TUTOR": "Palaute luodaan automaattisesti tämän oppitunnin jälkeen. Muistiinpanosi ovat valinnaisia.",
     "AI_STATUS_OFF_TUTOR": "Sinun on kerättävä ja lähetettävä palautetta tätä oppituntia varten.",
     "AI_STATUS_ON_STUDENT": "Saat yksityiskohtaista tekoälypalautetta tämän oppitunnin jälkeen.",
-    "AI_STATUS_OFF_STUDENT": "Ohjaajasi antaa palautetta tämän oppitunnin jälkeen."
+    "AI_STATUS_OFF_STUDENT": "Ohjaajasi antaa palautetta tämän oppitunnin jälkeen.",
+    "AI_TOGGLE_LABEL": "AI-analyysi ja palaute",
+    "AI_STATUS_EDITABLE_HINT": "Voit muuttaa tätä, kunnes oppitunti alkaa. Sitä sovelletaan tästä oppitunnista eteenpäin.",
+    "AI_STATUS_LOCKED_HINT": "Tämä määritettiin oppitunnin alkaessa, eikä sitä voi muuttaa tälle oppitunnille. Kaikki muutokset koskevat seuraavaa oppituntiasi.",
+    "AI_TOGGLE_ERROR": "Asetustasi ei voitu päivittää. Yritä uudelleen."
   },
   "VIDEO_CALL": {
     "LEAVING": "Lähdetään...",

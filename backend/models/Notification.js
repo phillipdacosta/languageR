@@ -51,6 +51,7 @@ const NotificationSchema = new mongoose.Schema({
       'tutor_note_saved',
       'material_approved',
       'material_rejected',
+      'material_shared',
       'learning_plan_ready'
     ],
     required: true

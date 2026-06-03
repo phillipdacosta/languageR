@@ -4,12 +4,13 @@ import { AfterViewInit, Component, Input, OnDestroy, OnInit, ViewChild } from '@
 import { IonicModule, IonSearchbar, ModalController } from '@ionic/angular';
 import { TranslateModule } from '@ngx-translate/core';
 import { Subscription } from 'rxjs';
+import { SharedModule } from '../../shared/shared.module';
 import { LanguageOption, LanguageService, SupportedLanguage } from '../../services/language.service';
 
 @Component({
   selector: 'app-interface-language-select-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule, IonicModule, TranslateModule],
+  imports: [CommonModule, FormsModule, IonicModule, TranslateModule, SharedModule],
   templateUrl: './interface-language-select-modal.component.html',
   styleUrls: ['./interface-language-select-modal.component.scss'],
 })

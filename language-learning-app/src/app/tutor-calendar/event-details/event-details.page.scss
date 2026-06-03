@@ -361,65 +361,40 @@ ion-header ion-toolbar {
   border-radius: 20px;
 }
 
-.ed-title-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  padding-top: 8px;
+.ed-main-translate {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
   margin-bottom: 4px;
+  padding: 6px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 500;
+  color: #6b7280;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
 
-  .ed-title {
-    margin: 0;
-    padding-top: 0;
-    flex: 1;
-    min-width: 0;
+  ion-icon { font-size: 14px; }
+
+  &:hover:not(:disabled) {
+    background: #f3f4f6;
+    color: #374151;
   }
 
-  .ed-page-translate-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 6px 12px;
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
-    background: transparent;
-    font-size: 12px;
-    font-weight: 500;
-    color: #6b7280;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: all 0.2s ease;
-    flex-shrink: 0;
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
-
-    ion-icon { font-size: 14px; }
-
-    &:hover:not(:disabled) {
-      background: #f3f4f6;
-      color: #374151;
-    }
-
-    &:disabled {
-      opacity: 0.6;
-      cursor: default;
-    }
-
-    &.showing-translation {
-      border-color: #222;
-      color: #222;
-    }
+  &:disabled {
+    opacity: 0.6;
+    cursor: default;
   }
-}
 
-.ed-title {
-  font-size: 32px;
-  font-weight: 700;
-  color: var(--ed-text-primary);
-  letter-spacing: -0.5px;
-  line-height: 1.2;
-  margin: 0 0 4px;
-  padding-top: 8px;
+  &.showing-translation {
+    border-color: #222;
+    color: #222;
+  }
 }
 
 /* ── Sections / Rows ──────────────────────────────────── */
@@ -899,6 +874,14 @@ ion-header ion-toolbar {
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
 }
 
+.ed-focus-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
 .ed-focus-card-eyebrow {
   display: block;
   font-size: 11px;
@@ -906,7 +889,22 @@ ion-header ion-toolbar {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: #359aff;
-  margin-bottom: 10px;
+
+  .ed-focus-card-head & {
+    margin-bottom: 0;
+  }
+}
+
+.ed-focus-card-state {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: #b45309;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 999px;
+  padding: 3px 10px;
 }
 
 .ed-focus-card-body {
@@ -1069,7 +1067,54 @@ ion-header ion-toolbar {
   }
 
   &:not(.collapsed) {
-    max-height: 2000px; // Large enough for content
+    max-height: 4000px;
+    opacity: 1;
+  }
+}
+
+/* ── Collapsible status sections (cancellation, payment) ── */
+.ed-collapsible-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  margin: 0 0 16px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+
+  .ed-section-label {
+    margin: 0;
+  }
+
+  ion-icon {
+    flex-shrink: 0;
+    font-size: 18px;
+    color: var(--ed-text-secondary, #717171);
+    transition: transform 0.2s ease;
+  }
+
+  &:hover ion-icon {
+    color: var(--ed-text-primary, #222);
+  }
+}
+
+.ed-collapsible-body {
+  overflow: hidden;
+  transition: max-height 0.3s ease, opacity 0.2s ease;
+
+  &.collapsed {
+    max-height: 0;
+    opacity: 0;
+    margin-bottom: 0;
+  }
+
+  &:not(.collapsed) {
+    max-height: 2000px;
     opacity: 1;
   }
 }
@@ -1861,6 +1906,12 @@ ion-header {
 .ed-main {
   flex: 1;
   min-width: 0;
+
+  // No top rule under the removed page title — hide the first section divider only.
+  > .ed-divider:first-child,
+  > .ed-main-translate:first-child + .ed-divider {
+    display: none;
+  }
 }
 
 /* ── Profile Panel (left card — Airbnb style) ─────────── */
@@ -3417,12 +3468,6 @@ ion-header {
     font-size: 11px;
   }
 
-  .ed-title {
-    font-size: 26px;
-    font-weight: 700;
-    letter-spacing: -0.5px;
-  }
-
   .ed-divider {
     display: none;
   }
@@ -3546,10 +3591,6 @@ ion-header {
 @media (max-width: 600px) {
   :host {
     --ed-pad-x: 16px;
-  }
-
-  .ed-title {
-    font-size: 24px;
   }
 
   .ed-scores {
@@ -3743,6 +3784,12 @@ ion-header {
 
   .ed-learning-focus .ed-focus-card-eyebrow {
     color: #4298d2;
+  }
+
+  .ed-learning-focus .ed-focus-card-state {
+    color: #fbbf77;
+    background: rgba(180, 83, 9, 0.18);
+    border-color: rgba(251, 191, 119, 0.3);
   }
 
   .ed-impression {

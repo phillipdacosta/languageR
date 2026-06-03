@@ -182,10 +182,13 @@ ion-content::part(scroll) {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 26px;
-  line-height: 1;
   background: #f7f7f7;
   border-radius: 10px;
+
+  app-flag-icon,
+  .flag-icon {
+    display: block;
+  }
 }
 
 .selected .language-flag {

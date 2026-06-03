@@ -278,6 +278,8 @@
     </div>
   </div>
 
+  <app-site-footer *ngIf="!showFiltersView" layout="bar"></app-site-footer>
+
   <!-- Filters View (Mobile Only) -->
   <div class="filters-view" [class.visible]="showFiltersView">
     <div class="filters-content">

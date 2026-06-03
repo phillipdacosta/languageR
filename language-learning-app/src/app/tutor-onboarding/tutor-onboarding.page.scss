@@ -60,14 +60,15 @@ $ob-accent: #222222;
   .pre-step-app-icon {
     width: 72px;
     height: 72px;
-    // border-radius: 18px;
-    // box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    border-radius: 0;
+    object-fit: contain;
   }
 
   .welcome-icon {
     width: 80px;
     height: 80px;
-    border-radius: 20px;
+    border-radius: 0;
+    object-fit: contain;
   }
 }
 

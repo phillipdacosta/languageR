@@ -2868,7 +2868,11 @@
     "NOTES_AWAITING_BODY_TUTOR": "Anda belum menyerahkan maklum balas untuk pelajaran terakhir anda dengan pelajar ini.",
     "NOTES_AWAITING_BODY_STUDENT": "Maklum balas tutor anda dari pelajaran lepas sedang dalam proses.",
     "NOTES_ERROR_TITLE": "Tidak dapat memuatkan nota",
-    "NOTES_ERROR_BODY": "Kesilapan telah berlaku semasa memuatkan nota pelajaran terakhir anda. Sila cuba lagi."
+    "NOTES_ERROR_BODY": "Kesilapan telah berlaku semasa memuatkan nota pelajaran terakhir anda. Sila cuba lagi.",
+    "AI_TOGGLE_LABEL": "Analisis & maklum balas AI",
+    "AI_STATUS_EDITABLE_HINT": "Anda boleh menukar ini sehingga pelajaran bermula. Ia terpakai dari pelajaran ini dan seterusnya.",
+    "AI_STATUS_LOCKED_HINT": "Ini telah ditetapkan semasa pelajaran bermula dan tidak boleh diubah untuk pelajaran ini. Sebarang perubahan dikenakan pada pelajaran anda yang seterusnya.",
+    "AI_TOGGLE_ERROR": "Tidak dapat mengemas kini tetapan anda. Sila cuba lagi."
   },
   "VIDEO_CALL": {
     "LEAVING": "meninggalkan...",
