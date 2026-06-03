@@ -2443,39 +2443,50 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
     min-height: 0;
     overflow: hidden;
     justify-content: flex-start;
-    gap: 24px;
+    gap: 0;
 
     @media (max-width: 768px) {
       padding: 16px 16px 0;
-      gap: 16px;
     }
   }
 
   .modal-header {
     flex-shrink: 0;
-    margin-bottom: 0;
+    margin-bottom: 36px;
+
+    @media (max-width: 768px) {
+      margin-bottom: 28px;
+    }
   }
 
   .withdrawal-amount-hero {
     flex-shrink: 0;
-    margin: 8px 0 !important;
+    margin: 12px 0 0 !important;
 
     @media (max-width: 768px) {
-      margin: 4px 0 !important;
+      margin: 8px 0 0 !important;
     }
+  }
+
+  .withdrawal-cards-region {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
   }
 
   .withdrawal-container {
     flex: 0 0 auto;
-    margin-top: auto;
-    margin-bottom: 16px !important;
+    width: 100%;
+    margin: 0;
     align-items: stretch;
     grid-template-rows: auto;
     column-gap: 24px;
     row-gap: 16px;
 
     @media (max-width: 768px) {
-      margin-bottom: 12px !important;
       column-gap: 12px;
       row-gap: 12px;
     }
@@ -2574,7 +2585,11 @@ html.ion-palette-dark .withdrawal-modal {
 
 .withdrawal-modal .modal-header {
   text-align: center;
-  margin-bottom: 0;
+  margin-bottom: 36px;
+
+  @media (max-width: 768px) {
+    margin-bottom: 28px;
+  }
 
   .modal-header-top {
     position: relative;
@@ -2685,7 +2700,7 @@ html.ion-palette-dark .withdrawal-modal {
   }
 
   .modal-heading {
-    margin: 0 0 8px;
+    margin: 0 0 14px;
     font-size: 28px;
     font-weight: 700;
     letter-spacing: -0.5px;
@@ -2697,7 +2712,7 @@ html.ion-palette-dark .withdrawal-modal {
 
     @media (max-width: 768px) {
       font-size: 22px;
-      margin-bottom: 6px;
+      margin-bottom: 10px;
     }
   }
 
@@ -3237,15 +3252,16 @@ html.ion-palette-dark .withdrawal-modal {
   &.withdrawal-amount-hero {
     text-align: center;
     margin-bottom: 0;
+    padding-top: 4px;
 
     .section-label {
       text-align: center;
       font-size: 16px;
-      margin-bottom: 12px;
+      margin-bottom: 16px;
 
       @media (max-width: 768px) {
         font-size: 14px;
-        margin-bottom: 8px;
+        margin-bottom: 12px;
       }
     }
 
