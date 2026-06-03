@@ -54,12 +54,13 @@ interface ImpressionOption {
   standalone: false
 })
 export class PostLessonTutorPage implements OnInit, OnDestroy {
+  @ViewChild('actionsScroll') actionsScrollRef?: ElementRef<HTMLElement>;
   @ViewChild('correctionsSection') correctionsSectionRef?: ElementRef<HTMLElement>;
+  @ViewChild('planOverrideContext') planOverrideContextRef?: ElementRef<HTMLElement>;
 
   lessonId: string = '';
   feedbackId: string = ''; // From TutorFeedback system (if navigated from pending feedback)
   isPostCall: boolean = false; // True when arriving directly after a video call
-  backButtonLabel: string = '';
   lessonSubjectFallback: string = '';
   notePlaceholder: string = '';
   homeworkPlaceholder: string = '';
@@ -249,9 +250,6 @@ export class PostLessonTutorPage implements OnInit, OnDestroy {
   }
 
   private buildLocalizedStrings(): void {
-    this.backButtonLabel = this.isPostCall
-      ? this.t('POST_LESSON.TUTOR.HOME')
-      : this.t('POST_LESSON.TUTOR.GO_BACK');
     this.lessonSubjectFallback = this.t('POST_LESSON.TUTOR.LESSON');
     this.notePlaceholder = this.t('POST_LESSON.TUTOR.NOTE_PLACEHOLDER');
     this.homeworkPlaceholder = this.t('POST_LESSON.TUTOR.HOMEWORK_PLACEHOLDER');
@@ -384,17 +382,64 @@ export class PostLessonTutorPage implements OnInit, OnDestroy {
     if (!this.showCorrections) this.showCorrections = true;
     this.capturedCorrections.push({ original: '', corrected: '', explanation: '' });
 
-    setTimeout(() => {
-      this.correctionsSectionRef?.nativeElement?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start'
-      });
-    }, 0);
+    this.scheduleScrollIntoActionsView(() => this.correctionsSectionRef?.nativeElement);
   }
 
   removeCorrectionRow(index: number) {
     this.capturedCorrections.splice(index, 1);
     if (this.capturedCorrections.length === 0) this.showCorrections = false;
+  }
+
+  onPlanOverrideActionChange(action: string): void {
+    this.planOverrideAction = action;
+    if (!action) {
+      return;
+    }
+
+    this.scheduleScrollIntoActionsView(() => this.planOverrideContextRef?.nativeElement);
+  }
+
+  private scheduleScrollIntoActionsView(getElement: () => HTMLElement | null | undefined): void {
+    // Wait for *ngIf content + ion fields to finish layout before measuring.
+    setTimeout(() => {
+      const element = getElement();
+      if (element) {
+        this.scrollIntoActionsView(element);
+      }
+    }, 120);
+  }
+
+  private scrollIntoActionsView(element: HTMLElement): void {
+    const container = this.actionsScrollRef?.nativeElement;
+    if (!container) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+
+    const footerClearance = 120;
+    const topPadding = 16;
+    const containerRect = container.getBoundingClientRect();
+    const elementRect = element.getBoundingClientRect();
+    const elementTop = elementRect.top - containerRect.top + container.scrollTop;
+    const elementBottom = elementTop + element.offsetHeight;
+    const visibleTop = container.scrollTop + topPadding;
+    const visibleBottom = container.scrollTop + container.clientHeight - footerClearance;
+
+    let targetScroll = container.scrollTop;
+
+    if (elementBottom > visibleBottom) {
+      targetScroll = elementBottom + footerClearance - container.clientHeight;
+    } else if (elementTop < visibleTop) {
+      targetScroll = elementTop - topPadding;
+    }
+
+    targetScroll = Math.max(0, Math.min(targetScroll, container.scrollHeight - container.clientHeight));
+
+    if (Math.abs(targetScroll - container.scrollTop) < 2) {
+      return;
+    }
+
+    container.scrollTo({ top: targetScroll, behavior: 'smooth' });
   }
 
   trackByIndex(i: number) { return i; }

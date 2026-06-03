@@ -2,18 +2,24 @@
   <div class="plt-page">
 
     <header class="plt-toolbar" *ngIf="!noteSubmitted">
-      <div class="plt-toolbar__left">
-        <button type="button" class="plt-toolbar__back" (click)="goHome()">
-          <ion-icon name="chevron-back-outline" aria-hidden="true"></ion-icon>
-          <span>{{ backButtonLabel }}</span>
-        </button>
+      <div class="app-icon-container plt-toolbar__brand">
+        <img src="assets/mascot-toolbar.png" alt="Barnabi" class="app-icon app-icon--mascot barnabi-mascot-for-light-ui" width="48" height="48" decoding="sync">
+        <img src="assets/mascot-toolbar-dark.png" alt="" class="app-icon app-icon--mascot barnabi-mascot-for-dark-ui" width="48" height="48" decoding="sync" aria-hidden="true">
+        <img src="assets/barnabi-logo.png" alt="Barnabi" class="app-name-logo barnabi-wordmark-for-light-ui" />
+        <img src="assets/barnabi-logo-wordmark-white.png" alt="" class="app-name-logo barnabi-wordmark-for-dark-ui" aria-hidden="true" />
       </div>
-      <h1 class="plt-toolbar__title">
-        <span class="plt-toolbar__emoji" aria-hidden="true">🎉</span>
+    </header>
+
+    <div class="plt-subheader" *ngIf="!noteSubmitted">
+      <button type="button" class="plt-subheader__back" (click)="goHome()">
+        <ion-icon name="chevron-back-outline" aria-hidden="true"></ion-icon>
+        <span>{{ 'COMMON.BACK' | translate }}</span>
+      </button>
+      <h1 class="plt-subheader__title">
+        <span class="plt-subheader__emoji" aria-hidden="true">🎉</span>
         {{ 'POST_LESSON.TUTOR.GREAT_LESSON' | translate }}
       </h1>
-      <div class="plt-toolbar__right" aria-hidden="true"></div>
-    </header>
+    </div>
 
     <!-- ==================== SPLIT STEP (details | actions) ==================== -->
     <div class="plt-body" *ngIf="!noteSubmitted">
@@ -106,7 +112,7 @@
 
         <!-- ── Right: actionable form ── -->
         <div class="plt-actions approval-split-main approval-split-main--scroll">
-          <div class="plt-actions-scroll">
+          <div class="plt-actions-scroll" #actionsScroll>
             <div class="plt-form-header">
               <h2 class="plt-form-title">{{ 'POST_LESSON.TUTOR.LEAVE_NOTE' | translate }}</h2>
               <span class="plt-assessment-badge" *ngIf="!studentAiEnabled">{{ 'POST_LESSON.TUTOR.ASSESSMENT_REQUIRED' | translate }}</span>
@@ -261,17 +267,22 @@
               <div class="plt-plan-override__body" *ngIf="showPlanOverride">
                 <div class="plt-form-group">
                   <label>{{ 'POST_LESSON.TUTOR.ACTION' | translate }}</label>
-                  <select [(ngModel)]="planOverrideAction" class="plt-plan-override__select">
+                  <select
+                    [ngModel]="planOverrideAction"
+                    (ngModelChange)="onPlanOverrideActionChange($event)"
+                    class="plt-plan-override__select">
                     <option *ngFor="let opt of planOverrideActions" [value]="opt.value">{{ opt.label }}</option>
                   </select>
                 </div>
-                <div class="plt-form-group" *ngIf="planOverrideAction === 'adjust_focus'">
-                  <label>{{ 'POST_LESSON.TUTOR.SUGGESTED_FOCUS' | translate }}</label>
-                  <ion-input [(ngModel)]="planOverrideFocus" [placeholder]="focusPlaceholder" maxlength="200"></ion-input>
-                </div>
-                <div class="plt-form-group" *ngIf="planOverrideAction">
-                  <label>{{ 'POST_LESSON.TUTOR.PLAN_NOTE' | translate }} <span class="plt-opt">{{ 'POST_LESSON.TUTOR.OPTIONAL' | translate }}</span></label>
-                  <ion-textarea [(ngModel)]="planOverrideNote" [placeholder]="planNotePlaceholder" rows="2" maxlength="300"></ion-textarea>
+                <div class="plt-plan-override__context" #planOverrideContext *ngIf="planOverrideAction">
+                  <div class="plt-form-group" *ngIf="planOverrideAction === 'adjust_focus'">
+                    <label>{{ 'POST_LESSON.TUTOR.SUGGESTED_FOCUS' | translate }}</label>
+                    <ion-input [(ngModel)]="planOverrideFocus" [placeholder]="focusPlaceholder" maxlength="200"></ion-input>
+                  </div>
+                  <div class="plt-form-group">
+                    <label>{{ 'POST_LESSON.TUTOR.PLAN_NOTE' | translate }} <span class="plt-opt">{{ 'POST_LESSON.TUTOR.OPTIONAL' | translate }}</span></label>
+                    <ion-textarea [(ngModel)]="planOverrideNote" [placeholder]="planNotePlaceholder" rows="2" maxlength="300"></ion-textarea>
+                  </div>
                 </div>
               </div>
             </div>
