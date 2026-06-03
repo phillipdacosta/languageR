@@ -874,6 +874,14 @@ ion-header ion-toolbar {
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
 }
 
+.ed-focus-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
 .ed-focus-card-eyebrow {
   display: block;
   font-size: 11px;
@@ -881,7 +889,22 @@ ion-header ion-toolbar {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: #359aff;
-  margin-bottom: 10px;
+
+  .ed-focus-card-head & {
+    margin-bottom: 0;
+  }
+}
+
+.ed-focus-card-state {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: #b45309;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 999px;
+  padding: 3px 10px;
 }
 
 .ed-focus-card-body {
@@ -1044,7 +1067,54 @@ ion-header ion-toolbar {
   }
 
   &:not(.collapsed) {
-    max-height: 2000px; // Large enough for content
+    max-height: 4000px;
+    opacity: 1;
+  }
+}
+
+/* ── Collapsible status sections (cancellation, payment) ── */
+.ed-collapsible-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  margin: 0 0 16px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+
+  .ed-section-label {
+    margin: 0;
+  }
+
+  ion-icon {
+    flex-shrink: 0;
+    font-size: 18px;
+    color: var(--ed-text-secondary, #717171);
+    transition: transform 0.2s ease;
+  }
+
+  &:hover ion-icon {
+    color: var(--ed-text-primary, #222);
+  }
+}
+
+.ed-collapsible-body {
+  overflow: hidden;
+  transition: max-height 0.3s ease, opacity 0.2s ease;
+
+  &.collapsed {
+    max-height: 0;
+    opacity: 0;
+    margin-bottom: 0;
+  }
+
+  &:not(.collapsed) {
+    max-height: 2000px;
     opacity: 1;
   }
 }
@@ -3714,6 +3784,12 @@ ion-header {
 
   .ed-learning-focus .ed-focus-card-eyebrow {
     color: #4298d2;
+  }
+
+  .ed-learning-focus .ed-focus-card-state {
+    color: #fbbf77;
+    background: rgba(180, 83, 9, 0.18);
+    border-color: rgba(251, 191, 119, 0.3);
   }
 
   .ed-impression {

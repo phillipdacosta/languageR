@@ -210,16 +210,19 @@
           </button>
 
     <!-- ── Plan context (compact — no duplicate briefing content) ── -->
-    <ng-container *ngIf="edHasPlan && edPlanNextFocus">
+    <ng-container *ngIf="edHasPlan && (edPlanNextFocus || edPlanIsTrial)">
       <section class="ed-row ed-learning-focus">
         <div class="ed-focus-card">
-          <span class="ed-focus-card-eyebrow">{{ edPlanEyebrowKey | translate }}</span>
-          <p class="ed-focus-card-body">{{ edPlanNextFocus }}</p>
+          <div class="ed-focus-card-head">
+            <span class="ed-focus-card-eyebrow">{{ (edPlanIsTrial ? 'EVENT_DETAILS.LESSON_SCREEN.TRIAL_EYEBROW' : edPlanEyebrowKey) | translate }}</span>
+            <span class="ed-focus-card-state" *ngIf="edPlanStateLabel">{{ edPlanStateLabel }}</span>
+          </div>
+          <p class="ed-focus-card-body">{{ edPlanIsTrial ? edPlanTrialBody : edPlanNextFocus }}</p>
           <p class="ed-focus-card-meta" *ngIf="edPlanMetaLine">{{ edPlanMetaLine }}</p>
-          <div class="ed-topics" *ngIf="edShowPlanExpanded && edPlanTopicChips.length">
+          <div class="ed-topics" *ngIf="edShowPlanExpanded && !edPlanIsTrial && edPlanTopicChips.length">
             <span class="ed-topic" *ngFor="let topic of edPlanTopicChips">{{ topic }}</span>
           </div>
-          <ul class="ed-focus-agenda" *ngIf="edShowPlanExpanded && edPlanAgenda.length && isStudentUser">
+          <ul class="ed-focus-agenda" *ngIf="edShowPlanExpanded && !edPlanIsTrial && edPlanAgenda.length && isStudentUser">
             <li *ngFor="let item of edPlanAgenda">{{ item }}</li>
           </ul>
         </div>
@@ -642,20 +645,25 @@
     <ng-container *ngIf="isCancelled">
       <div class="ed-divider"></div>
       <section class="ed-row ed-cancel-section">
-        <h2 class="ed-section-label">{{ 'EVENT_DETAILS.LESSON_SCREEN.CANCELLATION' | translate }}</h2>
-        <div class="ed-kv">
-          <span class="ed-kv-key">{{ 'EVENT_DETAILS.LESSON_SCREEN.CANCELLED_BY' | translate }}</span>
-          <span class="ed-kv-val">{{ cancelledByLabel }}</span>
+        <button type="button" class="ed-collapsible-header" (click)="toggleCancellationSection()" [attr.aria-expanded]="cancellationSectionExpanded">
+          <h2 class="ed-section-label">{{ 'EVENT_DETAILS.LESSON_SCREEN.CANCELLATION' | translate }}</h2>
+          <ion-icon [name]="cancellationSectionExpanded ? 'chevron-up-outline' : 'chevron-down-outline'" aria-hidden="true"></ion-icon>
+        </button>
+        <div class="ed-collapsible-body" [class.collapsed]="!cancellationSectionExpanded">
+          <div class="ed-kv">
+            <span class="ed-kv-key">{{ 'EVENT_DETAILS.LESSON_SCREEN.CANCELLED_BY' | translate }}</span>
+            <span class="ed-kv-val">{{ cancelledByLabel }}</span>
+          </div>
+          <div class="ed-kv">
+            <span class="ed-kv-key">{{ 'EVENT_DETAILS.LESSON_SCREEN.REASON' | translate }}</span>
+            <span class="ed-kv-val">{{ cancelReasonLabel }}</span>
+          </div>
+          <div class="ed-kv" *ngIf="cancelledAtLabel">
+            <span class="ed-kv-key">{{ 'EVENT_DETAILS.LESSON_SCREEN.DATE' | translate }}</span>
+            <span class="ed-kv-val">{{ cancelledAtLabel }}</span>
+          </div>
+          <span class="ed-late-tag" *ngIf="lesson?.isLateCancellation">{{ 'EVENT_DETAILS.LESSON_SCREEN.LATE_CANCEL_TAG' | translate }}</span>
         </div>
-        <div class="ed-kv">
-          <span class="ed-kv-key">{{ 'EVENT_DETAILS.LESSON_SCREEN.REASON' | translate }}</span>
-          <span class="ed-kv-val">{{ cancelReasonLabel }}</span>
-        </div>
-        <div class="ed-kv" *ngIf="cancelledAtLabel">
-          <span class="ed-kv-key">{{ 'EVENT_DETAILS.LESSON_SCREEN.DATE' | translate }}</span>
-          <span class="ed-kv-val">{{ cancelledAtLabel }}</span>
-        </div>
-        <span class="ed-late-tag" *ngIf="lesson?.isLateCancellation">{{ 'EVENT_DETAILS.LESSON_SCREEN.LATE_CANCEL_TAG' | translate }}</span>
       </section>
     </ng-container>
 
@@ -663,21 +671,26 @@
     <ng-container *ngIf="hasPaymentStatus">
       <div class="ed-divider"></div>
       <section class="ed-row">
-        <h2 class="ed-section-label">{{ 'EVENT_DETAILS.PAYMENT.SECTION_TITLE' | translate }}</h2>
-        <div class="ed-payment-status" [ngClass]="paymentStatusClass">
-          <div class="ed-payment-status-header">
-            <div class="ed-payment-icon" [ngClass]="paymentStatusClass">
-              <ion-icon [name]="paymentStatusIcon"></ion-icon>
+        <button type="button" class="ed-collapsible-header" (click)="togglePaymentStatusSection()" [attr.aria-expanded]="paymentStatusSectionExpanded">
+          <h2 class="ed-section-label">{{ 'EVENT_DETAILS.PAYMENT.SECTION_TITLE' | translate }}</h2>
+          <ion-icon [name]="paymentStatusSectionExpanded ? 'chevron-up-outline' : 'chevron-down-outline'" aria-hidden="true"></ion-icon>
+        </button>
+        <div class="ed-collapsible-body" [class.collapsed]="!paymentStatusSectionExpanded">
+          <div class="ed-payment-status" [ngClass]="paymentStatusClass">
+            <div class="ed-payment-status-header">
+              <div class="ed-payment-icon" [ngClass]="paymentStatusClass">
+                <ion-icon [name]="paymentStatusIcon"></ion-icon>
+              </div>
+              <div class="ed-payment-text">
+                <span class="ed-payment-title">{{ paymentStatusTitle }}</span>
+                <span class="ed-payment-desc">{{ paymentStatusDescription }}</span>
+              </div>
             </div>
-            <div class="ed-payment-text">
-              <span class="ed-payment-title">{{ paymentStatusTitle }}</span>
-              <span class="ed-payment-desc">{{ paymentStatusDescription }}</span>
-            </div>
-          </div>
-          <div class="ed-payment-details" *ngIf="paymentStatusDetails.length > 0">
-            <div class="ed-kv" *ngFor="let detail of paymentStatusDetails">
-              <span class="ed-kv-key">{{ detail.key }}</span>
-              <span class="ed-kv-val">{{ detail.value }}</span>
+            <div class="ed-payment-details" *ngIf="paymentStatusDetails.length > 0">
+              <div class="ed-kv" *ngFor="let detail of paymentStatusDetails">
+                <span class="ed-kv-key">{{ detail.key }}</span>
+                <span class="ed-kv-val">{{ detail.value }}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -968,10 +981,15 @@
           <ng-container *ngIf="classIsCancelled && classData.cancelReason">
             <div class="ed-divider"></div>
             <section class="ed-row ed-cancel-section">
-              <h2 class="ed-section-label">{{ 'EVENT_DETAILS.LESSON_SCREEN.CANCELLATION' | translate }}</h2>
-              <div class="ed-kv" *ngIf="classData.cancelReason">
-                <span class="ed-kv-key">{{ 'EVENT_DETAILS.LESSON_SCREEN.REASON' | translate }}</span>
-                <span class="ed-kv-val">{{ classData.cancelReason === 'minimum_not_met' ? ('EVENT_DETAILS.LESSON_SCREEN.CLASS_CANCEL_MINIMUM' | translate) : classData.cancelReason }}</span>
+              <button type="button" class="ed-collapsible-header" (click)="toggleCancellationSection()" [attr.aria-expanded]="cancellationSectionExpanded">
+                <h2 class="ed-section-label">{{ 'EVENT_DETAILS.LESSON_SCREEN.CANCELLATION' | translate }}</h2>
+                <ion-icon [name]="cancellationSectionExpanded ? 'chevron-up-outline' : 'chevron-down-outline'" aria-hidden="true"></ion-icon>
+              </button>
+              <div class="ed-collapsible-body" [class.collapsed]="!cancellationSectionExpanded">
+                <div class="ed-kv" *ngIf="classData.cancelReason">
+                  <span class="ed-kv-key">{{ 'EVENT_DETAILS.LESSON_SCREEN.REASON' | translate }}</span>
+                  <span class="ed-kv-val">{{ classData.cancelReason === 'minimum_not_met' ? ('EVENT_DETAILS.LESSON_SCREEN.CLASS_CANCEL_MINIMUM' | translate) : classData.cancelReason }}</span>
+                </div>
               </div>
             </section>
           </ng-container>
@@ -992,21 +1010,26 @@
           <ng-container *ngIf="hasClassPaymentStatus">
             <div class="ed-divider"></div>
             <section class="ed-row">
-              <h2 class="ed-section-label">{{ 'EVENT_DETAILS.PAYMENT.SECTION_TITLE' | translate }}</h2>
-              <div class="ed-payment-status" [ngClass]="classPaymentStatusClass">
-                <div class="ed-payment-status-header">
-                  <div class="ed-payment-icon" [ngClass]="classPaymentStatusClass">
-                    <ion-icon [name]="classPaymentStatusIcon"></ion-icon>
+              <button type="button" class="ed-collapsible-header" (click)="togglePaymentStatusSection()" [attr.aria-expanded]="paymentStatusSectionExpanded">
+                <h2 class="ed-section-label">{{ 'EVENT_DETAILS.PAYMENT.SECTION_TITLE' | translate }}</h2>
+                <ion-icon [name]="paymentStatusSectionExpanded ? 'chevron-up-outline' : 'chevron-down-outline'" aria-hidden="true"></ion-icon>
+              </button>
+              <div class="ed-collapsible-body" [class.collapsed]="!paymentStatusSectionExpanded">
+                <div class="ed-payment-status" [ngClass]="classPaymentStatusClass">
+                  <div class="ed-payment-status-header">
+                    <div class="ed-payment-icon" [ngClass]="classPaymentStatusClass">
+                      <ion-icon [name]="classPaymentStatusIcon"></ion-icon>
+                    </div>
+                    <div class="ed-payment-text">
+                      <span class="ed-payment-title">{{ classPaymentStatusTitle }}</span>
+                      <span class="ed-payment-desc">{{ classPaymentStatusDescription }}</span>
+                    </div>
                   </div>
-                  <div class="ed-payment-text">
-                    <span class="ed-payment-title">{{ classPaymentStatusTitle }}</span>
-                    <span class="ed-payment-desc">{{ classPaymentStatusDescription }}</span>
-                  </div>
-                </div>
-                <div class="ed-payment-details" *ngIf="classPaymentDetails.length > 0">
-                  <div class="ed-kv" *ngFor="let detail of classPaymentDetails">
-                    <span class="ed-kv-key">{{ detail.key }}</span>
-                    <span class="ed-kv-val">{{ detail.value }}</span>
+                  <div class="ed-payment-details" *ngIf="classPaymentDetails.length > 0">
+                    <div class="ed-kv" *ngFor="let detail of classPaymentDetails">
+                      <span class="ed-kv-key">{{ detail.key }}</span>
+                      <span class="ed-kv-val">{{ detail.value }}</span>
+                    </div>
                   </div>
                 </div>
               </div>

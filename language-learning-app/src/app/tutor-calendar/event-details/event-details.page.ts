@@ -216,6 +216,13 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   edPlanMetaLine = '';
   edPlanTopicChips: string[] = [];
   edPlanEyebrowKey = 'EVENT_DETAILS.LESSON_SCREEN.LESSON_OBJECTIVE';
+  // Trial / first-pairing calibration framing. A brand-new pair's trial is a
+  // meet-and-greet to gauge level — not a plan checkpoint — so the objective
+  // is swapped for a calibration line and phase topics/agenda are hidden.
+  edPlanIsTrial = false;
+  edPlanTrialBody = '';
+  // Small "Draft plan" chip so draft-vs-active is legible on the lesson itself.
+  edPlanStateLabel = '';
   edShowPlanExpanded = false;
   edShowTutorBriefing = false;
   edPrepShowPersistentChallenges = false;
@@ -387,6 +394,8 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   feedbackStrengths: string[] = [];
   feedbackImprovements: string[] = [];
   feedbackSectionExpanded = false; // Collapsible state for tutor view (closed by default)
+  cancellationSectionExpanded = false;
+  paymentStatusSectionExpanded = false;
   feedbackNotes = '';
   feedbackCefrLevel = '';
   feedbackDate = '';
@@ -2086,10 +2095,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       this.edPlanPhaseLabel = tx(orig.edPlanPhaseLabel);
       this.edPlanTopicChips = txArr(orig.edPlanTopicChips);
       this.edPlanAgenda = txArr(orig.edPlanAgenda);
-      const parts: string[] = [];
-      if (this.edPlanGoalLabel) parts.push(this.edPlanGoalLabel);
-      if (this.edPlanPhaseLabel) parts.push(this.edPlanPhaseLabel);
-      this.edPlanMetaLine = parts.join(' · ');
+      this.edPlanMetaLine = this.buildPlanMetaLine();
       if (orig.edPrep) {
         this.edPrep = JSON.parse(JSON.stringify(orig.edPrep));
         if (this.edPrep?.agenda?.length) this.edPrep.agenda = txArr(this.edPrep.agenda);
@@ -2170,10 +2176,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
         if (typeof plan['phaseLabel'] === 'string') this.edPlanPhaseLabel = plan['phaseLabel'];
         if (Array.isArray(plan['topicChips'])) this.edPlanTopicChips = plan['topicChips'] as string[];
         if (Array.isArray(plan['agenda'])) this.edPlanAgenda = plan['agenda'] as string[];
-        const parts: string[] = [];
-        if (this.edPlanGoalLabel) parts.push(this.edPlanGoalLabel);
-        if (this.edPlanPhaseLabel) parts.push(this.edPlanPhaseLabel);
-        this.edPlanMetaLine = parts.join(' · ');
+        this.edPlanMetaLine = this.buildPlanMetaLine();
       }
 
       const prep = client['prep'] as Record<string, unknown> | undefined;
@@ -2317,6 +2320,35 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     return description || '';
   }
 
+  /** Role-aware goal line for the lesson focus card meta row. */
+  private buildPlanMetaLine(): string {
+    const parts: string[] = [];
+    if (this.edPlanGoalLabel) {
+      if (this.isTutorUser) {
+        const name = this.participantName?.split(' ')[0] || '';
+        if (name) {
+          const goalPhrase = this.edPlanGoalLabel.charAt(0).toLowerCase() + this.edPlanGoalLabel.slice(1);
+          parts.push(this.translate.instant('EVENT_DETAILS.LESSON_SCREEN.PLAN_GOAL_TUTOR_NAMED', {
+            name,
+            goal: goalPhrase
+          }));
+        } else {
+          parts.push(this.translate.instant('EVENT_DETAILS.LESSON_SCREEN.PLAN_GOAL_TUTOR', {
+            goal: this.edPlanGoalLabel
+          }));
+        }
+      } else {
+        parts.push(this.translate.instant('EVENT_DETAILS.LESSON_SCREEN.PLAN_GOAL_STUDENT', {
+          goal: this.edPlanGoalLabel
+        }));
+      }
+    }
+    if (this.edPlanPhaseLabel) {
+      parts.push(this.edPlanPhaseLabel);
+    }
+    return parts.join(' · ');
+  }
+
   private applyPlanSummary(summary: LearningPlanSummary): void {
     this.edPlanSummary = summary;
     this.edPlanGoalLabel = this.goalLabelForType(summary.goal?.type, summary.goal?.description);
@@ -2348,6 +2380,9 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     this.edPlanMetaLine = '';
     this.edPlanTopicChips = [];
     this.edPlanEyebrowKey = 'EVENT_DETAILS.LESSON_SCREEN.LESSON_OBJECTIVE';
+    this.edPlanIsTrial = false;
+    this.edPlanTrialBody = '';
+    this.edPlanStateLabel = '';
     this.edShowPlanExpanded = false;
     this.edShowTutorBriefing = false;
     this.edPrepShowPersistentChallenges = false;
@@ -2357,10 +2392,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   private refreshPlanPresentation(): void {
     if (!this.edHasPlan) return;
 
-    const parts: string[] = [];
-    if (this.edPlanGoalLabel) parts.push(this.edPlanGoalLabel);
-    if (this.edPlanPhaseLabel) parts.push(this.edPlanPhaseLabel);
-    this.edPlanMetaLine = parts.join(' · ');
+    this.edPlanMetaLine = this.buildPlanMetaLine();
 
     this.edPlanEyebrowKey = this.isLessonCompleted
       ? 'EVENT_DETAILS.LESSON_SCREEN.PLAN_NEXT_UP'
@@ -2378,6 +2410,25 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
           ? this.edPlanSuggestedTopics
           : this.edPlanFocusAreas).slice(0, 4)
       : [];
+
+    // Trial calibration framing — overrides the objective for an upcoming trial.
+    this.edPlanIsTrial = !this.isLessonCompleted && !!this.lesson?.isTrialLesson;
+    if (this.edPlanIsTrial) {
+      const other = this.isTutorUser ? this.lesson?.studentId : this.lesson?.tutorId;
+      const displayName = this.participantName || (other ? this.formatPersonName(other) : '');
+      this.edPlanTrialBody = this.isTutorUser
+        ? this.translate.instant('EVENT_DETAILS.LESSON_SCREEN.TRIAL_OBJECTIVE_TUTOR', { name: displayName })
+        : this.translate.instant('EVENT_DETAILS.LESSON_SCREEN.TRIAL_OBJECTIVE_STUDENT');
+    } else {
+      this.edPlanTrialBody = '';
+    }
+
+    // Draft-state chip — only meaningful while the plan is still a draft.
+    this.edPlanStateLabel = this.edPlanSummary?.status === 'draft'
+      ? this.translate.instant(this.isTutorUser
+          ? 'EVENT_DETAILS.LESSON_SCREEN.PLAN_STATE_DRAFT_TUTOR'
+          : 'EVENT_DETAILS.LESSON_SCREEN.PLAN_STATE_DRAFT')
+      : '';
 
     this.edShowTutorBriefing =
       this.isTutorUser && !this.isLessonCompleted && !!this.edPrepHasContent;
@@ -3700,6 +3751,14 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
 
   toggleMaterialsSection() {
     this.materialsSectionExpanded = !this.materialsSectionExpanded;
+  }
+
+  toggleCancellationSection() {
+    this.cancellationSectionExpanded = !this.cancellationSectionExpanded;
+  }
+
+  togglePaymentStatusSection() {
+    this.paymentStatusSectionExpanded = !this.paymentStatusSectionExpanded;
   }
 
   viewFeedback() {
