@@ -63,47 +63,33 @@
           <div *ngIf="approvalStepId === 'photo'" class="photo-step tutor-approval-step-pane">
             <div class="photo-step-layout approval-split-layout approval-step-card">
               <div class="photo-step-guidance approval-split-guidance">
-                <h3 class="approval-split-guidance__title">{{ 'TUTOR_APPROVAL.PHOTO_CHOOSE_TITLE' | translate }}</h3>
-                <p class="approval-split-guidance__desc">{{ 'TUTOR_APPROVAL.PHOTO_CHOOSE_DESC' | translate }}</p>
+                <h3 class="photo-needs__title">{{ 'TUTOR_APPROVAL.PHOTO_NEEDS_TITLE' | translate }}</h3>
 
-                <div class="approval-split-guidance-list">
-                  <div class="approval-guidance-item">
-                    <div class="approval-guidance-item__icon-wrap approval-guidance-item__icon-wrap--face">
-                      <ion-icon name="person-outline" aria-hidden="true"></ion-icon>
-                    </div>
-                    <div class="approval-guidance-item__text">
-                      <h4>{{ 'TUTOR_APPROVAL.PHOTO_INFO_1_TITLE' | translate }}</h4>
-                      <p>{{ 'TUTOR_APPROVAL.PHOTO_INFO_1_DESC' | translate }}</p>
-                    </div>
-                  </div>
-                  <div class="approval-guidance-item">
-                    <div class="approval-guidance-item__icon-wrap approval-guidance-item__icon-wrap--light">
-                      <ion-icon name="shield-checkmark-outline" aria-hidden="true"></ion-icon>
-                    </div>
-                    <div class="approval-guidance-item__text">
-                      <h4>{{ 'TUTOR_APPROVAL.PHOTO_INFO_2_TITLE' | translate }}</h4>
-                      <p>{{ 'TUTOR_APPROVAL.PHOTO_INFO_2_DESC' | translate }}</p>
-                    </div>
-                  </div>
-                  <div class="approval-guidance-item">
-                    <div class="approval-guidance-item__icon-wrap approval-guidance-item__icon-wrap--recent">
-                      <ion-icon name="calendar-outline" aria-hidden="true"></ion-icon>
-                    </div>
-                    <div class="approval-guidance-item__text">
-                      <h4>{{ 'TUTOR_APPROVAL.PHOTO_INFO_3_TITLE' | translate }}</h4>
-                      <p>{{ 'TUTOR_APPROVAL.PHOTO_INFO_3_DESC' | translate }}</p>
-                    </div>
-                  </div>
+                <div class="photo-needs__examples" aria-hidden="true">
+                  <img
+                    *ngFor="let avatarSrc of photoExampleAvatars"
+                    [src]="avatarSrc"
+                    alt=""
+                    class="photo-needs__example" />
                 </div>
 
-                <div class="photo-step-google-notice" *ngIf="!photoStepCompleted && currentUser?.picture">
-                  <ion-icon name="information-circle" color="primary" aria-hidden="true"></ion-icon>
-                  <p>{{ 'TUTOR_APPROVAL.PHOTO_GOOGLE_WARNING' | translate }}</p>
-                </div>
+                <ul class="photo-needs__checklist">
+                  <li *ngFor="let requirementKey of photoRequirementKeys" class="photo-needs__checklist-item">
+                    <ion-icon name="checkmark-sharp" class="photo-needs__check-icon" aria-hidden="true"></ion-icon>
+                    <span>{{ requirementKey | translate }}</span>
+                  </li>
+                </ul>
               </div>
 
               <div class="photo-step-upload approval-split-main">
                 <div class="photo-step-upload-inner">
+                <div
+                  class="photo-step-google-notice photo-step-google-notice--upload"
+                  *ngIf="!photoStepCompleted && currentUser?.picture">
+                  <ion-icon name="information-circle" color="primary" aria-hidden="true"></ion-icon>
+                  <p>{{ 'TUTOR_APPROVAL.PHOTO_GOOGLE_WARNING' | translate }}</p>
+                </div>
+
                 <div
                   class="photo-upload-zone"
                   role="button"
@@ -165,48 +151,26 @@
           <div *ngIf="approvalStepId === 'video'" class="video-step tutor-approval-step-pane">
             <div class="video-step-layout approval-split-layout approval-step-card">
               <div class="video-step-guidance approval-split-guidance">
-                <h3 class="approval-split-guidance__title">{{ 'TUTOR_APPROVAL.VIDEO_CHOOSE_TITLE' | translate }}</h3>
-                <p class="approval-split-guidance__desc">{{ 'TUTOR_APPROVAL.VIDEO_CHOOSE_DESC' | translate }}</p>
+                <h3 class="video-requirements__title">{{ 'TUTOR_APPROVAL.VIDEO_REQUIREMENTS_TITLE' | translate }}</h3>
+                <p class="video-requirements__summary">{{ 'TUTOR_APPROVAL.VIDEO_REQUIREMENTS_SUMMARY' | translate }}</p>
 
-                <div class="approval-split-guidance-list">
-                  <div class="approval-guidance-item">
-                    <div class="approval-guidance-item__icon-wrap approval-guidance-item__icon-wrap--video">
-                      <img
-                        src="assets/onboarding-icon-video.png"
-                        alt=""
-                        class="approval-guidance-item__icon-img"
-                        role="presentation" />
-                    </div>
-                    <div class="approval-guidance-item__text">
-                      <h4>{{ 'TUTOR_APPROVAL.VIDEO_INFO_1_TITLE' | translate }}</h4>
-                      <p>{{ 'TUTOR_APPROVAL.VIDEO_INFO_1_DESC' | translate }}</p>
-                    </div>
-                  </div>
-                  <div class="approval-guidance-item">
-                    <div class="approval-guidance-item__icon-wrap approval-guidance-item__icon-wrap--trust">
-                      <ion-icon name="people-outline" aria-hidden="true"></ion-icon>
-                    </div>
-                    <div class="approval-guidance-item__text">
-                      <h4>{{ 'TUTOR_APPROVAL.VIDEO_INFO_2_TITLE' | translate }}</h4>
-                      <p>{{ 'TUTOR_APPROVAL.VIDEO_INFO_2_DESC' | translate }}</p>
-                    </div>
-                  </div>
-                  <div class="approval-guidance-item">
-                    <div class="approval-guidance-item__icon-wrap approval-guidance-item__icon-wrap--star">
-                      <ion-icon name="star" aria-hidden="true"></ion-icon>
-                    </div>
-                    <div class="approval-guidance-item__text">
-                      <h4>{{ 'TUTOR_APPROVAL.VIDEO_INFO_3_TITLE' | translate }}</h4>
-                      <p>{{ 'TUTOR_APPROVAL.VIDEO_INFO_3_DESC' | translate }}</p>
-                    </div>
-                  </div>
-                </div>
+                <ul class="video-requirements__checklist">
+                  <li *ngFor="let requirementKey of videoRequirementKeys" class="video-requirements__checklist-item">
+                    <ion-icon name="checkmark-sharp" class="video-requirements__check-icon" aria-hidden="true"></ion-icon>
+                    <span>{{ requirementKey | translate }}</span>
+                  </li>
+                </ul>
               </div>
 
               <div class="video-step-upload approval-split-main">
                 <div
                   class="video-step-upload-inner"
                   [class.video-step-upload-inner--review]="approvalStatus?.videoComplete">
+                  <div class="video-step-intro">
+                    <h4 class="video-step-intro__title">{{ 'TUTOR_APPROVAL.VIDEO_INTRO_TITLE' | translate }}</h4>
+                    <p class="video-step-intro__desc">{{ 'TUTOR_APPROVAL.VIDEO_INTRO_DESC' | translate }}</p>
+                  </div>
+
                   <div *ngIf="approvalStatus?.videoComplete" class="video-step-review-status">
                     <div *ngIf="approvalStatus?.videoApproved" class="status-badge success">
                       <ion-icon name="checkmark-circle"></ion-icon>
@@ -435,16 +399,117 @@
 
               <div class="qualifications-step-upload approval-split-main">
                 <div class="qualifications-step-upload-inner">
+                  <section class="qualifications-panel qualifications-panel--education">
+                    <label class="qualifications-education-check">
+                      <ion-checkbox
+                        [(ngModel)]="educationNoDegree"
+                        (ionChange)="onEducationNoDegreeChange()">
+                      </ion-checkbox>
+                      <span>{{ 'TUTOR_APPROVAL.EDU_NO_DEGREE' | translate }}</span>
+                    </label>
+
+                    <div class="qualifications-education-fields" *ngIf="!educationNoDegree">
+                      <div class="qualifications-field">
+                        <ion-item lines="none" class="qualifications-name-item">
+                          <ion-input
+                            [label]="'TUTOR_APPROVAL.EDU_UNIVERSITY_LABEL' | translate"
+                            labelPlacement="stacked"
+                            [placeholder]="'TUTOR_APPROVAL.EDU_UNIVERSITY_PLACEHOLDER' | translate"
+                            [(ngModel)]="educationUniversity"
+                            (ionBlur)="onEducationFieldChange()">
+                          </ion-input>
+                        </ion-item>
+                      </div>
+
+                      <div class="qualifications-field">
+                        <ion-item lines="none" class="qualifications-name-item">
+                          <ion-input
+                            [label]="'TUTOR_APPROVAL.EDU_DEGREE_LABEL' | translate"
+                            labelPlacement="stacked"
+                            [placeholder]="'TUTOR_APPROVAL.EDU_DEGREE_PLACEHOLDER' | translate"
+                            [(ngModel)]="educationDegree"
+                            (ionBlur)="onEducationFieldChange()">
+                          </ion-input>
+                        </ion-item>
+                      </div>
+
+                      <div class="qualifications-field">
+                        <div class="qualifications-select-field">
+                          <ion-select
+                            [label]="'TUTOR_APPROVAL.EDU_DEGREE_TYPE_LABEL' | translate"
+                            labelPlacement="stacked"
+                            [placeholder]="'TUTOR_APPROVAL.EDU_DEGREE_TYPE_PLACEHOLDER' | translate"
+                            interface="popover"
+                            [(ngModel)]="educationDegreeType"
+                            (ionChange)="onEducationFieldChange()">
+                            <ion-select-option
+                              *ngFor="let option of educationDegreeTypeOptions"
+                              [value]="option.value">
+                              {{ option.labelKey | translate }}
+                            </ion-select-option>
+                          </ion-select>
+                        </div>
+                      </div>
+
+                      <div class="qualifications-education-years">
+                        <div class="qualifications-field qualifications-field--half">
+                          <div class="qualifications-select-field">
+                            <ion-select
+                              [label]="'TUTOR_APPROVAL.EDU_START_YEAR_LABEL' | translate"
+                              labelPlacement="stacked"
+                              [placeholder]="'TUTOR_APPROVAL.EDU_YEAR_PLACEHOLDER' | translate"
+                              interface="popover"
+                              [(ngModel)]="educationStartYear"
+                              (ionChange)="onEducationFieldChange()">
+                              <ion-select-option *ngFor="let year of educationYearOptions" [value]="year">
+                                {{ year }}
+                              </ion-select-option>
+                            </ion-select>
+                          </div>
+                        </div>
+                        <span class="qualifications-education-years__sep" aria-hidden="true">–</span>
+                        <div class="qualifications-field qualifications-field--half">
+                          <div class="qualifications-select-field">
+                            <ion-select
+                              [label]="'TUTOR_APPROVAL.EDU_END_YEAR_LABEL' | translate"
+                              labelPlacement="stacked"
+                              [placeholder]="'TUTOR_APPROVAL.EDU_YEAR_PLACEHOLDER' | translate"
+                              interface="popover"
+                              [(ngModel)]="educationEndYear"
+                              (ionChange)="onEducationFieldChange()">
+                              <ion-select-option *ngFor="let year of educationYearOptions" [value]="year">
+                                {{ year }}
+                              </ion-select-option>
+                            </ion-select>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+
                   <section class="qualifications-panel">
-                    <div class="qualifications-field">
-                      <ion-item lines="none" class="qualifications-name-item">
-                        <ion-input
-                          [label]="'TUTOR_APPROVAL.CRED_CERT_NAME_LABEL' | translate"
-                          labelPlacement="stacked"
-                          [placeholder]="'TUTOR_APPROVAL.CRED_CERT_NAME_PLACEHOLDER' | translate"
-                          [(ngModel)]="certificationNameInput">
-                        </ion-input>
-                      </ion-item>
+                    <div class="qualifications-verified-promo qualifications-verified-promo--inline" *ngIf="!educationNoDegree">
+                      <h4 class="qualifications-verified-promo__title">
+                        {{ 'TUTOR_APPROVAL.CRED_VERIFIED_PROMO_TITLE' | translate }}
+                      </h4>
+                      <p class="qualifications-verified-promo__desc">
+                        {{ 'TUTOR_APPROVAL.CRED_VERIFIED_PROMO_DESC' | translate }}
+                      </p>
+                      <p class="qualifications-verified-promo__formats">
+                        {{ 'TUTOR_APPROVAL.CRED_CERT_FILE_TYPES' | translate }}
+                      </p>
+                      <button
+                        type="button"
+                        class="qualifications-verified-promo__cta"
+                        [disabled]="isUploadingCredential"
+                        (click)="triggerCredentialUpload('certification')">
+                        {{ 'TUTOR_APPROVAL.CRED_VERIFIED_PROMO_BTN' | translate }}
+                      </button>
+                    </div>
+
+                    <div class="qualifications-panel-header">
+                      <h4 class="qualifications-panel-title">{{ 'TUTOR_APPROVAL.CRED_CERT_TITLE' | translate }}</h4>
+                      <p class="qualifications-panel-desc">{{ 'TUTOR_APPROVAL.CRED_CERT_SUBTITLE' | translate }}</p>
                     </div>
 
                     <div class="qualifications-uploaded-list" *ngIf="uploadedCertifications.length > 0">

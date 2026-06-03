@@ -2613,6 +2613,63 @@ router.post('/tutor/submit-for-review', verifyToken, async (req, res) => {
 // ============================================================
 
 /**
+ * PUT /api/users/tutor/higher-education
+ * Save tutor higher-education background (school, degree, years).
+ */
+router.put('/tutor/higher-education', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    if (!user || user.userType !== 'tutor') {
+      return res.status(403).json({ success: false, message: 'Only tutors can update education' });
+    }
+
+    const { noDegree, entry } = req.body || {};
+    const noDegreeFlag = noDegree === true;
+
+    if (!user.tutorCredentials) {
+      user.tutorCredentials = {
+        governmentId: { status: 'not_uploaded' },
+        teachingCertifications: [],
+        additionalDocuments: [],
+        higherEducation: { noDegree: false, entries: [] }
+      };
+    }
+
+    if (!user.tutorCredentials.higherEducation) {
+      user.tutorCredentials.higherEducation = { noDegree: false, entries: [] };
+    }
+
+    user.tutorCredentials.higherEducation.noDegree = noDegreeFlag;
+
+    if (noDegreeFlag) {
+      user.tutorCredentials.higherEducation.entries = [];
+    } else {
+      const safeEntry = entry || {};
+      const degreeType = ['teaching', 'subject', 'other'].includes(safeEntry.degreeType)
+        ? safeEntry.degreeType
+        : '';
+      user.tutorCredentials.higherEducation.entries = [{
+        university: String(safeEntry.university || '').trim().slice(0, 200),
+        degree: String(safeEntry.degree || '').trim().slice(0, 200),
+        degreeType,
+        startYear: String(safeEntry.startYear || '').trim().slice(0, 4),
+        endYear: String(safeEntry.endYear || '').trim().slice(0, 4)
+      }];
+    }
+
+    await user.save();
+
+    res.json({
+      success: true,
+      higherEducation: user.tutorCredentials.higherEducation
+    });
+  } catch (error) {
+    console.error('❌ Error saving higher education:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
  * POST /api/users/tutor/upload-credential
  * Upload a credential document (government ID, teaching cert, additional doc)
  * Body (multipart): document file + credentialType + optional metadata

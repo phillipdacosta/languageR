@@ -70,6 +70,16 @@ export interface User {
       status: 'pending' | 'approved' | 'rejected';
       rejectionReason?: string;
     }>;
+    higherEducation?: {
+      noDegree?: boolean;
+      entries?: Array<{
+        university?: string;
+        degree?: string;
+        degreeType?: 'teaching' | 'subject' | 'other' | '';
+        startYear?: string;
+        endYear?: string;
+      }>;
+    };
   };
   tutorApproved?: boolean;
   stripeConnectOnboarded?: boolean;
@@ -1063,6 +1073,27 @@ export class UserService {
         console.error('📹 Error updating tutor video:', error);
         throw error;
       })
+    );
+  }
+
+  /**
+   * Save tutor higher-education background for the approval wizard.
+   */
+  updateHigherEducation(payload: {
+    noDegree: boolean;
+    entry?: {
+      university?: string;
+      degree?: string;
+      degreeType?: string;
+      startYear?: string;
+      endYear?: string;
+    };
+  }): Observable<any> {
+    const headers = this.getAuthHeadersSync();
+    return this.http.put<any>(
+      `${this.apiUrl}/users/tutor/higher-education`,
+      payload,
+      { headers }
     );
   }
 
