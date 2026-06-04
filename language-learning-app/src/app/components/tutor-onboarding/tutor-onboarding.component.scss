@@ -1714,9 +1714,16 @@ $ob-wizard-cta-uniform-width: min(22.5rem, calc(100% - 16px));
       background: #f0f7ff;
       border: 1px solid rgba(53, 154, 255, 0.18);
       box-sizing: border-box;
+      justify-content: center;
+      align-items: center;
 
       p {
         color: $ob-text-primary;
+        text-align: center;
+      }
+
+      ion-icon {
+        margin-top: 0;
       }
 
       @media (max-width: 767px) {
@@ -1742,6 +1749,14 @@ $ob-wizard-cta-uniform-width: min(22.5rem, calc(100% - 16px));
     }
   }
 
+  .photo-needs__title {
+    margin-bottom: 16px;
+
+    @media (max-width: 767px) {
+      margin-bottom: 14px;
+    }
+  }
+
   .video-requirements__summary {
     margin: 0 0 18px;
     padding: 12px 14px;
@@ -1760,6 +1775,7 @@ $ob-wizard-cta-uniform-width: min(22.5rem, calc(100% - 16px));
     }
   }
 
+  .photo-needs__subtitle,
   .video-requirements__subtitle {
     margin: 0 0 14px;
     font-size: 15px;
@@ -2026,6 +2042,34 @@ $ob-wizard-cta-uniform-width: min(22.5rem, calc(100% - 16px));
     align-items: center;
     gap: 12px;
     padding-top: 0;
+  }
+
+  .photo-step-layout .photo-upload-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .photo-step-layout .photo-upload-remove {
+    border: none;
+    background: transparent;
+    color: #c41e3a;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 4px 8px;
+    font-family: inherit;
+
+    &:hover:not(:disabled) {
+      text-decoration: underline;
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
   }
 
   .photo-step-layout .photo-upload-zone {

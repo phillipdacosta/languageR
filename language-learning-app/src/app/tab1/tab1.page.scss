@@ -1512,6 +1512,17 @@ ion-content {
     }
   }
 
+  .welcome-outstanding-msg {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    vertical-align: middle;
+  }
+
+  .welcome-outstanding-icon {
+    flex-shrink: 0;
+  }
+
   // Growth insight ticker
   .growth-ticker {
     display: inline-flex;
@@ -1579,6 +1590,16 @@ ion-content {
     font-size: 15px;
     line-height: 1;
     flex-shrink: 0;
+
+    &--img {
+      width: 22px;
+      height: 22px;
+      object-fit: contain;
+      display: block;
+      background: none;
+      border: 0;
+      box-shadow: none;
+    }
   }
 
   .growth-reload-btn {
@@ -1812,6 +1833,16 @@ ion-content {
     .growth-ticker-icon {
       font-size: 14px;
       line-height: 1.4;
+
+      &--img {
+        width: 20px;
+        height: 20px;
+        object-fit: contain;
+        display: block;
+        background: none;
+        border: 0;
+        box-shadow: none;
+      }
     }
 
     .growth-ticker-text-mobile {
@@ -1973,6 +2004,17 @@ ion-content {
   line-height: 1.4;
   flex-shrink: 0;
   margin-top: 1px;
+
+  &--img {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+    display: block;
+    margin-top: 0;
+    background: none;
+    border: 0;
+    box-shadow: none;
+  }
 }
 
 .growth-modal-item-text {
@@ -17926,7 +17968,8 @@ ion-modal.reschedule-proposal-modal {
   .profile-checklist-anim__inner {
     min-height: 0;
     overflow: hidden;
-    padding-bottom: 8px;
+    padding: 6px 4px 10px;
+    box-sizing: border-box;
   }
 }
 
@@ -17937,6 +17980,8 @@ ion-modal.reschedule-proposal-modal {
   padding: 16px 18px;
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
   border: 1px solid rgba(0, 0, 0, 0.04);
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .profile-checklist-header {

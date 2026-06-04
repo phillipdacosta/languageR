@@ -19,6 +19,7 @@ export class MobileQuickActionsComponent {
   @Input() isDarkModeActive = false;
   /** Tutors only — students get Practice in this slot instead. */
   @Input() showCreateMaterial = true;
+  @Input() isTutorUser = false;
   /** Student-only — opens spaced-repetition deck. */
   @Input() showPractice = false;
   /** Live count of cards due for review. 0 = no badge. */

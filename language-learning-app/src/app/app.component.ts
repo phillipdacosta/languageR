@@ -15,6 +15,7 @@ import { LessonService } from './services/lesson.service';
 import { ClassService } from './services/class.service';
 import { TutorFeedbackService } from './services/tutor-feedback.service';
 import { ImagePreloadService } from './services/image-preload.service';
+import { GROWTH_TICKER_ICON_URLS } from './services/tutor-growth.service';
 import { Router, NavigationEnd } from '@angular/router';
 import { Subject, takeUntil, filter, forkJoin, take } from 'rxjs';
 import { AlertController, ToastController } from '@ionic/angular';
@@ -72,6 +73,7 @@ export class AppComponent implements OnInit, OnDestroy {
     'assets/quick-actions-forum-original.png',
     'assets/quick-actions-reviews.png',
     'assets/quick-actions-reviews-original.png',
+    ...GROWTH_TICKER_ICON_URLS,
   ];
 
   private initializeDeepLinks() {

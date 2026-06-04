@@ -393,8 +393,13 @@
         <p class="welcome-subtitle welcome-mobile-tutor-sub" *ngIf="isStudentUser && !isLoadingLessons && !activeInvitationsCount && (!nextLesson || !nextLessonTimeLabel)">
           {{ 'HOME.WELCOME_DEFAULT' | translate }}
         </p>
-        <p class="welcome-subtitle welcome-mobile-tutor-sub" *ngIf="isTutorUser && !isLoadingLessons && hasProfileCriticalInsights">
-          {{ 'HOME.WELCOME_OUTSTANDING_ITEMS' | translate }}
+        <p class="welcome-subtitle welcome-mobile-tutor-sub welcome-outstanding-msg" *ngIf="isTutorUser && !isLoadingLessons && hasProfileCriticalInsights">
+          <img
+            class="growth-ticker-icon growth-ticker-icon--img welcome-outstanding-icon"
+            [src]="outstandingWelcomeIconSrc"
+            alt=""
+            aria-hidden="true" />
+          <span>{{ 'HOME.WELCOME_OUTSTANDING_ITEMS' | translate }}</span>
         </p>
         <p class="welcome-subtitle welcome-mobile-tutor-sub" *ngIf="isTutorUser && !isLoadingLessons && (!nextLesson || !nextLessonTimeLabel) && !growthInsight && tutorMobileWelcomeSubtitle && !hasProfileCriticalInsights">
           {{ tutorMobileWelcomeSubtitle }}
@@ -405,7 +410,13 @@
            (click)="hasLockedGrowthInsight ? onGrowthInsightClick() : onGrowthInsightTapAdvance()">
           <ng-container *ngFor="let row of growthInsightSlideRow; trackBy: trackGrowthInsightSlide">
             <span class="growth-ticker-mobile-fade-wrap">
-              <span class="growth-ticker-icon" *ngIf="!row.insight.lottieSrc">{{ row.insight.icon }}</span>
+              <span class="growth-ticker-icon" *ngIf="!row.insight.lottieSrc && !row.insight.iconSrc && row.insight.icon">{{ row.insight.icon }}</span>
+              <img
+                *ngIf="!row.insight.lottieSrc && row.insight.iconSrc"
+                class="growth-ticker-icon growth-ticker-icon--img"
+                [src]="row.insight.iconSrc"
+                alt=""
+                aria-hidden="true" />
               <span class="growth-ticker-text-mobile">
                 <span class="growth-ticker-msg">{{ row.insight.messageKey | translate:(row.insight.messageParams || {}) }}</span>
               </span>
@@ -471,7 +482,14 @@
             <span class="welcome-tutor-desktop-greeting">{{ greetingText }} — </span>
 
             <ng-container *ngIf="hasProfileCriticalInsights; else tutorWelcomeAfterOutstanding">
-              {{ 'HOME.WELCOME_OUTSTANDING_ITEMS' | translate }}
+              <span class="welcome-outstanding-msg">
+                <img
+                  class="growth-ticker-icon growth-ticker-icon--img welcome-outstanding-icon"
+                  [src]="outstandingWelcomeIconSrc"
+                  alt=""
+                  aria-hidden="true" />
+                <span>{{ 'HOME.WELCOME_OUTSTANDING_ITEMS' | translate }}</span>
+              </span>
             </ng-container>
 
             <ng-template #tutorWelcomeAfterOutstanding>
@@ -523,7 +541,13 @@
                       (click)="onGrowthInsightClick()">
                   <ng-container *ngFor="let row of growthInsightSlideRow; trackBy: trackGrowthInsightSlide">
                     <span class="growth-ticker-text">
-                      <span class="growth-ticker-icon" *ngIf="!row.insight.lottieSrc">{{ row.insight.icon }}</span>
+                      <span class="growth-ticker-icon" *ngIf="!row.insight.lottieSrc && !row.insight.iconSrc && row.insight.icon">{{ row.insight.icon }}</span>
+              <img
+                *ngIf="!row.insight.lottieSrc && row.insight.iconSrc"
+                class="growth-ticker-icon growth-ticker-icon--img"
+                [src]="row.insight.iconSrc"
+                alt=""
+                aria-hidden="true" />
                       <span class="growth-ticker-msg">{{ row.insight.messageKey | translate:(row.insight.messageParams || {}) }}</span>
                     </span>
                   </ng-container>
@@ -590,7 +614,13 @@
           <div *ngFor="let item of growthModalItems"
                class="growth-modal-item"
                [class.growth-modal-item--dismissed]="item.dismissed">
-            <span class="growth-modal-item-icon">{{ item.insight.icon }}</span>
+            <span class="growth-modal-item-icon" *ngIf="!item.insight.iconSrc && item.insight.icon">{{ item.insight.icon }}</span>
+            <img
+              *ngIf="item.insight.iconSrc"
+              class="growth-modal-item-icon growth-modal-item-icon--img"
+              [src]="item.insight.iconSrc"
+              alt=""
+              aria-hidden="true" />
             <span class="growth-modal-item-text">{{ item.insight.messageKey | translate:(item.insight.messageParams || {}) }}</span>
             <button *ngIf="item.dismissed"
                     class="growth-modal-restore-btn"
@@ -625,7 +655,7 @@
             </div>
           </div>
           <div class="profile-checklist-items">
-            <button type="button" *ngFor="let item of profileChecklistVisible"
+            <button type="button" *ngFor="let item of profileChecklist"
                class="pcl-item"
                [class.pcl-item--done]="item.done && !item.pendingReview"
                [class.pcl-item--pending-review]="item.pendingReview"
@@ -1351,6 +1381,7 @@
         [isDarkModeActive]="isDarkModeActive"
         [showCreateMaterial]="isTutorUser"
         [showPractice]="isStudentUser"
+        [isTutorUser]="isTutorUser"
         [practiceDueCount]="practiceDueCount"
         (navigateToExplore)="onClassesQuickAction()"
         (navigateToCreateMaterial)="navigateToCreateMaterial($event)"
@@ -1404,8 +1435,10 @@
               <img class="qa-icon-img" [src]="isDarkModeActive ? 'assets/quick-actions-classes-original.png' : 'assets/quick-actions-classes.png'" alt="" />
             </div>
             <div class="qa-text">
-              <span class="qa-label">{{ 'HOME.CLASSES' | translate }}</span>
-              <span class="qa-sub">{{ 'HOME.CLASSES_SUB' | translate }}</span>
+              <span class="qa-label" *ngIf="isTutorUser">{{ 'HOME.CLASSES_TUTOR' | translate }}</span>
+              <span class="qa-label" *ngIf="isStudentUser">{{ 'HOME.CLASSES' | translate }}</span>
+              <span class="qa-sub" *ngIf="isTutorUser">{{ 'HOME.CLASSES_TUTOR_SUB' | translate }}</span>
+              <span class="qa-sub" *ngIf="isStudentUser">{{ 'HOME.CLASSES_SUB' | translate }}</span>
             </div>
           </div>
           <div class="quick-action-card qa-create-material qa-with-asset" *ngIf="isTutorUser" (click)="navigateToCreateMaterial($event)">
@@ -1434,7 +1467,8 @@
             </div>
             <div class="qa-text">
               <span class="qa-label">{{ 'HOME.FORUM' | translate }}</span>
-              <span class="qa-sub">{{ 'HOME.FORUM_SUB' | translate }}</span>
+              <span class="qa-sub" *ngIf="isTutorUser">{{ 'HOME.FORUM_SUB_TUTOR' | translate }}</span>
+              <span class="qa-sub" *ngIf="isStudentUser">{{ 'HOME.FORUM_SUB_STUDENT' | translate }}</span>
             </div>
           </div>
           <div class="quick-action-card qa-rating qa-with-asset">

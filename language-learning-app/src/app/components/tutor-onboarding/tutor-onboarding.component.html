@@ -62,7 +62,7 @@
           <div *ngIf="approvalStepId === 'photo'" class="photo-step tutor-approval-step-pane">
             <div class="photo-step-layout approval-split-layout approval-step-card">
               <div class="photo-step-guidance approval-split-guidance">
-                <h3 class="photo-needs__title">{{ 'TUTOR_APPROVAL.PHOTO_NEEDS_TITLE' | translate }}</h3>
+                <h3 class="photo-needs__title">{{ 'TUTOR_APPROVAL.PHOTO_STEP_TITLE' | translate }}</h3>
 
                 <div class="photo-needs__examples" aria-hidden="true">
                   <img
@@ -71,6 +71,8 @@
                     alt=""
                     class="photo-needs__example" />
                 </div>
+
+                <h4 class="photo-needs__subtitle">{{ 'TUTOR_APPROVAL.PHOTO_NEEDS_TITLE' | translate }}</h4>
 
                 <ul class="photo-needs__checklist">
                   <li *ngFor="let requirementKey of photoRequirementKeys" class="photo-needs__checklist-item">
@@ -130,11 +132,26 @@
                 </div>
 
                 <div class="photo-step-upload-footer">
-                  <button type="button" class="photo-upload-cta" (click)="triggerPictureUpload()">
-                    <ion-icon name="cloud-upload-outline" aria-hidden="true"></ion-icon>
-                    <span *ngIf="photoStepCompleted">{{ 'TUTOR_APPROVAL.PHOTO_BTN_CHANGE' | translate }}</span>
-                    <span *ngIf="!photoStepCompleted">{{ 'TUTOR_APPROVAL.PHOTO_BTN_UPLOAD' | translate }}</span>
-                  </button>
+                  <div class="photo-upload-actions">
+                    <button
+                      type="button"
+                      class="photo-upload-cta"
+                      [disabled]="isRemovingPhoto"
+                      (click)="triggerPictureUpload()">
+                      <ion-icon name="cloud-upload-outline" aria-hidden="true"></ion-icon>
+                      <span *ngIf="photoStepCompleted">{{ 'TUTOR_APPROVAL.PHOTO_BTN_CHANGE' | translate }}</span>
+                      <span *ngIf="!photoStepCompleted">{{ 'TUTOR_APPROVAL.PHOTO_BTN_UPLOAD' | translate }}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      class="photo-upload-remove"
+                      *ngIf="photoStepCompleted"
+                      [disabled]="isRemovingPhoto"
+                      (click)="removeProfilePhoto()">
+                      {{ 'TUTOR_APPROVAL.PHOTO_BTN_REMOVE' | translate }}
+                    </button>
+                  </div>
 
                   <p class="photo-upload-note">
                     <ion-icon name="lock-closed-outline" aria-hidden="true"></ion-icon>
