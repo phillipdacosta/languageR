@@ -120,7 +120,7 @@ const paymentSchema = new mongoose.Schema({
     type: String,
     enum: [
       'pending',           // Awaiting lesson completion
-      'on_hold',           // Lesson complete, 24hr hold period (NEW)
+      'on_hold',           // Lesson complete, 1-hour hold period (NEW)
       'available',         // Available for withdrawal (NEW)
       'pending_withdrawal',// Included in withdrawal request (NEW)
       'withdrawn',         // Successfully withdrawn (NEW)
@@ -134,12 +134,12 @@ const paymentSchema = new mongoose.Schema({
     index: true
   },
   
-  // When earnings become available for withdrawal (lesson end + 24hrs)
+  // When earnings become available for withdrawal (lesson end + 1hr)
   earningsReleaseDate: {
     type: Date,
     default: null,
     index: true,
-    comment: 'When tutor earnings become available for withdrawal (24hr hold after lesson end for dispute protection)'
+    comment: 'When tutor earnings become available for withdrawal (1-hour hold after lesson end for dispute protection)'
   },
   
   // Link to withdrawal request

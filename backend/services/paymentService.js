@@ -766,7 +766,7 @@ class PaymentService {
     // NEW WITHDRAWAL SYSTEM: NO IMMEDIATE TRANSFERS
     // All funds stay in platform Stripe account
     // Tutor earnings tracked in database (tutorEarnings.pendingBalance)
-    // Earnings released to availableBalance after 24hr hold period
+    // Earnings released to availableBalance after 1-hour hold period
     // Tutor requests withdrawal when ready → funds transferred from platform
     // ===================================================================
     

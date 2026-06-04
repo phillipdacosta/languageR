@@ -549,12 +549,12 @@ const userSchema = new mongoose.Schema({
       min: 0,
       comment: 'Earnings available for immediate withdrawal'
     },
-    // Lesson completed but funds on hold (24hr dispute protection)
+    // Lesson completed but funds on hold (1-hour dispute protection)
     pendingBalance: {
       type: Number,
       default: 0,
       min: 0,
-      comment: 'Earnings from recently completed lessons (24hr hold period)'
+      comment: 'Earnings from recently completed lessons (1-hour hold period)'
     },
     // Total earned lifetime
     lifetimeEarnings: {
