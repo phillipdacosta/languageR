@@ -158,7 +158,21 @@ const userSchema = new mongoose.Schema({
       reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
       reviewedAt: { type: Date, default: null },
       rejectionReason: { type: String, default: null }
-    }]
+    }],
+    higherEducation: {
+      noDegree: { type: Boolean, default: false },
+      entries: [{
+        university: { type: String, default: '' },
+        degree: { type: String, default: '' },
+        degreeType: {
+          type: String,
+          enum: ['teaching', 'subject', 'other', ''],
+          default: ''
+        },
+        startYear: { type: String, default: '' },
+        endYear: { type: String, default: '' }
+      }]
+    }
   },
   // Whether tutor is approved and can show up in searches
   tutorApproved: {

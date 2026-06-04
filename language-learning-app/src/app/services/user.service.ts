@@ -70,6 +70,16 @@ export interface User {
       status: 'pending' | 'approved' | 'rejected';
       rejectionReason?: string;
     }>;
+    higherEducation?: {
+      noDegree?: boolean;
+      entries?: Array<{
+        university?: string;
+        degree?: string;
+        degreeType?: 'teaching' | 'subject' | 'other' | '';
+        startYear?: string;
+        endYear?: string;
+      }>;
+    };
   };
   tutorApproved?: boolean;
   stripeConnectOnboarded?: boolean;
@@ -738,6 +748,18 @@ export class UserService {
   }
 
   /**
+   * Push an updated user into the local cache and refresh tutor approval status
+   * without a network round-trip (avoids wizard reload flashes).
+   */
+  applyLocalUserUpdate(user: User): void {
+    const merged = this.mergeUserState(this.currentUserSubject.value, user);
+    this.currentUserSubject.next(merged);
+    if (merged.userType === 'tutor') {
+      this.updateTutorApprovalStatus(merged);
+    }
+  }
+
+  /**
    * Merge incoming user onto cache without letting stale /me responses revert
    * a manual calendar week-start choice.
    */
@@ -1063,6 +1085,27 @@ export class UserService {
         console.error('📹 Error updating tutor video:', error);
         throw error;
       })
+    );
+  }
+
+  /**
+   * Save tutor higher-education background for the approval wizard.
+   */
+  updateHigherEducation(payload: {
+    noDegree: boolean;
+    entry?: {
+      university?: string;
+      degree?: string;
+      degreeType?: string;
+      startYear?: string;
+      endYear?: string;
+    };
+  }): Observable<any> {
+    const headers = this.getAuthHeadersSync();
+    return this.http.put<any>(
+      `${this.apiUrl}/users/tutor/higher-education`,
+      payload,
+      { headers }
     );
   }
 

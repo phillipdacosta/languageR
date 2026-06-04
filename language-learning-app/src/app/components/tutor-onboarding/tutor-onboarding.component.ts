@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, LoadingController, AlertController, ToastController, ModalController } from '@ionic/angular';
 import { Router } from '@angular/router';
-import { UserService } from '../../services/user.service';
+import { User, UserService } from '../../services/user.service';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { firstValueFrom } from 'rxjs';
@@ -81,8 +81,31 @@ export class TutorOnboardingComponent implements OnInit {
   approvalStatus$ = this.userService.tutorApprovalStatus$;
   approvalStatus: any = null;
 
+  /** Example profile photos shown in the photo-step guidance column. */
+  readonly photoExampleAvatars = [
+    'assets/tutor-approval/photo-example-1.png',
+    'assets/tutor-approval/photo-example-2.png',
+    'assets/tutor-approval/photo-example-3.png',
+    'assets/tutor-approval/photo-example-4.png',
+  ];
+
+  readonly photoRequirementKeys = [
+    'TUTOR_APPROVAL.PHOTO_NEED_3',
+    'TUTOR_APPROVAL.PHOTO_NEED_2',
+    'TUTOR_APPROVAL.PHOTO_NEED_6',
+    'TUTOR_APPROVAL.PHOTO_NEED_1',
+    'TUTOR_APPROVAL.PHOTO_NEED_5',
+    'TUTOR_APPROVAL.PHOTO_NEED_4',
+  ];
+
+  readonly videoRequirementKeys = [
+    'TUTOR_APPROVAL.VIDEO_REQ_1',
+    'TUTOR_APPROVAL.VIDEO_REQ_2',
+    'TUTOR_APPROVAL.VIDEO_REQ_3',
+    'TUTOR_APPROVAL.VIDEO_REQ_4',
+  ];
+
   /**
-   * Wizard order — payout BEFORE identity so we can hide the manual gov-ID
    * step when Stripe Connect has already KYC'd the tutor.
    *
    * 1. photo            – profile picture
@@ -170,8 +193,29 @@ export class TutorOnboardingComponent implements OnInit {
   uploadedAdditionalDocs: any[] = [];
   governmentIdStatus: string = 'not_uploaded';
   governmentIdStatusLabelKey = 'TUTOR_APPROVAL.GOV_ID_STATUS_NOT_UPLOADED';
-  certificationNameInput: string = '';
   isUploadingCredential: boolean = false;
+
+  educationNoDegree = false;
+  educationUniversity = '';
+  educationDegree = '';
+  educationDegreeType = '';
+  educationStartYear = '';
+  educationEndYear = '';
+  educationSaving = false;
+  readonly educationYearOptions: string[] = (() => {
+    const years: string[] = [];
+    const currentYear = new Date().getFullYear();
+    for (let year = currentYear; year >= 1970; year--) {
+      years.push(String(year));
+    }
+    return years;
+  })();
+  readonly educationDegreeTypeOptions = [
+    { value: 'teaching', labelKey: 'TUTOR_APPROVAL.EDU_DEGREE_TYPE_TEACHING' },
+    { value: 'subject', labelKey: 'TUTOR_APPROVAL.EDU_DEGREE_TYPE_SUBJECT' },
+    { value: 'other', labelKey: 'TUTOR_APPROVAL.EDU_DEGREE_TYPE_OTHER' },
+  ];
+  private educationSaveTimer: ReturnType<typeof setTimeout> | null = null;
 
   // Video player modal
   isVideoPlayerModalOpen = false;
@@ -465,6 +509,7 @@ export class TutorOnboardingComponent implements OnInit {
       const creds = user.tutorCredentials;
       this.uploadedCertifications = creds?.teachingCertifications || [];
       this.uploadedAdditionalDocs = creds?.additionalDocuments || [];
+      this.applyHigherEducationFromUser(creds?.higherEducation);
       
       console.log('📄 [TUTOR-APPROVAL] Credentials loaded:', {
         governmentId: creds?.governmentId?.status,
@@ -1123,7 +1168,7 @@ export class TutorOnboardingComponent implements OnInit {
     try {
       const metadata: any = {};
       if (credentialType === 'teachingCertification') {
-        metadata.certificationName = this.certificationNameInput || '';
+        metadata.certificationName = this.buildCertificationUploadLabel();
       }
 
       const result = await firstValueFrom(
@@ -1132,7 +1177,6 @@ export class TutorOnboardingComponent implements OnInit {
 
       if (result?.success) {
         this.showToast('Document uploaded successfully!', 'success');
-        this.certificationNameInput = ''; // Reset
         // Refresh data but stay on credentials step (don't auto-advance)
         await this.loadOnboardingStatus(false);
         this.scheduleScrollLatestCredentialIntoView(credentialType);
@@ -1225,6 +1269,69 @@ export class TutorOnboardingComponent implements OnInit {
     const doc = this.uploadedAdditionalDocs[index];
     if (doc?._id) {
       await this.removeCredential('additionalDocument', doc._id);
+    }
+  }
+
+  private applyHigherEducationFromUser(higherEducation: any): void {
+    this.educationNoDegree = higherEducation?.noDegree === true;
+    const entry = higherEducation?.entries?.[0];
+    this.educationUniversity = entry?.university || '';
+    this.educationDegree = entry?.degree || '';
+    this.educationDegreeType = entry?.degreeType || '';
+    this.educationStartYear = entry?.startYear || '';
+    this.educationEndYear = entry?.endYear || '';
+  }
+
+  onEducationNoDegreeChange(): void {
+    if (this.educationNoDegree) {
+      this.educationUniversity = '';
+      this.educationDegree = '';
+      this.educationDegreeType = '';
+      this.educationStartYear = '';
+      this.educationEndYear = '';
+    }
+    void this.saveHigherEducation();
+  }
+
+  onEducationFieldChange(): void {
+    if (this.educationSaveTimer) {
+      clearTimeout(this.educationSaveTimer);
+    }
+    this.educationSaveTimer = setTimeout(() => {
+      void this.saveHigherEducation();
+    }, 600);
+  }
+
+  private buildCertificationUploadLabel(): string {
+    const parts = [this.educationDegree, this.educationUniversity].filter(Boolean);
+    return parts.join(' · ');
+  }
+
+  private async saveHigherEducation(): Promise<void> {
+    if (this.educationSaving) {
+      return;
+    }
+
+    this.educationSaving = true;
+    try {
+      const payload = this.educationNoDegree
+        ? { noDegree: true }
+        : {
+            noDegree: false,
+            entry: {
+              university: this.educationUniversity,
+              degree: this.educationDegree,
+              degreeType: this.educationDegreeType,
+              startYear: this.educationStartYear,
+              endYear: this.educationEndYear,
+            },
+          };
+
+      await firstValueFrom(this.userService.updateHigherEducation(payload));
+    } catch (error) {
+      console.error('❌ Error saving higher education:', error);
+    } finally {
+      this.educationSaving = false;
     }
   }
 
@@ -1435,31 +1542,61 @@ export class TutorOnboardingComponent implements OnInit {
     return this.getVideoType(videoUrl);
   }
 
+  private applyLocalVideoState(
+    videoData: { url: string; thumbnail: string; type: 'upload' | 'youtube' | 'vimeo' } | null
+  ): void {
+    if (!this.currentUser) {
+      return;
+    }
+
+    const onboardingData = {
+      ...(this.currentUser.onboardingData || {}),
+      pendingVideo: videoData?.url || '',
+      pendingVideoThumbnail: videoData?.thumbnail || '',
+      pendingVideoType: videoData?.type || 'upload',
+    };
+
+    const existingOnboarding = this.currentUser.tutorOnboarding || {};
+    const tutorOnboarding = {
+      ...existingOnboarding,
+      videoUploaded: !!videoData?.url,
+      videoApproved: false,
+      videoRejected: false,
+      videoRejectionReason: null,
+      videoUploadedAt: videoData?.url ? new Date() : null,
+    };
+
+    const updatedUser: User = {
+      ...this.currentUser,
+      onboardingData,
+      tutorOnboarding,
+    };
+
+    this.currentUser = updatedUser;
+    this.userService.applyLocalUserUpdate(updatedUser);
+  }
+
   async onVideoUploaded(videoData: { url: string; thumbnail: string; type: 'upload' | 'youtube' | 'vimeo' }) {
     this.clearApprovalVideoDraft();
     console.log('📹 Video uploaded in tutor-approval flow:', videoData);
     console.log('🖼️ Thumbnail URL to save:', videoData.thumbnail);
+
+    // Sync parent bindings immediately so preview size/layout doesn't jump after save
+    this.applyLocalVideoState(videoData);
     
     // Save the video and thumbnail to the database
     try {
-      const result = await this.userService.updateTutorVideo(
+      const result = await firstValueFrom(this.userService.updateTutorVideo(
         videoData.url, 
         videoData.thumbnail, 
         videoData.type
-      ).toPromise();
+      ));
       
       console.log('✅ Video and thumbnail saved to DB:', result);
-      
-      // Refresh user data to show updated video
-      this.userService.getCurrentUser(true).subscribe(user => {
-        if (user) {
-          this.currentUser = user;
-          this.loadOnboardingStatus();
-          this.showToast('Video uploaded successfully!', 'success');
-        }
-      });
+      this.showToast('Video uploaded successfully!', 'success');
     } catch (error) {
       console.error('❌ Error saving video to DB:', error);
+      this.applyLocalVideoState(null);
       this.showToast('Failed to save video. Please try again.', 'danger');
     }
   }
@@ -1469,17 +1606,10 @@ export class TutorOnboardingComponent implements OnInit {
     
     // Remove video and thumbnail from the database
     try {
-      const result = await this.userService.updateTutorVideo('', '', 'upload').toPromise();
+      const result = await firstValueFrom(this.userService.updateTutorVideo('', '', 'upload'));
       console.log('✅ Video removed from DB:', result);
-      
-      // Refresh user data
-      this.userService.getCurrentUser(true).subscribe(user => {
-        if (user) {
-          this.currentUser = user;
-          this.loadOnboardingStatus();
-          this.showToast('Video removed', 'medium');
-        }
-      });
+      this.applyLocalVideoState(null);
+      this.showToast('Video removed', 'medium');
     } catch (error) {
       console.error('❌ Error removing video from DB:', error);
       this.showToast('Failed to remove video. Please try again.', 'danger');
