@@ -1314,7 +1314,7 @@ router.get('/tutor/earnings', verifyToken, async (req, res) => {
           // Available for withdrawal - counts as pending (not yet withdrawn)
           pendingEarnings += tutorPayout;
         } else if (payment.transferStatus === 'on_hold') {
-          // On hold during 24hr period - counts as pending
+          // On hold during 1-hour period - counts as pending
           pendingEarnings += tutorPayout;
         } else if (lessonStatus === 'scheduled' || lessonStatus === 'in_progress') {
           // Scheduled/in-progress lessons - counts as pending (not yet available)
@@ -1367,13 +1367,13 @@ router.get('/tutor/earnings', verifyToken, async (req, res) => {
       } else if (payment.transferStatus === 'succeeded' || payment.transferStatus === 'withdrawn') {
         paymentStatus = 'paid';
       } else if (payment.transferStatus === 'available') {
-        // NEW: Available for withdrawal (released from 24hr hold)
+        // NEW: Available for withdrawal (released from 1-hour hold)
         paymentStatus = 'succeeded'; // Frontend will show as "Available"
       } else if (isClassPayment && classStatus === 'scheduled') {
         // Class is scheduled but hasn't happened yet
         paymentStatus = 'class_scheduled';
       } else if (payment.transferStatus === 'on_hold') {
-        // On hold during 24hr period (class/lesson has completed)
+        // On hold during 1-hour period (class/lesson has completed)
         paymentStatus = 'pending';
       } else if (payment.revenueRecognized && lessonStatus === 'completed') {
         paymentStatus = 'pending';

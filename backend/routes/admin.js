@@ -1131,7 +1131,7 @@ router.get('/platform-revenue', verifyToken, requireAdmin, async (req, res) => {
     const totalPendingNetRevenue = totalPendingRevenue - totalPendingStripeFees;
     
     // Calculate next processing time (earliest lesson + 15 MINUTES for testing)
-    // TODO: Change back to 24 hours for production
+    // TODO: Change back to 1 hour for production
     let nextProcessingTime = null;
     if (pendingRevenue.length > 0) {
       const sortedByEndTime = pendingRevenue

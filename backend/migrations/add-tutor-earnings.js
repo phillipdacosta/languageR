@@ -84,7 +84,7 @@ async function migrate() {
     console.log(`✅ Marked ${result1.modifiedCount} past transfers as 'withdrawn'`);
     
     // Payments that are currently 'pending' or 'awaiting_funds' -> 'on_hold'
-    // They'll be released after 24hrs from lesson end
+    // They'll be released after 1 hour from lesson end
     const pendingPayments = await Payment.find({ 
       transferStatus: { $in: ['pending', 'awaiting_funds', null] },
       status: 'succeeded',
@@ -100,9 +100,9 @@ async function migrate() {
         continue;
       }
       
-      // Set release date to 24 hours after lesson end
+      // Set release date to 1 hour after lesson end
       const releaseDate = new Date(payment.lessonId.endTime);
-      releaseDate.setHours(releaseDate.getHours() + 24);
+      releaseDate.setHours(releaseDate.getHours() + 1);
       
       // If release date is in the past, set it to now (will be released immediately by cron)
       if (releaseDate < new Date()) {

@@ -512,7 +512,7 @@ router.post('/:classId/accept', verifyToken, async (req, res) => {
             platformFeePercentage: PLATFORM_FEE_PERCENTAGE,
             tutorPayout,
             transferStatus: 'on_hold',
-            earningsReleaseDate: new Date(cls.endTime.getTime() + 24 * 60 * 60 * 1000),
+            earningsReleaseDate: new Date(cls.endTime.getTime() + 1 * 60 * 60 * 1000),
             paymentType: 'class_booking',
             metadata: {
               classId: cls._id.toString(),
@@ -642,7 +642,7 @@ router.post('/:classId/accept', verifyToken, async (req, res) => {
           platformFeePercentage: PLATFORM_FEE_PERCENTAGE,
           tutorPayout: cls.price - platformFee,
           transferStatus: 'on_hold',
-          earningsReleaseDate: new Date(cls.endTime.getTime() + 24 * 60 * 60 * 1000),
+          earningsReleaseDate: new Date(cls.endTime.getTime() + 1 * 60 * 60 * 1000),
           metadata: {
             classId: cls._id.toString(),
             className: cls.name,
