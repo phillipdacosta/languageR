@@ -1,8 +1,32 @@
 import { Injectable, NgZone } from '@angular/core';
 
+/** 3D PNG icons for the welcome growth ticker (transparent background). */
+export const GROWTH_TICKER_ICONS = {
+  warning: 'assets/icons/growth/warning.png',
+  hourglass: 'assets/icons/growth/hourglass.png',
+  feedback: 'assets/icons/growth/more.png',
+  message: 'assets/icons/growth/message-dark.png',
+  forum: 'assets/icons/growth/message-light.png',
+  material: 'assets/icons/growth/books.png',
+  group: 'assets/icons/growth/group.png',
+  sun: 'assets/icons/growth/sun.png',
+  check: 'assets/icons/growth/check.png',
+  availability: 'assets/icons/growth/more.png',
+  share: 'assets/icons/growth/link.png',
+  stats: 'assets/icons/growth/stats.png',
+} as const;
+
+/** Unique growth ticker icon paths — warm via ImagePreloadService so icons paint instantly. */
+export const GROWTH_TICKER_ICON_URLS: readonly string[] = [
+  ...new Set(Object.values(GROWTH_TICKER_ICONS)),
+];
+
 export interface GrowthInsight {
   id: string;
-  icon: string;
+  /** @deprecated Use iconSrc; kept for legacy fallbacks. */
+  icon?: string;
+  /** PNG/WebP path for the ticker icon (preferred). */
+  iconSrc?: string;
   messageKey: string;
   messageParams?: Record<string, string | number>;
   route: string;
@@ -295,7 +319,7 @@ export class TutorGrowthService {
     if (!ctx.hasCustomPhoto) {
       raw.push({
         id: 'profile_photo',
-        icon: '⚠️',
+        iconSrc: GROWTH_TICKER_ICONS.warning,
         messageKey: 'HOME.GROWTH.INSIGHT_PROFILE_PHOTO',
         route: '/tutor-approval',
         priority: 200,
@@ -304,7 +328,7 @@ export class TutorGrowthService {
     if (!ctx.hasVideo) {
       raw.push({
         id: 'profile_video',
-        icon: '⚠️',
+        iconSrc: GROWTH_TICKER_ICONS.warning,
         messageKey: 'HOME.GROWTH.INSIGHT_PROFILE_VIDEO',
         route: '/tabs/profile',
         priority: 198,
@@ -312,7 +336,7 @@ export class TutorGrowthService {
     } else if (!ctx.videoApproved) {
       raw.push({
         id: 'profile_video_pending',
-        icon: '⏳',
+        iconSrc: GROWTH_TICKER_ICONS.hourglass,
         messageKey: 'HOME.GROWTH.INSIGHT_VIDEO_PENDING',
         route: '/tabs/profile',
         priority: 110,
@@ -321,7 +345,7 @@ export class TutorGrowthService {
     if (!ctx.credentialsComplete) {
       raw.push({
         id: 'profile_credentials',
-        icon: '⚠️',
+        iconSrc: GROWTH_TICKER_ICONS.warning,
         messageKey: 'HOME.GROWTH.INSIGHT_UPLOAD_CREDENTIALS',
         route: '/tutor-approval',
         priority: 196,
@@ -329,7 +353,7 @@ export class TutorGrowthService {
     } else if (!ctx.credentialsApproved) {
       raw.push({
         id: 'profile_credentials_pending',
-        icon: '⏳',
+        iconSrc: GROWTH_TICKER_ICONS.hourglass,
         messageKey: 'HOME.GROWTH.INSIGHT_CREDENTIALS_PENDING',
         route: '/tutor-approval',
         priority: 108,
@@ -338,7 +362,7 @@ export class TutorGrowthService {
     if (!ctx.hasPayoutSetup) {
       raw.push({
         id: 'profile_payout',
-        icon: '⚠️',
+        iconSrc: GROWTH_TICKER_ICONS.warning,
         messageKey: 'HOME.GROWTH.INSIGHT_CONNECT_PAYOUT',
         route: '/tutor-approval',
         priority: 194,
@@ -352,7 +376,7 @@ export class TutorGrowthService {
     if (!ctx.hasAvailability && !hasProfileItems) {
       raw.push({
         id: 'set_availability',
-        icon: '',
+        iconSrc: GROWTH_TICKER_ICONS.availability,
         messageKey: 'HOME.GROWTH.INSIGHT_SET_AVAILABILITY',
         route: '/tabs/availability-setup',
         priority: 100,
@@ -364,7 +388,7 @@ export class TutorGrowthService {
       const n = ctx.pendingFeedbackCount;
       raw.push({
         id: 'pending_feedback',
-        icon: '📝',
+        iconSrc: GROWTH_TICKER_ICONS.feedback,
         messageKey:
           n === 1 ? 'HOME.GROWTH.INSIGHT_PENDING_FEEDBACK_ONE' : 'HOME.GROWTH.INSIGHT_PENDING_FEEDBACK_MANY',
         messageParams: n === 1 ? undefined : { count: n },
@@ -378,7 +402,7 @@ export class TutorGrowthService {
       const n = ctx.unreadMessages;
       raw.push({
         id: 'unread_messages',
-        icon: '💬',
+        iconSrc: GROWTH_TICKER_ICONS.message,
         messageKey: n === 1 ? 'HOME.GROWTH.INSIGHT_UNREAD_ONE' : 'HOME.GROWTH.INSIGHT_UNREAD_MANY',
         messageParams: n === 1 ? undefined : { count: n },
         route: '/tabs/messages',
@@ -393,7 +417,7 @@ export class TutorGrowthService {
         const n = ctx.activeForumThreadsInLanguage;
         raw.push({
           id: 'forum_active',
-          icon: '💬',
+          iconSrc: GROWTH_TICKER_ICONS.forum,
           messageKey: n === 1 ? 'HOME.GROWTH.INSIGHT_FORUM_ONE' : 'HOME.GROWTH.INSIGHT_FORUM_MANY',
           messageParams: n === 1 ? undefined : { count: n },
           route: '/tabs/forum',
@@ -421,7 +445,7 @@ export class TutorGrowthService {
       if (stage === 0 && daysSince >= 14) {
         raw.push({
           id: 'create_material',
-          icon: '📚',
+          iconSrc: GROWTH_TICKER_ICONS.material,
           messageKey: 'HOME.GROWTH.INSIGHT_CREATE_MATERIAL',
           messageParams: { days: daysSince },
           route: '/tabs/tab1',
@@ -430,7 +454,7 @@ export class TutorGrowthService {
       } else if (stage === 1 && daysSince >= 30 && now - dismissedAt > 14 * DAY_MS) {
         raw.push({
           id: 'create_material',
-          icon: '📚',
+          iconSrc: GROWTH_TICKER_ICONS.material,
           messageKey: 'HOME.GROWTH.INSIGHT_CREATE_MATERIAL_STALE',
           messageParams: { days: daysSince },
           route: '/tabs/tab1',
@@ -444,7 +468,7 @@ export class TutorGrowthService {
       if (stage === 0) {
         raw.push({
           id: 'first_material',
-          icon: '📚',
+          iconSrc: GROWTH_TICKER_ICONS.material,
           messageKey: 'HOME.GROWTH.INSIGHT_FIRST_MATERIAL',
           route: '/tabs/tab1',
           priority: 62,
@@ -452,7 +476,7 @@ export class TutorGrowthService {
       } else if (stage === 1 && now - dismissedAt > 14 * DAY_MS) {
         raw.push({
           id: 'first_material',
-          icon: '📚',
+          iconSrc: GROWTH_TICKER_ICONS.material,
           messageKey: 'HOME.GROWTH.INSIGHT_FIRST_MATERIAL_NUDGE',
           route: '/tabs/tab1',
           priority: 58,
@@ -468,7 +492,7 @@ export class TutorGrowthService {
       if (scheduleChanged && cooldownOver && ctx.nextGapHours >= 2) {
         raw.push({
           id: 'office_hours_gap',
-          icon: '🕐',
+          iconSrc: GROWTH_TICKER_ICONS.hourglass,
           messageKey: 'HOME.GROWTH.INSIGHT_OFFICE_GAP',
           messageParams: { hours: ctx.nextGapHours },
           route: '/tabs/availability-setup',
@@ -477,7 +501,7 @@ export class TutorGrowthService {
       } else if (cooldownOver && ctx.freeHoursThisWeek >= 6 && !this.isDismissedRecently('office_hours_free', 7)) {
         raw.push({
           id: 'office_hours_free',
-          icon: '🕐',
+          iconSrc: GROWTH_TICKER_ICONS.hourglass,
           messageKey: 'HOME.GROWTH.INSIGHT_OFFICE_FREE',
           messageParams: { hours: ctx.freeHoursThisWeek },
           route: '/tabs/availability-setup',
@@ -495,7 +519,7 @@ export class TutorGrowthService {
           if (daysSince >= 30) {
             raw.push({
               id: 'group_class',
-              icon: '👥',
+              iconSrc: GROWTH_TICKER_ICONS.group,
               messageKey: 'HOME.GROWTH.INSIGHT_GROUP_CLASS',
               messageParams: { days: daysSince, students: ctx.totalStudents },
               route: '/tabs/tutor-calendar',
@@ -505,7 +529,7 @@ export class TutorGrowthService {
         } else {
           raw.push({
             id: 'first_group_class',
-            icon: '👥',
+            iconSrc: GROWTH_TICKER_ICONS.group,
             messageKey: 'HOME.GROWTH.INSIGHT_FIRST_GROUP_CLASS',
             messageParams: { students: ctx.totalStudents },
             route: '/tabs/tutor-calendar',
@@ -520,7 +544,7 @@ export class TutorGrowthService {
       const n = ctx.lessonsToday;
       raw.push({
         id: 'morning_prep',
-        icon: '☀️',
+        iconSrc: GROWTH_TICKER_ICONS.sun,
         messageKey: n === 1 ? 'HOME.GROWTH.INSIGHT_MORNING_PREP_ONE' : 'HOME.GROWTH.INSIGHT_MORNING_PREP_MANY',
         messageParams: n === 1 ? undefined : { count: n },
         route: '/tabs/tutor-calendar',
@@ -533,7 +557,7 @@ export class TutorGrowthService {
       const n = ctx.completedToday;
       raw.push({
         id: 'evening_recap',
-        icon: '✅',
+        iconSrc: GROWTH_TICKER_ICONS.check,
         messageKey: n === 1 ? 'HOME.GROWTH.INSIGHT_EVENING_RECAP_ONE' : 'HOME.GROWTH.INSIGHT_EVENING_RECAP_MANY',
         messageParams: n === 1 ? { name: ctx.tutorName } : { count: n, name: ctx.tutorName },
         route: '/tabs/tutor-calendar',
@@ -547,7 +571,7 @@ export class TutorGrowthService {
       if (cooldownOver) {
         raw.push({
           id: 'share_profile',
-          icon: '🔗',
+          iconSrc: GROWTH_TICKER_ICONS.share,
           messageKey: 'HOME.GROWTH.INSIGHT_SHARE_PROFILE',
           route: '/tabs/profile',
           priority: 54,
@@ -632,7 +656,7 @@ export class TutorGrowthService {
     if (dp > 0) params['p'] = dp;
     return {
       id: 'material_stats',
-      icon: '📊',
+      iconSrc: GROWTH_TICKER_ICONS.stats,
       messageKey: `HOME.GROWTH.MAT_STATS_${bits}`,
       messageParams: params,
       route: '/tabs/tab1',

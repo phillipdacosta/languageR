@@ -6,8 +6,10 @@
         <img class="mac-icon-img" [src]="isDarkModeActive ? 'assets/quick-actions-classes-original.png' : 'assets/quick-actions-classes.png'" alt="" />
       </div>
       <div class="mac-text">
-        <span class="mac-title">{{ 'HOME.CLASSES' | translate }}</span>
-        <span class="mac-sub">{{ 'HOME.CLASSES_SUB' | translate }}</span>
+        <span class="mac-title" *ngIf="isTutorUser">{{ 'HOME.CLASSES_TUTOR' | translate }}</span>
+        <span class="mac-title" *ngIf="!isTutorUser">{{ 'HOME.CLASSES' | translate }}</span>
+        <span class="mac-sub" *ngIf="isTutorUser">{{ 'HOME.CLASSES_TUTOR_SUB' | translate }}</span>
+        <span class="mac-sub" *ngIf="!isTutorUser">{{ 'HOME.CLASSES_SUB' | translate }}</span>
       </div>
     </button>
     <button type="button" class="mobile-action-card mac-action-create-material qa-pop qa-pop-2" *ngIf="showCreateMaterial" (click)="navigateToCreateMaterial.emit($event)">
@@ -36,7 +38,8 @@
       </div>
       <div class="mac-text">
         <span class="mac-title">{{ 'HOME.FORUM' | translate }}</span>
-        <span class="mac-sub">{{ 'HOME.FORUM_SUB' | translate }}</span>
+        <span class="mac-sub" *ngIf="isTutorUser">{{ 'HOME.FORUM_SUB_TUTOR' | translate }}</span>
+        <span class="mac-sub" *ngIf="!isTutorUser">{{ 'HOME.FORUM_SUB_STUDENT' | translate }}</span>
       </div>
     </button>
     <button class="mobile-action-card mac-action-reviews qa-pop qa-pop-4">

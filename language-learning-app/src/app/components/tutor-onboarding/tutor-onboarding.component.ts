@@ -178,6 +178,7 @@ export class TutorOnboardingComponent implements OnInit {
   /** Convenience flags for the template (avoid steps[N] by index in HTML). */
   photoStepCompleted = false;
   photoUploadDragOver = false;
+  isRemovingPhoto = false;
   identityUploadDragOver = false;
   certUploadDragOver = false;
   additionalDocUploadDragOver = false;
@@ -1103,7 +1104,7 @@ export class TutorOnboardingComponent implements OnInit {
         
         if (updateResult?.success) {
           // Refresh onboarding status to update the photo step
-          await this.loadOnboardingStatus();
+          await this.loadOnboardingStatus(false);
           this.showToast('Profile photo uploaded successfully!', 'success');
         } else {
           this.showToast('Failed to update profile picture', 'danger');
@@ -1117,6 +1118,70 @@ export class TutorOnboardingComponent implements OnInit {
     } finally {
       await loading.dismiss();
       this.resetPhotoFileInput(input);
+    }
+  }
+
+  async removeProfilePhoto(): Promise<void> {
+    const alert = await this.alertController.create({
+      header: this.translate.instant('TUTOR_APPROVAL.PHOTO_REMOVE_TITLE'),
+      message: this.translate.instant('TUTOR_APPROVAL.PHOTO_REMOVE_MESSAGE'),
+      buttons: [
+        {
+          text: this.translate.instant('COMMON.CANCEL'),
+          role: 'cancel',
+        },
+        {
+          text: this.translate.instant('TUTOR_APPROVAL.PHOTO_REMOVE_CONFIRM'),
+          role: 'destructive',
+          handler: () => {
+            void this.confirmRemoveProfilePhoto();
+          },
+        },
+      ],
+    });
+    await alert.present();
+  }
+
+  private async confirmRemoveProfilePhoto(): Promise<void> {
+    if (this.isRemovingPhoto) {
+      return;
+    }
+
+    this.isRemovingPhoto = true;
+    const loading = await this.loadingController.create({
+      message: this.translate.instant('TUTOR_APPROVAL.PHOTO_REMOVE_LOADING'),
+      spinner: 'crescent',
+    });
+    await loading.present();
+
+    try {
+      const result = await firstValueFrom(this.userService.removePicture());
+      if (result?.success) {
+        if (this.currentUser) {
+          this.currentUser.picture = result.picture;
+        }
+        await this.loadOnboardingStatus(false);
+        this.showToast(
+          this.translate.instant('TUTOR_APPROVAL.PHOTO_REMOVE_SUCCESS'),
+          'success'
+        );
+      } else {
+        this.showToast(
+          this.translate.instant('TUTOR_APPROVAL.PHOTO_REMOVE_ERROR'),
+          'danger'
+        );
+      }
+    } catch (error: any) {
+      console.error('Error removing profile picture:', error);
+      this.showToast(
+        error.error?.message ||
+          this.translate.instant('TUTOR_APPROVAL.PHOTO_REMOVE_ERROR'),
+        'danger'
+      );
+    } finally {
+      this.isRemovingPhoto = false;
+      await loading.dismiss();
+      this.cdr.markForCheck();
     }
   }
 

@@ -52,7 +52,7 @@ import { AnalysisTranslationService } from '../services/analysis-translation.ser
 import { HomeInlineToolbarService } from '../services/home-inline-toolbar.service';
 import { EarningsPage } from '../earnings/earnings.page';
 import { MaterialService, TutorMaterial } from '../services/material.service';
-import { TutorGrowthService, GrowthInsight, GrowthContext, ProfileChecklistItem, mapProfileChecklistIdToApprovalWizardStepId, buildTutorProfileChecklist, getOutstandingProfileChecklistItems } from '../services/tutor-growth.service';
+import { TutorGrowthService, GrowthInsight, GrowthContext, ProfileChecklistItem, mapProfileChecklistIdToApprovalWizardStepId, buildTutorProfileChecklist, GROWTH_TICKER_ICONS, GROWTH_TICKER_ICON_URLS } from '../services/tutor-growth.service';
 import { ScheduleClassPage } from '../tutor-calendar/schedule-class/schedule-class.page';
 import { MOCK_CLASS_ATTENDEES_PREVIEW } from '../constants/mock-class-attendees-preview';
 import { isLessonMockId } from '../lessons/lesson-mock-preview';
@@ -639,13 +639,12 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   growthPaused = false;
   /** True when the growth ticker contains profile-critical items (should override next lesson display). */
   hasProfileCriticalInsights = false;
+  readonly outstandingWelcomeIconSrc = GROWTH_TICKER_ICONS.warning;
   /** True when the active growth insight is a sticky, non-rotating item (e.g. pending lesson updates).
    *  When true, the ticker takes over the welcome line regardless of next-lesson state. */
   hasLockedGrowthInsight = false;
   /** Profile completion checklist for inline welcome display. */
   profileChecklist: ProfileChecklistItem[] = [];
-  /** Incomplete or pending-review rows only — completed steps are hidden from the list. */
-  profileChecklistVisible: ProfileChecklistItem[] = [];
   profileChecklistDoneCount = 0;
   profileChecklistTotal = 0;
   /** Single-item row; `epoch` bumps every visible change so trackBy never reuses a cached view (restarts CSS fade). */
@@ -5134,6 +5133,9 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   private computeGrowthInsights(): void {
     if (!this.isTutorUser) return;
 
+    // Warm ticker icons during idle time (deduped with app-level preload).
+    this.imagePreloadService.preloadWhenIdle([...GROWTH_TICKER_ICON_URLS]);
+
     this.ensureGrowthInsightUpdateCallback();
 
     if (this._growthInsightsLoaded) return;
@@ -5329,7 +5331,6 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       i => i.done && !i.pendingReview
     ).length;
     this.profileChecklistTotal = this.profileChecklist.length;
-    this.profileChecklistVisible = getOutstandingProfileChecklistItems(this.profileChecklist);
     // Derive the banner visibility from the checklist itself so it disappears
     // the moment every step is done (independent of stale insight state).
     this.hasProfileCriticalInsights =
@@ -5374,7 +5375,6 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       i => i.done && !i.pendingReview
     ).length;
     this.profileChecklistTotal = checklist.length;
-    this.profileChecklistVisible = getOutstandingProfileChecklistItems(checklist);
     // Show the banner whenever any required step is still incomplete; hide
     // it the moment everything is done so the section disappears smoothly.
     this.hasProfileCriticalInsights = this.profileChecklistDoneCount < checklist.length;
