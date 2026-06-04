@@ -4,6 +4,7 @@ import { HttpClient } from '@angular/common/http';
 import { FileUploadService } from '../../services/file-upload.service';
 import { VideoCompressionService } from '../../services/video-compression.service';
 import { SimpleVideoCompressionService } from '../../services/simple-video-compression.service';
+import { environment } from '../../../environments/environment';
 
 export interface VideoUploadData {
   url: string;
@@ -40,8 +41,17 @@ export class VideoUploadComponent implements OnInit, OnChanges, OnDestroy {
   @ViewChild('iframeElement') iframeElement?: ElementRef<HTMLIFrameElement>;
   @ViewChild('videoPreview') videoPreviewElement?: ElementRef<HTMLVideoElement>;
 
+  private readonly apiUrl = `${environment.backendUrl}/api`;
+  private readonly VIDEO_MIN_SECONDS = 30;
+  private readonly VIDEO_MAX_SECONDS = 120;
+
   isDragOver = false;
   isUploading = false;
+  isCheckingVideo = false;
+  isCheckingFile = false;
+  isChangingVideo = false;
+  showUploadEditor = true;
+  showVideoPreview = false;
   errorMessage = '';
   
   // Toggle between upload modes
@@ -120,6 +130,27 @@ export class VideoUploadComponent implements OnInit, OnChanges, OnDestroy {
         setTimeout(() => this.loadVideoFirstFrame(), 500);
       }
     }
+
+    this.updateViewFlags();
+  }
+
+  private updateViewFlags(): void {
+    const hasVideo = !!this.videoUrl;
+    this.showUploadEditor = !hasVideo || this.isChangingVideo;
+    this.showVideoPreview = hasVideo && !this.isChangingVideo;
+  }
+
+  cancelVideoChange(): void {
+    this.isChangingVideo = false;
+    this.errorMessage = '';
+    this.videoLinkInput = '';
+    this.isCheckingVideo = false;
+    this.thumbnailPreview = this.thumbnailUrl;
+    if (this.thumbnailUrl) {
+      this.externalVideoThumbnail = this.thumbnailUrl;
+    }
+    this.syncLinkPendingAndDraft();
+    this.updateViewFlags();
   }
 
   ngOnChanges(changes: SimpleChanges) {
@@ -183,6 +214,10 @@ export class VideoUploadComponent implements OnInit, OnChanges, OnDestroy {
         console.log('📹 No thumbnailUrl, fetching external thumbnail...');
         this.fetchExternalVideoThumbnail();
       }
+    }
+
+    if (changes['videoUrl']) {
+      this.updateViewFlags();
     }
   }
 
@@ -338,6 +373,78 @@ export class VideoUploadComponent implements OnInit, OnChanges, OnDestroy {
     return { valid: true };
   }
 
+  private async checkExternalVideoDuration(url: string): Promise<{ valid: boolean; error?: string }> {
+    const passThrough: { valid: true } = { valid: true };
+
+    // Always resolve within 5 s — a 304 (ETag cache hit) leaves .toPromise()
+    // permanently unresolved in some Angular/browser combos, so we race a timeout.
+    const timeout$ = new Promise<typeof passThrough>(res => setTimeout(() => res(passThrough), 5000));
+
+    const check$ = new Promise<{ valid: boolean; error?: string }>(async res => {
+      try {
+        const resp = await this.http.get<any>(
+          `${this.apiUrl}/users/check-video-duration?url=${encodeURIComponent(url)}`
+        ).toPromise();
+
+        if (!resp?.success) { res(passThrough); return; }
+
+        const secs: number = resp.durationSeconds;
+        if (secs < this.VIDEO_MIN_SECONDS) {
+          res({ valid: false, error: `Your video is ${secs} seconds — it needs to be at least 30 seconds long.` });
+        } else if (secs > this.VIDEO_MAX_SECONDS) {
+          const mins = Math.floor(secs / 60);
+          const rem = secs % 60;
+          const label = rem > 0 ? `${mins}m ${rem}s` : `${mins} minutes`;
+          res({ valid: false, error: `Your video is ${label} — please keep it under 2 minutes.` });
+        } else {
+          res(passThrough);
+        }
+      } catch {
+        res(passThrough);
+      }
+    });
+
+    return Promise.race([check$, timeout$]);
+  }
+
+  private checkFileDuration(file: File): Promise<{ valid: boolean; error?: string }> {
+    return new Promise(resolve => {
+      let settled = false;
+      const done = (result: { valid: boolean; error?: string }) => {
+        if (settled) return;
+        settled = true;
+        URL.revokeObjectURL(objectUrl);
+        resolve(result);
+      };
+
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+      const objectUrl = URL.createObjectURL(file);
+      video.src = objectUrl;
+
+      // Fallback: if metadata never loads (WebView / codec issue), allow through
+      const timeout = setTimeout(() => done({ valid: true }), 5000);
+
+      video.onloadedmetadata = () => {
+        clearTimeout(timeout);
+        const secs = Math.round(video.duration);
+        if (!isFinite(secs) || secs <= 0) { done({ valid: true }); return; }
+        if (secs < this.VIDEO_MIN_SECONDS) {
+          done({ valid: false, error: `Your video is ${secs} seconds — it needs to be at least 30 seconds long.` });
+        } else if (secs > this.VIDEO_MAX_SECONDS) {
+          const mins = Math.floor(secs / 60);
+          const remainder = secs % 60;
+          const label = remainder > 0 ? `${mins}m ${remainder}s` : `${mins} minutes`;
+          done({ valid: false, error: `Your video is ${label} — please keep it under 2 minutes.` });
+        } else {
+          done({ valid: true });
+        }
+      };
+
+      video.onerror = () => { clearTimeout(timeout); done({ valid: true }); };
+    });
+  }
+
   // Handle pasted video link (YouTube/Vimeo)
   async onPasteLink() {
     this.errorMessage = '';
@@ -351,6 +458,15 @@ export class VideoUploadComponent implements OnInit, OnChanges, OnDestroy {
     const validation = this.validateVideoLink(url);
     if (!validation.valid) {
       this.errorMessage = validation.error || 'Invalid video URL';
+      return;
+    }
+
+    // Check duration via backend (YouTube Data API / Vimeo oEmbed)
+    this.isCheckingVideo = true;
+    const durationCheck = await this.checkExternalVideoDuration(url);
+    this.isCheckingVideo = false;
+    if (!durationCheck.valid) {
+      this.errorMessage = durationCheck.error || 'Video duration is outside the allowed range.';
       return;
     }
 
@@ -408,8 +524,10 @@ export class VideoUploadComponent implements OnInit, OnChanges, OnDestroy {
     });
     this.videoLinkInput = '';
     this.isUploading = false;
+    this.isChangingVideo = false;
     this.errorMessage = '';
     this.syncLinkPendingAndDraft();
+    this.updateViewFlags();
   }
 
   // Validate and convert YouTube/Vimeo URLs
@@ -674,11 +792,21 @@ export class VideoUploadComponent implements OnInit, OnChanges, OnDestroy {
 
   private async handleFile(file: File) {
     this.errorMessage = '';
-    
-    // Validate file
+    this.isCheckingFile = true;
+
+    // Validate file type/size
     const validation = this.fileUploadService.validateVideo(file);
     if (!validation.valid) {
+      this.isCheckingFile = false;
       this.errorMessage = validation.error || 'Invalid video file';
+      return;
+    }
+
+    // Check duration client-side before uploading
+    const durationCheck = await this.checkFileDuration(file);
+    this.isCheckingFile = false;
+    if (!durationCheck.valid) {
+      this.errorMessage = durationCheck.error || 'Video duration is outside the allowed range.';
       return;
     }
 
@@ -730,6 +858,8 @@ export class VideoUploadComponent implements OnInit, OnChanges, OnDestroy {
           });
           this.errorMessage = '';
           this.isUploading = false;
+          this.isChangingVideo = false;
+          this.updateViewFlags();
           
           // Show compression info if available
           if (result.compressionInfo) {
@@ -817,12 +947,11 @@ export class VideoUploadComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   private proceedWithVideoChange() {
-    this.videoUrl = '';
-    this.thumbnailUrl = '';
-    this.thumbnailPreview = '';
-    this.customThumbnail = null;
+    this.isChangingVideo = true;
     this.errorMessage = '';
-    this.autoThumbnailGenerated = false;
-    this.showThumbnailOverlay = true;
+    this.videoLinkInput = '';
+    this.isCheckingVideo = false;
+    this.syncLinkPendingAndDraft();
+    this.updateViewFlags();
   }
 }

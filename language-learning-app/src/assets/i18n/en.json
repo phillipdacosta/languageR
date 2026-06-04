@@ -276,9 +276,11 @@
     "VIMEO_THUMBNAIL": "Add a custom thumbnail for Vimeo videos (optional)",
     "ADD_VIDEO": "Add Video",
     "ADD_VIDEO_HINT": "Click the button above to save your video link",
+    "KEEP_CURRENT": "Keep current video",
     "PENDING_REVIEW": "Pending Admin Review",
     "ADD_THUMBNAIL_TITLE": "Add a Thumbnail (Recommended)",
     "THUMBNAIL_BENEFIT": "Tutors with thumbnails earn 18% more on average!",
+    "CHECKING_FILE": "Checking video…",
     "PROCESSING": "Processing..."
   },
   "COMMON": {
@@ -614,6 +616,7 @@
     "WELCOME_INVITATION_ONE_AND_LESSON": "{{count}} invitation pending • Next lesson {{time}}",
     "WELCOME_INVITATION_MANY_AND_LESSON": "{{count}} invitations pending • Next lesson {{time}}",
     "WELCOME_DEFAULT": "Ready to learn something new today?",
+    "WELCOME_OUTSTANDING_ITEMS": "You have outstanding items to complete.",
     "INVITATION_SINGULAR": "invitation",
     "INVITATION_PLURAL": "invitations",
     "BANNER_ALMOST_THERE": "Almost There!",
@@ -2327,6 +2330,7 @@
     "VIDEO_CHOOSE_DESC": "A short video helps students get to know you before they book.",
     "VIDEO_INTRO_TITLE": "Add a landscape intro video (up to 2 minutes)",
     "VIDEO_INTRO_DESC": "Speak in the language on your profile. If you teach another language, include a brief sample so students can hear you in it.",
+    "VIDEO_GUIDANCE_TITLE": "Introduction Video",
     "VIDEO_REQUIREMENTS_TITLE": "Video requirements",
     "VIDEO_REQUIREMENTS_SUMMARY": "Following these tips helps your video get approved on the first try.",
     "VIDEO_REQ_1": "Introduce yourself and say what you teach — keep it natural",

@@ -17,7 +17,6 @@
     [class.tutor-approval-wizard--tos-step]="approvalStepId === 'tos'"
     [class.tutor-approval-wizard--photo-step]="approvalStepId === 'photo'"
     [class.tutor-approval-wizard--split-layout]="approvalSplitStepLayout"
-    [class.tutor-approval-wizard--video-step]="approvalSplitStepLayout"
     [class.tutor-approval-wizard--wide-content]="approvalWizardWideContentLayout">
     <header class="tutor-approval-modal-topbar tutor-approval-modal-topbar--wizard">
       <div class="tutor-approval-modal-topbar__left">
@@ -151,8 +150,9 @@
           <div *ngIf="approvalStepId === 'video'" class="video-step tutor-approval-step-pane">
             <div class="video-step-layout approval-split-layout approval-step-card">
               <div class="video-step-guidance approval-split-guidance">
-                <h3 class="video-requirements__title">{{ 'TUTOR_APPROVAL.VIDEO_REQUIREMENTS_TITLE' | translate }}</h3>
+                <h3 class="video-requirements__title">{{ 'TUTOR_APPROVAL.VIDEO_GUIDANCE_TITLE' | translate }}</h3>
                 <p class="video-requirements__summary">{{ 'TUTOR_APPROVAL.VIDEO_REQUIREMENTS_SUMMARY' | translate }}</p>
+                <h4 class="video-requirements__subtitle">{{ 'TUTOR_APPROVAL.VIDEO_REQUIREMENTS_TITLE' | translate }}</h4>
 
                 <ul class="video-requirements__checklist">
                   <li *ngFor="let requirementKey of videoRequirementKeys" class="video-requirements__checklist-item">
@@ -163,15 +163,13 @@
               </div>
 
               <div class="video-step-upload approval-split-main">
-                <div
-                  class="video-step-upload-inner"
-                  [class.video-step-upload-inner--review]="approvalStatus?.videoComplete">
+                <div class="video-step-upload-inner">
                   <div class="video-step-intro">
                     <h4 class="video-step-intro__title">{{ 'TUTOR_APPROVAL.VIDEO_INTRO_TITLE' | translate }}</h4>
                     <p class="video-step-intro__desc">{{ 'TUTOR_APPROVAL.VIDEO_INTRO_DESC' | translate }}</p>
                   </div>
 
-                  <div *ngIf="approvalStatus?.videoComplete" class="video-step-review-status">
+                  <div *ngIf="approvalStatus?.videoComplete && (approvalStatus?.videoApproved || approvalStatus?.videoRejected)" class="video-step-review-status">
                     <div *ngIf="approvalStatus?.videoApproved" class="status-badge success">
                       <ion-icon name="checkmark-circle"></ion-icon>
                       <span>{{ 'TUTOR_APPROVAL.VIDEO_STATUS_APPROVED' | translate }}</span>
@@ -194,6 +192,7 @@
                     [videoUrl]="getCurrentVideoUrl()"
                     [thumbnailUrl]="getCurrentThumbnailUrl()"
                     [videoType]="getCurrentVideoType()"
+                    [hasPendingVideo]="!!approvalStatus?.videoComplete && !approvalStatus?.videoApproved && !approvalStatus?.videoRejected"
                     [enableModalPlayer]="true"
                     [fullWidthLayout]="true"
                     [wizardColumnLayout]="true"
@@ -860,6 +859,7 @@
             <div *ngIf="!approvalStatus?.stripeComplete && paymentSetupStep === 'setup-method'" class="profile-payout-panel tutor-approval-step-pane tutor-approval-step-pane--sub">
               <div *ngIf="determinedPayoutMethod === 'stripe'" class="profile-payout-provider">
                 <app-stripe-connect-card
+                  [compactLayout]="true"
                   [connectDisabled]="wizardPaymentConnectDisabled"
                   [showWizardLegacySummary]="!isCountryDrivenPayoutRouting"
                   [isUSPersonForTax]="isUSPersonForTax"
@@ -872,6 +872,7 @@
 
               <div *ngIf="determinedPayoutMethod === 'paypal'" class="profile-payout-provider">
                 <app-paypal-connect-card
+                  [compactLayout]="true"
                   [email]="paypalEmail"
                   [emailErrorKey]="paypalEmailError"
                   emailInputId="wizard-paypal-email"

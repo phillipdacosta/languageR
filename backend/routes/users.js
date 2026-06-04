@@ -1606,6 +1606,55 @@ router.get('/tutors', verifyToken, async (req, res) => {
   }
 });
 
+// GET /api/users/check-video-duration?url=...
+// Returns duration in seconds for a YouTube or Vimeo URL.
+router.get('/check-video-duration', verifyToken, async (req, res) => {
+  res.set('Cache-Control', 'no-store'); // prevent 304 ETag caching — client needs a fresh body every time
+  const { url } = req.query;
+  if (!url) return res.status(400).json({ success: false, error: 'Missing url param' });
+
+  try {
+    // ── YouTube ──────────────────────────────────────────────────────────────
+    const ytMatch = String(url).match(/(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+    if (ytMatch) {
+      const apiKey = process.env.YOUTUBE_API_KEY;
+      if (!apiKey) return res.status(503).json({ success: false, error: 'YouTube API not configured' });
+
+      const apiUrl = `https://www.googleapis.com/youtube/v3/videos?id=${ytMatch[1]}&part=contentDetails&key=${apiKey}`;
+      const resp = await fetch(apiUrl, { signal: AbortSignal.timeout(8000) });
+      if (!resp.ok) return res.status(502).json({ success: false, error: 'YouTube API error' });
+
+      const data = await resp.json();
+      const iso = data.items?.[0]?.contentDetails?.duration; // e.g. "PT1M45S"
+      if (!iso) return res.status(404).json({ success: false, error: 'Video not found or duration unavailable' });
+
+      // Parse ISO 8601 duration → seconds
+      const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+      const seconds = (parseInt(m?.[1] || '0') * 3600) +
+                      (parseInt(m?.[2] || '0') * 60) +
+                      parseInt(m?.[3] || '0');
+      return res.json({ success: true, platform: 'youtube', durationSeconds: seconds });
+    }
+
+    // ── Vimeo ─────────────────────────────────────────────────────────────────
+    const vimeoMatch = String(url).match(/vimeo\.com\/(\d+)/);
+    if (vimeoMatch) {
+      const oembedUrl = `https://vimeo.com/api/oembed.json?url=https://vimeo.com/${vimeoMatch[1]}`;
+      const resp = await fetch(oembedUrl, { signal: AbortSignal.timeout(8000) });
+      if (!resp.ok) return res.status(502).json({ success: false, error: 'Vimeo API error' });
+
+      const data = await resp.json();
+      if (!data.duration) return res.status(404).json({ success: false, error: 'Duration unavailable' });
+      return res.json({ success: true, platform: 'vimeo', durationSeconds: data.duration });
+    }
+
+    return res.status(400).json({ success: false, error: 'Only YouTube and Vimeo URLs are supported' });
+  } catch (err) {
+    console.error('❌ check-video-duration error:', err.message);
+    return res.status(500).json({ success: false, error: 'Failed to check video duration' });
+  }
+});
+
 // PUT /api/users/tutor-video - Update tutor introduction video with thumbnail and type
 router.put('/tutor-video', verifyToken, async (req, res) => {
   try {

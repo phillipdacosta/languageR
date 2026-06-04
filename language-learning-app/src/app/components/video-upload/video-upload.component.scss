@@ -14,7 +14,9 @@
     flex-direction: column;
     flex: 1 1 auto;
     min-height: 0;
-    overflow: hidden;
+    overflow: visible;
+    --wizard-video-footer-h: 44px;
+    --wizard-video-main-max-h: min(320px, calc(100dvh - 360px));
 
     .upload-mode-toggle {
       flex-shrink: 0;
@@ -31,7 +33,9 @@
       }
     }
 
-    .wizard-shared-thumbnail {
+    .wizard-shared-thumbnail,
+    .wizard-preview-thumbnail,
+    .wizard-video-thumbnail {
       flex-shrink: 0;
       margin-top: 0;
       margin-bottom: 12px;
@@ -43,43 +47,88 @@
       border: 1px solid #ebebeb;
       border-radius: 12px;
       text-align: left;
+      overflow: visible;
+    }
+
+    .wizard-video-stage,
+    .wizard-mode-panel,
+    .upload-mode-toggle,
+    .wizard-video-thumbnail {
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+    }
+
+    .wizard-video-stage {
+      display: grid;
+      grid-template-rows: minmax(0, 1fr) var(--wizard-video-footer-h);
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+
+    .wizard-video-main-shell {
+      grid-row: 1;
+      min-height: 0;
+      min-width: 0;
+      width: 100%;
+      max-width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: stretch;
+    }
+
+    .wizard-video-main {
+      width: 100%;
+      max-width: 100%;
+      aspect-ratio: 16 / 9;
+      max-height: min(100%, var(--wizard-video-main-max-h));
+      height: auto;
+      border-radius: 16px;
+      box-sizing: border-box;
+      min-height: 0;
+      min-width: 0;
+      flex: 0 1 auto;
+      align-self: center;
+      margin-inline: auto;
+    }
+
+    .wizard-video-footer {
+      grid-row: 2;
+      min-height: var(--wizard-video-footer-h);
+      height: var(--wizard-video-footer-h);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      margin: 0;
+      padding: 0;
+
+      .upload-error {
+        position: static;
+        width: 100%;
+        margin: 0;
+      }
+
+      .video-change-cancel-btn {
+        margin: 0;
+        align-self: center;
+        min-height: 36px;
+      }
+
+      .video-actions {
+        margin-top: 0;
+        width: 100%;
+        justify-content: center;
+        min-height: 36px;
+        align-items: center;
+      }
     }
 
     .wizard-mode-panel {
       flex: 1 1 auto;
-      display: flex;
-      flex-direction: column;
-      min-height: 260px;
-      height: 260px;
-      max-height: 260px;
-      overflow: hidden;
-    }
-
-    .wizard-mode-panel .upload-section,
-    .wizard-mode-panel .link-section {
-      flex: 1 1 auto;
-      display: flex;
-      flex-direction: column;
+      display: grid;
       min-height: 0;
-      height: 100%;
-      margin-bottom: 0;
-      overflow: hidden;
-    }
-
-    .upload-section,
-    .link-section {
-      flex: 1 1 auto;
-      display: flex;
-      flex-direction: column;
-      min-height: 0;
-      margin-bottom: 0;
-      overflow: hidden;
-    }
-
-    .thumbnail-upload-section {
-      flex-shrink: 0;
-      margin-top: 0;
-      margin-bottom: 12px;
+      overflow: visible;
     }
 
     .wizard-mode-panel .upload-area {
@@ -105,43 +154,28 @@
 
     .wizard-mode-panel .upload-area,
     .wizard-mode-panel .link-input-area {
-      flex: 1 1 auto;
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      min-height: 0;
-      height: 100%;
-      padding: 20px 20px;
-      border-radius: 16px;
-      box-sizing: border-box;
-      overflow: hidden;
-    }
-
-    .upload-area,
-    .link-input-area {
-      flex: 1 1 auto;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      min-height: 200px;
-      padding: 32px 24px;
-      border-radius: 16px;
+      padding: clamp(10px, 1.8vh, 16px) clamp(12px, 2vw, 20px);
+      overflow-y: auto;
+      overflow-x: hidden;
     }
 
     .upload-icon {
-      font-size: 48px;
-      margin-bottom: 12px;
+      font-size: clamp(32px, 4.5vh, 48px);
+      margin-bottom: clamp(6px, 1vh, 12px);
     }
 
     .upload-content h3 {
-      font-size: 17px;
-      margin-bottom: 6px;
+      font-size: clamp(14px, 1.8vh, 17px);
+      margin-bottom: 4px;
     }
 
     .upload-content p {
-      font-size: 14px;
-      margin: 4px 0;
+      font-size: clamp(12px, 1.6vh, 14px);
+      margin: 2px 0;
     }
 
     .upload-hint {
@@ -150,14 +184,14 @@
 
     .wizard-mode-panel .link-input-area {
       text-align: center;
-      gap: 8px;
+      gap: 6px;
 
       .link-icon {
-        margin-bottom: 4px;
+        display: none;
       }
 
       h3 {
-        margin: 0 0 4px;
+        margin: 0 0 2px;
         font-size: 16px;
       }
 
@@ -167,14 +201,14 @@
       }
 
       .link-privacy {
-        margin: 0 0 10px;
+        margin: 0 0 8px;
         font-size: 11px;
       }
 
       .link-input-wrapper {
         width: 100%;
         max-width: 100%;
-        margin-bottom: 10px;
+        margin-bottom: 8px;
       }
 
       .add-video-cta {
@@ -196,64 +230,38 @@
       }
     }
 
-    .link-input-area {
-      padding: 32px 24px;
-      min-height: 200px;
-    }
-
-    .link-icon {
-      font-size: 48px;
-      margin-bottom: 12px;
-    }
-
     .video-preview {
-      flex: 0 1 auto;
+      flex: 1 1 auto;
       min-height: 0;
       overflow: hidden;
       width: 100%;
       display: flex;
       flex-direction: column;
-      align-items: center;
-      gap: 6px;
+      gap: 0;
+      margin-top: 0;
     }
 
-    .wizard-preview-thumbnail {
-      flex-shrink: 0;
-      margin-bottom: 0;
-      padding: 8px 10px;
-      width: 100%;
+    .video-preview--wizard .wizard-video-stage {
+      flex: 1 1 auto;
+      min-height: 0;
     }
 
-    .wizard-preview-thumbnail .thumbnail-wizard-row {
-      gap: 8px;
+    .video-preview .video-thumbnail-wrapper.wizard-video-main {
+      overflow: hidden;
+      cursor: pointer;
+      border: 2px solid #e5e7eb;
+      box-shadow: none;
     }
 
-    .wizard-preview-thumbnail .thumbnail-wizard-row__icon {
-      font-size: 20px;
-    }
-
-    .wizard-preview-thumbnail .thumbnail-wizard-row__title {
-      font-size: 12px;
-      margin-bottom: 0;
-    }
-
+    .wizard-video-thumbnail .thumbnail-wizard-row__hint,
     .wizard-preview-thumbnail .thumbnail-wizard-row__hint {
       display: none;
     }
 
+    .wizard-video-thumbnail .thumbnail-wizard-row__btn,
     .wizard-preview-thumbnail .thumbnail-wizard-row__btn {
       padding: 6px 12px;
       font-size: 12px;
-    }
-
-    .wizard-preview-thumbnail .thumbnail-preview-small--wizard img {
-      max-width: 52px;
-      max-height: 30px;
-    }
-
-    .video-preview .video-thumbnail-wrapper {
-      width: 100%;
-      max-width: 100%;
     }
   }
 
@@ -262,10 +270,39 @@
 .video-upload-container--wizard-column.video-upload-container--wizard-review {
   flex: 1 1 auto;
   min-height: 0;
-  max-height: 100%;
-  overflow: hidden;
+  max-height: none;
+  overflow: visible;
   display: flex;
   flex-direction: column;
+}
+
+.video-change-cancel-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  margin: 0 0 10px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #007bff;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  flex-shrink: 0;
+
+  ion-icon {
+    font-size: 16px;
+  }
+
+  &:hover {
+    color: #0056b3;
+  }
+
+  &--inline {
+    margin-bottom: 12px;
+  }
 }
 
 .thumbnail-wizard-row {
@@ -323,13 +360,56 @@
 }
 
 .thumbnail-preview-small--wizard {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   margin-top: 0;
   flex-shrink: 0;
 
-  img {
-    max-width: 72px;
-    max-height: 40px;
+  .thumbnail-preview-small__image-btn {
+    display: block;
+    padding: 0;
+    margin: 0;
+    border: none;
+    background: transparent;
+    cursor: pointer;
     border-radius: 6px;
+    line-height: 0;
+
+    &:focus-visible {
+      outline: 2px solid #007bff;
+      outline-offset: 2px;
+    }
+  }
+
+  img {
+    width: 64px;
+    height: 36px;
+    object-fit: cover;
+    border-radius: 6px;
+    display: block;
+  }
+
+  .remove-thumb-btn--wizard {
+    position: static;
+    top: auto;
+    right: auto;
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+    margin: 0;
+    padding: 0;
+    box-shadow: none;
+    background: transparent;
+
+    ion-icon {
+      font-size: 24px;
+      color: #dc3545;
+    }
+
+    &:hover ion-icon {
+      color: #b02a37;
+    }
   }
 }
 
@@ -377,6 +457,7 @@
 
 // Upload Section
 .upload-section {
+  position: relative;
   margin-bottom: 16px;
 }
 
@@ -404,6 +485,28 @@
   pointer-events: none;
 }
 
+.upload-checking {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  pointer-events: none;
+
+  &__spinner {
+    width: 36px;
+    height: 36px;
+    color: #007bff;
+  }
+
+  &__label {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 500;
+    color: #555;
+  }
+}
+
 .upload-icon {
   font-size: 48px;
   color: #007bff;
@@ -429,6 +532,7 @@
 
 // Link Section
 .link-section {
+  position: relative;
   margin-bottom: 16px;
 }
 
@@ -592,7 +696,7 @@
   font-size: 12px;
 }
 
-.thumbnail-preview-small {
+.thumbnail-preview-small:not(.thumbnail-preview-small--wizard) {
   position: relative;
   display: inline-block;
   margin-top: 12px;
@@ -841,17 +945,23 @@
   color: #666;
 }
 
-// Error Message
+// Error Message — sits below the dotted card, out of flow so nothing shifts
 .upload-error {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 8px;
   display: flex;
   align-items: center;
   gap: 8px;
   color: #dc3545;
-  font-size: 14px;
-  margin-top: 12px;
+  font-size: 13px;
   padding: 8px 12px;
   background: #f8d7da;
   border-radius: 6px;
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 // Mobile Responsiveness

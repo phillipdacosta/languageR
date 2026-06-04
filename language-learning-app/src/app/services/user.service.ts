@@ -748,6 +748,18 @@ export class UserService {
   }
 
   /**
+   * Push an updated user into the local cache and refresh tutor approval status
+   * without a network round-trip (avoids wizard reload flashes).
+   */
+  applyLocalUserUpdate(user: User): void {
+    const merged = this.mergeUserState(this.currentUserSubject.value, user);
+    this.currentUserSubject.next(merged);
+    if (merged.userType === 'tutor') {
+      this.updateTutorApprovalStatus(merged);
+    }
+  }
+
+  /**
    * Merge incoming user onto cache without letting stale /me responses revert
    * a manual calendar week-start choice.
    */

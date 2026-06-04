@@ -5335,6 +5335,12 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     this.hasProfileCriticalInsights =
       this.profileChecklistTotal > 0 &&
       this.profileChecklistDoneCount < this.profileChecklistTotal;
+    if (this.hasProfileCriticalInsights) {
+      this.tutorGrowthService.pause();
+    } else {
+      this.tutorGrowthService.resume();
+    }
+    this.growthPaused = this.tutorGrowthService.paused;
     this.growthInsightSlideRow = insight
       ? [{ epoch: this._growthSlideEpoch, insight }]
       : [];
@@ -5372,6 +5378,12 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     // Show the banner whenever any required step is still incomplete; hide
     // it the moment everything is done so the section disappears smoothly.
     this.hasProfileCriticalInsights = this.profileChecklistDoneCount < checklist.length;
+    if (this.hasProfileCriticalInsights) {
+      this.tutorGrowthService.pause();
+    } else {
+      this.tutorGrowthService.resume();
+    }
+    this.growthPaused = this.tutorGrowthService.paused;
     // Keep the growth-service mirror in sync for any other consumers.
     this.tutorGrowthService.profileChecklist = checklist;
     this.refreshGrowthInsightsFromApprovalStatus(status);
@@ -6875,6 +6887,10 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     }
     if (this.isStudentUser) {
       // Invitation / default lines are rendered in the template (student branch).
+      this.tutorMobileWelcomeSubtitle = '';
+      return;
+    }
+    if (this.hasProfileCriticalInsights) {
       this.tutorMobileWelcomeSubtitle = '';
       return;
     }

@@ -29,6 +29,7 @@ export class PaypalConnectCardComponent {
   @Input() hasUSBankAccount: boolean | null = null;
   @Input() showSecondaryAction = false;
   @Input() secondaryActionLabelKey = '';
+  @Input() compactLayout = false;
 
   @Output() connectClick = new EventEmitter<void>();
   @Output() emailChange = new EventEmitter<string>();

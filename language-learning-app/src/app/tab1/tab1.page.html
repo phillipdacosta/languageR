@@ -393,12 +393,15 @@
         <p class="welcome-subtitle welcome-mobile-tutor-sub" *ngIf="isStudentUser && !isLoadingLessons && !activeInvitationsCount && (!nextLesson || !nextLessonTimeLabel)">
           {{ 'HOME.WELCOME_DEFAULT' | translate }}
         </p>
+        <p class="welcome-subtitle welcome-mobile-tutor-sub" *ngIf="isTutorUser && !isLoadingLessons && hasProfileCriticalInsights">
+          {{ 'HOME.WELCOME_OUTSTANDING_ITEMS' | translate }}
+        </p>
         <p class="welcome-subtitle welcome-mobile-tutor-sub" *ngIf="isTutorUser && !isLoadingLessons && (!nextLesson || !nextLessonTimeLabel) && !growthInsight && tutorMobileWelcomeSubtitle && !hasProfileCriticalInsights">
           {{ tutorMobileWelcomeSubtitle }}
         </p>
         <p class="welcome-subtitle welcome-mobile-tutor-sub growth-ticker-mobile-wrap"
            [class.growth-ticker-mobile-wrap--locked]="hasLockedGrowthInsight"
-           *ngIf="isTutorUser && !isLoadingLessons && ((!nextLesson || !nextLessonTimeLabel) || hasProfileCriticalInsights || hasLockedGrowthInsight) && growthInsight"
+           *ngIf="isTutorUser && !isLoadingLessons && !hasProfileCriticalInsights && ((!nextLesson || !nextLessonTimeLabel) || hasLockedGrowthInsight) && growthInsight"
            (click)="hasLockedGrowthInsight ? onGrowthInsightClick() : onGrowthInsightTapAdvance()">
           <ng-container *ngFor="let row of growthInsightSlideRow; trackBy: trackGrowthInsightSlide">
             <span class="growth-ticker-mobile-fade-wrap">
@@ -467,6 +470,11 @@
              *ngIf="!isLoadingLessons">
             <span class="welcome-tutor-desktop-greeting">{{ greetingText }} — </span>
 
+            <ng-container *ngIf="hasProfileCriticalInsights; else tutorWelcomeAfterOutstanding">
+              {{ 'HOME.WELCOME_OUTSTANDING_ITEMS' | translate }}
+            </ng-container>
+
+            <ng-template #tutorWelcomeAfterOutstanding>
             <!-- Pending lesson updates (highest priority) -->
             <ng-container *ngIf="hasLockedGrowthInsight && growthInsight; else tutorWelcomeMainLine">
               <span class="growth-ticker growth-ticker--locked"
@@ -545,6 +553,7 @@
 
             <ng-template #tutorWelcomeFallback>
               {{ 'HOME.WELCOME_DEFAULT' | translate }}
+            </ng-template>
             </ng-template>
           </p>
         </div>

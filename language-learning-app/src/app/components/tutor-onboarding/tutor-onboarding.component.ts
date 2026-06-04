@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, LoadingController, AlertController, ToastController, ModalController } from '@ionic/angular';
 import { Router } from '@angular/router';
-import { UserService } from '../../services/user.service';
+import { User, UserService } from '../../services/user.service';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { firstValueFrom } from 'rxjs';
@@ -90,12 +90,12 @@ export class TutorOnboardingComponent implements OnInit {
   ];
 
   readonly photoRequirementKeys = [
-    'TUTOR_APPROVAL.PHOTO_NEED_1',
-    'TUTOR_APPROVAL.PHOTO_NEED_2',
     'TUTOR_APPROVAL.PHOTO_NEED_3',
-    'TUTOR_APPROVAL.PHOTO_NEED_4',
-    'TUTOR_APPROVAL.PHOTO_NEED_5',
+    'TUTOR_APPROVAL.PHOTO_NEED_2',
     'TUTOR_APPROVAL.PHOTO_NEED_6',
+    'TUTOR_APPROVAL.PHOTO_NEED_1',
+    'TUTOR_APPROVAL.PHOTO_NEED_5',
+    'TUTOR_APPROVAL.PHOTO_NEED_4',
   ];
 
   readonly videoRequirementKeys = [
@@ -1542,31 +1542,61 @@ export class TutorOnboardingComponent implements OnInit {
     return this.getVideoType(videoUrl);
   }
 
+  private applyLocalVideoState(
+    videoData: { url: string; thumbnail: string; type: 'upload' | 'youtube' | 'vimeo' } | null
+  ): void {
+    if (!this.currentUser) {
+      return;
+    }
+
+    const onboardingData = {
+      ...(this.currentUser.onboardingData || {}),
+      pendingVideo: videoData?.url || '',
+      pendingVideoThumbnail: videoData?.thumbnail || '',
+      pendingVideoType: videoData?.type || 'upload',
+    };
+
+    const existingOnboarding = this.currentUser.tutorOnboarding || {};
+    const tutorOnboarding = {
+      ...existingOnboarding,
+      videoUploaded: !!videoData?.url,
+      videoApproved: false,
+      videoRejected: false,
+      videoRejectionReason: null,
+      videoUploadedAt: videoData?.url ? new Date() : null,
+    };
+
+    const updatedUser: User = {
+      ...this.currentUser,
+      onboardingData,
+      tutorOnboarding,
+    };
+
+    this.currentUser = updatedUser;
+    this.userService.applyLocalUserUpdate(updatedUser);
+  }
+
   async onVideoUploaded(videoData: { url: string; thumbnail: string; type: 'upload' | 'youtube' | 'vimeo' }) {
     this.clearApprovalVideoDraft();
     console.log('📹 Video uploaded in tutor-approval flow:', videoData);
     console.log('🖼️ Thumbnail URL to save:', videoData.thumbnail);
+
+    // Sync parent bindings immediately so preview size/layout doesn't jump after save
+    this.applyLocalVideoState(videoData);
     
     // Save the video and thumbnail to the database
     try {
-      const result = await this.userService.updateTutorVideo(
+      const result = await firstValueFrom(this.userService.updateTutorVideo(
         videoData.url, 
         videoData.thumbnail, 
         videoData.type
-      ).toPromise();
+      ));
       
       console.log('✅ Video and thumbnail saved to DB:', result);
-      
-      // Refresh user data to show updated video
-      this.userService.getCurrentUser(true).subscribe(user => {
-        if (user) {
-          this.currentUser = user;
-          this.loadOnboardingStatus();
-          this.showToast('Video uploaded successfully!', 'success');
-        }
-      });
+      this.showToast('Video uploaded successfully!', 'success');
     } catch (error) {
       console.error('❌ Error saving video to DB:', error);
+      this.applyLocalVideoState(null);
       this.showToast('Failed to save video. Please try again.', 'danger');
     }
   }
@@ -1576,17 +1606,10 @@ export class TutorOnboardingComponent implements OnInit {
     
     // Remove video and thumbnail from the database
     try {
-      const result = await this.userService.updateTutorVideo('', '', 'upload').toPromise();
+      const result = await firstValueFrom(this.userService.updateTutorVideo('', '', 'upload'));
       console.log('✅ Video removed from DB:', result);
-      
-      // Refresh user data
-      this.userService.getCurrentUser(true).subscribe(user => {
-        if (user) {
-          this.currentUser = user;
-          this.loadOnboardingStatus();
-          this.showToast('Video removed', 'medium');
-        }
-      });
+      this.applyLocalVideoState(null);
+      this.showToast('Video removed', 'medium');
     } catch (error) {
       console.error('❌ Error removing video from DB:', error);
       this.showToast('Failed to remove video. Please try again.', 'danger');
