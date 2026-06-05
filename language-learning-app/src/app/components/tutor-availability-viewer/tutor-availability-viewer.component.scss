@@ -1273,3 +1273,93 @@ $dk-accent: #4298d2;
     &.disabled, &[disabled] { background: $dk-text-tertiary; color: $dk-card; }
   }
 }
+
+// ── Card embed (post-lesson, compact hosts) ─────────────────
+.availability-container--card {
+  padding: 0;
+  max-width: none;
+  margin: 0;
+  min-height: 0;
+  background: transparent;
+  --slot-height: 40px;
+}
+
+.calendar-step--card {
+  .header-controls {
+    margin-bottom: 12px;
+  }
+
+  .week-display h2 {
+    font-size: 16px;
+  }
+
+  .timezone-selector {
+    margin-bottom: 12px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: #fafafa;
+    border: 1px solid #ebebeb;
+  }
+
+  .legend {
+    margin-bottom: 10px;
+  }
+
+  &.calendar-step--ready .calendar-grid--card {
+    animation: cardGridFadeIn 0.35s ease both;
+  }
+}
+
+@keyframes cardGridFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.card-loading-skeleton {
+  margin-top: 4px;
+}
+
+.sk-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.sk-day {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sk-day-head {
+  height: 36px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: skShimmer 1.4s ease-in-out infinite;
+}
+
+.sk-slot {
+  height: var(--slot-height, 40px);
+  border-radius: 8px;
+  background: linear-gradient(90deg, #f5f5f5 25%, #ececec 50%, #f5f5f5 75%);
+  background-size: 200% 100%;
+  animation: skShimmer 1.4s ease-in-out infinite;
+
+  @for $i from 1 through 6 {
+    &:nth-child(#{$i + 1}) {
+      animation-delay: #{$i * 0.08}s;
+    }
+  }
+}
+
+@keyframes skShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}

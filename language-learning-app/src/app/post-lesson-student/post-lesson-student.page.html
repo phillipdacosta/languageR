@@ -1,296 +1,369 @@
-<ion-content class="post-lesson-content">
-  <div class="content-wrapper" [class.tip-overlay-active]="showTipSection && !tipSubmitted">
-    <!-- Top Bar -->
-    <div class="top-bar">
+<ion-content class="post-lesson-student-content" [scrollY]="false" [fullscreen]="true">
+  <div class="pls-page" [class.pls-page--tip-active]="showTipSection && !tipSubmitted">
 
-      <div class="ed-toolbar-inner">
-        <button class="go-back-link" (click)="goBack()">Go back</button>
+    <header class="plt-toolbar">
+      <div class="app-icon-container plt-toolbar__brand">
+        <img src="assets/mascot-toolbar.png" alt="Barnabi" class="app-icon app-icon--mascot barnabi-mascot-for-light-ui" width="48" height="48" decoding="sync">
+        <img src="assets/mascot-toolbar-dark.png" alt="" class="app-icon app-icon--mascot barnabi-mascot-for-dark-ui" width="48" height="48" decoding="sync" aria-hidden="true">
+        <img src="assets/barnabi-logo.png" alt="Barnabi" class="app-name-logo barnabi-wordmark-for-light-ui" />
+        <img src="assets/barnabi-logo-wordmark-white.png" alt="" class="app-name-logo barnabi-wordmark-for-dark-ui" aria-hidden="true" />
       </div>
+    </header>
+
+    <div class="plt-subheader">
+      <button type="button" class="plt-subheader__back" (click)="goBack()">
+        <ion-icon name="close-outline" aria-hidden="true"></ion-icon>
+        <span>{{ 'COMMON.CLOSE' | translate }}</span>
+      </button>
+      <h1 class="plt-subheader__title" [class.plt-subheader__title--rating]="showSubheaderRatingLayout">
+        <span class="plt-subheader__emoji" *ngIf="showSubheaderEmoji" aria-hidden="true">🎉</span>
+        <ng-container *ngIf="showSubheaderRatingLayout && tutor">
+          <span class="pls-subheader-rating">
+            {{ ratingQuestionLead }}
+            <span class="pls-subheader-tutor">
+              <img
+                class="pls-subheader-avatar"
+                [src]="tutor.picture || 'assets/default-avatar.png'"
+                [alt]="tutorFirstName" />
+              <span>{{ tutorFirstName }}</span>
+            </span>?
+          </span>
+        </ng-container>
+        <ng-container *ngIf="!showSubheaderRatingLayout">{{ subheaderTitle }}</ng-container>
+      </h1>
     </div>
 
-    <!-- Celebrate Header -->
-    <div class="celebrate-header" *ngIf="lesson">
-      <div class="celebrate-emoji">🎉</div>
-      <h1 class="celebrate-title" *ngIf="!isTrialLesson">Great lesson!</h1>
-      <h1 class="celebrate-title" *ngIf="isTrialLesson">We hope you liked {{ tutorFirstName }}!</h1>
-      <p class="celebrate-subtitle" *ngIf="!isTrialLesson">Every lesson brings you closer to fluency.</p>
-      <p class="celebrate-subtitle" *ngIf="isTrialLesson">See {{ tutorFirstName }}'s schedule below to book more lessons.</p>
-    </div>
+    <div class="plt-body">
+      <div class="plt-split approval-split-layout approval-step-card" [class.pls-split--single]="!lesson || !tutor">
 
-    <!-- Plan-update card (Phase 3 of the better-than-toast UX). Surfaces
-         freshly-fired learning-plan transition flags right after the lesson
-         with intent-aligned CTAs. Acknowledged on display so the journey
-         page toast doesn't replay later. -->
-    <div
-      *ngIf="planUpdate"
-      class="plan-update-card"
-      [class.plan-update-card--high]="planUpdate.kind === 'human_intervention'"
-      [class.plan-update-card--medium]="planUpdate.kind === 'decay_warning'"
-      [class.plan-update-card--info]="planUpdate.kind === 'phase_split'">
-      <div class="plan-update-icon" aria-hidden="true">
-        <ion-icon *ngIf="planUpdate.kind === 'human_intervention'" name="chatbubbles-outline"></ion-icon>
-        <ion-icon *ngIf="planUpdate.kind === 'decay_warning'" name="information-circle-outline"></ion-icon>
-        <ion-icon *ngIf="planUpdate.kind === 'phase_split'" name="cut-outline"></ion-icon>
-      </div>
-      <div class="plan-update-body">
-        <h3 class="plan-update-title">{{ planUpdate.title }}</h3>
-        <p class="plan-update-text">{{ planUpdate.body }}</p>
-        <div class="plan-update-actions">
-          <button
-            type="button"
-            class="plan-update-cta"
-            (click)="onPlanUpdateCta()">
-            {{ planUpdate.ctaLabel }}
-          </button>
-          <button
-            *ngIf="planUpdate.ctaAction !== 'dismiss'"
-            type="button"
-            class="plan-update-close"
-            (click)="dismissPlanUpdate()"
-            aria-label="Dismiss">
-            <ion-icon name="close-outline"></ion-icon>
-          </button>
-        </div>
-      </div>
-    </div>
+        <!-- ── Left: lesson context & actions ── -->
+        <aside class="plt-details approval-split-guidance">
+          <h3 class="approval-split-guidance__title">{{ lessonWithTutorTitle }}</h3>
+          <p class="approval-split-guidance__desc" *ngIf="lesson && tutor">
+            {{ lessonDateTime }}<span *ngIf="lessonDurationLabel"> · {{ lessonDurationLabel }}</span>
+          </p>
+          <p class="approval-split-guidance__desc pls-subtitle" *ngIf="pageSubtitle">{{ pageSubtitle }}</p>
 
-    <!-- "Want a plan?" soft prompt — surfaces only for unframed / paused
-         students after enough lessons (3+) and a 30-day dismissal window
-         has passed. Never shown alongside a higher-priority plan-update card.
-         Copy is precomputed on softPlanPrompt to keep the template free of
-         pipe / function calls. -->
-    <div
-      *ngIf="softPlanPrompt && !planUpdate"
-      class="plan-update-card plan-update-card--info">
-      <div class="plan-update-icon" aria-hidden="true">
-        <ion-icon name="map-outline"></ion-icon>
-      </div>
-      <div class="plan-update-body">
-        <h3 class="plan-update-title">{{ softPlanPrompt.title }}</h3>
-        <p class="plan-update-text">{{ softPlanPrompt.body }}</p>
-        <div class="plan-update-actions">
-          <button
-            type="button"
-            class="plan-update-cta"
-            (click)="onSoftPlanPromptAccept()">
-            {{ softPlanPrompt.ctaLabel }}
-          </button>
-          <button
-            type="button"
-            class="plan-update-close"
-            (click)="onSoftPlanPromptDismiss()"
-            aria-label="Dismiss">
-            <ion-icon name="close-outline"></ion-icon>
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <div class="main-card" [class.single-column]="!aiAnalysisEnabled && !isTrialLesson" [class.tip-active]="showTipSection && !tipSubmitted">
-      <!-- LEFT PANEL: Tutor Info & Actions -->
-      <div class="left-panel">
-        <!-- Loading State -->
-        <div class="loading-skeleton" *ngIf="!lesson">
-          <ion-spinner name="crescent"></ion-spinner>
-          <p>Loading lesson info...</p>
-        </div>
-        
-        <!-- Tutor Card -->
-        <div class="tutor-section" *ngIf="lesson && tutor">
-          <div class="tutor-identity">
-            <div class="tutor-avatar">
-              <img [src]="tutor.picture || 'assets/default-avatar.png'" [alt]="tutor.name" />
+          <!-- Plan-update card -->
+          <div
+            *ngIf="planUpdate"
+            class="plan-update-card"
+            [class.plan-update-card--high]="planUpdate.kind === 'human_intervention'"
+            [class.plan-update-card--medium]="planUpdate.kind === 'decay_warning'"
+            [class.plan-update-card--info]="planUpdate.kind === 'phase_split'">
+            <div class="plan-update-icon" aria-hidden="true">
+              <ion-icon *ngIf="planUpdate.kind === 'human_intervention'" name="chatbubbles-outline"></ion-icon>
+              <ion-icon *ngIf="planUpdate.kind === 'decay_warning'" name="information-circle-outline"></ion-icon>
+              <ion-icon *ngIf="planUpdate.kind === 'phase_split'" name="cut-outline"></ion-icon>
             </div>
-            <div class="tutor-meta">
-              <h2 class="tutor-name">{{ tutorDisplayName }}</h2>
-              <span class="lesson-subject">{{ lesson.subject || 'Language Lesson' }}</span>
-            </div>
-          </div>
-          
-          <!-- Lesson Details -->
-          <div class="lesson-details">
-            <div class="detail-row">
-              <ion-icon name="calendar-outline"></ion-icon>
-              <span>{{ formatDate(lesson.startTime) }}</span>
-            </div>
-            <div class="detail-row">
-              <ion-icon name="time-outline"></ion-icon>
-              <span>{{ formatTime(lesson.startTime) }} – {{ formatTime(lesson.endTime) }}</span>
-            </div>
-            <div class="detail-row" *ngIf="lesson.actualDurationMinutes">
-              <ion-icon name="hourglass-outline"></ion-icon>
-              <span>{{ lesson.actualDurationMinutes }} minutes</span>
-            </div>
-          </div>
-
-          <!-- Divider -->
-          <div class="section-divider"></div>
-          
-          <!-- Action Buttons -->
-          <div class="action-area">
-            <div class="action-buttons">
-              <button 
-                class="action-btn primary tip-trigger-btn"
-                [class.morphing]="showTipSection"
-                (click)="toggleTipSection()"
-                *ngIf="!tipSubmitted && !isTrialLesson">
-                <ion-icon name="heart-outline"></ion-icon>
-                <span>Tip {{ tutorFirstName }}</span>
-              </button>
-              
-              <div class="tip-success" *ngIf="tipSubmitted">
-                <ion-icon name="checkmark-circle"></ion-icon>
-                <span>Tip sent — thank you!</span>
-              </div>
-              
-              <button 
-                class="action-btn secondary"
-                (click)="leaveReview()"
-                *ngIf="!isTrialLesson">
-                <ion-icon name="star-outline"></ion-icon>
-                <span>Leave a review</span>
-              </button>
-              
-              <button 
-                class="action-btn secondary"
-                (click)="bookAgain()">
-                <ion-icon name="person-outline"></ion-icon>
-                <span>See profile</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      <!-- RIGHT PANEL: Analysis or Availability -->
-      <div class="right-panel" *ngIf="aiAnalysisEnabled || isTrialLesson">
-        <!-- FOR TRIAL LESSONS: Show Tutor Availability -->
-        <div class="trial-availability-section" *ngIf="isTrialLesson && tutor">
-          <h2 class="section-title">Book your next lesson</h2>
-          <app-tutor-availability-viewer
-            [tutorId]="tutor._id"
-            [tutorName]="tutorDisplayName"
-            [inline]="true">
-          </app-tutor-availability-viewer>
-        </div>
-
-        <!-- FOR REGULAR LESSONS: Show Analysis -->
-        <ng-container *ngIf="!isTrialLesson">
-          <!-- Loading State -->
-          <div class="analysis-loading" *ngIf="!analysisReady && !analysisUnavailable">
-            <div class="ai-animation">
-              <div class="pulse-ring"></div>
-              <div class="pulse-core">
-                <ion-icon name="sparkles-outline"></ion-icon>
+            <div class="plan-update-body">
+              <h3 class="plan-update-title">{{ planUpdate.title }}</h3>
+              <p class="plan-update-text">{{ planUpdate.body }}</p>
+              <div class="plan-update-actions">
+                <button type="button" class="plan-update-cta" (click)="onPlanUpdateCta()">{{ planUpdate.ctaLabel }}</button>
+                <button
+                  *ngIf="planUpdate.ctaAction !== 'dismiss'"
+                  type="button"
+                  class="plan-update-close"
+                  (click)="dismissPlanUpdate()"
+                  aria-label="Dismiss">
+                  <ion-icon name="close-outline"></ion-icon>
+                </button>
               </div>
             </div>
-            <h2>Analyzing your lesson</h2>
-            <p>Our AI is reviewing your session. This usually takes 10–30 seconds.</p>
-            <div class="progress-bar" *ngIf="pollCount > 0">
-              <div class="progress-fill" [style.width.%]="(pollCount / maxPollAttempts) * 100"></div>
+          </div>
+
+          <!-- Soft plan prompt -->
+          <div *ngIf="softPlanPrompt && !planUpdate" class="plan-update-card plan-update-card--info">
+            <div class="plan-update-icon" aria-hidden="true">
+              <ion-icon name="map-outline"></ion-icon>
+            </div>
+            <div class="plan-update-body">
+              <h3 class="plan-update-title">{{ softPlanPrompt.title }}</h3>
+              <p class="plan-update-text">{{ softPlanPrompt.body }}</p>
+              <div class="plan-update-actions">
+                <button type="button" class="plan-update-cta" (click)="onSoftPlanPromptAccept()">{{ softPlanPrompt.ctaLabel }}</button>
+                <button type="button" class="plan-update-close" (click)="onSoftPlanPromptDismiss()" aria-label="Dismiss">
+                  <ion-icon name="close-outline"></ion-icon>
+                </button>
+              </div>
             </div>
           </div>
 
-          <!-- Analysis Unavailable -->
-          <div class="analysis-unavailable" *ngIf="analysisUnavailable && !analysisReady">
-            <div class="unavailable-icon">
-              <ion-icon name="document-text-outline"></ion-icon>
-            </div>
-            <h2>No analysis available</h2>
-            <p>There wasn't enough speech captured during this lesson to generate an analysis.</p>
+          <div class="loading-skeleton" *ngIf="!lesson">
+            <ion-spinner name="crescent"></ion-spinner>
+            <p>{{ loadingLabel }}</p>
           </div>
-          
-          <!-- Analysis Ready -->
-          <div class="analysis-ready" *ngIf="analysisReady && analysis">
-            <div class="analysis-header">
-              <div class="check-badge">
-                <ion-icon name="checkmark"></ion-icon>
-              </div>
-              <h2>Your analysis is ready</h2>
-            </div>
-            
-            <!-- Quick Summary — qualitative-first by default. Raw scores are
-                 available on tap so the recap doesn't read like a graded test.
-                 Chips are pre-built in TS (no template function calls — see
-                 AGENTS.md). -->
-            <div class="quick-summary">
-              <div
-                class="summary-card"
-                *ngFor="let chip of quickSummaryChips"
-                [class.summary-card--strong]="chip.tone === 'strong'"
-                [class.summary-card--solid]="chip.tone === 'solid'"
-                [class.summary-card--building]="chip.tone === 'building'"
-                [class.summary-card--needs-work]="chip.tone === 'needs_work'">
-                <span class="summary-label">{{ chip.label }}</span>
-                <span class="summary-value">
-                  {{ showAnalysisDetails ? chip.detail : chip.qualitative }}
-                </span>
-              </div>
-            </div>
 
-            <!-- Quiet "Show details / Hide details" toggle. Lets the
-                 number-curious see the underlying signals without putting
-                 a percentage in front of every student. -->
+          <div class="plt-tutor-card" *ngIf="lesson && tutor">
+            <img class="plt-tutor-card__avatar" [src]="tutor.picture || 'assets/default-avatar.png'" [alt]="tutorDisplayName" />
+            <div class="plt-tutor-card__info">
+              <span class="plt-tutor-card__name">{{ tutorDisplayName }}</span>
+              <span class="plt-tutor-card__meta">{{ lesson.subject || lessonSubjectFallback }}</span>
+            </div>
+          </div>
+
+          <div class="pls-actions" *ngIf="lesson && tutor">
             <button
               type="button"
-              class="summary-detail-toggle"
-              (click)="toggleAnalysisDetails()"
-              [attr.aria-pressed]="showAnalysisDetails">
-              <ion-icon [name]="showAnalysisDetails ? 'eye-off-outline' : 'eye-outline'"></ion-icon>
-              <span>{{ showAnalysisDetails ? 'Hide scores' : 'Show scores' }}</span>
+              class="pls-action-btn pls-action-btn--primary pls-tip-trigger"
+              [class.pls-tip-trigger--hidden]="showTipSection"
+              (click)="toggleTipSection()"
+              *ngIf="!tipSubmitted && !isTrialLesson">
+              <ion-icon name="heart-outline"></ion-icon>
+              <span>{{ tipCtaLabel }}</span>
             </button>
 
-            <!-- View Full Analysis Button -->
-            <button class="action-btn primary full-width" (click)="viewFullAnalysis()">
-              <ion-icon name="analytics-outline"></ion-icon>
-              <span>View full analysis</span>
+            <div class="pls-tip-success" *ngIf="tipSubmitted">
+              <ion-icon name="checkmark-circle"></ion-icon>
+              <span>{{ tipSentLabel }}</span>
+            </div>
+
+            <button type="button" class="pls-action-btn pls-action-btn--secondary" (click)="leaveReview()" *ngIf="!isTrialLesson">
+              <ion-icon name="star-outline"></ion-icon>
+              <span>{{ reviewLabel }}</span>
             </button>
-            
-            <!-- Top Takeaways -->
-            <div class="takeaways" *ngIf="analysis.progressionMetrics?.keyImprovements?.length">
-              <h3>Key takeaways</h3>
-              <ul>
-                <li *ngFor="let improvement of analysis.progressionMetrics?.keyImprovements">
-                  {{ improvement }}
-                </li>
-              </ul>
+
+            <button type="button" class="pls-action-btn pls-action-btn--secondary" (click)="bookAgain()">
+              <ion-icon name="person-outline"></ion-icon>
+              <span>{{ seeProfileLabel }}</span>
+            </button>
+          </div>
+        </aside>
+
+        <!-- ── Right: rating flow, booking, analysis ── -->
+        <div class="plt-actions approval-split-main approval-split-main--scroll pls-right-panel" *ngIf="lesson && tutor">
+          <div class="plt-actions-scroll">
+
+            <!-- Step 1: How was your lesson? -->
+            <div class="pls-right-step" *ngIf="showLessonRatingOptions && currentRightPanelStep === 'rating'">
+              <div class="pls-rating-options">
+                <button
+                  type="button"
+                  class="pls-rating-option pls-rating-option--great"
+                  [class.pls-rating-option--selected]="selectedLessonRating === 'great'"
+                  (click)="selectLessonRating('great')">
+                  <ion-icon name="thumbs-up-outline" aria-hidden="true"></ion-icon>
+                  <span>{{ ratingGreatLabel }}</span>
+                </button>
+                <button
+                  type="button"
+                  class="pls-rating-option pls-rating-option--okay"
+                  [class.pls-rating-option--selected]="selectedLessonRating === 'okay'"
+                  (click)="selectLessonRating('okay')">
+                  <ion-icon name="happy-outline" aria-hidden="true"></ion-icon>
+                  <span>{{ ratingOkayLabel }}</span>
+                </button>
+                <button
+                  type="button"
+                  class="pls-rating-option pls-rating-option--bad"
+                  [class.pls-rating-option--selected]="selectedLessonRating === 'not_so_good'"
+                  (click)="selectLessonRating('not_so_good')">
+                  <ion-icon name="thumbs-down-outline" aria-hidden="true"></ion-icon>
+                  <span>{{ ratingNotGoodLabel }}</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Step: Sorry to hear that -->
+            <div class="pls-right-step" *ngIf="currentRightPanelStep === 'sorry'">
+              <div class="pls-sorry">
+                <div class="pls-sorry__icon">
+                  <ion-icon name="heart-dislike-outline" aria-hidden="true"></ion-icon>
+                </div>
+                <h2 class="pls-section-title">{{ sorryTitle }}</h2>
+                <p class="pls-section-sub">{{ sorryBody }}</p>
+                <div class="pls-sorry__actions">
+                  <button type="button" class="pls-action-btn pls-action-btn--primary" (click)="findNewTutors()">
+                    <ion-icon name="search-outline"></ion-icon>
+                    <span>{{ findNewTutorsLabel }}</span>
+                  </button>
+                  <button type="button" class="pls-action-btn pls-action-btn--secondary" (click)="giveTutorAnotherShot()">
+                    <ion-icon name="refresh-outline"></ion-icon>
+                    <span>{{ giveAnotherShotLabel }}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Availability: preload while rating/sorry, reveal on book step -->
+            <div
+              class="pls-availability-host"
+              *ngIf="tutor"
+              [class.pls-availability-host--active]="currentRightPanelStep === 'book'">
+              <div class="pls-trial-section" *ngIf="currentRightPanelStep === 'book'">
+                <h2 class="pls-section-title">{{ trialNextTitle }}</h2>
+                <p class="pls-section-sub">{{ trialNextSub }}</p>
+              </div>
+              <app-tutor-availability-viewer
+                [tutorId]="tutor._id"
+                [tutorName]="tutorDisplayName"
+                [inline]="true"
+                embedStyle="card">
+              </app-tutor-availability-viewer>
+            </div>
+
+            <!-- Step: Book your next lesson (+ analysis / vocab) -->
+            <div class="pls-right-step" *ngIf="currentRightPanelStep === 'book'">
+              <ng-container *ngIf="!isTrialLesson && aiAnalysisEnabled">
+                <div class="pls-analysis-loading" *ngIf="!analysisReady && !analysisUnavailable">
+                  <div class="pls-ai-animation">
+                    <div class="pls-pulse-ring"></div>
+                    <div class="pls-pulse-core">
+                      <ion-icon name="sparkles-outline"></ion-icon>
+                    </div>
+                  </div>
+                  <h2 class="pls-section-title">{{ analysisLoadingTitle }}</h2>
+                  <p class="pls-section-sub">{{ analysisLoadingSub }}</p>
+                  <div class="pls-progress-bar" *ngIf="pollCount > 0">
+                    <div class="pls-progress-fill" [style.width.%]="(pollCount / maxPollAttempts) * 100"></div>
+                  </div>
+                </div>
+
+                <div class="pls-analysis-unavailable" *ngIf="analysisUnavailable && !analysisReady">
+                  <div class="pls-unavailable-icon">
+                    <ion-icon name="document-text-outline"></ion-icon>
+                  </div>
+                  <h2 class="pls-section-title">{{ analysisUnavailableTitle }}</h2>
+                  <p class="pls-section-sub">{{ analysisUnavailableSub }}</p>
+                </div>
+
+                <div class="pls-analysis-ready" *ngIf="analysisReady && analysis">
+                  <div class="pls-analysis-header">
+                    <div class="pls-check-badge">
+                      <ion-icon name="checkmark"></ion-icon>
+                    </div>
+                    <h2 class="pls-section-title">{{ analysisReadyTitle }}</h2>
+                  </div>
+
+                  <div class="pls-quick-summary">
+                    <div
+                      class="pls-summary-card"
+                      *ngFor="let chip of quickSummaryChips"
+                      [class.pls-summary-card--strong]="chip.tone === 'strong'"
+                      [class.pls-summary-card--solid]="chip.tone === 'solid'"
+                      [class.pls-summary-card--building]="chip.tone === 'building'"
+                      [class.pls-summary-card--needs-work]="chip.tone === 'needs_work'">
+                      <span class="pls-summary-label">{{ chip.label }}</span>
+                      <span class="pls-summary-value">{{ showAnalysisDetails ? chip.detail : chip.qualitative }}</span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    class="pls-detail-toggle"
+                    (click)="toggleAnalysisDetails()"
+                    [attr.aria-pressed]="showAnalysisDetails">
+                    <ion-icon [name]="showAnalysisDetails ? 'eye-off-outline' : 'eye-outline'"></ion-icon>
+                    <span>{{ analysisDetailsToggleLabel }}</span>
+                  </button>
+
+                  <button type="button" class="pls-action-btn pls-action-btn--primary pls-action-btn--full" (click)="viewFullAnalysis()">
+                    <ion-icon name="analytics-outline"></ion-icon>
+                    <span>{{ viewFullAnalysisLabel }}</span>
+                  </button>
+
+                  <div class="pls-takeaways" *ngIf="analysis.progressionMetrics?.keyImprovements?.length">
+                    <h3>{{ takeawaysTitle }}</h3>
+                    <ul>
+                      <li *ngFor="let improvement of analysis.progressionMetrics?.keyImprovements">{{ improvement }}</li>
+                    </ul>
+                  </div>
+                </div>
+              </ng-container>
+
+              <div class="pls-vocab-goals" *ngIf="vocabItems.length > 0 || goalItems.length > 0">
+                <div class="pls-vocab-card" *ngIf="vocabItems.length > 0">
+                  <div class="pls-vocab-header">
+                    <div class="pls-vocab-header__title">
+                      <ion-icon name="book-outline"></ion-icon>
+                      <h3>{{ vocabSectionTitle }}</h3>
+                    </div>
+                    <span class="pls-vocab-count">{{ vocabCountLabel }}</span>
+                  </div>
+
+                  <div class="pls-vocab-list">
+                    <div *ngFor="let item of vocabItems; let i = index" class="pls-vocab-item" [class.pls-vocab-item--saved]="savedVocabIds.has(i)">
+                      <div class="pls-vocab-item__content">
+                        <span class="pls-vocab-word">{{ item.word }}</span>
+                        <span class="pls-vocab-arrow">→</span>
+                        <span class="pls-vocab-translation">{{ item.translation }}</span>
+                      </div>
+                      <p *ngIf="item.example" class="pls-vocab-example">"{{ item.example }}"</p>
+                      <button
+                        type="button"
+                        class="pls-vocab-save"
+                        [class.pls-vocab-save--saved]="savedVocabIds.has(i)"
+                        (click)="saveVocabToReviewDeck(item, i)"
+                        [disabled]="savingVocabIndex === i">
+                        <ion-icon [name]="savedVocabIds.has(i) ? 'bookmark' : 'bookmark-outline'"></ion-icon>
+                        <span>{{ savedVocabIds.has(i) ? savedToDeckLabel : saveToDeckLabel }}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    class="pls-save-all"
+                    (click)="saveAllVocabToReviewDeck()"
+                    *ngIf="vocabItems.length > 1 && savedVocabIds.size < vocabItems.length"
+                    [disabled]="savingAllVocab">
+                    <ion-icon name="bookmark-outline"></ion-icon>
+                    <span>{{ savingAllVocab ? savingAllLabel : saveAllLabel }}</span>
+                  </button>
+                </div>
+
+                <div class="pls-goals-card" *ngIf="goalItems.length > 0">
+                  <div class="pls-goals-header">
+                    <ion-icon name="flag-outline"></ion-icon>
+                    <h3>{{ goalsSectionTitle }}</h3>
+                  </div>
+                  <div class="pls-goals-list">
+                    <div *ngFor="let goal of goalItems" class="pls-goal-item" [class.pls-goal-item--completed]="goal.completed">
+                      <ion-icon [name]="goal.completed ? 'checkmark-circle' : 'ellipse-outline'" [color]="goal.completed ? 'success' : 'medium'"></ion-icon>
+                      <span>{{ goal.text }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-        </ng-container>
+
+          <footer class="pls-right-nav" *ngIf="showRightPanelStepNav">
+            <button
+              type="button"
+              class="pls-right-nav__btn pls-right-nav__btn--back"
+              (click)="rightPanelGoBack()">
+              <ion-icon name="chevron-back-outline" aria-hidden="true"></ion-icon>
+              <span>{{ stepBackLabel }}</span>
+            </button>
+          </footer>
+        </div>
       </div>
     </div>
 
-    <!-- Tip Overlay (morphs from button to center) -->
-    <div class="tip-overlay" [class.active]="showTipSection && !tipSubmitted" *ngIf="!isTrialLesson">
-      <div class="tip-overlay-backdrop" (click)="toggleTipSection()"></div>
-      <div class="tip-overlay-card">
-        <div class="tip-header-row">
-          <h3>Tip {{ tutorFirstName }}</h3>
-          <button class="tip-close-btn" (click)="toggleTipSection()">
+    <!-- Tip overlay -->
+    <div class="pls-tip-overlay" [class.pls-tip-overlay--active]="showTipSection && !tipSubmitted" *ngIf="!isTrialLesson">
+      <div class="pls-tip-backdrop" (click)="toggleTipSection()"></div>
+      <div class="pls-tip-card">
+        <div class="pls-tip-header">
+          <h3>{{ tipModalTitle }}</h3>
+          <button type="button" class="pls-tip-close" (click)="toggleTipSection()">
             <ion-icon name="close-outline"></ion-icon>
           </button>
         </div>
 
-        <div class="tip-chips">
-          <button 
-            class="tip-chip"
-            [class.selected]="selectedTipAmount === 5"
-            (click)="selectTipAmount(5)">$5</button>
-          <button 
-            class="tip-chip"
-            [class.selected]="selectedTipAmount === 10"
-            (click)="selectTipAmount(10)">$10</button>
-          <button 
-            class="tip-chip"
-            [class.selected]="selectedTipAmount === 15"
-            (click)="selectTipAmount(15)">$15</button>
+        <div class="pls-tip-chips">
+          <button type="button" class="pls-tip-chip" [class.pls-tip-chip--selected]="selectedTipAmount === 5" (click)="selectTipAmount(5)">$5</button>
+          <button type="button" class="pls-tip-chip" [class.pls-tip-chip--selected]="selectedTipAmount === 10" (click)="selectTipAmount(10)">$10</button>
+          <button type="button" class="pls-tip-chip" [class.pls-tip-chip--selected]="selectedTipAmount === 15" (click)="selectTipAmount(15)">$15</button>
         </div>
 
-        <div class="tip-custom">
-          <span class="currency-prefix">$</span>
-          <ion-input 
-            type="number" 
-            placeholder="Other amount"
+        <div class="pls-tip-custom">
+          <span class="pls-tip-custom__prefix">$</span>
+          <ion-input
+            type="number"
+            [placeholder]="tipCustomPlaceholder"
             [(ngModel)]="customTipAmount"
             (ionInput)="onCustomTipInput()"
             min="1"
@@ -298,164 +371,100 @@
           </ion-input>
         </div>
 
-        <div class="tip-payment-method" *ngIf="!loadingCards">
-          <div class="tip-pm-tabs" *ngIf="walletBalance > 0">
-            <button 
-              class="tip-pm-tab"
-              [class.active]="selectedTipPaymentMethod === 'wallet'"
-              (click)="selectedTipPaymentMethod = 'wallet'; showCardPicker = false">
+        <div class="pls-tip-payment" *ngIf="!loadingCards">
+          <div class="pls-tip-pm-tabs" *ngIf="walletBalance > 0">
+            <button type="button" class="pls-tip-pm-tab" [class.pls-tip-pm-tab--active]="selectedTipPaymentMethod === 'wallet'" (click)="selectedTipPaymentMethod = 'wallet'; showCardPicker = false">
               <ion-icon name="wallet-outline"></ion-icon>
-              Wallet
+              {{ walletTabLabel }}
             </button>
-            <button 
-              class="tip-pm-tab"
-              [class.active]="selectedTipPaymentMethod === 'card'"
-              (click)="selectedTipPaymentMethod = 'card'; showCardPicker = false">
+            <button type="button" class="pls-tip-pm-tab" [class.pls-tip-pm-tab--active]="selectedTipPaymentMethod === 'card'" (click)="selectedTipPaymentMethod = 'card'; showCardPicker = false">
               <ion-icon name="card-outline"></ion-icon>
-              Card
+              {{ cardTabLabel }}
             </button>
           </div>
 
-          <div class="tip-wallet-info" *ngIf="selectedTipPaymentMethod === 'wallet' && walletBalance > 0">
-            <div class="tip-wallet-row">
-              <ion-icon name="wallet" class="wallet-icon"></ion-icon>
-              <span class="wallet-label">Balance</span>
-              <span class="wallet-amount">${{ walletBalance.toFixed(2) }}</span>
+          <div class="pls-tip-wallet" *ngIf="selectedTipPaymentMethod === 'wallet' && walletBalance > 0">
+            <div class="pls-tip-wallet__row">
+              <ion-icon name="wallet" class="pls-tip-wallet__icon"></ion-icon>
+              <span class="pls-tip-wallet__label">{{ walletBalanceLabel }}</span>
+              <span class="pls-tip-wallet__amount">${{ walletBalance.toFixed(2) }}</span>
             </div>
-            <p class="wallet-note" *ngIf="tipAmount > 0 && walletBalance >= tipAmount">
-              No processing fees when paying from wallet.
-            </p>
-            <p class="wallet-note insufficient" *ngIf="tipAmount > 0 && walletBalance < tipAmount">
-              Insufficient balance. Switch to card or lower the amount.
-            </p>
+            <p class="pls-tip-wallet__note" *ngIf="tipAmount > 0 && walletBalance >= tipAmount">{{ walletNoFeeNote }}</p>
+            <p class="pls-tip-wallet__note pls-tip-wallet__note--warn" *ngIf="tipAmount > 0 && walletBalance < tipAmount">{{ walletInsufficientNote }}</p>
           </div>
 
           <ng-container *ngIf="selectedTipPaymentMethod === 'card' || walletBalance <= 0">
-            <div class="tip-pm-selected" *ngIf="savedCards.length > 0" (click)="showCardPicker = !showCardPicker">
+            <div class="pls-tip-pm-selected" *ngIf="savedCards.length > 0" (click)="showCardPicker = !showCardPicker">
               <ng-container *ngFor="let card of savedCards">
                 <ng-container *ngIf="selectedPaymentMethodId === card.stripePaymentMethodId">
-                  <div class="tip-pm-brand">
+                  <div class="pls-tip-pm-brand">
                     <img *ngIf="card.brand?.toLowerCase() === 'visa'" src="assets/card-brands/visa-logo.png" alt="Visa">
                     <img *ngIf="card.brand?.toLowerCase() === 'mastercard'" src="assets/card-brands/mastercard-logo.png" alt="Mastercard">
                     <img *ngIf="card.brand?.toLowerCase() === 'amex' || card.brand?.toLowerCase() === 'american express'" src="assets/card-brands/Amex_logo_color.png" alt="Amex">
                     <img *ngIf="card.brand?.toLowerCase() === 'discover'" src="assets/card-brands/discover-logo.png" alt="Discover">
                     <ion-icon name="card" *ngIf="!['visa', 'mastercard', 'amex', 'american express', 'discover'].includes(card.brand?.toLowerCase())"></ion-icon>
                   </div>
-                  <span class="tip-pm-info">{{ card.brand | titlecase }} •••• {{ card.last4 }}</span>
+                  <span class="pls-tip-pm-info">{{ card.brand | titlecase }} •••• {{ card.last4 }}</span>
                 </ng-container>
               </ng-container>
-              <span class="tip-pm-change">Change</span>
-              <ion-icon name="chevron-down-outline" class="tip-pm-chevron" [class.open]="showCardPicker"></ion-icon>
+              <span class="pls-tip-pm-change">{{ changeCardLabel }}</span>
+              <ion-icon name="chevron-down-outline" class="pls-tip-pm-chevron" [class.pls-tip-pm-chevron--open]="showCardPicker"></ion-icon>
             </div>
 
-            <div class="tip-pm-dropdown" *ngIf="showCardPicker && savedCards.length > 0">
-              <div 
+            <div class="pls-tip-pm-dropdown" *ngIf="showCardPicker && savedCards.length > 0">
+              <div
                 *ngFor="let card of savedCards"
-                class="tip-pm-option"
-                [class.selected]="selectedPaymentMethodId === card.stripePaymentMethodId"
+                class="pls-tip-pm-option"
+                [class.pls-tip-pm-option--selected]="selectedPaymentMethodId === card.stripePaymentMethodId"
                 (click)="selectPaymentMethod(card); showCardPicker = false">
-                <div class="tip-pm-brand">
+                <div class="pls-tip-pm-brand">
                   <img *ngIf="card.brand?.toLowerCase() === 'visa'" src="assets/card-brands/visa-logo.png" alt="Visa">
                   <img *ngIf="card.brand?.toLowerCase() === 'mastercard'" src="assets/card-brands/mastercard-logo.png" alt="Mastercard">
                   <img *ngIf="card.brand?.toLowerCase() === 'amex' || card.brand?.toLowerCase() === 'american express'" src="assets/card-brands/Amex_logo_color.png" alt="Amex">
                   <img *ngIf="card.brand?.toLowerCase() === 'discover'" src="assets/card-brands/discover-logo.png" alt="Discover">
                   <ion-icon name="card" *ngIf="!['visa', 'mastercard', 'amex', 'american express', 'discover'].includes(card.brand?.toLowerCase())"></ion-icon>
                 </div>
-                <span class="tip-pm-info">{{ card.brand | titlecase }} •••• {{ card.last4 }}</span>
-                <ion-icon name="checkmark-circle" class="tip-pm-check" *ngIf="selectedPaymentMethodId === card.stripePaymentMethodId"></ion-icon>
+                <span class="pls-tip-pm-info">{{ card.brand | titlecase }} •••• {{ card.last4 }}</span>
+                <ion-icon name="checkmark-circle" class="pls-tip-pm-check" *ngIf="selectedPaymentMethodId === card.stripePaymentMethodId"></ion-icon>
               </div>
-              <button class="tip-pm-add" (click)="openCardManagement(); showCardPicker = false">
+              <button type="button" class="pls-tip-pm-add" (click)="openCardManagement(); showCardPicker = false">
                 <ion-icon name="add-outline"></ion-icon>
-                Add new card
+                {{ addCardLabel }}
               </button>
             </div>
 
-            <button class="tip-add-card-btn" *ngIf="savedCards.length === 0" (click)="openCardManagement()">
+            <button type="button" class="pls-tip-add-card" *ngIf="savedCards.length === 0" (click)="openCardManagement()">
               <ion-icon name="add-circle-outline"></ion-icon>
-              <span>Add a card to tip</span>
+              <span>{{ addCardToTipLabel }}</span>
             </button>
 
-            <p class="card-fee-note" *ngIf="tipAmount > 0 && savedCards.length > 0">
+            <p class="pls-card-fee-note" *ngIf="tipAmount > 0 && savedCards.length > 0">
               <ion-icon name="information-circle-outline"></ion-icon>
-              <span>${{ cardProcessingFee.toFixed(2) }} processing fee ({{ cardFeeLabel }}). {{ tutorFirstName }} receives ${{ tutorReceivesAfterFee.toFixed(2) }}.</span>
+              <span>{{ cardFeeDetailNote }}</span>
             </p>
-            <p class="card-fee-note" *ngIf="tipAmount <= 0 && savedCards.length > 0">
+            <p class="pls-card-fee-note" *ngIf="tipAmount <= 0 && savedCards.length > 0">
               <ion-icon name="information-circle-outline"></ion-icon>
-              <span>A {{ cardFeeLabel }} processing fee applies to card payments.</span>
+              <span>{{ cardFeeGenericNote }}</span>
             </p>
           </ng-container>
         </div>
 
-        <div class="tip-pm-loading" *ngIf="loadingCards">
+        <div class="pls-tip-pm-loading" *ngIf="loadingCards">
           <ion-spinner name="crescent" color="medium"></ion-spinner>
         </div>
 
-        <button 
-          class="action-btn primary"
-          [disabled]="!tipAmount || submittingTip || 
-            (selectedTipPaymentMethod === 'wallet' && walletBalance < tipAmount) || 
+        <button
+          type="button"
+          class="pls-action-btn pls-action-btn--primary"
+          [disabled]="!tipAmount || submittingTip ||
+            (selectedTipPaymentMethod === 'wallet' && walletBalance < tipAmount) ||
             (selectedTipPaymentMethod === 'card' && !selectedPaymentMethodId && savedCards.length > 0)"
           (click)="submitTip()">
           <ion-spinner *ngIf="submittingTip" name="crescent"></ion-spinner>
-          <span *ngIf="!submittingTip">Send ${{ tipAmount }} tip</span>
+          <span *ngIf="!submittingTip">{{ tipSendButtonLabel }}</span>
         </button>
 
-        <p class="tip-footnote">100% goes to your tutor</p>
-      </div>
-    </div>
-    
-    <!-- VOCABULARY & GOALS SECTION (Below main card) -->
-    <div class="vocab-goals-section" *ngIf="vocabItems.length > 0 || goalItems.length > 0">
-      
-      <!-- Vocabulary Words -->
-      <div class="vocab-card" *ngIf="vocabItems.length > 0">
-        <div class="vocab-card-header">
-          <div class="vocab-card-title">
-            <ion-icon name="book-outline"></ion-icon>
-            <h3>Vocabulary from this lesson</h3>
-          </div>
-          <span class="vocab-count">{{ vocabItems.length }} {{ vocabItems.length === 1 ? 'word' : 'words' }}</span>
-        </div>
-        
-        <div class="vocab-list">
-          <div *ngFor="let item of vocabItems; let i = index" class="vocab-list-item" [class.saved]="savedVocabIds.has(i)">
-            <div class="vocab-item-content">
-              <span class="vocab-word">{{ item.word }}</span>
-              <span class="vocab-arrow">→</span>
-              <span class="vocab-translation">{{ item.translation }}</span>
-            </div>
-            <p *ngIf="item.example" class="vocab-example">"{{ item.example }}"</p>
-            <div class="vocab-item-actions">
-              <button 
-                class="vocab-save-btn" 
-                [class.saved]="savedVocabIds.has(i)"
-                (click)="saveVocabToReviewDeck(item, i)"
-                [disabled]="savingVocabIndex === i">
-                <ion-icon [name]="savedVocabIds.has(i) ? 'bookmark' : 'bookmark-outline'"></ion-icon>
-                <span>{{ savedVocabIds.has(i) ? 'Saved' : 'Save to deck' }}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-        
-        <button class="vocab-save-all-btn" (click)="saveAllVocabToReviewDeck()" *ngIf="vocabItems.length > 1 && savedVocabIds.size < vocabItems.length" [disabled]="savingAllVocab">
-          <ion-icon name="bookmark-outline"></ion-icon>
-          <span>{{ savingAllVocab ? 'Saving...' : 'Save all to Review Deck' }}</span>
-        </button>
-      </div>
-      
-      <!-- Lesson Goals -->
-      <div class="goals-card" *ngIf="goalItems.length > 0">
-        <div class="goals-card-header">
-          <ion-icon name="flag-outline"></ion-icon>
-          <h3>Lesson goals</h3>
-        </div>
-        <div class="goals-list">
-          <div *ngFor="let goal of goalItems" class="goal-item" [class.completed]="goal.completed">
-            <ion-icon [name]="goal.completed ? 'checkmark-circle' : 'ellipse-outline'" [color]="goal.completed ? 'success' : 'medium'"></ion-icon>
-            <span>{{ goal.text }}</span>
-          </div>
-        </div>
+        <p class="pls-tip-footnote">{{ tipFootnote }}</p>
       </div>
     </div>
   </div>

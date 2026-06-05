@@ -36,6 +36,8 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
   @Input() tutorName!: string;
   // When true, render as an inline section (no modal chrome)
   @Input() inline = false;
+  /** Embedded card styling for post-lesson and similar compact hosts */
+  @Input() embedStyle: 'default' | 'card' = 'default';
   // Trigger refresh when this value changes
   @Input() refreshTrigger: number = 0;
   // Current user's auth0Id - if this matches tutor's auth0Id, disable slot selection
@@ -72,6 +74,8 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
   private rawBookedLessons: any[] = [];
   
   daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  readonly skeletonDays = [0, 1, 2, 3, 4, 5, 6];
+  readonly skeletonSlots = [0, 1, 2, 3, 4, 5];
   timeSlots: string[] = [];
   timeLabels: string[] = [];
   weekDates: Date[] = [];
@@ -133,6 +137,10 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
     
     return `${firstName} ${lastInitial}.`;
   }
+
+  get isCardEmbed(): boolean {
+    return this.inline && this.embedStyle === 'card';
+  }
   
   constructor(
     private userService: UserService,
@@ -179,7 +187,7 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
     
     // Check if this would be a trial lesson (only for students viewing tutor availability)
     // Wait for user to load first to ensure auth headers are available
-    if (this.showDurationSelector && !this.currentUserIsTutor) {
+    if ((this.showDurationSelector || this.embedStyle === 'card') && !this.currentUserIsTutor) {
       this.ensureUserLoadedThenCheckTrial();
     }
     
