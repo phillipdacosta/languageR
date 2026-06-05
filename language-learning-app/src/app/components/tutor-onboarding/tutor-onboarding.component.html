@@ -741,18 +741,22 @@
                 </div>
               </div>
 
-              <div class="approval-split-main" [class.approval-split-main--form]="!approvalStatus?.stripeComplete">
+              <div
+                class="approval-split-main"
+                [class.approval-split-main--form]="!approvalStatus?.stripeComplete"
+                [class.approval-split-main--payout-connected]="approvalStatus?.stripeComplete">
                 <div class="approval-split-main-inner">
             <!-- Already completed state -->
             <ng-container *ngIf="approvalStatus?.stripeComplete">
-              <div class="profile-payout-panel">
+              <div class="profile-payout-panel profile-payout-panel--wizard-connected">
               <div *ngIf="currentUser?.payoutProvider === 'stripe'" class="profile-payout-provider tutor-approval-step-pane--sub">
-                <app-stripe-connect-card [connected]="true"></app-stripe-connect-card>
+                <app-stripe-connect-card [connected]="true" [connectedHeroLayout]="true"></app-stripe-connect-card>
               </div>
 
               <div *ngIf="currentUser?.payoutProvider === 'paypal'" class="profile-payout-provider tutor-approval-step-pane--sub">
                 <app-paypal-connect-card
                   [connected]="true"
+                  [connectedHeroLayout]="true"
                   [connectedEmail]="currentUser?.payoutDetails?.paypalEmail || ''"
                   (editEmailClick)="startEditPayoutEmail()">
                 </app-paypal-connect-card>
@@ -949,7 +953,9 @@
                 </div>
               </div>
 
-              <div class="tos-step-upload approval-split-main approval-split-main--scroll">
+              <div
+                class="tos-step-upload approval-split-main approval-split-main--scroll"
+                [class.tos-step-upload--completed]="tosStepCompleted">
                 <div class="tos-step-upload-inner">
                   <div *ngIf="tosStepCompleted" class="tos-success-card">
                     <div class="tos-success-card__visual" aria-hidden="true">
@@ -1024,25 +1030,25 @@
                           <p>{{ 'TUTOR_APPROVAL.TOS_CLAUSE_6_BODY' | translate }}</p>
                         </div>
                       </div>
-                    </div>
 
-                    <div class="tos-accept-card" [class.tos-accept-card--checked]="tosChecked">
-                      <label class="tos-checkbox-label">
-                        <input type="checkbox" [(ngModel)]="tosChecked" class="tos-checkbox-input">
-                        <span class="tos-checkmark"></span>
-                        <span class="tos-label-text">{{ 'TUTOR_APPROVAL.TOS_CHECKBOX_LABEL' | translate }}</span>
-                      </label>
-                    </div>
+                      <div class="tos-accept-card" [class.tos-accept-card--checked]="tosChecked">
+                        <label class="tos-checkbox-label">
+                          <input type="checkbox" [(ngModel)]="tosChecked" class="tos-checkbox-input">
+                          <span class="tos-checkmark"></span>
+                          <span class="tos-label-text">{{ 'TUTOR_APPROVAL.TOS_CHECKBOX_LABEL' | translate }}</span>
+                        </label>
+                      </div>
 
-                    <div class="tos-panel-footer">
-                      <button
-                        type="button"
-                        class="tos-accept-cta"
-                        [disabled]="!tosChecked || isAcceptingTos"
-                        (click)="acceptTos()">
-                        <ion-icon name="shield-checkmark-outline" aria-hidden="true"></ion-icon>
-                        <span>{{ 'TUTOR_APPROVAL.TOS_ACCEPT_BUTTON' | translate }}</span>
-                      </button>
+                      <div class="tos-panel-footer">
+                        <button
+                          type="button"
+                          class="tos-accept-cta"
+                          [disabled]="!tosChecked || isAcceptingTos"
+                          (click)="acceptTos()">
+                          <ion-icon name="shield-checkmark-outline" aria-hidden="true"></ion-icon>
+                          <span>{{ 'TUTOR_APPROVAL.TOS_ACCEPT_BUTTON' | translate }}</span>
+                        </button>
+                      </div>
                     </div>
                   </section>
                 </div>

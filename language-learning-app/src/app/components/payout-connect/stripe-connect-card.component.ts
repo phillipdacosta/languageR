@@ -23,6 +23,7 @@ export class StripeConnectCardComponent {
   @Input() showSecondaryAction = false;
   @Input() secondaryActionLabelKey = '';
   @Input() compactLayout = false;
+  @Input() connectedHeroLayout = false;
 
   @Output() connectClick = new EventEmitter<void>();
   @Output() editTaxInfoClick = new EventEmitter<void>();

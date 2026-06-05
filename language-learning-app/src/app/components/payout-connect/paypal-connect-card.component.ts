@@ -30,6 +30,7 @@ export class PaypalConnectCardComponent {
   @Input() showSecondaryAction = false;
   @Input() secondaryActionLabelKey = '';
   @Input() compactLayout = false;
+  @Input() connectedHeroLayout = false;
 
   @Output() connectClick = new EventEmitter<void>();
   @Output() emailChange = new EventEmitter<string>();

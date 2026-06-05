@@ -651,6 +651,80 @@
   }
 }
 
+// Tutor approval wizard — connected payout success (larger hero card)
+.stripe-connect-card--hero.stripe-connect-card--connected,
+.paypal-connect-card--hero.paypal-connect-card--connected {
+  width: 100%;
+  max-width: min(520px, 100%);
+  min-height: 300px;
+  padding: 44px 36px 40px;
+  border-radius: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  @media (min-width: 768px) {
+    min-height: 320px;
+    padding: 52px 44px 48px;
+  }
+
+  .stripe-connect-card__connected-badge,
+  .paypal-connect-card__connected-badge {
+    margin: 24px 0 12px;
+    font-size: 17px;
+
+    ion-icon {
+      font-size: 26px;
+    }
+  }
+
+  .stripe-connect-card__connected-desc,
+  .paypal-connect-card__connected-desc {
+    margin: 0;
+    max-width: 340px;
+    font-size: 15px;
+    line-height: 1.5;
+  }
+}
+
+.stripe-connect-card--hero.stripe-connect-card--connected {
+  .stripe-connect-card__logo {
+    height: 34px;
+  }
+}
+
+.paypal-connect-card--hero.paypal-connect-card--connected {
+  .paypal-connect-card__logo {
+    height: 38px;
+  }
+}
+
+.profile-payout-panel--wizard-connected {
+  width: 100%;
+  max-width: min(520px, 100%);
+  margin-inline: auto;
+  padding: 0;
+}
+
+.approval-split-main--payout-connected {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+
+  .approval-split-main-inner,
+  .profile-payout-panel--wizard-connected,
+  .profile-payout-provider {
+    width: 100%;
+    max-width: min(520px, 100%);
+    margin-inline: auto;
+  }
+
+  .profile-payout-panel--wizard-connected {
+    padding: 0;
+  }
+}
+
 html.ion-palette-dark {
   .stripe-connect-card,
   .paypal-connect-card {

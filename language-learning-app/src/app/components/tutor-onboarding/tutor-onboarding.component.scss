@@ -844,6 +844,7 @@ $ob-wizard-cta-uniform-width: min(22.5rem, calc(100% - 16px));
       overflow: hidden;
     }
   }
+
 }
 
 :host .tutor-approval-wizard.tutor-approval-wizard--wide-content {
@@ -1769,7 +1770,7 @@ $ob-wizard-cta-uniform-width: min(22.5rem, calc(100% - 16px));
 
   .photo-needs__examples {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 10px;
     margin: 0 0 24px;
     flex-shrink: 0;
@@ -3047,10 +3048,10 @@ $ob-wizard-cta-uniform-width: min(22.5rem, calc(100% - 16px));
     align-items: center;
     justify-content: center;
     gap: 8px;
-    width: 100%;
-    max-width: 100%;
+    width: auto;
+    max-width: min(100%, 280px);
     min-height: 44px;
-    padding: 10px 18px;
+    padding: 10px 22px;
     border: none;
     border-radius: 12px;
     background: #000000;
@@ -3275,11 +3276,20 @@ $ob-wizard-cta-uniform-width: min(22.5rem, calc(100% - 16px));
     min-height: 0;
     max-height: none;
     overflow-y: auto;
-    padding: 4px 2px 4px 0;
+    padding: 4px 2px 12px 0;
     margin: 0;
     background: transparent;
     border: none;
     border-radius: 0;
+
+    .tos-accept-card {
+      margin-top: 20px;
+    }
+
+    .tos-panel-footer {
+      margin-top: 12px;
+      padding-top: 0;
+    }
 
     &::-webkit-scrollbar {
       width: 6px;
@@ -3431,9 +3441,10 @@ $ob-wizard-cta-uniform-width: min(22.5rem, calc(100% - 16px));
     align-items: center;
     justify-content: center;
     gap: 8px;
-    width: 100%;
+    width: auto;
+    max-width: min(100%, 280px);
     min-height: 44px;
-    padding: 10px 18px;
+    padding: 10px 22px;
     border: none;
     border-radius: 12px;
     background: #000000;
@@ -5416,7 +5427,29 @@ ion-button.credential-cta {
     }
   }
 
-  .photo-step-upload-inner,
+  .photo-step-upload-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+
+    @media (min-width: 768px) {
+      position: static;
+      transform: none;
+      flex: 1 1 auto;
+      min-height: 0;
+      height: 100%;
+      width: 100%;
+      max-width: min(400px, 100%);
+      margin-inline: auto;
+      overflow: hidden;
+      justify-content: space-between;
+      gap: 46px;
+      padding-inline: 0;
+      box-sizing: border-box;
+    }
+  }
+
   .identity-step-upload-inner {
     display: flex;
     flex-direction: column;
@@ -5440,8 +5473,18 @@ ion-button.credential-cta {
     }
   }
 
-  .photo-step-upload.approval-split-main,
-  .identity-step-upload.approval-split-main {
+  .photo-step-upload.approval-split-main {
+    @media (min-width: 768px) {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 0;
+      height: 100%;
+    }
+  }
+
+  .identity-step-upload.approval-split-main,
+  .tos-step-upload.approval-split-main {
     @media (min-width: 768px) {
       display: flex;
       flex-direction: column;
@@ -5496,6 +5539,44 @@ ion-button.credential-cta {
     width: $ob-wizard-cta-uniform-width;
     max-width: calc(100% - 16px);
     margin-inline: auto;
+  }
+
+  .tos-step-layout.approval-split-layout {
+    @media (min-width: 768px) {
+      min-height: min(460px, calc(100dvh - 128px));
+      max-height: calc(100dvh - 128px);
+    }
+  }
+
+  // TOS accepted — center success card in column 2 (last in cascade)
+  .tos-step-upload.approval-split-main.approval-split-main--scroll.tos-step-upload--completed {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: 100%;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+
+    @media (min-width: 768px) {
+      align-self: stretch;
+    }
+
+    .tos-step-upload-inner {
+      display: grid;
+      place-items: center;
+      width: 100%;
+      height: 100%;
+      max-width: min(640px, 100%);
+      margin-inline: auto;
+      flex: none;
+      overflow: visible;
+    }
+
+    .tos-success-card {
+      width: min(480px, calc(100% - 32px));
+      max-width: 480px;
+      margin: 0;
+    }
   }
 }
 

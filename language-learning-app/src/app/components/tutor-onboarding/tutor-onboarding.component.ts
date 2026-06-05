@@ -85,7 +85,6 @@ export class TutorOnboardingComponent implements OnInit {
   readonly photoExampleAvatars = [
     'assets/tutor-approval/photo-example-1.png',
     'assets/tutor-approval/photo-example-2.png',
-    'assets/tutor-approval/photo-example-3.png',
     'assets/tutor-approval/photo-example-4.png',
   ];
 
