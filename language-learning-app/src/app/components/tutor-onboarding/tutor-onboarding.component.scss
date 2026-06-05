@@ -1733,30 +1733,6 @@ $ob-wizard-cta-uniform-width: min(22.5rem, calc(100% - 16px));
     }
   }
 
-  .photo-needs__title,
-  .video-requirements__title {
-    margin: 0 0 20px;
-    font-size: 22px;
-    font-weight: 700;
-    color: $ob-text-primary;
-    letter-spacing: -0.3px;
-    line-height: 1.2;
-    flex-shrink: 0;
-
-    @media (max-width: 767px) {
-      font-size: 20px;
-      margin-bottom: 16px;
-    }
-  }
-
-  .photo-needs__title {
-    margin-bottom: 16px;
-
-    @media (max-width: 767px) {
-      margin-bottom: 14px;
-    }
-  }
-
   .video-requirements__summary {
     margin: 0 0 18px;
     padding: 12px 14px;
