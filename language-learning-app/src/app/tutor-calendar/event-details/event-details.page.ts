@@ -1,5 +1,6 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { Location } from '@angular/common';
 import { IonicModule, ModalController, ToastController, LoadingController, ViewWillEnter, ViewDidEnter } from '@ionic/angular';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -121,7 +122,7 @@ type RecommendedMaterialDisplay = TutorMaterial & {
   templateUrl: './event-details.page.html',
   styleUrls: ['./event-details.page.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule, SharedModule, TranslateModule, CancelReasonModalComponent, ConfirmActionModalComponent, RescheduleLessonModalComponent, ClassAttendeesComponent, ClassInvitationModalComponent, ClassGoingMessageModalComponent]
+  imports: [CommonModule, FormsModule, IonicModule, SharedModule, TranslateModule, CancelReasonModalComponent, ConfirmActionModalComponent, RescheduleLessonModalComponent, ClassAttendeesComponent, ClassInvitationModalComponent, ClassGoingMessageModalComponent]
 })
 export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewDidEnter {
   /** When presented as a modal, the caller passes the event ID directly */
@@ -215,6 +216,17 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   edPlanAgenda: string[] = [];
   edPlanMetaLine = '';
   edPlanTopicChips: string[] = [];
+  // Tutor-only advisory caption: frames the focus as a suggestion tied to the
+  // student's goal, with an explicit "adapt it" autonomy clause so the
+  // recommendation never reads as a directive.
+  edPlanAdvisoryNote = '';
+  // Inline focus editor — lets a tutor adjust the next-lesson focus from the
+  // lesson card at any time (not just immediately post-lesson). Writes the
+  // tutor's own focus lane via the adjust_focus override.
+  edCanEditFocus = false;
+  edFocusEditing = false;
+  edFocusDraft = '';
+  edFocusSaving = false;
   edPlanEyebrowKey = 'EVENT_DETAILS.LESSON_SCREEN.LESSON_OBJECTIVE';
   // Trial / first-pairing calibration framing. A brand-new pair's trial is a
   // meet-and-greet to gauge level — not a plan checkpoint — so the objective
@@ -231,6 +243,8 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   showTutorPrivateNotes = false;
   edHasPlan = false;
   private edPlanSummary: LearningPlanSummary | null = null;
+  /** Last fetched plan summaries — persisted in detail cache for instant reload. */
+  private cachedPlanSummaries: LearningPlanSummary[] = [];
 
   // Pre-lesson briefing (tutor only) — populated alongside plan summary.
   // Combines plan + latest analysis + a short deterministic agenda.
@@ -290,6 +304,11 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   // Analysis display
   hasAnalysis = false;
   analysisUnavailable = false;
+
+  /** Trial lessons never get AI analysis — suppress unavailable messaging. */
+  get isTrialLessonEvent(): boolean {
+    return !!this.lesson?.isTrialLesson;
+  }
   isAiAnalysis = false;     // true = AI-generated, false = tutor-sourced
   analysisLabel = 'Analysis'; // Dynamic section label
   hasTutorNote = false;
@@ -460,8 +479,11 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   // Countdown
   private countdownInterval: any;
   private pendingRequests = 0;
+  private silentPendingRequests = 0;
   /** True while a background cache-revalidation is running — suppresses loading flips. */
   private isRevalidating = false;
+  /** Skip background revalidate when cache was written recently (avoids flicker). */
+  private static readonly REVALIDATE_MIN_AGE_MS = 20_000;
 
   private get userTz(): string | undefined {
     return this.currentUser?.profile?.timezone || undefined;
@@ -786,6 +808,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     this.applyMockLearningPlanContext(id);
     this.refreshNotesPresentation();
     this.capturePageOriginals();
+    this.markDetailCacheReady();
 
     this.loading = false;
     this.startCountdown();
@@ -851,23 +874,30 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       return;
     }
 
-    // Stale-while-revalidate: hydrate from cache (skip skeleton), then refetch.
+    // Ready cache → paint immediately (memory or sessionStorage), then revalidate quietly.
     const cached = this.lessonService.getCachedLessonDetail(this.eventId);
-    if (cached?.lesson || cached?.classData) {
+    if (cached?.detailReady && (cached.lesson || cached.classData)) {
       this.hydrateFromCache(cached);
-      this.revalidateFromServer();
+      const cacheAge = Date.now() - (cached.cachedAt || 0);
+      if (cacheAge > EventDetailsPage.REVALIDATE_MIN_AGE_MS) {
+        this.revalidateFromServer();
+      }
       return;
     }
 
     this.loading = true;
-    this.fetchLessonDetail(/* silent */ false);
+    this.fetchLessonDetail(false);
   }
 
-  /** Background revalidate after a cache hit — never flips `loading` back on. */
+  /** Background refresh after a ready cache hit — never flips `loading` back on. */
   private revalidateFromServer() {
     if (!this.eventId || this.isRevalidating) return;
     this.isRevalidating = true;
-    this.fetchLessonDetail(true);
+    if (this.isClass) {
+      this.loadClassDetails(true);
+    } else {
+      this.fetchLessonDetail(true);
+    }
   }
 
   private fetchLessonDetail(silent: boolean) {
@@ -922,7 +952,6 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
 
           this.loadAdditionalData(silent);
           if (!silent) this.startCountdown();
-          if (silent) this.isRevalidating = false;
         } else {
           this.loadClassDetails(silent);
         }
@@ -933,7 +962,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     });
   }
 
-  /** Sync-hydrate the view from a cached bundle so no skeleton is rendered. */
+  /** Hydrate the full view from a ready cache bundle (no skeleton). */
   private hydrateFromCache(cached: CachedLessonDetailBundle) {
     if (cached.classData) {
       this.classData = cached.classData;
@@ -965,7 +994,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
         this.analysisData = cached.analysis;
         this.computeAnalysisProperties();
       }
-      if (cached.analysisUnavailable) {
+      if (cached.analysisUnavailable && !this.isTrialLessonEvent) {
         this.analysisUnavailable = true;
       }
       if (cached.feedback) {
@@ -1005,6 +1034,24 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
         this.hasRecommendations = true;
       }
 
+      if (cached.planSummaries?.length) {
+        this.cachedPlanSummaries = cached.planSummaries as LearningPlanSummary[];
+        const lessonLanguage =
+          String(cached.lesson?.language || cached.lesson?.subject || '').trim();
+        const summary = this.pickPlanSummaryForLesson(this.cachedPlanSummaries, lessonLanguage);
+        if (summary) {
+          this.applyPlanSummary(summary);
+        } else {
+          this.refreshPlanPresentation();
+        }
+      } else {
+        this.refreshPlanPresentation();
+      }
+
+      if (cached.lessonPrep && this.isTutorUser) {
+        this.applyLessonPrep(cached.lessonPrep);
+      }
+
       this.computeFeedbackStatus();
       this.resolveSidebarNotes();
       this.refreshNotesPresentation();
@@ -1014,6 +1061,15 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     this.startCountdown();
     this.flipTransition.cleanup();
     this.cdr.detectChanges();
+  }
+
+  private markDetailCacheReady(): void {
+    if (!this.eventId) return;
+    this.lessonService.updateCachedLessonDetail(this.eventId, {
+      detailReady: true,
+      planSummaries: this.cachedPlanSummaries,
+      lessonPrep: this.edPrep,
+    });
   }
 
   loadClassDetails(silent = false) {
@@ -1035,6 +1091,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
             lesson: null,
             classData: this.classData,
             isClass: true,
+            detailReady: true,
           });
           this.ensureClassRoomSubscription(this.eventId!);
           if (silent) this.isRevalidating = false;
@@ -1058,18 +1115,26 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     });
   }
 
+  private initPendingRequestCount(): number {
+    let count = 6; // analysis + feedback + billing + payment + previous notes + plan
+    if (this.isStudentUser) count++; // payment method
+    const prepLanguage =
+      String((this.lesson as any)?.language || (this.lesson as any)?.subject || '').trim();
+    if (prepLanguage) count++; // lesson prep
+    return count;
+  }
+
   private loadAdditionalData(silent = false) {
     if (!this.eventId || !this.lesson) {
       if (!silent) this.loading = false;
       return;
     }
 
-    if (!silent) {
-      // Track all pending requests — skeleton stays until everything resolves
-      this.pendingRequests = 5; // analysis + feedback + billing + payment + previous notes
-      if (this.isStudentUser) {
-        this.pendingRequests++; // + payment method
-      }
+    const pendingCount = this.initPendingRequestCount();
+    if (silent) {
+      this.silentPendingRequests = pendingCount;
+    } else {
+      this.pendingRequests = pendingCount;
 
       this.hasPreviousNotes = false;
       this.previousNotesData = null;
@@ -1087,38 +1152,45 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       this.sidebarNotesTranslationCache = null;
     }
 
-    this.loadLearningPlanContext();
+    this.loadLearningPlanContext(silent);
 
-    // Load analysis
-    if (!silent) this.analysisLoading = true;
-    const headers = this.userService.getAuthHeadersSync();
-    this.http.get<any>(
-      `${environment.backendUrl}/api/transcription/lesson/${this.eventId}/analysis`,
-      { headers }
-    ).subscribe({
-      next: (res) => {
-        if (res.success && res.analysis) {
-          this.analysisData = res.analysis;
-          this.computeAnalysisProperties();
-          this.lessonService.updateCachedLessonDetail(this.eventId!, { analysis: res.analysis });
-        } else if (this.isLessonCompleted) {
-          this.analysisUnavailable = true;
-          this.lessonService.updateCachedLessonDetail(this.eventId!, { analysisUnavailable: true });
+    // Trial lessons skip AI analysis entirely — no unavailable state.
+    if (this.isTrialLessonEvent) {
+      this.analysisUnavailable = false;
+      this.analysisLoading = false;
+      this.refreshNotesPresentation();
+      this.onRequestComplete(silent);
+    } else {
+      if (!silent) this.analysisLoading = true;
+      const headers = this.userService.getAuthHeadersSync();
+      this.http.get<any>(
+        `${environment.backendUrl}/api/transcription/lesson/${this.eventId}/analysis`,
+        { headers }
+      ).subscribe({
+        next: (res) => {
+          if (res.success && res.analysis) {
+            this.analysisData = res.analysis;
+            this.computeAnalysisProperties();
+            this.lessonService.updateCachedLessonDetail(this.eventId!, { analysis: res.analysis });
+          } else if (this.isLessonCompleted) {
+            this.analysisUnavailable = true;
+            this.lessonService.updateCachedLessonDetail(this.eventId!, { analysisUnavailable: true });
+          }
+          this.refreshNotesPresentation();
+          if (!silent) this.analysisLoading = false;
+          this.onRequestComplete(silent);
+        },
+        error: (err: any) => {
+          if (err?.error?.status === 'unavailable' || this.isLessonCompleted) {
+            this.analysisUnavailable = true;
+            this.lessonService.updateCachedLessonDetail(this.eventId!, { analysisUnavailable: true });
+          }
+          this.refreshNotesPresentation();
+          if (!silent) this.analysisLoading = false;
+          this.onRequestComplete(silent);
         }
-        this.refreshNotesPresentation();
-        if (!silent) this.analysisLoading = false;
-        this.onRequestComplete(silent);
-      },
-      error: (err: any) => {
-        if (err?.error?.status === 'unavailable' || this.isLessonCompleted) {
-          this.analysisUnavailable = true;
-          this.lessonService.updateCachedLessonDetail(this.eventId!, { analysisUnavailable: true });
-        }
-        this.refreshNotesPresentation();
-        if (!silent) this.analysisLoading = false;
-        this.onRequestComplete(silent);
-      }
-    });
+      });
+    }
 
     // Load tutor feedback
     if (!silent) this.feedbackLoading = true;
@@ -1290,16 +1362,16 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
    */
   private onRequestComplete(silent = false) {
     if (silent) {
-      // refresh derived projections in case analysis/feedback/previousNotes changed
+      this.silentPendingRequests--;
+      if (this.silentPendingRequests > 0) return;
+
       this.computeFeedbackStatus();
       this.resolveSidebarNotes();
       this.refreshNotesPresentation();
+      this.markDetailCacheReady();
       this.capturePageOriginals();
-      this.cdr.detectChanges();
-      // the initial counter isn't maintained in silent mode; flag flips off
-      // opportunistically — any in-flight callbacks are safe because each one
-      // sets it independently.
       this.isRevalidating = false;
+      this.cdr.detectChanges();
       return;
     }
 
@@ -1308,6 +1380,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       this.computeFeedbackStatus();
       this.resolveSidebarNotes();
       this.refreshNotesPresentation();
+      this.markDetailCacheReady();
       this.capturePageOriginals();
       this.loading = false;
       this.cdr.detectChanges();
@@ -2298,6 +2371,21 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     return userId ? String(userId) : null;
   }
 
+  /** The lesson's tutor id (tutor viewing = self; student viewing = lesson.tutorId). */
+  private resolveLessonTutorId(): string | undefined {
+    if (this.isTutorUser) {
+      const selfId = (this.currentUser as any)?._id || this.currentUser?.id;
+      return selfId ? String(selfId) : undefined;
+    }
+    const lessonTutor = (this.lesson as any)?.tutorId;
+    if (lessonTutor) {
+      return typeof lessonTutor === 'object'
+        ? String(lessonTutor._id || lessonTutor.id || '') || undefined
+        : String(lessonTutor);
+    }
+    return undefined;
+  }
+
   private pickPlanSummaryForLesson(
     summaries: LearningPlanSummary[],
     lessonLanguage: string
@@ -2368,6 +2456,13 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     this.capturePageOriginals();
   }
 
+  private finishEdPlanLoad(silent = false): void {
+    if (!silent) {
+      this.onRequestComplete(silent);
+    }
+    this.cdr.detectChanges();
+  }
+
   private resetPlanContext(): void {
     this.edPlanSummary = null;
     this.edPlanGoalLabel = '';
@@ -2379,6 +2474,11 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     this.edPlanAgenda = [];
     this.edPlanMetaLine = '';
     this.edPlanTopicChips = [];
+    this.edPlanAdvisoryNote = '';
+    this.edCanEditFocus = false;
+    this.edFocusEditing = false;
+    this.edFocusDraft = '';
+    this.edFocusSaving = false;
     this.edPlanEyebrowKey = 'EVENT_DETAILS.LESSON_SCREEN.LESSON_OBJECTIVE';
     this.edPlanIsTrial = false;
     this.edPlanTrialBody = '';
@@ -2390,7 +2490,20 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   }
 
   private refreshPlanPresentation(): void {
-    if (!this.edHasPlan) return;
+    // Trial framing can apply before a plan summary exists.
+    this.edPlanIsTrial = !this.isLessonCompleted && !!this.lesson?.isTrialLesson;
+    if (this.edPlanIsTrial && !this.edHasPlan) {
+      const other = this.isTutorUser ? this.lesson?.studentId : this.lesson?.tutorId;
+      const displayName = this.participantName || (other ? this.formatPersonName(other) : '');
+      this.edPlanTrialBody = this.isTutorUser
+        ? this.translate.instant('EVENT_DETAILS.LESSON_SCREEN.TRIAL_OBJECTIVE_TUTOR', { name: displayName })
+        : this.translate.instant('EVENT_DETAILS.LESSON_SCREEN.TRIAL_OBJECTIVE_STUDENT');
+      return;
+    }
+
+    if (!this.edHasPlan) {
+      return;
+    }
 
     this.edPlanMetaLine = this.buildPlanMetaLine();
 
@@ -2402,6 +2515,29 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       this.edPlanEyebrowKey = this.isLessonCompleted
         ? 'EVENT_DETAILS.LESSON_SCREEN.PLAN_TUTOR_NEXT'
         : 'EVENT_DETAILS.LESSON_SCREEN.PLAN_TUTOR_THIS';
+    }
+
+    // Advisory autonomy note — tutors only, and never on trials (which have
+    // their own calibration framing). Keeps the same recommended topics but
+    // signals the tutor is free to adapt.
+    if (this.isTutorUser && !this.lesson?.isTrialLesson) {
+      const name = this.participantName?.split(' ')[0] || '';
+      this.edPlanAdvisoryNote = name
+        ? this.translate.instant('EVENT_DETAILS.LESSON_SCREEN.PLAN_TUTOR_ADVISORY_NAMED', { name })
+        : this.translate.instant('EVENT_DETAILS.LESSON_SCREEN.PLAN_TUTOR_ADVISORY');
+    } else {
+      this.edPlanAdvisoryNote = '';
+    }
+
+    // Tutors can fine-tune the focus inline from the card (any time). Not on
+    // trials (calibration framing). The adjust_focus override only accepts
+    // active/mastery_mode plans, so don't offer it on a draft (pre-first-lesson)
+    // plan where the save would 404.
+    const planStatus = this.edPlanSummary?.status || '';
+    const planAcceptsOverride = planStatus === 'active' || planStatus === 'mastery_mode';
+    this.edCanEditFocus = this.isTutorUser && !this.lesson?.isTrialLesson && planAcceptsOverride;
+    if (!this.edCanEditFocus) {
+      this.edFocusEditing = false;
     }
 
     this.edShowPlanExpanded = !this.isLessonCompleted;
@@ -2432,6 +2568,74 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
 
     this.edShowTutorBriefing =
       this.isTutorUser && !this.isLessonCompleted && !!this.edPrepHasContent;
+  }
+
+  /** Open the inline focus editor, prefilled with the current focus. */
+  startFocusEdit(): void {
+    if (!this.edCanEditFocus) return;
+    this.edFocusDraft = this.edPlanNextFocus || '';
+    this.edFocusEditing = true;
+  }
+
+  cancelFocusEdit(): void {
+    this.edFocusEditing = false;
+    this.edFocusDraft = '';
+  }
+
+  /** Persist the tutor's adjusted focus via the adjust_focus override. */
+  async saveFocusEdit(): Promise<void> {
+    const note = (this.edFocusDraft || '').trim();
+    if (!note || this.edFocusSaving) return;
+
+    const studentId = this.resolvePlanStudentId();
+    const language =
+      String((this.lesson as any)?.language || (this.lesson as any)?.subject || '').trim() ||
+      this.edPlanSummary?.language ||
+      '';
+    if (!studentId || !language) {
+      await this.presentFocusToast(
+        this.translate.instant('EVENT_DETAILS.LESSON_SCREEN.FOCUS_EDIT_ERROR'),
+        'danger'
+      );
+      return;
+    }
+
+    this.edFocusSaving = true;
+    try {
+      await firstValueFrom(
+        this.learningPlanService.submitTutorOverride({
+          studentId,
+          language,
+          action: 'adjust_focus',
+          note,
+        })
+      );
+      this.edPlanNextFocus = note;
+      this.edFocusEditing = false;
+      this.edFocusDraft = '';
+      await this.presentFocusToast(
+        this.translate.instant('EVENT_DETAILS.LESSON_SCREEN.FOCUS_EDIT_SAVED'),
+        'success'
+      );
+    } catch (err: any) {
+      const msg =
+        err?.error?.message ||
+        this.translate.instant('EVENT_DETAILS.LESSON_SCREEN.FOCUS_EDIT_ERROR');
+      await this.presentFocusToast(msg, 'danger');
+    } finally {
+      this.edFocusSaving = false;
+      this.cdr.detectChanges();
+    }
+  }
+
+  private async presentFocusToast(message: string, color: 'success' | 'danger'): Promise<void> {
+    const toast = await this.toastController.create({
+      message,
+      duration: color === 'danger' ? 4000 : 2500,
+      color,
+      position: 'bottom',
+    });
+    await toast.present();
   }
 
   private refreshNotesPresentation(): void {
@@ -2467,37 +2671,56 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     }
   }
 
-  private loadLearningPlanContext(): void {
+  private loadLearningPlanContext(silent = false): void {
     if (isLessonMockId(this.eventId)) {
       this.applyMockLearningPlanContext(this.eventId!);
+      if (!silent) {
+        this.onRequestComplete(silent);
+      }
       return;
     }
 
     const studentId = this.resolvePlanStudentId();
-    if (!studentId) return;
+    if (!studentId) {
+      this.onRequestComplete(silent);
+      return;
+    }
 
-    this.resetPlanContext();
+    // Keep painted plan/briefing during silent revalidate — reset wipes the UI.
+    if (!silent) {
+      this.resetPlanContext();
+    }
 
     const lessonLanguage =
       String((this.lesson as any)?.language || (this.lesson as any)?.subject || '').trim();
 
-    this.learningPlanService.getStudentPlanSummary(studentId).subscribe({
+    // Pass the lesson's tutor so the card surfaces *that* tutor's advisory
+    // focus lane (multi-tutor students) instead of the shared plan focus.
+    const lessonTutorId = this.resolveLessonTutorId();
+
+    this.learningPlanService.getStudentPlanSummary(studentId, lessonTutorId).subscribe({
       next: (res) => {
         if (res.success && res.summaries?.length) {
+          this.cachedPlanSummaries = res.summaries;
           const summary = this.pickPlanSummaryForLesson(res.summaries, lessonLanguage);
           if (summary) {
             this.applyPlanSummary(summary);
-            this.cdr.detectChanges();
           }
         }
+        this.finishEdPlanLoad(silent);
       },
-      error: () => {},
+      error: () => {
+        this.finishEdPlanLoad(silent);
+      },
     });
 
     if (lessonLanguage) {
       this.learningPlanService.getLessonPrep(studentId, lessonLanguage).subscribe({
         next: (res) => {
-          if (!res.success || !res.prep) return;
+          if (!res.success || !res.prep) {
+            if (!silent) this.onRequestComplete(silent);
+            return;
+          }
           if (this.isTutorUser) {
             this.applyLessonPrep(res.prep);
           } else {
@@ -2506,9 +2729,11 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
               this.edPlanNextFocus = res.prep.plan.nextLessonFocus;
             }
           }
-          this.cdr.detectChanges();
+          this.onRequestComplete(silent);
         },
-        error: () => {},
+        error: () => {
+          this.onRequestComplete(silent);
+        },
       });
     }
   }
@@ -2605,7 +2830,8 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   private computeAnalysisProperties() {
     if (!this.analysisData) return;
     this.hasAnalysis = this.analysisData.status === 'completed';
-    this.analysisUnavailable = ['failed', 'insufficient_data'].includes(this.analysisData.status || '');
+    this.analysisUnavailable = !this.isTrialLessonEvent
+      && ['failed', 'insufficient_data'].includes(this.analysisData.status || '');
     this.isAiAnalysis = this.analysisData.source !== 'tutor';
     this.analysisLabel = this.isAiAnalysis
       ? this.translate.instant('EVENT_DETAILS.LESSON_SCREEN.AI_ANALYSIS_LABEL')
@@ -2889,12 +3115,36 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
         }
       }
     } else if (transferStatus === 'on_hold' || this.lesson?.payoutPaused) {
-      this.paymentStatusClass = 'on-hold';
-      this.paymentStatusIcon = 'pause-circle-outline';
-      if (this.isStudentUser) {
+      // transferStatus on_hold is tutor earnings escrow. Students whose charge
+      // already succeeded should not see a "payment on hold" message.
+      if (this.isStudentUser && (status === 'succeeded' || status === 'authorized')) {
+        const lessonCompleted = this.lesson?.status === 'completed';
+        const lessonEnded = this.lesson?.endTime && new Date(this.lesson.endTime).getTime() < Date.now();
+        const isFinished = lessonCompleted || lessonEnded;
+
+        this.paymentStatusClass = isFinished ? 'paid' : 'pending';
+        this.paymentStatusIcon = isFinished ? 'checkmark-circle-outline' : 'time-outline';
+        if (isFinished) {
+          this.paymentStatusTitle = this.paymentTr('COMPLETE_TITLE_STUDENT');
+          this.paymentStatusDescription = this.paymentTr('COMPLETE_DESC_STUDENT').replace(
+            '{{amount}}',
+            `$${amount.toFixed(2)}`,
+          );
+        } else {
+          this.paymentStatusTitle = this.paymentTr('AUTHORIZED_TITLE_STUDENT');
+          this.paymentStatusDescription = this.paymentTr('AUTHORIZED_DESC_STUDENT').replace(
+            '{{amount}}',
+            `$${amount.toFixed(2)}`,
+          );
+        }
+      } else if (this.isStudentUser) {
+        this.paymentStatusClass = 'on-hold';
+        this.paymentStatusIcon = 'pause-circle-outline';
         this.paymentStatusTitle = this.paymentTr('HOLD_TITLE_STUDENT');
         this.paymentStatusDescription = this.paymentTr('HOLD_DESC_STUDENT');
       } else {
+        this.paymentStatusClass = 'on-hold';
+        this.paymentStatusIcon = 'pause-circle-outline';
         this.paymentStatusTitle = this.paymentTr('HOLD_TITLE_TUTOR');
         this.paymentStatusDescription = this.paymentTr('HOLD_DESC_TUTOR');
       }

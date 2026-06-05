@@ -187,6 +187,9 @@
         [class.jm-node--label-end]="node.labelAlign === 'end'"
         [style.left.%]="node.xPct"
         [style.top.%]="node.yPct"
+        [style.--jm-depth-scale]="node.depthScale"
+        [style.--jm-depth-opacity]="node.depthOpacity"
+        [style.z-index]="node.depthZIndex"
         [attr.aria-label]="('JOURNEY.PHASE' | translate) + ' ' + (node.index + 1) + ': ' + node.row.title + (node.row.isSplit ? ' (' + ('JOURNEY.SPLIT.NODE_BADGE' | translate) + ')' : '') + (node.row.isRecovery ? ' (' + ('JOURNEY.RECOVERY.NODE_BADGE' | translate) + ')' : '')"
         (click)="togglePhase(node.index)">
         <span

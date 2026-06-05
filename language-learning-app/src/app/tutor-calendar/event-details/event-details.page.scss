@@ -242,6 +242,105 @@ ion-header ion-toolbar {
   gap: 4px;
 }
 
+.ed-skeleton-layout {
+  padding: 0 0 24px;
+}
+
+.ed-skeleton-card {
+  border-radius: 16px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: #fff;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+  padding: 28px 24px;
+}
+
+.ed-skeleton-avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  margin: 0 auto 14px;
+}
+
+.ed-skeleton-name {
+  width: 55%;
+  height: 22px;
+  margin: 0 auto 8px;
+}
+
+.ed-skeleton-role {
+  width: 45%;
+  height: 14px;
+  margin: 0 auto 14px;
+}
+
+.ed-skeleton-bio {
+  width: 92%;
+  height: 13px;
+  margin: 0 auto 8px;
+
+  &--short {
+    width: 72%;
+    margin-bottom: 16px;
+  }
+}
+
+.ed-skeleton-stats {
+  display: flex;
+  justify-content: center;
+  gap: 32px;
+  margin-bottom: 20px;
+
+  .skeleton-text {
+    width: 64px;
+    height: 14px;
+  }
+}
+
+.ed-skeleton-btn {
+  width: 100%;
+  height: 44px;
+  border-radius: 10px;
+}
+
+.ed-skeleton-divider {
+  height: 1px;
+  background: rgba(0, 0, 0, 0.06);
+  margin: 20px 0 16px;
+}
+
+.ed-skeleton-detail-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.ed-skeleton-focus {
+  margin-top: 20px;
+}
+
+.ed-skeleton-eyebrow {
+  width: 38%;
+  height: 11px;
+  margin-bottom: 14px;
+}
+
+.ed-skeleton-focus-line {
+  width: 100%;
+  height: 17px;
+  margin-bottom: 10px;
+}
+
+.ed-skeleton-focus-meta {
+  width: 72%;
+  height: 13px;
+}
+
+.ed-skeleton-block {
+  height: 72px;
+  margin-top: 12px;
+}
+
 @keyframes skeleton-shimmer {
   0% {
     background-position: -200% 0;
@@ -872,6 +971,94 @@ ion-header ion-toolbar {
   background: #fff;
   border: 1px solid rgba(0, 0, 0, 0.06);
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+
+  &--slot {
+    position: relative;
+    min-height: 196px;
+    box-sizing: border-box;
+  }
+}
+
+.ed-focus-card__layer {
+  transition: opacity 0.35s ease, visibility 0.35s ease;
+
+  &.is-hidden {
+    opacity: 0;
+    visibility: hidden;
+    position: absolute;
+    inset: 0;
+    padding: 20px 22px;
+    pointer-events: none;
+  }
+
+  &--live:not(.is-hidden) {
+    position: relative;
+  }
+}
+
+@keyframes edContentIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.ed-content-in {
+  animation: edContentIn 0.4s ease forwards;
+}
+
+.ed-focus-card__layer--live.ed-content-in {
+  animation: edContentInSoft 0.4s ease forwards;
+}
+
+@keyframes edContentInSoft {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.ed-focus-skeleton-line {
+  border-radius: 8px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: edShimmer 1.2s ease-in-out infinite;
+
+  &--eyebrow {
+    width: 38%;
+    height: 11px;
+    margin-bottom: 14px;
+  }
+
+  &--head {
+    width: 42%;
+    height: 22px;
+    margin-bottom: 12px;
+    margin-left: auto;
+    border-radius: 999px;
+  }
+
+  &--body {
+    width: 100%;
+    height: 17px;
+    margin-bottom: 10px;
+  }
+
+  &--body-short {
+    width: 88%;
+  }
+
+  &--meta {
+    width: 72%;
+    height: 13px;
+  }
+}
+
+@keyframes edShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
 .ed-focus-card-head {
@@ -914,6 +1101,103 @@ ion-header ion-toolbar {
   font-weight: 600;
   color: var(--ed-text-primary);
   letter-spacing: -0.01em;
+}
+
+.ed-focus-card-advisory {
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+  font-style: italic;
+  color: var(--ed-text-secondary, #717171);
+}
+
+.ed-focus-card-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  padding: 5px 10px;
+  border: 1px solid var(--ed-border, #e5e5e5);
+  border-radius: 9px;
+  background: #fff;
+  color: var(--ed-text-primary, #222);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+
+  ion-icon {
+    font-size: 15px;
+  }
+
+  &:hover {
+    background: var(--ed-surface-hover, #f7f7f7);
+    border-color: #d6d6d6;
+  }
+}
+
+.ed-focus-editor {
+  margin-top: 12px;
+}
+
+.ed-focus-editor-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  border: 1px solid var(--ed-border, #e5e5e5);
+  border-radius: 12px;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--ed-text-primary, #222);
+  resize: vertical;
+  font-family: inherit;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+
+  &:focus {
+    outline: none;
+    border-color: #b0b0b0;
+    box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.04);
+  }
+}
+
+.ed-focus-editor-hint {
+  margin: 8px 0 0;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--ed-text-secondary, #717171);
+}
+
+.ed-focus-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.ed-focus-editor-btn {
+  padding: 9px 18px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s ease, background 0.2s ease;
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: default;
+  }
+
+  &.ghost {
+    border: 1px solid var(--ed-border, #e5e5e5);
+    background: #fff;
+    color: var(--ed-text-primary, #222);
+  }
+
+  &.primary {
+    border: 1px solid transparent;
+    background: var(--ed-text-primary, #222);
+    color: #fff;
+  }
 }
 
 .ed-focus-card-meta {
@@ -1216,6 +1500,20 @@ ion-header ion-toolbar {
 
 
 /* ── Payment / Financial Status ───────────────────────── */
+.ed-payment-section {
+  .ed-payment-status {
+    margin-top: 12px;
+  }
+
+  .ed-payment-breakdown {
+    margin-top: 0;
+
+    &.collapsed {
+      margin-top: 0;
+    }
+  }
+}
+
 .ed-payment-status {
   border-radius: 12px;
   padding: 16px;

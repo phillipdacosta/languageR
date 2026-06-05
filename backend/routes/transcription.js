@@ -1530,6 +1530,16 @@ router.get('/:transcriptId/analysis', verifyToken, async (req, res) => {
 router.get('/lesson/:lessonId/analysis', verifyToken, async (req, res) => {
   try {
     const { lessonId } = req.params;
+
+    const lessonMeta = await Lesson.findById(lessonId).select('isTrialLesson').lean();
+    if (lessonMeta?.isTrialLesson) {
+      return res.json({
+        success: true,
+        analysis: null,
+        skipped: true,
+        reason: 'trial_lesson'
+      });
+    }
     
     const analysis = await LessonAnalysis.findOne({ lessonId })
       .populate('lessonId', 'subject startTime endTime duration actualDurationMinutes')

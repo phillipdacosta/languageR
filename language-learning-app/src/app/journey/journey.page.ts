@@ -77,10 +77,23 @@ interface PhaseRow {
   previousPhaseTitle: string;
 }
 
+interface PathWaypoint {
+  x: number;
+  y: number;
+  /** Nearness along the scene: 0 = far/back, 1 = near/front. Drives node scale. */
+  z?: number;
+}
+
 interface MapNode {
   index: number;
   xPct: number; // 0–100, left % on the canvas
   yPct: number; // 0–100, top % on the canvas
+  /** CSS scale factor derived from path depth (≈0.62–1.0). */
+  depthScale: number;
+  /** Slight fade for distant nodes; active/selected stay fully opaque. */
+  depthOpacity: number;
+  /** Stacking order so nearer nodes sit above farther ones. */
+  depthZIndex: number;
   // Where the label sits relative to the dot. Default 'above' matches the
   // canonical winding-path UX, but flips to 'below' when the node is
   // close to the top edge so the label can never overflow the canvas.
@@ -1264,61 +1277,61 @@ export class JourneyPage implements OnInit, OnDestroy {
   // winding path — different overall shape, different y-amplitude, and
   // different start/end heights — so flipping between chapters is an
   // obvious change, not a subtle one. Y range used: 25 (top) → 95 (bottom).
-  private static readonly THEME_PATH_PTS: { [theme: string]: Array<{ x: number; y: number }> } = {
-    // A1 — flat foothill: nearly straight gentle slope across the bottom.
-    //      Beginner-friendly: low energy, no surprises.
+  private static readonly THEME_PATH_PTS: { [theme: string]: PathWaypoint[] } = {
+    // A1 — desert trail recedes into the mid-ground, then comes forward
+    //      toward the arch on the right. z tunes to the background art.
     'a1-desert': [
-      { x:  4, y: 78 },
-      { x: 28, y: 82 },
-      { x: 52, y: 88 },
-      { x: 76, y: 80 },
-      { x: 96, y: 72 }
+      { x:  4, y: 78, z: 1.00 },
+      { x: 28, y: 82, z: 0.88 },
+      { x: 52, y: 88, z: 0.62 },
+      { x: 76, y: 80, z: 0.78 },
+      { x: 96, y: 72, z: 0.68 }
     ],
     // A2 — steep coastal climb: clear left-low-to-right-high diagonal.
     //      "You're climbing now" reads at a glance.
     'a2-coast': [
-      { x:  4, y: 92 },
-      { x: 30, y: 76 },
-      { x: 56, y: 56 },
-      { x: 78, y: 40 },
-      { x: 96, y: 28 }
+      { x:  4, y: 92, z: 1.00 },
+      { x: 30, y: 76, z: 0.86 },
+      { x: 56, y: 56, z: 0.72 },
+      { x: 78, y: 40, z: 0.58 },
+      { x: 96, y: 28, z: 0.48 }
     ],
     // B1 — pronounced S-curve: deep valley → peak → valley.
     //      Clearly snake-like, distinct from A2's straight climb.
     'b1-lake': [
-      { x:  4, y: 50 },
-      { x: 22, y: 88 },
-      { x: 48, y: 50 },
-      { x: 74, y: 88 },
-      { x: 96, y: 50 }
+      { x:  4, y: 50, z: 0.72 },
+      { x: 22, y: 88, z: 1.00 },
+      { x: 48, y: 50, z: 0.68 },
+      { x: 74, y: 88, z: 0.96 },
+      { x: 96, y: 50, z: 0.70 }
     ],
     // B2 — sharp alpine zigzag: pointy peaks/troughs (six waypoints).
     //      Reads as switchback / mountain trail.
     'b2-snow': [
-      { x:  4, y: 88 },
-      { x: 22, y: 38 },
-      { x: 38, y: 78 },
-      { x: 56, y: 32 },
-      { x: 76, y: 78 },
-      { x: 96, y: 36 }
+      { x:  4, y: 88, z: 1.00 },
+      { x: 22, y: 38, z: 0.55 },
+      { x: 38, y: 78, z: 0.90 },
+      { x: 56, y: 32, z: 0.50 },
+      { x: 76, y: 78, z: 0.88 },
+      { x: 96, y: 36, z: 0.52 }
     ],
     // C1 — deep central valley: starts and ends high, plunges low in
     //      the middle. Inverted "U" — distinct from C2's arch.
     'c1-cherry': [
-      { x:  4, y: 38 },
-      { x: 26, y: 62 },
-      { x: 50, y: 90 },
-      { x: 74, y: 62 },
-      { x: 96, y: 38 }
+      { x:  4, y: 38, z: 0.58 },
+      { x: 26, y: 62, z: 0.72 },
+      { x: 50, y: 90, z: 1.00 },
+      { x: 74, y: 62, z: 0.74 },
+      { x: 96, y: 38, z: 0.56 }
     ],
     // C2 — sweeping mountain arc: low → high → low (true arch).
     //      Mirror image of C1 for nice visual symmetry across mastery.
     'c2-tuscany': [
-      { x:  4, y: 88 },
-      { x: 26, y: 62 },
-      { x: 50, y: 30 },
-      { x: 74, y: 62 },
-      { x: 96, y: 88 }
+      { x:  4, y: 88, z: 1.00 },
+      { x: 26, y: 62, z: 0.78 },
+      { x: 50, y: 30, z: 0.48 },
+      { x: 74, y: 62, z: 0.76 },
+      { x: 96, y: 88, z: 0.98 }
     ]
   };
 
@@ -1347,16 +1360,47 @@ export class JourneyPage implements OnInit, OnDestroy {
   // is the live-page rule (G33).
   private suppressTransitionModal = false;
 
-  private sampleJourneyPath(t: number): { x: number; y: number } {
+  /** Map path depth (0 = far, 1 = near) to a visible node scale. */
+  private static depthToScale(z: number): number {
+    const clamped = Math.max(0, Math.min(1, z));
+    return 0.62 + clamped * 0.38;
+  }
+
+  private static depthToOpacity(z: number): number {
+    const clamped = Math.max(0, Math.min(1, z));
+    return 0.76 + clamped * 0.24;
+  }
+
+  private waypointDepth(pt: PathWaypoint, pts: PathWaypoint[]): number {
+    if (typeof pt.z === 'number') return pt.z;
+    // Fallback: lower on canvas ≈ nearer when z isn't hand-tuned.
+    const ys = pts.map(p => p.y);
+    const minY = Math.min(...ys);
+    const maxY = Math.max(...ys);
+    if (maxY === minY) return 0.85;
+    return 0.55 + ((pt.y - minY) / (maxY - minY)) * 0.4;
+  }
+
+  private sampleJourneyPath(t: number): { x: number; y: number; z: number } {
     const pts = JourneyPage.THEME_PATH_PTS[this.chapterTheme] || JourneyPage.DEFAULT_PATH_PTS;
-    if (t <= 0) return pts[0];
-    if (t >= 1) return pts[pts.length - 1];
+    if (t <= 0) {
+      const z0 = this.waypointDepth(pts[0], pts);
+      return { x: pts[0].x, y: pts[0].y, z: z0 };
+    }
+    if (t >= 1) {
+      const last = pts[pts.length - 1];
+      const zLast = this.waypointDepth(last, pts);
+      return { x: last.x, y: last.y, z: zLast };
+    }
     const raw = (pts.length - 1) * t;
     const i = Math.floor(raw);
     const f = raw - i;
+    const z0 = this.waypointDepth(pts[i], pts);
+    const z1 = this.waypointDepth(pts[i + 1], pts);
     return {
       x: pts[i].x + (pts[i + 1].x - pts[i].x) * f,
-      y: pts[i].y + (pts[i + 1].y - pts[i].y) * f
+      y: pts[i].y + (pts[i + 1].y - pts[i].y) * f,
+      z: z0 + (z1 - z0) * f
     };
   }
 
@@ -1378,7 +1422,23 @@ export class JourneyPage implements OnInit, OnDestroy {
         pt.x < LABEL_EDGE_LEFT_THRESHOLD ? 'start' :
         pt.x > LABEL_EDGE_RIGHT_THRESHOLD ? 'end' :
         'center';
-      return { index: i, xPct: pt.x, yPct: pt.y, labelPlacement, labelAlign, row };
+      const depthScale = JourneyPage.depthToScale(pt.z);
+      const depthOpacity = JourneyPage.depthToOpacity(pt.z);
+      const depthZIndex =
+        row.status === 'active' || row.expanded
+          ? 24
+          : 2 + Math.round(pt.z * 20);
+      return {
+        index: i,
+        xPct: pt.x,
+        yPct: pt.y,
+        depthScale,
+        depthOpacity,
+        depthZIndex,
+        labelPlacement,
+        labelAlign,
+        row
+      };
     });
 
     const nextD = this.buildSvgPathD();

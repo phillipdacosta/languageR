@@ -371,19 +371,38 @@ router.get('/student/:studentId/summary', verifyToken, async (req, res) => {
       return res.json({ success: true, summaries: [] });
     }
 
-    const summaries = plans.map(plan => ({
-      _id: plan._id,
-      language: plan.language,
-      status: plan.status,
-      goal: plan.goal,
-      currentPhaseIndex: plan.currentPhaseIndex,
-      totalPhases: plan.phases.length,
-      currentPhase: plan.phases[plan.currentPhaseIndex] || null,
-      studentSummary: plan.studentSummary,
-      nextLessonFocus: plan.nextLessonFocus,
-      tutorOverrides: (plan.tutorOverrides || []).slice(-5),
-      selfAssessedLevel: plan.selfAssessedLevel
-    }));
+    // When the caller is a specific lesson context (lessons/:id), it passes
+    // the lesson's tutorId so we surface *that* tutor's advisory focus lane
+    // rather than the shared plan focus. Keeps multi-tutor students seeing
+    // the right recommendation per tutor without mutating the core plan.
+    const tutorIdParam = req.query.tutorId ? String(req.query.tutorId) : '';
+
+    const summaries = plans.map(plan => {
+      let nextLessonFocus = plan.nextLessonFocus;
+      let nextLessonFocusSource = 'plan';
+      let nextLessonFocusTutor = null;
+      if (tutorIdParam) {
+        const resolved = perTutorLane.resolveFocusForTutor(plan, tutorIdParam);
+        if (resolved.focus) nextLessonFocus = resolved.focus;
+        nextLessonFocusSource = resolved.source;
+        nextLessonFocusTutor = resolved.tutor || null;
+      }
+      return {
+        _id: plan._id,
+        language: plan.language,
+        status: plan.status,
+        goal: plan.goal,
+        currentPhaseIndex: plan.currentPhaseIndex,
+        totalPhases: plan.phases.length,
+        currentPhase: plan.phases[plan.currentPhaseIndex] || null,
+        studentSummary: plan.studentSummary,
+        nextLessonFocus,
+        nextLessonFocusSource,
+        nextLessonFocusTutor,
+        tutorOverrides: (plan.tutorOverrides || []).slice(-5),
+        selfAssessedLevel: plan.selfAssessedLevel
+      };
+    });
 
     res.json({ success: true, summaries });
   } catch (error) {
