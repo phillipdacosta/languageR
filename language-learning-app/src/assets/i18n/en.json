@@ -2101,6 +2101,7 @@
     },
     "LESSON_SCREEN": {
       "BACK_ARIA": "Go back",
+      "LESSON_WITH": "Lesson with {{name}}",
       "SIDEBAR_LESSON_DETAILS": "Lesson details",
       "SIDEBAR_CLASS_DETAILS": "Class details",
       "STAT_LESSON_ONE": "lesson",

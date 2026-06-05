@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef, Input } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, Input, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Location } from '@angular/common';
@@ -181,6 +181,8 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
 
   // Formatted data
   formattedDate = '';
+  edSidebarTitle = '';
+  edSidebarHasExtraDetails = false;
   formattedTimeRange = '';
   formattedDuration = '';
   formattedPrice = '';
@@ -251,6 +253,9 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   edFocusEditing = false;
   edFocusDraft = '';
   edFocusSaving = false;
+  edFocusBodyMinHeight = 0;
+  @ViewChild('focusBodyWrap') focusBodyWrap?: ElementRef<HTMLElement>;
+  @ViewChild('focusEditorInput') focusEditorInput?: ElementRef<HTMLTextAreaElement>;
   edPlanEyebrowKey = 'EVENT_DETAILS.LESSON_SCREEN.LESSON_OBJECTIVE';
   // Trial / first-pairing calibration framing. A brand-new pair's trial is a
   // meet-and-greet to gauge level — not a plan checkpoint — so the objective
@@ -1524,6 +1529,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     this.computeCancelButton();
     this.computeFormatted();
     this.computeParticipant();
+    this.refreshSplitLayoutLabels();
     this.computeTip();
     this.computeCancellation();
     this.computeIssue();
@@ -1761,6 +1767,20 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
 
     // Price
     this.formattedPrice = this.lesson.price != null ? `$${this.lesson.price.toFixed(2)}` : '';
+    this.refreshSplitLayoutLabels();
+  }
+
+  /** Labels for post-lesson-style split header + left guidance column. */
+  private refreshSplitLayoutLabels(): void {
+    this.edSidebarTitle = this.isTutorUser
+      ? (this.participantName || '')
+      : this.translate.instant('EVENT_DETAILS.LESSON_SCREEN.LESSON_WITH', { name: this.participantName || '' });
+    this.edSidebarHasExtraDetails = !!(
+      (this.formattedPrice && !this.hasPaymentStatus) ||
+      (this.isStudentUser && this.paymentMethodLabel) ||
+      (!this.isCancelled && this.billingData && this.formattedActualDuration && !this.hasPaymentStatus) ||
+      (!this.isCancelled && this.billingData && this.formattedActualPrice && !this.hasPaymentStatus)
+    );
   }
 
   private computeParticipant() {
@@ -2757,6 +2777,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     this.edCanEditFocus = this.isTutorUser && !this.lesson?.isTrialLesson && planAcceptsOverride;
     if (!this.edCanEditFocus) {
       this.edFocusEditing = false;
+      this.edFocusBodyMinHeight = 0;
     }
 
     this.edShowPlanExpanded = !this.isLessonCompleted;
@@ -2793,12 +2814,21 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   startFocusEdit(): void {
     if (!this.edCanEditFocus) return;
     this.edFocusDraft = this.edPlanNextFocus || '';
+    const wrap = this.focusBodyWrap?.nativeElement;
+    if (wrap) {
+      this.edFocusBodyMinHeight = wrap.offsetHeight;
+    }
     this.edFocusEditing = true;
+    this.cdr.detectChanges();
+    requestAnimationFrame(() => {
+      this.focusEditorInput?.nativeElement?.focus({ preventScroll: true });
+    });
   }
 
   cancelFocusEdit(): void {
     this.edFocusEditing = false;
     this.edFocusDraft = '';
+    this.edFocusBodyMinHeight = 0;
   }
 
   /** Persist the tutor's adjusted focus via the adjust_focus override. */
@@ -2832,6 +2862,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       this.edPlanNextFocus = note;
       this.edFocusEditing = false;
       this.edFocusDraft = '';
+      this.edFocusBodyMinHeight = 0;
       this.refreshMainCardSections();
       await this.presentFocusToast(
         this.translate.instant('EVENT_DETAILS.LESSON_SCREEN.FOCUS_EDIT_SAVED'),
@@ -3204,6 +3235,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     this.formattedActualDuration = this.billingData.actualDuration != null
       ? `${this.billingData.actualDuration} min`
       : '';
+    this.refreshSplitLayoutLabels();
   }
 
   private computePaymentMethodLabel(method: string) {
@@ -3229,6 +3261,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
         this.paymentMethodIcon = 'card-outline';
         break;
     }
+    this.refreshSplitLayoutLabels();
   }
 
   /** Payment status copy under `EVENT_DETAILS.PAYMENT.*` */
@@ -3485,6 +3518,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
         });
       }
     }
+    this.refreshSplitLayoutLabels();
     this.refreshMainCardSections();
   }
 

@@ -1,8 +1,4 @@
-<ion-header class="ion-no-border">
-  <ion-toolbar></ion-toolbar>
-</ion-header>
-
-<ion-content [fullscreen]="true">
+<ion-content class="ed-content-shell" [scrollY]="false" [fullscreen]="true">
 
   <!-- Error -->
   <div class="state-container" *ngIf="error && !loading">
@@ -16,50 +12,54 @@
   <!-- ═══════════════════════════════════════════════════════════ -->
   <div class="ed" [class.loading]="loading" [class.loaded]="!loading && lesson && !isClass" *ngIf="(!error || !loading) && !isClass">
 
-    <!-- Skeleton Loader (full page — matches ed-layout) -->
+    <!-- Skeleton Loader (matches split layout) -->
     <div class="ed-skeleton ed-skeleton-layout" *ngIf="loading">
-      <div class="ed-layout">
-        <aside class="ed-profile-panel">
-          <div class="ed-profile-card ed-skeleton-card">
-            <div class="skeleton-avatar ed-skeleton-avatar"></div>
-            <div class="skeleton-text ed-skeleton-name"></div>
-            <div class="skeleton-text short ed-skeleton-role"></div>
-            <div class="skeleton-text ed-skeleton-bio"></div>
-            <div class="skeleton-text ed-skeleton-bio ed-skeleton-bio--short"></div>
-            <div class="ed-skeleton-stats">
-              <div class="skeleton-text short"></div>
-              <div class="skeleton-text short"></div>
-            </div>
-            <div class="skeleton-button ed-skeleton-btn"></div>
-            <div class="ed-skeleton-divider"></div>
-            <div class="skeleton-section-label"></div>
-            <div class="ed-skeleton-detail-row">
-              <div class="skeleton-icon"></div>
-              <div class="skeleton-text-group">
-                <div class="skeleton-text"></div>
-                <div class="skeleton-text short"></div>
+      <div class="ed-page ed-skeleton-page">
+        <div class="ed-subheader">
+          <div class="skeleton-button ed-skeleton-back" aria-hidden="true"></div>
+        </div>
+
+        <div class="ed-body">
+          <div class="ed-split approval-split-layout">
+            <aside class="ed-details approval-split-guidance ed-skeleton-sidebar">
+              <div class="ed-skeleton-heading">
+                <div class="skeleton-avatar ed-skeleton-heading-avatar"></div>
+                <div class="skeleton-text ed-skeleton-title-line"></div>
+              </div>
+              <div class="ed-skeleton-lesson">
+                <div class="skeleton-badge ed-skeleton-status"></div>
+                <div class="ed-skeleton-detail-row">
+                  <div class="skeleton-icon"></div>
+                  <div class="skeleton-text-group">
+                    <div class="skeleton-text"></div>
+                    <div class="skeleton-text short"></div>
+                  </div>
+                </div>
+                <div class="ed-skeleton-detail-row">
+                  <div class="skeleton-icon"></div>
+                  <div class="skeleton-text-group">
+                    <div class="skeleton-text short"></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="skeleton-button ed-skeleton-btn"></div>
+
+            </aside>
+
+            <div class="ed-actions approval-split-main">
+              <div class="ed-actions-scroll ed-skeleton-main">
+                <div class="ed-skeleton-focus">
+                  <div class="skeleton-text short ed-skeleton-eyebrow"></div>
+                  <div class="skeleton-text ed-skeleton-focus-line"></div>
+                  <div class="skeleton-text ed-skeleton-focus-line"></div>
+                  <div class="skeleton-text short ed-skeleton-focus-meta"></div>
+                </div>
+                <div class="ed-skeleton-divider"></div>
+                <div class="skeleton-section-label"></div>
+                <div class="ed-skeleton-block"></div>
               </div>
             </div>
-            <div class="ed-skeleton-detail-row">
-              <div class="skeleton-icon"></div>
-              <div class="skeleton-text-group">
-                <div class="skeleton-text"></div>
-                <div class="skeleton-text short"></div>
-              </div>
-            </div>
-          </div>
-        </aside>
-        <div class="ed-main">
-          <div class="ed-main-card">
-          <div class="ed-skeleton-focus">
-            <div class="skeleton-text short ed-skeleton-eyebrow"></div>
-            <div class="skeleton-text ed-skeleton-focus-line"></div>
-            <div class="skeleton-text ed-skeleton-focus-line"></div>
-            <div class="skeleton-text short ed-skeleton-focus-meta"></div>
-          </div>
-          <div class="ed-skeleton-divider"></div>
-          <div class="skeleton-section-label"></div>
-          <div class="ed-skeleton-block"></div>
           </div>
         </div>
       </div>
@@ -68,51 +68,63 @@
     <!-- Actual Content (enters DOM only after ALL data loads) -->
     <div class="ed-content" *ngIf="!loading && lesson && !isClass">
 
-      <div class="ed-layout">
-        <!-- ═══ LEFT: Profile Card (sticky on desktop) ═══════ -->
-        <aside class="ed-profile-panel">
-          <button class="ed-panel-back" (click)="goBack()" [attr.aria-label]="'EVENT_DETAILS.LESSON_SCREEN.BACK_ARIA' | translate">
+      <div class="ed-page">
+        <div class="ed-subheader">
+          <button type="button" class="ed-subheader__back" (click)="goBack()" [attr.aria-label]="'EVENT_DETAILS.LESSON_SCREEN.BACK_ARIA' | translate">
             <ion-icon name="chevron-back-outline"></ion-icon>
             <span>{{ 'COMMON.BACK' | translate }}</span>
           </button>
-          <div class="ed-profile-card">
+        </div>
 
-            <!-- Avatar -->
-            <div class="ed-pc-avatar"
-              [class.clickable]="isStudentUser && tutorId"
-              (click)="openTutorProfile()">
-              <img *ngIf="participantPicture" [src]="participantPicture" [alt]="participantName" referrerpolicy="no-referrer">
-              <span *ngIf="!participantPicture" class="ed-pc-avatar-placeholder">{{ participantInitial }}</span>
-            </div>
-
-            <!-- Name -->
-            <h2 class="ed-pc-name"
-              [class.clickable]="isStudentUser && tutorId"
-              (click)="openTutorProfile()">{{ participantName }}</h2>
-
-            <!-- Role + Location -->
-            <p class="ed-pc-role">
-              <ng-container *ngIf="participantLanguages.length">
-                <ng-container *ngFor="let lang of participantLanguages; let last = last">{{ lang }}{{ !last ? ', ' : '' }}</ng-container>
-                {{ participantRoleDisplay }}
-              </ng-container>
-              <ng-container *ngIf="participantCountry"> · {{ participantCountry }}</ng-container>
-            </p>
-
-            <!-- Bio -->
-            <p class="ed-pc-bio" *ngIf="participantBio">{{ participantBio }}</p>
-
-            <!-- Stats row (person-level only — no lesson logistics duplicated below) -->
-            <div class="ed-pc-stats">
-              <div class="ed-pc-stat">
-                <span class="ed-pc-stat-num">{{ lessonsWithParticipant || 1 }}</span>
-                <span class="ed-pc-stat-label">{{ (lessonsWithParticipant || 1) === 1 ? ('EVENT_DETAILS.LESSON_SCREEN.STAT_LESSON_ONE' | translate) : ('EVENT_DETAILS.LESSON_SCREEN.STAT_LESSONS_MANY' | translate) }}</span>
+        <div class="ed-body">
+          <div class="ed-split approval-split-layout">
+            <!-- ═══ LEFT: participant context (post-lesson-tutor style) ═══ -->
+            <aside class="ed-details approval-split-guidance">
+              <div
+                class="approval-split-guidance__heading"
+                [class.approval-split-guidance__heading--clickable]="isStudentUser && tutorId"
+                (click)="isStudentUser && tutorId ? openTutorProfile() : null">
+                <img *ngIf="participantPicture" class="approval-split-guidance__avatar" [src]="participantPicture" [alt]="participantName" referrerpolicy="no-referrer">
+                <span *ngIf="!participantPicture" class="approval-split-guidance__avatar approval-split-guidance__avatar--initial">{{ participantInitial }}</span>
+                <h3 class="approval-split-guidance__title">{{ edSidebarTitle }}</h3>
               </div>
-              <div class="ed-pc-stat" *ngIf="tutorStatsRating && isStudentUser">
-                <span class="ed-pc-stat-num">★ {{ tutorStatsRating }}</span>
-                <span class="ed-pc-stat-label">{{ 'EVENT_DETAILS.LESSON_SCREEN.GUEST_RATING' | translate }}</span>
+              <div class="approval-split-guidance__lesson">
+                <div class="approval-split-guidance__lesson-badges">
+                  <span class="ed-status" [ngClass]="statusClass">{{ statusLabel }}</span>
+                  <span class="ed-trial-badge" *ngIf="lesson?.isTrialLesson && !(edHasPlan && edPlanIsTrial)">
+                    <ion-icon name="star" aria-hidden="true"></ion-icon>
+                    {{ 'HOME.STATUS_TRIAL' | translate }}
+                  </span>
+                </div>
+
+                <div class="ed-pc-details-grid approval-split-guidance__lesson-grid">
+                  <div class="ed-pc-detail">
+                    <ion-icon name="calendar-outline"></ion-icon>
+                    <div>
+                      <span class="ed-pc-detail-primary">{{ formattedDate }}</span>
+                      <span class="ed-pc-detail-secondary">{{ formattedTimeRange }}</span>
+                    </div>
+                  </div>
+
+                  <div class="ed-pc-detail">
+                    <ion-icon name="time-outline"></ion-icon>
+                    <div>
+                      <span class="ed-pc-detail-primary">{{ formattedDuration }}</span>
+                      <span class="ed-pc-detail-secondary" *ngIf="lesson?.bookingType && lesson?.bookingType !== 'scheduled'">{{ lesson?.bookingType === 'office_hours' ? ('EVENT_DETAILS.LESSON_SCREEN.OFFICE_HOURS' | translate) : ('EVENT_DETAILS.LESSON_SCREEN.INSTANT_BOOKING' | translate) }}</span>
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
+
+              <p class="approval-split-guidance__meta" *ngIf="participantLanguages.length || participantCountry">
+                <ng-container *ngIf="participantLanguages.length">
+                  <ng-container *ngFor="let lang of participantLanguages; let last = last">{{ lang }}{{ !last ? ', ' : '' }}</ng-container>
+                  {{ participantRoleDisplay }}
+                </ng-container>
+                <ng-container *ngIf="participantCountry"> · {{ participantCountry }}</ng-container>
+              </p>
+
+              <p class="ed-sidebar-bio" *ngIf="participantBio">{{ participantBio }}</p>
 
             <!-- Quick actions (consolidated: join/rebook/message in one row) -->
             <div class="ed-pc-actions" [class.ed-pc-actions--row]="showJoinButton || (isCancelled && isStudentUser && tutorId)">
@@ -155,36 +167,14 @@
               </div>
             </ng-container>
 
-            <!-- Lesson details (2-col grid) -->
+            <!-- Billing / payment details (scheduling shown above) -->
+            <ng-container *ngIf="edSidebarHasExtraDetails">
             <div class="ed-pc-divider"></div>
             <div class="ed-pc-section-header">
               <h3 class="ed-pc-section-title">{{ 'EVENT_DETAILS.LESSON_SCREEN.SIDEBAR_LESSON_DETAILS' | translate }}</h3>
-              <div class="ed-pc-badges">
-                <span class="ed-status" [ngClass]="statusClass">{{ statusLabel }}</span>
-                <span class="ed-trial-badge" *ngIf="lesson?.isTrialLesson && !(edHasPlan && edPlanIsTrial)">
-                  <ion-icon name="star" aria-hidden="true"></ion-icon>
-                  {{ 'HOME.STATUS_TRIAL' | translate }}
-                </span>
-              </div>
             </div>
 
             <div class="ed-pc-details-grid">
-              <div class="ed-pc-detail">
-                <ion-icon name="calendar-outline"></ion-icon>
-                <div>
-                  <span class="ed-pc-detail-primary">{{ formattedDate }}</span>
-                  <span class="ed-pc-detail-secondary">{{ formattedTimeRange }}</span>
-                </div>
-              </div>
-
-              <div class="ed-pc-detail">
-                <ion-icon name="time-outline"></ion-icon>
-                <div>
-                  <span class="ed-pc-detail-primary">{{ formattedDuration }}</span>
-                  <span class="ed-pc-detail-secondary" *ngIf="lesson?.bookingType && lesson?.bookingType !== 'scheduled'">{{ lesson?.bookingType === 'office_hours' ? ('EVENT_DETAILS.LESSON_SCREEN.OFFICE_HOURS' | translate) : ('EVENT_DETAILS.LESSON_SCREEN.INSTANT_BOOKING' | translate) }}</span>
-                </div>
-              </div>
-
               <div class="ed-pc-detail" *ngIf="formattedPrice && !hasPaymentStatus">
                 <ion-icon name="card-outline"></ion-icon>
                 <div>
@@ -217,14 +207,13 @@
                 </div>
               </div>
             </div>
+            </ng-container>
 
+            </aside>
 
-          </div><!-- /ed-profile-card -->
-        </aside>
-
-        <!-- ═══ RIGHT: Content Column ════════════════════════ -->
-        <div class="ed-main">
-          <div class="ed-main-card">
+            <!-- ═══ RIGHT: lesson content (scrollable) ════════════════════════ -->
+            <div class="ed-actions approval-split-main">
+              <div class="ed-actions-scroll">
 
           <button
             type="button"
@@ -245,38 +234,47 @@
         <div class="ed-focus-card">
           <div class="ed-focus-card-head">
             <span class="ed-focus-card-eyebrow">{{ (edPlanIsTrial ? 'EVENT_DETAILS.LESSON_SCREEN.TRIAL_EYEBROW' : edPlanEyebrowKey) | translate }}</span>
-            <span class="ed-focus-card-state" *ngIf="edPlanStateLabel && !edFocusEditing && !mcLearningFocusEmpty">{{ edPlanStateLabel }}</span>
-            <button
-              type="button"
-              class="ed-focus-card-edit"
-              *ngIf="edCanEditFocus && !edPlanIsTrial && !edFocusEditing && !mcLearningFocusEmpty"
-              (click)="startFocusEdit()">
-              <ion-icon name="create-outline"></ion-icon>
-              <span>{{ 'EVENT_DETAILS.LESSON_SCREEN.FOCUS_EDIT_CTA' | translate }}</span>
-            </button>
+            <div class="ed-focus-card-head-actions" *ngIf="!mcLearningFocusEmpty">
+              <span class="ed-focus-card-state" *ngIf="edPlanStateLabel">{{ edPlanStateLabel }}</span>
+              <button
+                type="button"
+                class="ed-focus-card-edit"
+                *ngIf="edCanEditFocus && !edPlanIsTrial && !edFocusEditing"
+                (click)="startFocusEdit()">
+                <ion-icon name="create-outline"></ion-icon>
+                <span>{{ 'EVENT_DETAILS.LESSON_SCREEN.FOCUS_EDIT_CTA' | translate }}</span>
+              </button>
+              <button
+                type="button"
+                class="ed-focus-card-edit ed-focus-card-edit--ghost"
+                *ngIf="edCanEditFocus && !edPlanIsTrial && edFocusEditing"
+                (click)="cancelFocusEdit()">
+                {{ 'COMMON.CANCEL' | translate }}
+              </button>
+            </div>
           </div>
 
           <ng-container *ngIf="!mcLearningFocusEmpty">
-          <ng-container *ngIf="!edFocusEditing">
-            <p class="ed-focus-card-body">{{ edPlanIsTrial ? edPlanTrialBody : edPlanNextFocus }}</p>
-            <p class="ed-focus-card-advisory" *ngIf="!edPlanIsTrial && edPlanAdvisoryNote">{{ edPlanAdvisoryNote }}</p>
-          </ng-container>
+          <div class="ed-focus-card-body-wrap" #focusBodyWrap [style.minHeight.px]="edFocusBodyMinHeight || null">
+            <div class="ed-focus-card-view" [class.is-hidden]="edFocusEditing">
+              <p class="ed-focus-card-body">{{ edPlanIsTrial ? edPlanTrialBody : edPlanNextFocus }}</p>
+              <p class="ed-focus-card-advisory" *ngIf="!edPlanIsTrial && edPlanAdvisoryNote">{{ edPlanAdvisoryNote }}</p>
+            </div>
 
-          <div class="ed-focus-editor" *ngIf="edFocusEditing">
-            <textarea
-              class="ed-focus-editor-input"
-              rows="3"
-              [(ngModel)]="edFocusDraft"
-              [disabled]="edFocusSaving"
-              [placeholder]="'EVENT_DETAILS.LESSON_SCREEN.FOCUS_EDIT_PLACEHOLDER' | translate"></textarea>
-            <p class="ed-focus-editor-hint">{{ 'EVENT_DETAILS.LESSON_SCREEN.FOCUS_EDIT_HINT' | translate }}</p>
-            <div class="ed-focus-editor-actions">
-              <button type="button" class="ed-focus-editor-btn ghost" [disabled]="edFocusSaving" (click)="cancelFocusEdit()">
-                {{ 'COMMON.CANCEL' | translate }}
-              </button>
-              <button type="button" class="ed-focus-editor-btn primary" [disabled]="edFocusSaving || !edFocusDraft.trim()" (click)="saveFocusEdit()">
-                {{ (edFocusSaving ? 'EVENT_DETAILS.LESSON_SCREEN.FOCUS_EDIT_SAVING' : 'EVENT_DETAILS.LESSON_SCREEN.FOCUS_EDIT_SAVE') | translate }}
-              </button>
+            <div class="ed-focus-editor" [class.is-hidden]="!edFocusEditing">
+              <textarea
+                #focusEditorInput
+                class="ed-focus-editor-input"
+                rows="3"
+                [(ngModel)]="edFocusDraft"
+                [disabled]="edFocusSaving"
+                [placeholder]="'EVENT_DETAILS.LESSON_SCREEN.FOCUS_EDIT_PLACEHOLDER' | translate"></textarea>
+              <p class="ed-focus-editor-hint">{{ 'EVENT_DETAILS.LESSON_SCREEN.FOCUS_EDIT_HINT' | translate }}</p>
+              <div class="ed-focus-editor-actions">
+                <button type="button" class="ed-focus-editor-btn primary" [disabled]="edFocusSaving || !edFocusDraft.trim()" (click)="saveFocusEdit()">
+                  {{ (edFocusSaving ? 'EVENT_DETAILS.LESSON_SCREEN.FOCUS_EDIT_SAVING' : 'EVENT_DETAILS.LESSON_SCREEN.FOCUS_EDIT_SAVE') | translate }}
+                </button>
+              </div>
             </div>
           </div>
           <div class="ed-topics" *ngIf="edShowPlanExpanded && !edPlanIsTrial && edPlanTopicChips.length">
@@ -841,9 +839,11 @@
       </section>
     </ng-container>
 
-          </div><!-- /ed-main-card -->
-        </div><!-- /ed-main -->
-      </div><!-- /ed-layout -->
+              </div><!-- /ed-actions-scroll -->
+            </div><!-- /ed-actions -->
+          </div><!-- /ed-split -->
+        </div><!-- /ed-body -->
+      </div><!-- /ed-page -->
 
     <!-- Bottom spacer for sticky bar -->
     <div class="ed-bottom-spacer" *ngIf="showJoinButton || canCancelLesson"></div>
