@@ -204,6 +204,8 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   hasLinkedChannels = false;
   linkedChannels: any = null;
   tutorMaterials: (TutorMaterial & { _addedDate?: string; _typeIcon?: string; _typeLabel?: string })[] = [];
+  /** Tutor's materials minus anything already shown in Practice Areas recommendations. */
+  tutorMaterialsFiltered: (TutorMaterial & { _addedDate?: string; _typeIcon?: string; _typeLabel?: string })[] = [];
   materialsSectionExpanded = true;
 
   // Learning plan context (student + tutor)
@@ -266,6 +268,38 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   // a small "Personalised by student" pill in the briefing header — a
   // high-signal cue that the framing reflects the student's own priorities.
   edPrepStudentEdited = false;
+
+  // Main card: section shells + empty states (precomputed for template)
+  showMcLearningFocus = false;
+  mcLearningFocusEmpty = false;
+  mcLearningFocusEmptyKey = 'EVENT_DETAILS.LESSON_SCREEN.EMPTY_FOCUS_STUDENT';
+  showMcFirstLesson = false;
+  mcFirstLessonEmpty = false;
+  mcFirstLessonEmptyKey = 'EVENT_DETAILS.LESSON_SCREEN.EMPTY_FIRST_LESSON_STUDENT';
+  showMcLastSession = false;
+  mcLastSessionEmpty = false;
+  mcLastSessionEmptyKey = 'EVENT_DETAILS.LESSON_SCREEN.EMPTY_LAST_SESSION_STUDENT';
+  showMcTutorBriefing = false;
+  mcTutorBriefingEmpty = false;
+  showMcFeedbackStatus = false;
+  mcFeedbackStatusEmpty = false;
+  mcFeedbackStatusEmptyKey = 'EVENT_DETAILS.LESSON_SCREEN.EMPTY_FEEDBACK_STATUS_STUDENT';
+  showMcAnalysis = false;
+  mcAnalysisEmpty = false;
+  mcAnalysisEmptyKey = 'EVENT_DETAILS.LESSON_SCREEN.EMPTY_ANALYSIS_STUDENT';
+  showMcPracticeAreas = false;
+  mcPracticeAreasEmpty = false;
+  /** Student view: unified note + structured feedback from tutor */
+  showMcTutorFeedback = false;
+  mcTutorFeedbackEmpty = false;
+  /** Tutor view: own note + structured feedback they left */
+  showMcYourFeedback = false;
+  mcYourFeedbackEmpty = false;
+  showMcPayment = false;
+  mcPaymentEmpty = false;
+  mcPaymentEmptyKey = 'EVENT_DETAILS.LESSON_SCREEN.EMPTY_PAYMENT_STUDENT';
+  showMcLearningMaterials = false;
+  mcLearningMaterialsEmpty = false;
 
   // Tip info
   hasTip = false;
@@ -413,6 +447,8 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   feedbackStrengths: string[] = [];
   feedbackImprovements: string[] = [];
   feedbackSectionExpanded = false; // Collapsible state for tutor view (closed by default)
+  feedbackStrengthsExpanded = false;
+  feedbackImprovementsExpanded = false;
   cancellationSectionExpanded = false;
   paymentStatusSectionExpanded = false;
   feedbackNotes = '';
@@ -796,6 +832,17 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       if (this.paymentData) {
         this.computePaymentStatus();
       }
+      if (bp.paymentMethod) {
+        this.computePaymentMethodLabel(bp.paymentMethod);
+      }
+      if (bp.breakdown?.length) {
+        for (const row of bp.breakdown) {
+          this.paymentStatusDetails.push({
+            key: this.paymentTr(row.key),
+            value: row.value,
+          });
+        }
+      }
     }
 
     // Mock recommended materials
@@ -807,6 +854,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
 
     this.applyMockLearningPlanContext(id);
     this.refreshNotesPresentation();
+    this.refreshMainCardSections();
     this.capturePageOriginals();
     this.markDetailCacheReady();
 
@@ -1286,6 +1334,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     const language = this.lesson?.language;
     if (!language) {
       this.recommendedLoading = false;
+      this.refreshMainCardSections();
       return;
     }
 
@@ -1310,11 +1359,13 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
           }
         }
         this.recommendedLoading = false;
+        this.refreshMainCardSections();
         this.capturePageOriginals();
         this.cdr.detectChanges();
       },
       error: () => {
         this.recommendedLoading = false;
+        this.refreshMainCardSections();
         this.capturePageOriginals();
         this.cdr.detectChanges();
       }
@@ -1458,7 +1509,109 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     this.sanitizeLessonForViewerRole();
     this.refreshPlanPresentation();
     this.refreshNotesPresentation();
+    this.refreshMainCardSections();
     this.capturePageOriginals();
+  }
+
+  private resetMainCardSections(): void {
+    this.showMcLearningFocus = false;
+    this.mcLearningFocusEmpty = false;
+    this.showMcFirstLesson = false;
+    this.mcFirstLessonEmpty = false;
+    this.showMcLastSession = false;
+    this.mcLastSessionEmpty = false;
+    this.showMcTutorBriefing = false;
+    this.mcTutorBriefingEmpty = false;
+    this.showMcFeedbackStatus = false;
+    this.mcFeedbackStatusEmpty = false;
+    this.showMcAnalysis = false;
+    this.mcAnalysisEmpty = false;
+    this.showMcPracticeAreas = false;
+    this.mcPracticeAreasEmpty = false;
+    this.showMcTutorFeedback = false;
+    this.mcTutorFeedbackEmpty = false;
+    this.showMcYourFeedback = false;
+    this.mcYourFeedbackEmpty = false;
+    this.showMcPayment = false;
+    this.mcPaymentEmpty = false;
+    this.showMcLearningMaterials = false;
+    this.mcLearningMaterialsEmpty = false;
+  }
+
+  /** Which main-card sections render and whether they show an empty state. */
+  private refreshMainCardSections(): void {
+    if (!this.lesson || this.isClass) {
+      this.resetMainCardSections();
+      return;
+    }
+
+    const upcoming = !this.isLessonCompleted && !this.isCancelled;
+    const completed = this.isLessonCompleted && !this.isCancelled;
+    const trial = !!this.lesson.isTrialLesson;
+
+    this.mcLearningFocusEmptyKey = this.isTutorUser
+      ? 'EVENT_DETAILS.LESSON_SCREEN.EMPTY_FOCUS_TUTOR'
+      : 'EVENT_DETAILS.LESSON_SCREEN.EMPTY_FOCUS_STUDENT';
+    this.mcFirstLessonEmptyKey = this.isTutorUser
+      ? 'EVENT_DETAILS.LESSON_SCREEN.EMPTY_FIRST_LESSON_TUTOR'
+      : 'EVENT_DETAILS.LESSON_SCREEN.EMPTY_FIRST_LESSON_STUDENT';
+    this.mcLastSessionEmptyKey = this.isTutorUser
+      ? 'EVENT_DETAILS.LESSON_SCREEN.EMPTY_LAST_SESSION_TUTOR'
+      : 'EVENT_DETAILS.LESSON_SCREEN.EMPTY_LAST_SESSION_STUDENT';
+    this.mcFeedbackStatusEmptyKey = this.isTutorUser
+      ? 'EVENT_DETAILS.LESSON_SCREEN.EMPTY_FEEDBACK_STATUS_TUTOR'
+      : 'EVENT_DETAILS.LESSON_SCREEN.EMPTY_FEEDBACK_STATUS_STUDENT';
+    this.mcAnalysisEmptyKey = this.isTutorUser
+      ? 'EVENT_DETAILS.LESSON_SCREEN.EMPTY_ANALYSIS_TUTOR'
+      : 'EVENT_DETAILS.LESSON_SCREEN.EMPTY_ANALYSIS_STUDENT';
+    this.mcPaymentEmptyKey = this.isTutorUser
+      ? 'EVENT_DETAILS.LESSON_SCREEN.EMPTY_PAYMENT_TUTOR'
+      : 'EVENT_DETAILS.LESSON_SCREEN.EMPTY_PAYMENT_STUDENT';
+
+    this.showMcLearningFocus = true;
+    this.mcLearningFocusEmpty = !this.edPlanNextFocus && !this.edPlanTrialBody;
+
+    this.showMcFirstLesson = upcoming;
+    this.mcFirstLessonEmpty = !this.hasFirstLessonContext;
+
+    this.showMcLastSession = upcoming;
+    this.mcLastSessionEmpty = !this.hasLastSessionContext;
+
+    this.showMcTutorBriefing = upcoming && this.isTutorUser;
+    this.mcTutorBriefingEmpty = !this.edPrepHasContent;
+
+    // Students only need the status when feedback is still pending — once it's provided
+    // the actual Tutor Feedback section shows the content, so the banner is redundant.
+    this.showMcFeedbackStatus = completed && (this.isTutorUser || this.feedbackPending);
+    this.mcFeedbackStatusEmpty = !this.feedbackPending && !this.feedbackProvided;
+
+    // AI analysis is intentionally disabled for trial lessons.
+    this.showMcAnalysis = completed && !trial;
+    this.mcAnalysisEmpty =
+      !this.analysisLoading &&
+      !this.hasAnalysis &&
+      !this.showTutorPrivateNotes;
+    this.showLessonNotesSection = this.showMcAnalysis && !this.mcAnalysisEmpty;
+
+    this.showMcPracticeAreas = completed && this.isStudentUser;
+    this.mcPracticeAreasEmpty = !this.recommendedLoading && !this.hasRecommendations;
+
+    // Student: one unified section combining personal note + structured feedback
+    this.showMcTutorFeedback = completed && this.isStudentUser;
+    this.mcTutorFeedbackEmpty = !this.hasTutorFeedback;
+
+    // Tutor: their own note + structured feedback they left
+    this.showMcYourFeedback = completed && this.isTutorUser;
+    this.mcYourFeedbackEmpty = !this.hasTutorNote && !this.hasTutorFeedback;
+
+    // Payment: trials are free so no payment section
+    this.showMcPayment = completed && !trial;
+    this.mcPaymentEmpty = !this.hasPaymentStatus;
+
+    const recIds = new Set(this.recommendedMaterials.map(m => m._id));
+    this.tutorMaterialsFiltered = this.tutorMaterials.filter(m => !recIds.has(m._id));
+    this.showMcLearningMaterials = this.isStudentUser && !this.isCancelled;
+    this.mcLearningMaterialsEmpty = !this.tutorMaterialsFiltered.length;
   }
 
   private computeRole() {
@@ -1663,6 +1816,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     if (!this.tutorId) return;
     if (isLessonMockId(this.eventId)) {
       this.tutorMaterials = [];
+      this.refreshMainCardSections();
       return;
     }
     this.materialService.getTutorMaterials(this.tutorId).subscribe({
@@ -1678,10 +1832,12 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
         if (this.eventId) {
           this.lessonService.updateCachedLessonDetail(this.eventId, { tutorMaterials: this.tutorMaterials });
         }
+        this.refreshMainCardSections();
         this.cdr.detectChanges();
       },
       error: () => {
         this.tutorMaterials = [];
+        this.refreshMainCardSections();
       }
     });
   }
@@ -1770,6 +1926,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     if (!this.lesson) return;
     this.isCancelled = this.lesson.status === 'cancelled';
     if (this.isCancelled) {
+      this.cancellationSectionExpanded = true;
       const ls = (k: string) => this.translate.instant(`EVENT_DETAILS.LESSON_SCREEN.${k}`);
       const cancelledByMap: Record<string, string> = {
         tutor: ls('ROLE_TUTOR'),
@@ -2453,6 +2610,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     this.edPlanSuggestedTopics = summary.currentPhase?.suggestedTopics || [];
     this.edHasPlan = true;
     this.refreshPlanPresentation();
+    this.refreshMainCardSections();
     this.capturePageOriginals();
   }
 
@@ -2613,6 +2771,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       this.edPlanNextFocus = note;
       this.edFocusEditing = false;
       this.edFocusDraft = '';
+      this.refreshMainCardSections();
       await this.presentFocusToast(
         this.translate.instant('EVENT_DETAILS.LESSON_SCREEN.FOCUS_EDIT_SAVED'),
         'success'
@@ -2641,26 +2800,20 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   private refreshNotesPresentation(): void {
     if (this.isStudentUser) {
       this.showTutorPrivateNotes = false;
-      this.showLessonNotesSection = this.hasAnalysis;
-      this.notesSectionLabelKey = 'EVENT_DETAILS.LESSON_SCREEN.NOTES';
-      return;
-    }
-
-    if (this.isTutorUser) {
+      this.notesSectionLabelKey = 'EVENT_DETAILS.LESSON_SCREEN.LESSON_ANALYSIS';
+    } else if (this.isTutorUser) {
       this.showTutorPrivateNotes =
         this.isLessonCompleted && !!this.lesson?.notes && !this.hasAnalysis;
-      this.showLessonNotesSection =
-        this.isLessonCompleted && (this.hasAnalysis || this.showTutorPrivateNotes);
       if (this.hasAnalysis) {
         this.notesSectionLabelKey = 'EVENT_DETAILS.LESSON_SCREEN.LESSON_ANALYSIS';
       } else if (this.showTutorPrivateNotes) {
         this.notesSectionLabelKey = 'EVENT_DETAILS.LESSON_SCREEN.FROM_THIS_LESSON';
+      } else {
+        this.notesSectionLabelKey = 'EVENT_DETAILS.LESSON_SCREEN.LESSON_ANALYSIS';
       }
-      return;
+    } else {
+      this.showTutorPrivateNotes = false;
     }
-
-    this.showLessonNotesSection = false;
-    this.showTutorPrivateNotes = false;
   }
 
   /** `lesson.notes` is tutor-private in the data model — never expose in the student UI. */
@@ -2820,6 +2973,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       !hasTopErrors && (prep.latestAnalysis?.persistentChallenges?.length || 0) > 0;
 
     this.refreshPlanPresentation();
+    this.refreshMainCardSections();
     this.capturePageOriginals();
   }
 
@@ -2849,6 +3003,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     }
 
     this.refreshNotesPresentation();
+    this.refreshMainCardSections();
   }
 
   private calcScoreColor(score: number | undefined): string {
@@ -2956,6 +3111,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     this.feedbackDate = this.tutorFeedback.providedAt
       ? formatDateInTz(this.tutorFeedback.providedAt, this.userTz, { month: 'short', day: 'numeric', year: 'numeric' })
       : '';
+    this.refreshMainCardSections();
   }
 
   private computeBillingProperties() {
@@ -3247,6 +3403,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
         });
       }
     }
+    this.refreshMainCardSections();
   }
 
   /**
@@ -3988,6 +4145,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     this.showFeedbackStatusSection =
       (this.isTutorUser && (this.feedbackPending || this.feedbackProvided)) ||
       (this.isStudentUser && (this.feedbackPending || this.feedbackProvided));
+    this.refreshMainCardSections();
   }
 
   leaveFeedback() {
@@ -3997,6 +4155,14 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
 
   toggleFeedbackSection() {
     this.feedbackSectionExpanded = !this.feedbackSectionExpanded;
+  }
+
+  toggleFeedbackStrengthsSection() {
+    this.feedbackStrengthsExpanded = !this.feedbackStrengthsExpanded;
+  }
+
+  toggleFeedbackImprovementsSection() {
+    this.feedbackImprovementsExpanded = !this.feedbackImprovementsExpanded;
   }
 
   toggleMaterialsSection() {

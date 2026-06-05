@@ -316,7 +316,7 @@ ion-header ion-toolbar {
 }
 
 .ed-skeleton-focus {
-  margin-top: 20px;
+  margin-top: 0;
 }
 
 .ed-skeleton-eyebrow {
@@ -1425,6 +1425,36 @@ ion-header ion-toolbar {
   }
 }
 
+.ed-fb-collapsible-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  margin: 0 0 8px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+
+  .ed-sub-label {
+    margin: 0;
+  }
+
+  ion-icon {
+    flex-shrink: 0;
+    font-size: 16px;
+    color: var(--ed-text-secondary, #717171);
+    transition: color 0.2s ease;
+  }
+
+  &:hover ion-icon {
+    color: var(--ed-text-primary, #222);
+  }
+}
+
 .ed-fb-list {
   list-style: none;
   padding: 0;
@@ -2206,16 +2236,76 @@ ion-header {
   min-width: 0;
 
   // No top rule under the removed page title — hide the first section divider only.
-  > .ed-divider:first-child,
-  > .ed-main-translate:first-child + .ed-divider {
+  > .ed-main-card > .ed-divider:first-child,
+  > .ed-main-card > .ed-main-translate:first-child + .ed-divider {
     display: none;
+  }
+}
+
+.ed-main-card {
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.06),
+    0 8px 30px rgba(0, 0, 0, 0.1);
+
+  .ed-learning-focus {
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+
+  .ed-focus-card {
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  // Unified section headers — match learning-focus eyebrow (not 22px page titles)
+  .ed-section-label,
+  .ed-focus-card-eyebrow {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #359aff;
+    margin: 0 0 12px;
+    line-height: 1.4;
+  }
+
+  .ed-collapsible-header .ed-section-label,
+  .ed-feedback-header .ed-section-label {
+    display: flex;
+    margin: 0;
+  }
+
+  .ed-briefing-header .ed-briefing-eyebrow {
+    display: none;
+  }
+
+  .ed-focus-card-head .ed-focus-card-eyebrow {
+    margin-bottom: 0;
+  }
+
+  .ed-section-empty {
+    margin: 0;
+    padding: 16px 18px;
+    border-radius: 12px;
+    background: #f7f7f7;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--ed-text-secondary, #717171);
   }
 }
 
 /* ── Profile Panel (left card — Airbnb style) ─────────── */
 .ed-profile-panel {
   order: -1;
-  position: relative;
 }
 
 .ed-profile-card {
@@ -2513,36 +2603,34 @@ ion-header {
   gap: 8px;
 }
 
-/* ── Panel Back Button (floats to the left of the card) ── */
+/* ── Panel Back Button ── */
 .ed-panel-back {
   display: none;
   align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  padding: 0;
+  gap: 6px;
+  padding: 10px 18px;
+  margin-bottom: 16px;
   background: #fff;
-  border: 1px solid var(--ed-divider);
-  color: var(--ed-text-primary);
+  border: 1px solid #ddd;
+  color: #222;
   cursor: pointer;
-  border-radius: 50%;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
   transition: all 0.15s ease;
-  position: absolute;
-  left: -60px;
-  top: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  -webkit-tap-highlight-color: transparent;
 
   ion-icon {
-    font-size: 20px;
+    font-size: 16px;
   }
 
   &:hover {
-    background: #f5f5f5;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+    border-color: #222;
   }
 
   &:active {
-    transform: scale(0.94);
+    transform: scale(0.98);
   }
 }
 
@@ -2684,25 +2772,55 @@ ion-header {
 
 @media (min-width: 960px) {
   .ed-layout {
-    flex-direction: row;
-    gap: 56px;
+    display: grid;
+    grid-template-columns: 372px minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    column-gap: 56px;
+    row-gap: 16px;
+    align-items: stretch;
   }
 
   .ed-profile-panel {
-    flex: 0 0 372px;
-    order: 0;
-    position: sticky;
-    top: 108px;
-    align-self: flex-start;
+    display: contents;
   }
 
   .ed-panel-back {
     display: inline-flex;
+    grid-column: 1;
+    grid-row: 1;
+    justify-self: start;
+    width: auto;
+    max-width: max-content;
+    position: sticky;
+    top: 108px;
+    z-index: 2;
+    align-self: start;
+  }
+
+  .ed-profile-card {
+    grid-column: 1;
+    grid-row: 2;
+    align-self: start;
+    position: sticky;
+    top: calc(108px + var(--ed-back-row-height, 56px) + 16px);
+    padding: 40px 32px 32px;
   }
 
   .ed-main {
-    flex: 1;
+    grid-column: 2;
+    grid-row: 2;
+    display: flex;
+    flex-direction: column;
+    flex: none;
     min-width: 0;
+    padding-top: 0;
+    box-sizing: border-box;
+  }
+
+  .ed-main-card {
+    flex: 1 1 auto;
+    min-height: 100%;
+    padding: 28px 32px 32px;
   }
 
   .ed-channel-avatar {
@@ -2713,10 +2831,6 @@ ion-header {
   .ed-channel-name { font-size: 11px; }
   .ed-channel-meta { font-size: 10px; }
   .ed-channel-icon { font-size: 14px; }
-
-  .ed-profile-card {
-    padding: 40px 32px 32px;
-  }
 
   .ed-pc-avatar {
     width: 110px;
@@ -3842,6 +3956,15 @@ ion-header {
     margin-bottom: 12px;
   }
 
+  .ed-main-card .ed-section-label,
+  .ed-main-card .ed-focus-card-eyebrow {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
   .ed-detail {
     padding: 8px 0;
 
@@ -3967,18 +4090,10 @@ ion-header {
 
   .ed-panel-back {
     background: #1c1c1e;
-    border-color: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.15);
     color: #f5f5f7;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 
-    &:hover {
-      background: #2c2c2e;
-      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
-    }
-
-    &:active {
-      opacity: 0.5;
-    }
+    &:hover { border-color: #f5f5f7; }
   }
 
   .state-container {
@@ -4082,6 +4197,19 @@ ion-header {
 
   .ed-learning-focus .ed-focus-card-eyebrow {
     color: #4298d2;
+  }
+
+  .ed-main-card {
+    .ed-section-label,
+    .ed-focus-card-eyebrow {
+      color: #4298d2;
+    }
+
+    .ed-section-empty {
+      background: #1c1c1e;
+      border-color: rgba(255, 255, 255, 0.1);
+      color: var(--ed-text-secondary, #8e8e93);
+    }
   }
 
   .ed-learning-focus .ed-focus-card-state {
@@ -4295,7 +4423,8 @@ ion-header {
   }
 
   // Profile panel dark mode
-  .ed-profile-card {
+  .ed-profile-card,
+  .ed-main-card {
     background: #1c1c1e;
     border-color: rgba(255, 255, 255, 0.06);
     box-shadow:
@@ -4374,8 +4503,9 @@ ion-header {
   }
 
   .ed-panel-back {
-    color: #8e8e93;
-    &:hover { background: rgba(255, 255, 255, 0.06); color: #f5f5f7; }
+    color: #f5f5f7;
+    border-color: rgba(255, 255, 255, 0.15);
+    &:hover { border-color: #f5f5f7; background: rgba(255, 255, 255, 0.06); }
   }
 
   .ed-pc-divider {

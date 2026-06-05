@@ -441,7 +441,7 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
     this.websocketService.aiAnalysisSettingChanged$
       .pipe(takeUntil(this.destroy$))
       .subscribe(change => {
-        if (this.aiStatusLocked) return;
+        if (this.aiStatusLocked || this.isTrialLesson) return;
         if (!this.lessonStudentId || String(change.studentId) !== String(this.lessonStudentId)) return;
         console.log('🤖 PRE-CALL: applying live AI setting change:', change.aiAnalysisEnabled);
         this.aiAnalysisEnabled = change.aiAnalysisEnabled;
@@ -581,7 +581,7 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
         this.aiAnalysisEnabled = this.aiStatusLocked
           ? aiSnapshot
           : (lesson.studentId?.profile?.aiAnalysisEnabled !== false);
-        this.aiStatusResolved = true;
+        this.aiStatusResolved = !this.isTrialLesson;
 
         console.log('🔐 PRE-CALL: Role determined from lesson data', {
           currentUserId,
@@ -1582,7 +1582,7 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
    * snapshot (the value is frozen for this lesson once it starts).
    */
   private async refreshAiStatusFromServer(): Promise<void> {
-    if (this.aiStatusLocked || this.isClass) return;
+    if (this.aiStatusLocked || this.isClass || this.isTrialLesson) return;
     try {
       const response = await firstValueFrom(this.lessonService.getLesson(this.lessonId));
       const lesson = (response as any)?.lesson;
@@ -1592,7 +1592,7 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
       this.aiAnalysisEnabled = this.aiStatusLocked
         ? aiSnapshot
         : (lesson.studentId?.profile?.aiAnalysisEnabled !== false);
-      this.aiStatusResolved = true;
+      this.aiStatusResolved = !(lesson.isTrialLesson || this.isTrialLesson);
       this.cdr.detectChanges();
     } catch (err) {
       console.warn('⚠️ PRE-CALL: failed to refresh AI status', err);
@@ -1606,7 +1606,7 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
    */
   async onToggleAiAnalysis(event: any): Promise<void> {
     const requested = !!event?.detail?.checked;
-    if (!this.isStudent || this.aiStatusLocked || this.aiToggleSaving) return;
+    if (!this.isStudent || this.aiStatusLocked || this.aiToggleSaving || this.isTrialLesson) return;
     if (requested === this.aiAnalysisEnabled) return;
 
     const previous = this.aiAnalysisEnabled;

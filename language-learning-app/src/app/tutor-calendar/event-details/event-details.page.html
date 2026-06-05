@@ -50,7 +50,8 @@
           </div>
         </aside>
         <div class="ed-main">
-          <div class="ed-skeleton-card ed-skeleton-focus">
+          <div class="ed-main-card">
+          <div class="ed-skeleton-focus">
             <div class="skeleton-text short ed-skeleton-eyebrow"></div>
             <div class="skeleton-text ed-skeleton-focus-line"></div>
             <div class="skeleton-text ed-skeleton-focus-line"></div>
@@ -58,7 +59,8 @@
           </div>
           <div class="ed-skeleton-divider"></div>
           <div class="skeleton-section-label"></div>
-          <div class="ed-skeleton-card ed-skeleton-block"></div>
+          <div class="ed-skeleton-block"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -71,6 +73,7 @@
         <aside class="ed-profile-panel">
           <button class="ed-panel-back" (click)="goBack()" [attr.aria-label]="'EVENT_DETAILS.LESSON_SCREEN.BACK_ARIA' | translate">
             <ion-icon name="chevron-back-outline"></ion-icon>
+            <span>{{ 'COMMON.BACK' | translate }}</span>
           </button>
           <div class="ed-profile-card">
 
@@ -99,7 +102,7 @@
             <!-- Bio -->
             <p class="ed-pc-bio" *ngIf="participantBio">{{ participantBio }}</p>
 
-            <!-- Stats row -->
+            <!-- Stats row (person-level only — no lesson logistics duplicated below) -->
             <div class="ed-pc-stats">
               <div class="ed-pc-stat">
                 <span class="ed-pc-stat-num">{{ lessonsWithParticipant || 1 }}</span>
@@ -108,10 +111,6 @@
               <div class="ed-pc-stat" *ngIf="tutorStatsRating && isStudentUser">
                 <span class="ed-pc-stat-num">★ {{ tutorStatsRating }}</span>
                 <span class="ed-pc-stat-label">{{ 'EVENT_DETAILS.LESSON_SCREEN.GUEST_RATING' | translate }}</span>
-              </div>
-              <div class="ed-pc-stat" *ngIf="formattedDuration">
-                <span class="ed-pc-stat-num">{{ formattedDuration }}</span>
-                <span class="ed-pc-stat-label">{{ 'EVENT_DETAILS.LESSON_SCREEN.DURATION' | translate }}</span>
               </div>
             </div>
 
@@ -137,11 +136,10 @@
               <h3 class="ed-pc-section-title">{{ 'EVENT_DETAILS.LESSON_SCREEN.SIDEBAR_LESSON_DETAILS' | translate }}</h3>
               <div class="ed-pc-badges">
                 <span class="ed-status" [ngClass]="statusClass">{{ statusLabel }}</span>
-                <span class="ed-trial-badge" *ngIf="lesson?.isTrialLesson">
+                <span class="ed-trial-badge" *ngIf="lesson?.isTrialLesson && !(edHasPlan && edPlanIsTrial)">
                   <ion-icon name="star" aria-hidden="true"></ion-icon>
                   {{ 'HOME.STATUS_TRIAL' | translate }}
                 </span>
-                <span class="ed-type-label" *ngIf="lesson?.isOfficeHours">{{ 'EVENT_DETAILS.LESSON_SCREEN.OFFICE_HOURS' | translate }}</span>
               </div>
             </div>
 
@@ -162,7 +160,7 @@
                 </div>
               </div>
 
-              <div class="ed-pc-detail" *ngIf="formattedPrice">
+              <div class="ed-pc-detail" *ngIf="formattedPrice && !hasPaymentStatus">
                 <ion-icon name="card-outline"></ion-icon>
                 <div>
                   <span class="ed-pc-detail-primary">{{ formattedPrice }}</span>
@@ -178,7 +176,7 @@
                 </div>
               </div>
 
-              <div class="ed-pc-detail" *ngIf="!isCancelled && billingData && formattedActualDuration">
+              <div class="ed-pc-detail" *ngIf="!isCancelled && billingData && formattedActualDuration && !hasPaymentStatus">
                 <ion-icon name="stopwatch-outline"></ion-icon>
                 <div>
                   <span class="ed-pc-detail-primary">{{ formattedActualDuration }}</span>
@@ -186,7 +184,7 @@
                 </div>
               </div>
 
-              <div class="ed-pc-detail" *ngIf="!isCancelled && billingData && formattedActualPrice">
+              <div class="ed-pc-detail" *ngIf="!isCancelled && billingData && formattedActualPrice && !hasPaymentStatus">
                 <ion-icon name="receipt-outline"></ion-icon>
                 <div>
                   <span class="ed-pc-detail-primary">{{ formattedActualPrice }}</span>
@@ -201,6 +199,7 @@
 
         <!-- ═══ RIGHT: Content Column ════════════════════════ -->
         <div class="ed-main">
+          <div class="ed-main-card">
 
           <button
             type="button"
@@ -216,22 +215,23 @@
           </button>
 
     <!-- ── Plan context (compact — no duplicate briefing content) ── -->
-    <ng-container *ngIf="edHasPlan && (edPlanNextFocus || edPlanIsTrial)">
+    <ng-container *ngIf="showMcLearningFocus">
       <section class="ed-row ed-learning-focus">
         <div class="ed-focus-card">
           <div class="ed-focus-card-head">
             <span class="ed-focus-card-eyebrow">{{ (edPlanIsTrial ? 'EVENT_DETAILS.LESSON_SCREEN.TRIAL_EYEBROW' : edPlanEyebrowKey) | translate }}</span>
-            <span class="ed-focus-card-state" *ngIf="edPlanStateLabel && !edFocusEditing">{{ edPlanStateLabel }}</span>
+            <span class="ed-focus-card-state" *ngIf="edPlanStateLabel && !edFocusEditing && !mcLearningFocusEmpty">{{ edPlanStateLabel }}</span>
             <button
               type="button"
               class="ed-focus-card-edit"
-              *ngIf="edCanEditFocus && !edPlanIsTrial && !edFocusEditing"
+              *ngIf="edCanEditFocus && !edPlanIsTrial && !edFocusEditing && !mcLearningFocusEmpty"
               (click)="startFocusEdit()">
               <ion-icon name="create-outline"></ion-icon>
               <span>{{ 'EVENT_DETAILS.LESSON_SCREEN.FOCUS_EDIT_CTA' | translate }}</span>
             </button>
           </div>
 
+          <ng-container *ngIf="!mcLearningFocusEmpty">
           <ng-container *ngIf="!edFocusEditing">
             <p class="ed-focus-card-body">{{ edPlanIsTrial ? edPlanTrialBody : edPlanNextFocus }}</p>
             <p class="ed-focus-card-advisory" *ngIf="!edPlanIsTrial && edPlanAdvisoryNote">{{ edPlanAdvisoryNote }}</p>
@@ -261,35 +261,42 @@
           <ul class="ed-focus-agenda" *ngIf="edShowPlanExpanded && !edPlanIsTrial && edPlanAgenda.length && isStudentUser">
             <li *ngFor="let item of edPlanAgenda">{{ item }}</li>
           </ul>
+          </ng-container>
+
+          <p class="ed-section-empty" *ngIf="mcLearningFocusEmpty">{{ mcLearningFocusEmptyKey | translate }}</p>
         </div>
       </section>
     </ng-container>
 
     <!-- ── First lesson (upcoming — matches lessons card desc) ── -->
-    <ng-container *ngIf="hasFirstLessonContext">
+    <ng-container *ngIf="showMcFirstLesson">
       <div class="ed-divider"></div>
       <section class="ed-row ed-first-session">
         <h2 class="ed-section-label">{{ 'EVENT_DETAILS.LESSON_SCREEN.FIRST_LESSON' | translate }}</h2>
-        <p class="ed-body">{{ firstLessonMessage }}</p>
+        <p class="ed-body" *ngIf="!mcFirstLessonEmpty">{{ firstLessonMessage }}</p>
+        <p class="ed-section-empty" *ngIf="mcFirstLessonEmpty">{{ mcFirstLessonEmptyKey | translate }}</p>
       </section>
     </ng-container>
 
     <!-- ── Last session (upcoming only — retrospective) ──────── -->
-    <ng-container *ngIf="hasLastSessionContext">
+    <ng-container *ngIf="showMcLastSession">
       <div class="ed-divider"></div>
       <section class="ed-row ed-last-session">
         <div class="ed-feedback-header">
           <h2 class="ed-section-label">{{ 'EVENT_DETAILS.LESSON_SCREEN.WHAT_WE_WORKED_ON_LAST' | translate }}</h2>
         </div>
+        <ng-container *ngIf="!mcLastSessionEmpty">
         <p class="ed-body">{{ lastSessionSummary }}</p>
         <ul class="ed-focus-list" *ngIf="lastSessionFocus.length">
           <li *ngFor="let f of lastSessionFocus">{{ f }}</li>
         </ul>
+        </ng-container>
+        <p class="ed-section-empty" *ngIf="mcLastSessionEmpty">{{ mcLastSessionEmptyKey | translate }}</p>
       </section>
     </ng-container>
 
     <!-- ── Tutor prep (upcoming only — agenda + gaps, collapsed) ── -->
-    <ng-container *ngIf="edShowTutorBriefing">
+    <ng-container *ngIf="showMcTutorBriefing">
       <div class="ed-divider"></div>
       <section class="ed-row ed-briefing">
         <button type="button" class="ed-briefing-header" (click)="toggleBriefingExpanded()" [attr.aria-expanded]="edPrepBriefingExpanded">
@@ -310,7 +317,7 @@
           <ion-icon [name]="edPrepBriefingExpanded ? 'chevron-up-outline' : 'chevron-down-outline'"></ion-icon>
         </button>
 
-        <div class="ed-briefing-body" *ngIf="edPrepBriefingExpanded">
+        <div class="ed-briefing-body" *ngIf="edPrepBriefingExpanded && !mcTutorBriefingEmpty">
           <div class="ed-briefing-stats" *ngIf="edPrepMasteryLabel || edPrepProficiencyChangeLabel">
             <div class="ed-briefing-stat" *ngIf="edPrepMasteryLabel">
               <span class="ed-briefing-stat-label">{{ edPrepMasteryLabel }}</span>
@@ -374,13 +381,22 @@
             </ul>
           </div>
         </div>
+        <p class="ed-section-empty" *ngIf="mcTutorBriefingEmpty">{{ 'EVENT_DETAILS.LESSON_SCREEN.EMPTY_BRIEFING_TUTOR' | translate }}</p>
       </section>
     </ng-container>
 
     <!-- ── Feedback Status Banner ────────────────────────────── -->
-    <ng-container *ngIf="isLessonCompleted && !feedbackLoading && !analysisLoading && showFeedbackStatusSection">
+    <ng-container *ngIf="showMcFeedbackStatus">
       <div class="ed-divider"></div>
       <section class="ed-row">
+        <h2 class="ed-section-label">{{ 'EVENT_DETAILS.LESSON_SCREEN.FEEDBACK_STATUS' | translate }}</h2>
+
+        <div class="ed-inline-loader" *ngIf="feedbackLoading || analysisLoading">
+          <ion-spinner name="crescent"></ion-spinner>
+          <span>{{ 'EVENT_DETAILS.LESSON_SCREEN.LOADING_FEEDBACK' | translate }}</span>
+        </div>
+
+        <ng-container *ngIf="!feedbackLoading && !analysisLoading && !mcFeedbackStatusEmpty">
 
         <!-- Tutor: Feedback pending -->
         <div class="ed-feedback-status pending" *ngIf="isTutorUser && feedbackPending">
@@ -441,22 +457,72 @@
           </div>
         </div>
 
+        </ng-container>
+        <p class="ed-section-empty" *ngIf="!feedbackLoading && !analysisLoading && mcFeedbackStatusEmpty">{{ mcFeedbackStatusEmptyKey | translate }}</p>
+
       </section>
     </ng-container>
 
-    <!-- Notes is now consolidated into the Analysis section below -->
+    <!-- ── Tutor Feedback (Student view: unified note + structured feedback — shown before analysis) ── -->
+    <ng-container *ngIf="showMcTutorFeedback">
+      <div class="ed-divider"></div>
+      <section class="ed-row" id="tutor-feedback-student-section">
+        <div class="ed-feedback-header">
+          <h2 class="ed-section-label">{{ 'EVENT_DETAILS.LESSON_SCREEN.TUTOR_FEEDBACK' | translate }}</h2>
+          <div class="ed-feedback-header-right">
+            <span class="ed-cefr-sm" *ngIf="feedbackCefrLevel">{{ feedbackCefrLevel }}</span>
+          </div>
+        </div>
 
+        <ng-container *ngIf="!mcTutorFeedbackEmpty">
+          <div class="ed-fb-block" *ngIf="feedbackStrengths.length">
+            <button type="button" class="ed-fb-collapsible-header" (click)="toggleFeedbackStrengthsSection()" [attr.aria-expanded]="feedbackStrengthsExpanded">
+              <h3 class="ed-sub-label green">{{ 'EVENT_DETAILS.LESSON_SCREEN.STRENGTHS' | translate }}</h3>
+              <ion-icon [name]="feedbackStrengthsExpanded ? 'chevron-up-outline' : 'chevron-down-outline'" aria-hidden="true"></ion-icon>
+            </button>
+            <div class="ed-collapsible-body" [class.collapsed]="!feedbackStrengthsExpanded">
+              <ul class="ed-fb-list">
+                <li *ngFor="let s of feedbackStrengths">{{ s }}</li>
+              </ul>
+            </div>
+          </div>
+          <div class="ed-fb-block" *ngIf="feedbackImprovements.length">
+            <button type="button" class="ed-fb-collapsible-header" (click)="toggleFeedbackImprovementsSection()" [attr.aria-expanded]="feedbackImprovementsExpanded">
+              <h3 class="ed-sub-label amber">{{ 'EVENT_DETAILS.LESSON_SCREEN.AREAS_TO_IMPROVE' | translate }}</h3>
+              <ion-icon [name]="feedbackImprovementsExpanded ? 'chevron-up-outline' : 'chevron-down-outline'" aria-hidden="true"></ion-icon>
+            </button>
+            <div class="ed-collapsible-body" [class.collapsed]="!feedbackImprovementsExpanded">
+              <ul class="ed-fb-list">
+                <li *ngFor="let a of feedbackImprovements">{{ a }}</li>
+              </ul>
+            </div>
+          </div>
+          <div class="ed-fb-block" *ngIf="feedbackNotes">
+            <h3 class="ed-sub-label">{{ 'EVENT_DETAILS.LESSON_SCREEN.FB_STRUCTURED_NOTES' | translate }}</h3>
+            <p class="ed-body">{{ feedbackNotes }}</p>
+          </div>
+          <span class="ed-meta" *ngIf="feedbackDate">{{ 'EVENT_DETAILS.LESSON_SCREEN.PROVIDED_META' | translate: { date: feedbackDate } }}</span>
+        </ng-container>
+        <p class="ed-section-empty" *ngIf="mcTutorFeedbackEmpty">{{ 'EVENT_DETAILS.LESSON_SCREEN.EMPTY_TUTOR_FEEDBACK_STUDENT' | translate }}</p>
+      </section>
+    </ng-container>
 
-
-    <!-- ── Notes (student: AI analysis · tutor: analysis or private notes) ── -->
-    <ng-container *ngIf="showLessonNotesSection">
+    <!-- ── Notes / AI Analysis ── -->
+    <ng-container *ngIf="showMcAnalysis">
       <div class="ed-divider"></div>
       <section class="ed-row">
         <div class="ed-feedback-header">
           <h2 class="ed-section-label">{{ notesSectionLabelKey | translate }}</h2>
         </div>
 
-        <!-- Summary -->
+        <div class="ed-inline-loader" *ngIf="analysisLoading">
+          <ion-spinner name="crescent"></ion-spinner>
+          <span>{{ 'EVENT_DETAILS.LESSON_SCREEN.LOADING_ANALYSIS' | translate }}</span>
+        </div>
+
+        <ng-container *ngIf="!analysisLoading && showLessonNotesSection">
+
+        <!-- Summary always shown -->
         <div class="ed-analysis-top" *ngIf="hasAnalysis && analysisData?.overallAssessment">
           <div class="ed-cefr" *ngIf="analysisData?.overallAssessment?.proficiencyLevel">
             <span class="ed-cefr-level">{{ analysisData?.overallAssessment?.proficiencyLevel }}</span>
@@ -470,69 +536,61 @@
         </div>
         <p class="ed-body" *ngIf="showTutorPrivateNotes">{{ lesson.notes }}</p>
 
-        <!-- Scores -->
-        <div class="ed-scores" *ngIf="hasAnalysis && isAiAnalysis && (analysisData?.grammarAnalysis || analysisData?.fluencyAnalysis || analysisData?.pronunciationAnalysis)">
-          <div class="ed-score" *ngIf="analysisData?.grammarAnalysis?.accuracyScore != null">
-            <span class="ed-score-num" [style.color]="grammarScoreColor">{{ analysisData?.grammarAnalysis?.accuracyScore }}</span>
-            <span class="ed-score-name">{{ 'EVENT_DETAILS.LESSON_SCREEN.SCORE_GRAMMAR' | translate }}</span>
+        <!-- Scores, topics and recommended focus — tutors only (students click through to full analysis) -->
+        <ng-container *ngIf="isTutorUser">
+          <div class="ed-scores" *ngIf="hasAnalysis && isAiAnalysis && (analysisData?.grammarAnalysis || analysisData?.fluencyAnalysis || analysisData?.pronunciationAnalysis)">
+            <div class="ed-score" *ngIf="analysisData?.grammarAnalysis?.accuracyScore != null">
+              <span class="ed-score-num" [style.color]="grammarScoreColor">{{ analysisData?.grammarAnalysis?.accuracyScore }}</span>
+              <span class="ed-score-name">{{ 'EVENT_DETAILS.LESSON_SCREEN.SCORE_GRAMMAR' | translate }}</span>
+            </div>
+            <div class="ed-score" *ngIf="analysisData?.fluencyAnalysis?.overallFluencyScore != null">
+              <span class="ed-score-num" [style.color]="fluencyScoreColor">{{ analysisData?.fluencyAnalysis?.overallFluencyScore }}</span>
+              <span class="ed-score-name">{{ 'EVENT_DETAILS.LESSON_SCREEN.SCORE_FLUENCY' | translate }}</span>
+            </div>
+            <div class="ed-score" *ngIf="analysisData?.pronunciationAnalysis?.overallScore != null">
+              <span class="ed-score-num" [style.color]="pronunciationScoreColor">{{ analysisData?.pronunciationAnalysis?.overallScore }}</span>
+              <span class="ed-score-name">{{ 'EVENT_DETAILS.LESSON_SCREEN.SCORE_PRONUNCIATION' | translate }}</span>
+            </div>
+            <div class="ed-score" *ngIf="analysisData?.vocabularyAnalysis?.vocabularyRange">
+              <span class="ed-score-word">{{ analysisData?.vocabularyAnalysis?.vocabularyRange }}</span>
+              <span class="ed-score-name">{{ 'EVENT_DETAILS.LESSON_SCREEN.SCORE_VOCABULARY' | translate }}</span>
+            </div>
           </div>
-          <div class="ed-score" *ngIf="analysisData?.fluencyAnalysis?.overallFluencyScore != null">
-            <span class="ed-score-num" [style.color]="fluencyScoreColor">{{ analysisData?.fluencyAnalysis?.overallFluencyScore }}</span>
-            <span class="ed-score-name">{{ 'EVENT_DETAILS.LESSON_SCREEN.SCORE_FLUENCY' | translate }}</span>
+          <div class="ed-topics" *ngIf="hasAnalysis && analysisData?.topicsDiscussed?.length">
+            <span class="ed-topic" *ngFor="let t of analysisData?.topicsDiscussed">{{ t }}</span>
           </div>
-          <div class="ed-score" *ngIf="analysisData?.pronunciationAnalysis?.overallScore != null">
-            <span class="ed-score-num" [style.color]="pronunciationScoreColor">{{ analysisData?.pronunciationAnalysis?.overallScore }}</span>
-            <span class="ed-score-name">{{ 'EVENT_DETAILS.LESSON_SCREEN.SCORE_PRONUNCIATION' | translate }}</span>
+          <div class="ed-bullets" *ngIf="hasAnalysis && analysisData?.recommendedFocus?.length">
+            <h3 class="ed-sub-label">{{ 'EVENT_DETAILS.LESSON_SCREEN.RECOMMENDED_FOCUS' | translate }}</h3>
+            <ul>
+              <li *ngFor="let f of analysisData?.recommendedFocus">{{ f }}</li>
+            </ul>
           </div>
-          <div class="ed-score" *ngIf="analysisData?.vocabularyAnalysis?.vocabularyRange">
-            <span class="ed-score-word">{{ analysisData?.vocabularyAnalysis?.vocabularyRange }}</span>
-            <span class="ed-score-name">{{ 'EVENT_DETAILS.LESSON_SCREEN.SCORE_VOCABULARY' | translate }}</span>
-          </div>
-        </div>
-
-        <!-- Topics -->
-        <div class="ed-topics" *ngIf="hasAnalysis && analysisData?.topicsDiscussed?.length">
-          <span class="ed-topic" *ngFor="let t of analysisData?.topicsDiscussed">{{ t }}</span>
-        </div>
-
-        <!-- Recommended focus -->
-        <div class="ed-bullets" *ngIf="hasAnalysis && analysisData?.recommendedFocus?.length">
-          <h3 class="ed-sub-label">{{ 'EVENT_DETAILS.LESSON_SCREEN.RECOMMENDED_FOCUS' | translate }}</h3>
-          <ul>
-            <li *ngFor="let f of analysisData?.recommendedFocus">{{ f }}</li>
-          </ul>
-        </div>
+        </ng-container>
 
         <button class="link-btn" *ngIf="hasAnalysis" (click)="viewAnalysis()">{{ 'EVENT_DETAILS.LESSON_SCREEN.VIEW_FULL_ANALYSIS' | translate }}</button>
-      </section>
-    </ng-container>
+        </ng-container>
 
-    <!-- Analysis loading -->
-    <ng-container *ngIf="analysisLoading && isLessonCompleted && !isTrialLessonEvent">
-      <div class="ed-divider"></div>
-      <section class="ed-row ed-inline-loader">
-        <ion-spinner name="crescent"></ion-spinner>
-        <span>{{ 'EVENT_DETAILS.LESSON_SCREEN.LOADING_ANALYSIS' | translate }}</span>
-      </section>
-    </ng-container>
-
-    <!-- Analysis unavailable -->
-    <ng-container *ngIf="!analysisLoading && !hasAnalysis && analysisUnavailable && isLessonCompleted && !isTrialLessonEvent && !(isTutorUser && showTutorPrivateNotes)">
-      <div class="ed-divider"></div>
-      <section class="ed-row ed-analysis-unavailable">
-        <ion-icon name="document-text-outline"></ion-icon>
-        <p>{{ 'EVENT_DETAILS.LESSON_SCREEN.ANALYSIS_UNAVAILABLE_BODY' | translate }}</p>
+        <p class="ed-section-empty" *ngIf="!analysisLoading && mcAnalysisEmpty && !analysisUnavailable">{{ mcAnalysisEmptyKey | translate }}</p>
+        <div class="ed-analysis-unavailable ed-section-empty" *ngIf="!analysisLoading && analysisUnavailable">
+          <ion-icon name="document-text-outline"></ion-icon>
+          <p>{{ 'EVENT_DETAILS.LESSON_SCREEN.ANALYSIS_UNAVAILABLE_BODY' | translate }}</p>
+        </div>
       </section>
     </ng-container>
 
     <!-- ── Recommended Materials (Student view only) ───────────────────────────────────────── -->
-    <ng-container *ngIf="isStudentUser && hasRecommendations">
+    <ng-container *ngIf="showMcPracticeAreas">
       <div class="ed-divider"></div>
       <section class="ed-row ed-rec-section">
         <h2 class="ed-section-label">{{ 'EVENT_DETAILS.LESSON_SCREEN.PRACTICE_AREAS' | translate }}</h2>
-        <p class="ed-rec-subtitle" *ngIf="recommendedStruggles.length">{{ 'EVENT_DETAILS.LESSON_SCREEN.BASED_ON_RECENT' | translate }}</p>
+        <p class="ed-rec-subtitle" *ngIf="recommendedStruggles.length && !mcPracticeAreasEmpty">{{ 'EVENT_DETAILS.LESSON_SCREEN.BASED_ON_RECENT' | translate }}</p>
 
-        <div class="ed-rec-scroll">
+        <div class="ed-inline-loader" *ngIf="recommendedLoading">
+          <ion-spinner name="crescent"></ion-spinner>
+          <span>{{ 'EVENT_DETAILS.LESSON_SCREEN.FINDING_RECOMMENDATIONS' | translate }}</span>
+        </div>
+
+        <div class="ed-rec-scroll" *ngIf="!recommendedLoading && !mcPracticeAreasEmpty">
           <div class="ed-rec-card" *ngFor="let mat of recommendedMaterials" (click)="viewRecommendedMaterial(mat)">
             <div class="ed-rec-card-thumb" *ngIf="mat.thumbnailUrl">
               <img [src]="mat.thumbnailUrl" [alt]="mat.title" loading="lazy" />
@@ -561,33 +619,14 @@
             </button>
           </div>
         </div>
+        <p class="ed-section-empty" *ngIf="!recommendedLoading && mcPracticeAreasEmpty">{{ 'EVENT_DETAILS.LESSON_SCREEN.EMPTY_PRACTICE_AREAS' | translate }}</p>
       </section>
     </ng-container>
 
-    <!-- Recommendations loading -->
-    <ng-container *ngIf="isStudentUser && recommendedLoading && !hasRecommendations">
+    <!-- ── Your Feedback (Tutor view: collapsible with note + structured feedback) ── -->
+    <ng-container *ngIf="showMcYourFeedback">
       <div class="ed-divider"></div>
-      <section class="ed-row ed-inline-loader">
-        <ion-spinner name="crescent"></ion-spinner>
-        <span>{{ 'EVENT_DETAILS.LESSON_SCREEN.FINDING_RECOMMENDATIONS' | translate }}</span>
-      </section>
-    </ng-container>
-
-    <!-- ── Tutor Note (Student view only - separate section) ───────────────────────────────────────── -->
-    <ng-container *ngIf="hasTutorNote && isStudentUser">
-      <div class="ed-divider"></div>
-      <section class="ed-row" id="feedback-detail-section">
-        <h2 class="ed-section-label">{{ 'EVENT_DETAILS.LESSON_SCREEN.TUTOR_NOTE' | translate }}</h2>
-
-        <span class="ed-impression" *ngIf="analysisData?.tutorNote?.quickImpression">{{ analysisData?.tutorNote?.quickImpression }}</span>
-        <div class="ed-rich-body" [innerHTML]="sanitizedTutorNote"></div>
-      </section>
-    </ng-container>
-
-    <!-- ── Your Feedback / Tutor Feedback (Tutor view: collapsible with note + structured feedback) ──────────────────────── -->
-    <ng-container *ngIf="(hasTutorNote || hasTutorFeedback) && isTutorUser">
-      <div class="ed-divider"></div>
-      <section class="ed-row" id="feedback-detail-section">
+      <section class="ed-row" id="your-feedback-section">
         <div class="ed-feedback-header collapsible" (click)="toggleFeedbackSection()">
           <h2 class="ed-section-label">{{ 'EVENT_DETAILS.LESSON_SCREEN.YOUR_FEEDBACK' | translate }}</h2>
           <div class="ed-feedback-header-right">
@@ -600,6 +639,7 @@
         </div>
 
         <div class="ed-feedback-content" [class.collapsed]="!feedbackSectionExpanded">
+          <ng-container *ngIf="!mcYourFeedbackEmpty">
           <!-- Tutor Note (inside collapsible for tutor view) -->
           <ng-container *ngIf="hasTutorNote">
             <div class="ed-fb-block">
@@ -611,17 +651,27 @@
 
           <!-- Structured Tutor Feedback -->
           <div class="ed-fb-block" *ngIf="feedbackStrengths.length">
-            <h3 class="ed-sub-label green">{{ 'EVENT_DETAILS.LESSON_SCREEN.STRENGTHS' | translate }}</h3>
-            <ul class="ed-fb-list">
-              <li *ngFor="let s of feedbackStrengths">{{ s }}</li>
-            </ul>
+            <button type="button" class="ed-fb-collapsible-header" (click)="toggleFeedbackStrengthsSection()" [attr.aria-expanded]="feedbackStrengthsExpanded">
+              <h3 class="ed-sub-label green">{{ 'EVENT_DETAILS.LESSON_SCREEN.STRENGTHS' | translate }}</h3>
+              <ion-icon [name]="feedbackStrengthsExpanded ? 'chevron-up-outline' : 'chevron-down-outline'" aria-hidden="true"></ion-icon>
+            </button>
+            <div class="ed-collapsible-body" [class.collapsed]="!feedbackStrengthsExpanded">
+              <ul class="ed-fb-list">
+                <li *ngFor="let s of feedbackStrengths">{{ s }}</li>
+              </ul>
+            </div>
           </div>
 
           <div class="ed-fb-block" *ngIf="feedbackImprovements.length">
-            <h3 class="ed-sub-label amber">{{ 'EVENT_DETAILS.LESSON_SCREEN.AREAS_TO_IMPROVE' | translate }}</h3>
-            <ul class="ed-fb-list">
-              <li *ngFor="let a of feedbackImprovements">{{ a }}</li>
-            </ul>
+            <button type="button" class="ed-fb-collapsible-header" (click)="toggleFeedbackImprovementsSection()" [attr.aria-expanded]="feedbackImprovementsExpanded">
+              <h3 class="ed-sub-label amber">{{ 'EVENT_DETAILS.LESSON_SCREEN.AREAS_TO_IMPROVE' | translate }}</h3>
+              <ion-icon [name]="feedbackImprovementsExpanded ? 'chevron-up-outline' : 'chevron-down-outline'" aria-hidden="true"></ion-icon>
+            </button>
+            <div class="ed-collapsible-body" [class.collapsed]="!feedbackImprovementsExpanded">
+              <ul class="ed-fb-list">
+                <li *ngFor="let a of feedbackImprovements">{{ a }}</li>
+              </ul>
+            </div>
           </div>
 
           <div class="ed-fb-block" *ngIf="feedbackNotes">
@@ -630,50 +680,9 @@
           </div>
 
           <span class="ed-meta" *ngIf="feedbackDate">{{ 'EVENT_DETAILS.LESSON_SCREEN.PROVIDED_META' | translate: { date: feedbackDate } }}</span>
+          </ng-container>
+          <p class="ed-section-empty" *ngIf="mcYourFeedbackEmpty">{{ 'EVENT_DETAILS.LESSON_SCREEN.EMPTY_YOUR_FEEDBACK_TUTOR' | translate }}</p>
         </div>
-      </section>
-    </ng-container>
-
-    <!-- ── Tutor Feedback (Student view only - separate section) ──────────────────────── -->
-    <ng-container *ngIf="hasTutorFeedback && isStudentUser">
-      <div class="ed-divider"></div>
-      <section class="ed-row" id="feedback-detail-section">
-        <div class="ed-feedback-header">
-          <h2 class="ed-section-label">{{ 'EVENT_DETAILS.LESSON_SCREEN.TUTOR_FEEDBACK' | translate }}</h2>
-          <div class="ed-feedback-header-right">
-            <span class="ed-cefr-sm" *ngIf="feedbackCefrLevel">{{ feedbackCefrLevel }}</span>
-          </div>
-        </div>
-
-        <div class="ed-fb-block" *ngIf="feedbackStrengths.length">
-          <h3 class="ed-sub-label green">{{ 'EVENT_DETAILS.LESSON_SCREEN.STRENGTHS' | translate }}</h3>
-          <ul class="ed-fb-list">
-            <li *ngFor="let s of feedbackStrengths">{{ s }}</li>
-          </ul>
-        </div>
-
-        <div class="ed-fb-block" *ngIf="feedbackImprovements.length">
-          <h3 class="ed-sub-label amber">{{ 'EVENT_DETAILS.LESSON_SCREEN.AREAS_TO_IMPROVE' | translate }}</h3>
-          <ul class="ed-fb-list">
-            <li *ngFor="let a of feedbackImprovements">{{ a }}</li>
-          </ul>
-        </div>
-
-        <div class="ed-fb-block" *ngIf="feedbackNotes">
-          <h3 class="ed-sub-label">{{ 'EVENT_DETAILS.LESSON_SCREEN.FB_STRUCTURED_NOTES' | translate }}</h3>
-          <p class="ed-body">{{ feedbackNotes }}</p>
-        </div>
-
-        <span class="ed-meta" *ngIf="feedbackDate">{{ 'EVENT_DETAILS.LESSON_SCREEN.PROVIDED_META' | translate: { date: feedbackDate } }}</span>
-      </section>
-    </ng-container>
-
-    <!-- Feedback loading -->
-    <ng-container *ngIf="feedbackLoading">
-      <div class="ed-divider"></div>
-      <section class="ed-row ed-inline-loader">
-        <ion-spinner name="crescent"></ion-spinner>
-        <span>{{ 'EVENT_DETAILS.LESSON_SCREEN.LOADING_FEEDBACK' | translate }}</span>
       </section>
     </ng-container>
 
@@ -704,13 +713,15 @@
     </ng-container>
 
     <!-- ── Payment / Financial Status ────────────────────────── -->
-    <ng-container *ngIf="hasPaymentStatus">
+    <ng-container *ngIf="showMcPayment">
       <div class="ed-divider"></div>
       <section class="ed-row ed-payment-section">
-        <button type="button" class="ed-collapsible-header" (click)="togglePaymentStatusSection()" [attr.aria-expanded]="paymentStatusSectionExpanded">
+        <button type="button" class="ed-collapsible-header" (click)="togglePaymentStatusSection()" [attr.aria-expanded]="paymentStatusSectionExpanded" *ngIf="!mcPaymentEmpty">
           <h2 class="ed-section-label">{{ 'EVENT_DETAILS.PAYMENT.SECTION_TITLE' | translate }}</h2>
           <ion-icon *ngIf="paymentStatusDetails.length > 0" [name]="paymentStatusSectionExpanded ? 'chevron-up-outline' : 'chevron-down-outline'" aria-hidden="true"></ion-icon>
         </button>
+        <h2 class="ed-section-label" *ngIf="mcPaymentEmpty">{{ 'EVENT_DETAILS.PAYMENT.SECTION_TITLE' | translate }}</h2>
+        <ng-container *ngIf="!mcPaymentEmpty">
         <div class="ed-payment-status ed-content-in" [ngClass]="paymentStatusClass">
           <div class="ed-payment-status-header">
             <div class="ed-payment-icon" [ngClass]="paymentStatusClass">
@@ -730,6 +741,8 @@
             </div>
           </div>
         </div>
+        </ng-container>
+        <p class="ed-section-empty" *ngIf="mcPaymentEmpty">{{ mcPaymentEmptyKey | translate }}</p>
       </section>
     </ng-container>
 
@@ -772,13 +785,14 @@
     </ng-container>
 
     <!-- ── Learning Materials ──────────────────────────────── -->
-    <ng-container *ngIf="isStudentUser && tutorMaterials.length">
+    <ng-container *ngIf="showMcLearningMaterials">
       <div class="ed-divider"></div>
       <section class="ed-row">
         <h2 class="ed-section-label">{{ 'EVENT_DETAILS.LESSON_SCREEN.LEARNING_MATERIALS' | translate }}</h2>
-        <p class="ed-body" style="margin-bottom: 12px">{{ 'EVENT_DETAILS.LESSON_SCREEN.MATERIALS_COUNT' | translate: { count: tutorMaterials.length } }}</p>
+        <ng-container *ngIf="!mcLearningMaterialsEmpty">
+        <p class="ed-body" style="margin-bottom: 12px">{{ 'EVENT_DETAILS.LESSON_SCREEN.MATERIALS_COUNT' | translate: { count: tutorMaterialsFiltered.length } }}</p>
         <div class="ed-materials-scroll">
-          <div class="ed-material-tile" *ngFor="let m of tutorMaterials" (click)="openMaterial(m)" [class.has-thumb]="m.thumbnailUrl">
+          <div class="ed-material-tile" *ngFor="let m of tutorMaterialsFiltered" (click)="openMaterial(m)" [class.has-thumb]="m.thumbnailUrl">
             <div class="ed-material-thumb" *ngIf="m.thumbnailUrl">
               <img [src]="m.thumbnailUrl" [alt]="m.title" />
             </div>
@@ -797,9 +811,12 @@
             </div>
           </div>
         </div>
+        </ng-container>
+        <p class="ed-section-empty" *ngIf="mcLearningMaterialsEmpty">{{ 'EVENT_DETAILS.LESSON_SCREEN.EMPTY_MATERIALS_STUDENT' | translate }}</p>
       </section>
     </ng-container>
 
+          </div><!-- /ed-main-card -->
         </div><!-- /ed-main -->
       </div><!-- /ed-layout -->
 
@@ -819,6 +836,7 @@
         <aside class="ed-profile-panel">
           <button class="ed-panel-back" (click)="goBack()" [attr.aria-label]="'EVENT_DETAILS.LESSON_SCREEN.BACK_ARIA' | translate">
             <ion-icon name="chevron-back-outline"></ion-icon>
+            <span>{{ 'COMMON.BACK' | translate }}</span>
           </button>
           <div class="ed-profile-card">
 
@@ -861,22 +879,6 @@
               <p class="ed-pc-role">{{ 'EVENT_DETAILS.LESSON_SCREEN.GROUP_CLASS' | translate }}</p>
             </ng-container>
 
-            <!-- Stats row -->
-            <div class="ed-pc-stats">
-              <div class="ed-pc-stat">
-                <span class="ed-pc-stat-num">{{ classData.confirmedStudents?.length || 0 }}/{{ classData.maxStudents || classData.capacity }}</span>
-                <span class="ed-pc-stat-label">{{ 'EVENT_DETAILS.LESSON_SCREEN.STUDENTS' | translate }}</span>
-              </div>
-              <div class="ed-pc-stat" *ngIf="formattedDuration">
-                <span class="ed-pc-stat-num">{{ formattedDuration }}</span>
-                <span class="ed-pc-stat-label">{{ 'EVENT_DETAILS.LESSON_SCREEN.DURATION' | translate }}</span>
-              </div>
-              <div class="ed-pc-stat" *ngIf="formattedPrice">
-                <span class="ed-pc-stat-num">{{ formattedPrice }}</span>
-                <span class="ed-pc-stat-label">{{ 'EVENT_DETAILS.LESSON_SCREEN.PER_STUDENT' | translate }}</span>
-              </div>
-            </div>
-
             <!-- Actions -->
             <div class="ed-pc-actions" [class.ed-pc-actions--row]="classShowJoinButton">
               <ng-container *ngIf="isStudentUser && classShowJoinButton">
@@ -910,23 +912,14 @@
                 </div>
               </div>
 
-              <div class="ed-pc-detail ed-pc-detail--attendees">
-                <ion-icon name="people-outline"></ion-icon>
-                <div class="ed-pc-detail-attendees-inner">
-                  <app-class-attendees
-                    [attendees]="classAttendeesForGridStack"
-                    [capacity]="classAttendeesForGridCapacity"
-                    [receiverId]="isStudentUser ? (classTutorId || '') : ''"
-                    [receiverIds]="classIsCurrentUserTutor ? classGoingReceiverIds : []"
-                    [className]="classData?.name || ''"
-                    [classId]="eventId || ''"
-                    [clickable]="classCanOpenGoingMessage"
-                    [maxDisplay]="4">
-                  </app-class-attendees>
+              <div class="ed-pc-detail" *ngIf="formattedDuration">
+                <ion-icon name="time-outline"></ion-icon>
+                <div>
+                  <span class="ed-pc-detail-primary">{{ formattedDuration }}</span>
                 </div>
               </div>
 
-              <div class="ed-pc-detail" *ngIf="formattedPrice">
+              <div class="ed-pc-detail" *ngIf="formattedPrice && !hasClassPaymentStatus">
                 <ion-icon name="card-outline"></ion-icon>
                 <div>
                   <span class="ed-pc-detail-primary">{{ formattedPrice }}</span>
@@ -956,6 +949,7 @@
 
         <!-- ═══ RIGHT: Content Column ════════════════════════ -->
         <div class="ed-main">
+          <div class="ed-main-card">
 
           <!-- ── Description (replaces "Last session" from lesson view) ── -->
           <ng-container *ngIf="classData.description">
@@ -1097,6 +1091,7 @@
             </section>
           </ng-container>
 
+          </div><!-- /ed-main-card -->
         </div>
       </div>
 

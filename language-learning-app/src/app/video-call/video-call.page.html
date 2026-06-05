@@ -80,7 +80,7 @@
     </div>
 
     <!-- AI analysis status pill (shown to tutor AND student) -->
-    <div class="ai-status-pill" *ngIf="!isClass && lessonSessionHeaderOtherName"
+    <div class="ai-status-pill" *ngIf="!isClass && !isTrialLesson && lessonSessionHeaderOtherName"
          [class.ai-on]="!aiAnalysisDisabledForLesson"
          [class.ai-off]="aiAnalysisDisabledForLesson">
       <ion-icon [name]="aiAnalysisDisabledForLesson ? 'create-outline' : 'sparkles'"></ion-icon>
@@ -453,7 +453,8 @@
 
     <!-- Participants Grid (positioned in top-right corner) -->
     <!-- Hide when tutor is viewing gallery (isClass && userRole==='tutor' && !showWhiteboard) -->
-    <div class="participants-grid" *ngIf="isConnected && !shouldShowTutorGallery()">
+    <!-- Hide while screen sharing — the screen-share PiP roster handles tiles instead. -->
+    <div class="participants-grid" *ngIf="isConnected && !isScreenSharing && !shouldShowTutorGallery()">
       <!-- For classes: show students only when whiteboard is closed, all participants when whiteboard is open -->
       <ng-container *ngIf="isClass">
         <!-- Iterate through filtered participants -->
