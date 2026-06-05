@@ -21,6 +21,8 @@ export interface LessonMockSpec {
 }
 
 export const LESSON_MOCK_SPECS: LessonMockSpec[] = [
+  /** Tutor-perspective lesson detail — listed on the student lessons screen for design QA. */
+  { id: '__mock_preview_tutor_view__', cardRole: 'tutor', status: 'scheduled', durationMin: 60, price: 40, otherName: 'James L.', otherPicture: 'https://randomuser.me/api/portraits/men/22.jpg' },
   { id: '__mock_student_completed__', cardRole: 'student', status: 'completed', durationMin: 45, price: 25, otherName: 'Maria G.', otherPicture: 'https://randomuser.me/api/portraits/women/44.jpg', actualDurationMin: 43, actualPrice: 25 },
   { id: '__mock_student_upcoming__', cardRole: 'student', status: 'scheduled', durationMin: 60, price: 30, otherName: 'Carlos R.', otherPicture: 'https://randomuser.me/api/portraits/men/32.jpg' },
   { id: '__mock_student_cancelled__', cardRole: 'student', status: 'cancelled', durationMin: 30, price: 15, otherName: 'Lucia P.', otherPicture: 'https://randomuser.me/api/portraits/women/68.jpg' },
@@ -319,6 +321,7 @@ function applyMockAnalysisData(lesson: any, id: string): void {
       };
       break;
     case '__mock_tutor_upcoming__':
+    case '__mock_preview_tutor_view__':
       lesson.lastSessionContext = {
         isFirstLesson: false,
         summary: 'Covered ser vs estar in present tense. Student struggled with temporary vs permanent states — assign extra practice on contextual usage.',
@@ -515,6 +518,7 @@ const MOCK_PAYMENT_EXTRAS: Record<string, Pick<MockBillingPayment, 'breakdown' |
 
 /** Mock IDs that show the Learning focus section on event details. */
 const MOCK_IDS_WITH_LEARNING_PLAN = new Set([
+  '__mock_preview_tutor_view__',
   '__mock_student_upcoming__',
   '__mock_tutor_upcoming__',
   '__mock_student_completed__',
@@ -637,6 +641,7 @@ export function getMockLearningPlanContext(
 ): { summary: LearningPlanSummary; prep: LessonPrep } | null {
   if (!MOCK_IDS_WITH_LEARNING_PLAN.has(mockId)) return null;
   const includeBriefing =
+    mockId === '__mock_preview_tutor_view__' ||
     mockId === '__mock_tutor_upcoming__' ||
     mockId === '__mock_tutor_completed__' ||
     mockId === '__mock_tutor_tip_received__' ||

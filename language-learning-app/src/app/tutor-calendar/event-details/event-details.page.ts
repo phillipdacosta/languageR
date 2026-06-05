@@ -36,6 +36,23 @@ const GOAL_TYPE_I18N_KEYS: Record<string, string> = {
   relocation: 'LEARNING_PLAN.GOAL_LABEL_RELOCATION',
   other: 'LEARNING_PLAN.GOAL_LABEL_OTHER',
 };
+
+const GOAL_TYPE_ICONS: Record<string, string> = {
+  conversational: 'chatbubbles-outline',
+  exam_prep: 'school-outline',
+  professional: 'briefcase-outline',
+  travel: 'airplane-outline',
+  relocation: 'home-outline',
+  other: 'sparkles-outline',
+};
+
+const GOAL_LEVEL_I18N_KEYS: Record<string, string> = {
+  complete_beginner: 'ONBOARDING.STUDENT.LEVEL_OPTION_COMPLETE_BEGINNER',
+  some_basics: 'ONBOARDING.STUDENT.LEVEL_OPTION_SOME_BASICS',
+  simple_conversations: 'ONBOARDING.STUDENT.LEVEL_OPTION_SIMPLE_CONVERSATIONS',
+  intermediate: 'ONBOARDING.STUDENT.LEVEL_OPTION_INTERMEDIATE',
+  advanced: 'ONBOARDING.STUDENT.LEVEL_OPTION_ADVANCED',
+};
 import { WebSocketService } from '../../services/websocket.service';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { Subscription, firstValueFrom } from 'rxjs';
@@ -210,6 +227,11 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
 
   // Learning plan context (student + tutor)
   edPlanGoalLabel = '';
+  edPlanGoalIcon = 'rocket-outline';
+  edPlanGoalLevelKey = '';
+  edPlanGoalTimelineKey = '';
+  edPlanGoalTimelineDate = '';
+  edPlanShowGoalCard = false;
   edPlanPhaseLabel = '';
   edPlanNextFocus = '';
   edPlanStudentSummary = '';
@@ -345,6 +367,8 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   }
   isAiAnalysis = false;     // true = AI-generated, false = tutor-sourced
   analysisLabel = 'Analysis'; // Dynamic section label
+  analysisProficiencyBadge = '';
+  analysisProficiencyDetail = '';
   hasTutorNote = false;
   hasTutorFeedback = false;
 
@@ -2594,6 +2618,36 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     return parts.join(' · ');
   }
 
+  /** Settings-style goal row beneath the focus body (icon, title, level, timeline). */
+  private refreshPlanGoalPresentation(): void {
+    const goal = this.edPlanSummary?.goal;
+    if (!goal || !this.edPlanGoalLabel) {
+      this.edPlanGoalIcon = 'rocket-outline';
+      this.edPlanGoalLevelKey = '';
+      this.edPlanGoalTimelineKey = '';
+      this.edPlanGoalTimelineDate = '';
+      this.edPlanShowGoalCard = false;
+      return;
+    }
+
+    this.edPlanShowGoalCard = true;
+    this.edPlanGoalIcon = GOAL_TYPE_ICONS[goal.type] || 'rocket-outline';
+
+    const level = this.edPlanSummary?.selfAssessedLevel || '';
+    this.edPlanGoalLevelKey = level ? (GOAL_LEVEL_I18N_KEYS[level] || '') : '';
+
+    if (goal.timeline === 'specific_date' && goal.targetDate) {
+      this.edPlanGoalTimelineKey = 'ONBOARDING.STUDENT.PREVIEW_TIMELINE_BY_DATE';
+      this.edPlanGoalTimelineDate = new Date(goal.targetDate).toLocaleDateString();
+    } else if (goal.timeline === 'few_months' || goal.timelinePressure === 'few_months') {
+      this.edPlanGoalTimelineKey = 'ONBOARDING.STUDENT.TIMELINE_OPTION_FEW_MONTHS';
+      this.edPlanGoalTimelineDate = '';
+    } else {
+      this.edPlanGoalTimelineKey = 'ONBOARDING.STUDENT.TIMELINE_OPTION_NO_RUSH';
+      this.edPlanGoalTimelineDate = '';
+    }
+  }
+
   private applyPlanSummary(summary: LearningPlanSummary): void {
     this.edPlanSummary = summary;
     this.edPlanGoalLabel = this.goalLabelForType(summary.goal?.type, summary.goal?.description);
@@ -2610,6 +2664,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     this.edPlanSuggestedTopics = summary.currentPhase?.suggestedTopics || [];
     this.edHasPlan = true;
     this.refreshPlanPresentation();
+    this.refreshPlanGoalPresentation();
     this.refreshMainCardSections();
     this.capturePageOriginals();
   }
@@ -2624,6 +2679,11 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   private resetPlanContext(): void {
     this.edPlanSummary = null;
     this.edPlanGoalLabel = '';
+    this.edPlanGoalIcon = 'rocket-outline';
+    this.edPlanGoalLevelKey = '';
+    this.edPlanGoalTimelineKey = '';
+    this.edPlanGoalTimelineDate = '';
+    this.edPlanShowGoalCard = false;
     this.edPlanPhaseLabel = '';
     this.edPlanNextFocus = '';
     this.edPlanStudentSummary = '';
@@ -2664,6 +2724,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     }
 
     this.edPlanMetaLine = this.buildPlanMetaLine();
+    this.refreshPlanGoalPresentation();
 
     this.edPlanEyebrowKey = this.isLessonCompleted
       ? 'EVENT_DETAILS.LESSON_SCREEN.PLAN_NEXT_UP'
@@ -3002,8 +3063,29 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       this.sanitizedTutorNote = this.sanitizer.bypassSecurityTrustHtml(this.analysisData.tutorNote.text);
     }
 
+    const parsed = this.parseProficiencyLevel(this.analysisData.overallAssessment?.proficiencyLevel);
+    this.analysisProficiencyBadge = parsed.badge;
+    this.analysisProficiencyDetail = parsed.detail;
+
     this.refreshNotesPresentation();
     this.refreshMainCardSections();
+  }
+
+  /** Split "B1 – Intermediate" into a short badge code and optional detail line. */
+  private parseProficiencyLevel(raw: string | undefined): { badge: string; detail: string } {
+    if (!raw?.trim()) return { badge: '', detail: '' };
+    const trimmed = raw.trim();
+    const cefrMatch = trimmed.match(/^([ABC][12])\b/i);
+    if (cefrMatch) {
+      const badge = cefrMatch[1].toUpperCase();
+      const detail = trimmed.replace(/^[ABC][12]\s*[–-]\s*/i, '').trim();
+      return { badge, detail };
+    }
+    const dashParts = trimmed.split(/\s*[–-]\s*/);
+    if (dashParts.length >= 2) {
+      return { badge: dashParts[0].trim().slice(0, 4), detail: dashParts.slice(1).join(' – ').trim() };
+    }
+    return { badge: trimmed.slice(0, 4), detail: '' };
   }
 
   private calcScoreColor(score: number | undefined): string {

@@ -3407,6 +3407,8 @@
     "FIRST_LESSON_STUDENT": "First lesson with {{name}} — share your goals and get started.",
     "FIRST_LESSON_TUTOR": "First lesson with {{name}} — assess level and set expectations.",
     "LAST_SESSION_PREFIX": "Last session: ",
+    "PREVIEW_TUTOR_VIEW_LABEL": "Preview · Tutor view",
+    "PREVIEW_TUTOR_VIEW_DESC": "Design preview — opens the lesson screen as your tutor would see it.",
     "LESSON_IN_PROGRESS": "Lesson in progress",
     "CANCELLED_BY_TUTOR": "Cancelled by tutor",
     "CANCELLED_BY_STUDENT": "Cancelled by student",

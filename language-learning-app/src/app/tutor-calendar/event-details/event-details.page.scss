@@ -900,6 +900,14 @@ ion-header ion-toolbar {
   flex: 1;
 }
 
+.ed-proficiency-detail {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ed-text-secondary, #717171);
+  margin-bottom: 6px;
+}
+
 .ed-progress {
   display: inline-block;
   font-size: 13px;
@@ -1200,11 +1208,97 @@ ion-header ion-toolbar {
   }
 }
 
-.ed-focus-card-meta {
-  margin: 10px 0 0;
-  font-size: 13px;
-  line-height: 1.4;
+.ed-goal-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.ed-goal-card-main {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+  min-width: 0;
+}
+
+.ed-goal-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 14px;
+  background: #f7f7f7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  ion-icon {
+    font-size: 24px;
+    color: var(--ed-text-primary, #222);
+  }
+}
+
+.ed-goal-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  text-align: left;
+}
+
+.ed-goal-type {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ed-text-primary, #222);
+  line-height: 1.35;
+}
+
+.ed-goal-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.ed-goal-level,
+.ed-goal-timeline {
+  font-size: 14px;
   color: var(--ed-text-secondary, #717171);
+  line-height: 1.45;
+}
+
+.ed-meta-dot {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #b0b0b0;
+  margin: 0 8px;
+  flex-shrink: 0;
+}
+
+.ed-goal-phase {
+  margin: 10px 0 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--ed-text-secondary, #717171);
+  text-align: left;
+}
+
+.ed-pc-student-goal {
+  text-align: left;
+  padding: 4px 0 6px;
+
+  .ed-pc-section-title {
+    margin-bottom: 14px;
+    font-size: 15px;
+  }
+
+  .ed-goal-card--compact {
+    margin-top: 0;
+  }
+
+  .ed-goal-phase {
+    margin: 10px 0 0 calc(60px + 16px);
+  }
 }
 
 .ed-learning-focus .ed-topics {
@@ -2774,46 +2868,47 @@ ion-header {
   .ed-layout {
     display: grid;
     grid-template-columns: 372px minmax(0, 1fr);
-    grid-template-rows: auto auto;
     column-gap: 56px;
-    row-gap: 16px;
-    align-items: stretch;
+    align-items: start;
   }
 
+  /* Panel is now ONE sticky container — back button + card stack inside it */
   .ed-profile-panel {
-    display: contents;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    position: sticky;
+    top: 108px;
+    max-height: calc(100vh - 108px - 24px);
+    align-self: start;
+    order: -1;
   }
 
   .ed-panel-back {
     display: inline-flex;
-    grid-column: 1;
-    grid-row: 1;
-    justify-self: start;
-    width: auto;
-    max-width: max-content;
-    position: sticky;
-    top: 108px;
-    z-index: 2;
-    align-self: start;
+    align-self: flex-start;
+    flex-shrink: 0;
+    margin-bottom: 0; /* flex gap handles spacing */
+    /* No sticky needed — parent panel is sticky */
   }
 
   .ed-profile-card {
-    grid-column: 1;
-    grid-row: 2;
-    align-self: start;
-    position: sticky;
-    top: calc(108px + var(--ed-back-row-height, 56px) + 16px);
     padding: 40px 32px 32px;
+    overflow-y: auto;
+    scrollbar-width: none;
+    flex: 1;
+    min-height: 0;
+    &::-webkit-scrollbar { display: none; }
+    /* No sticky needed — parent panel is sticky */
   }
 
   .ed-main {
     grid-column: 2;
-    grid-row: 2;
     display: flex;
     flex-direction: column;
     flex: none;
     min-width: 0;
-    padding-top: 0;
+    padding-top: 56px; /* back-button height (~40px) + flex gap (16px) */
     box-sizing: border-box;
   }
 
@@ -2942,6 +3037,88 @@ ion-header {
   .ed-material-level { font-size: 8px; }
   .ed-material-price { font-size: 9px; }
 
+}
+
+/* ── Compact profile card for short viewports ──────────── */
+@media (min-width: 960px) and (max-height: 820px) {
+  .ed-profile-panel {
+    max-height: calc(100vh - 108px - 16px);
+  }
+
+  .ed-profile-card {
+    padding: 20px 24px 20px;
+  }
+
+  .ed-pc-avatar {
+    width: 68px;
+    height: 68px;
+    margin-bottom: 10px;
+  }
+
+  .ed-pc-avatar-placeholder {
+    font-size: 26px;
+  }
+
+  .ed-pc-name {
+    font-size: 18px;
+    margin: 0 0 2px;
+  }
+
+  .ed-pc-role {
+    font-size: 12px;
+    margin: 0 0 10px;
+  }
+
+  .ed-pc-bio {
+    font-size: 12px;
+    margin: 0 0 8px;
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
+  }
+
+  .ed-pc-stats {
+    gap: 12px;
+    margin: 0 0 10px;
+  }
+
+  .ed-pc-stat-num {
+    font-size: 16px;
+  }
+
+  .ed-pc-divider {
+    margin: 10px 0;
+  }
+
+  .ed-pc-actions {
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+
+  .ed-pc-btn {
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+
+  .ed-pc-link {
+    font-size: 12px;
+    margin-top: 4px;
+  }
+
+  .ed-pc-section-title {
+    font-size: 13px;
+  }
+
+  .ed-pc-details-grid {
+    gap: 8px 10px;
+  }
+
+  .ed-pc-detail-primary {
+    font-size: 12px;
+  }
+
+  .ed-pc-detail-secondary {
+    font-size: 10px;
+  }
 }
 
 /* ── Inline Participant Card (in left column) ──────────── */
@@ -4450,6 +4627,26 @@ ion-header {
 
   .ed-pc-bio {
     color: #aeaeb2;
+  }
+
+  .ed-pc-student-goal {
+    .ed-goal-icon {
+      background: #2c2c2e;
+
+      ion-icon {
+        color: #f5f5f7;
+      }
+    }
+
+    .ed-goal-type {
+      color: #f5f5f7;
+    }
+
+    .ed-goal-level,
+    .ed-goal-timeline,
+    .ed-goal-phase {
+      color: #8e8e93;
+    }
   }
 
   .ed-pc-class-cover {

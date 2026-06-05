@@ -575,7 +575,9 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
     };
     if (o.isPast === undefined) {
       merged.isPast =
-        o.id === '__mock_student_upcoming__' || o.id === '__mock_tutor_upcoming__' ? false : true;
+        o.id === '__mock_student_upcoming__' ||
+        o.id === '__mock_tutor_upcoming__' ||
+        o.id === '__mock_preview_tutor_view__' ? false : true;
     }
     if (merged.cardDescCanTranslate === undefined) {
       merged.cardDescCanTranslate = false;
@@ -596,6 +598,29 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
     const m = (partial: Partial<ProcessedLesson> & { id: string }) => this.mockProcessedLesson(base, partial);
 
     return [
+      m({
+        id: '__mock_preview_tutor_view__',
+        role: 'student',
+        roleLabel: T('LESSONS_PAGE.PREVIEW_TUTOR_VIEW_LABEL'),
+        otherName: 'James L.',
+        otherPicture: 'https://randomuser.me/api/portraits/men/22.jpg',
+        otherInitials: 'JL',
+        subject: 'Spanish',
+        status: 'scheduled',
+        statusLabel: T('LESSONS_PAGE.STATUS_SCHEDULED'),
+        cardDescMode: 'schedule',
+        cardDescText: T('LESSONS_PAGE.PREVIEW_TUTOR_VIEW_DESC'),
+        cardStats: [
+          { value: '60 min', label: dur },
+          { value: '$40', label: rec },
+          { value: T('LESSONS_PAGE.STATUS_SCHEDULED'), label: sta },
+        ],
+        isTrial: false,
+        tipSent: false,
+        isUpcoming: true,
+        showActions: false,
+        canJoin: false,
+      }),
       m({
         id: '__mock_student_completed__',
         role: 'student',

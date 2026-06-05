@@ -130,6 +130,31 @@
               {{ 'EVENT_DETAILS.LESSON_SCREEN.RESCHEDULE_OR_CANCEL' | translate }}
             </button>
 
+            <!-- Student learning goal (tutor view — compact, no edit) -->
+            <ng-container *ngIf="isTutorUser && !edPlanIsTrial && (edPlanShowGoalCard || edPlanPhaseLabel)">
+              <div class="ed-pc-divider"></div>
+              <div class="ed-pc-student-goal">
+                <h3 class="ed-pc-section-title">{{ 'PRE_CALL.STUDENT_GOAL' | translate }}</h3>
+                <div class="ed-goal-card ed-goal-card--compact" *ngIf="edPlanShowGoalCard">
+                  <div class="ed-goal-card-main">
+                    <div class="ed-goal-icon">
+                      <ion-icon [name]="edPlanGoalIcon"></ion-icon>
+                    </div>
+                    <div class="ed-goal-info">
+                      <span class="ed-goal-type">{{ edPlanGoalLabel }}</span>
+                      <div class="ed-goal-meta">
+                        <span class="ed-goal-level" *ngIf="edPlanGoalLevelKey">{{ edPlanGoalLevelKey | translate }}</span>
+                        <span class="ed-meta-dot" *ngIf="edPlanGoalLevelKey && edPlanGoalTimelineKey"></span>
+                        <span class="ed-goal-timeline" *ngIf="edPlanGoalTimelineKey && !edPlanGoalTimelineDate">{{ edPlanGoalTimelineKey | translate }}</span>
+                        <span class="ed-goal-timeline" *ngIf="edPlanGoalTimelineKey && edPlanGoalTimelineDate">{{ edPlanGoalTimelineKey | translate : { date: edPlanGoalTimelineDate } }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <p class="ed-goal-phase" *ngIf="edPlanPhaseLabel">{{ edPlanPhaseLabel }}</p>
+              </div>
+            </ng-container>
+
             <!-- Lesson details (2-col grid) -->
             <div class="ed-pc-divider"></div>
             <div class="ed-pc-section-header">
@@ -235,7 +260,6 @@
           <ng-container *ngIf="!edFocusEditing">
             <p class="ed-focus-card-body">{{ edPlanIsTrial ? edPlanTrialBody : edPlanNextFocus }}</p>
             <p class="ed-focus-card-advisory" *ngIf="!edPlanIsTrial && edPlanAdvisoryNote">{{ edPlanAdvisoryNote }}</p>
-            <p class="ed-focus-card-meta" *ngIf="edPlanMetaLine">{{ edPlanMetaLine }}</p>
           </ng-container>
 
           <div class="ed-focus-editor" *ngIf="edFocusEditing">
@@ -524,10 +548,11 @@
 
         <!-- Summary always shown -->
         <div class="ed-analysis-top" *ngIf="hasAnalysis && analysisData?.overallAssessment">
-          <div class="ed-cefr" *ngIf="analysisData?.overallAssessment?.proficiencyLevel">
-            <span class="ed-cefr-level">{{ analysisData?.overallAssessment?.proficiencyLevel }}</span>
+          <div class="ed-cefr" *ngIf="analysisProficiencyBadge">
+            <span class="ed-cefr-level">{{ analysisProficiencyBadge }}</span>
           </div>
           <div class="ed-analysis-text">
+            <span class="ed-proficiency-detail" *ngIf="analysisProficiencyDetail">{{ analysisProficiencyDetail }}</span>
             <p class="ed-body">{{ analysisData?.overallAssessment?.summary }}</p>
             <span class="ed-progress" *ngIf="analysisData?.overallAssessment?.progressFromLastLesson">
               {{ analysisData?.overallAssessment?.progressFromLastLesson }}
