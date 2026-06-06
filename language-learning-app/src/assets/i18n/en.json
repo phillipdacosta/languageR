@@ -662,7 +662,7 @@
       "INSIGHT_MORNING_PREP_MANY": "{{count}} lessons today — review your notes before they start",
       "INSIGHT_EVENING_RECAP_ONE": "1 lesson done today — great session, {{name}}",
       "INSIGHT_EVENING_RECAP_MANY": "{{count}} lessons done today — great sessions, {{name}}",
-      "INSIGHT_SHARE_PROFILE": "Your profile is live — share the link to get your first booking",
+      "INSIGHT_SHARE_PROFILE": "Your profile is live! Be on the lookout for student interest.",
       "INSIGHT_PENDING_UPDATES_ONE": "1 new lesson booked while you were here",
       "INSIGHT_PENDING_UPDATES_MANY": "{{count}} new lessons booked while you were here",
       "PENDING_UPDATES_RELOAD": "Refresh"
@@ -1822,8 +1822,14 @@
       "SUPPORT_TEXT": "If you have any questions, feel free to contact support at any time."
     },
     "SEARCH_ALL_MESSAGES": "Search all messages",
-    "SETTINGS": "Message settings"
-  },
+    "SETTINGS": "Message settings",
+    "SETTINGS_PREVIEW_LABEL": "Message previews",
+    "SETTINGS_PREVIEW_HINT": "Show a quick preview when a new message arrives",
+      "PREVIEW_PHOTO": "Sent a photo",
+      "PREVIEW_FILE": "Sent a file",
+      "PREVIEW_VOICE": "Sent a voice message",
+      "PREVIEW_MATERIAL": "Shared a material"
+    },
   "NOTIFICATIONS": {
     "TITLE": "Notifications",
     "MARK_ALL_READ": "Mark All as Read",

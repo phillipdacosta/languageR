@@ -1904,6 +1904,14 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       this._cachedFirstLessonHash = '';
       this._cachedTimelineEventsHash = '';
       this._rescheduleProposerCache.clear();
+
+      // Refresh availability and growth ticker for tutors even when lesson cache is valid.
+      // Without this, "Setup availability" stays in the ticker after the user adds availability
+      // because loadLessons → loadTutorInsights → computeGrowthInsights never fires.
+      if (this.isTutorUser) {
+        this.loadAvailability();
+        this.loadTutorInsights();
+      }
       
       this.cdr.detectChanges();
       this.countdownTick = Date.now();
@@ -8908,11 +8916,18 @@ navigateToLessons() {
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (response) => {
+          const prevHasAvailability = this.hasAvailability;
           this.hasAvailability = hasFutureTutorAvailability(response?.availability);
           this.buttonTextState = this.hasAvailability ? 'view' : 'add';
           this.availabilityBlocks = response?.availability || [];
           this.updateAvailabilitySummary();
           this.syncTutorMobileWelcomeAboveUpNext();
+          // If availability changed, force a fresh growth-ticker recompute so the
+          // "Setup availability" insight disappears immediately without a full page reload.
+          if (this.hasAvailability !== prevHasAvailability) {
+            this._growthInsightsLoaded = false;
+            this.computeGrowthInsights();
+          }
           this.cdr.markForCheck();
         },
         error: (error) => {

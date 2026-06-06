@@ -29,6 +29,7 @@ import { ApiAuthInterceptor } from './services/api-auth.interceptor';
 import { ApiUnauthorizedInterceptor } from './services/api-unauthorized.interceptor';
 import { GlobalLoadingComponent } from './components/global-loading/global-loading.component';
 import { ReminderNotificationComponent } from './components/reminder-notification/reminder-notification.component';
+import { MessagePreviewToastComponent } from './components/message-preview-toast/message-preview-toast.component';
 import { CommonModule } from '@angular/common';
 
 
@@ -42,6 +43,7 @@ import { CommonModule } from '@angular/common';
     FormsModule,
     CommonModule,
     ReminderNotificationComponent,
+    MessagePreviewToastComponent,
     IonicStorageModule.forRoot(),
     AuthModule.forRoot({
       domain: environment.auth0.domain,

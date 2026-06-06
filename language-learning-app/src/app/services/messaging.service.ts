@@ -181,6 +181,11 @@ export class MessagingService {
     this.unreadCountSubject.next(currentCount + 1);
   }
 
+  /** Latest active-inbox conversations snapshot (updated by getConversations('all')). */
+  getCachedConversations(): Conversation[] {
+    return this.conversationsSubject.value;
+  }
+
   // Create potential student conversation
   createPotentialStudent(tutorId: string, triggerType: 'favorite' | 'book_lesson'): Observable<{ success: boolean; conversationId?: string; alreadyExists?: boolean }> {
     const headers = this.getHeaders();

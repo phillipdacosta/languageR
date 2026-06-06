@@ -656,14 +656,10 @@ $msg-sidebar-w: 360px;
 
 .messages-header-layer--search {
   padding: 0;
-  pointer-events: auto; // pill is always tappable
+  pointer-events: none;
 
-  // The pill contains the icon on its left side.
-  // Closed: right edge is fixed at the cancel area; left edge is pulled far right
-  //   so only the icon "circle" is visible — sitting exactly where the title
-  //   row's search trigger button is.
-  // Open: left edge sweeps to 24px, revealing the full input.
   .search-pill {
+    pointer-events: auto;
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
@@ -807,6 +803,8 @@ $msg-sidebar-w: 360px;
   align-items: center;
   justify-content: flex-end;
   gap: 12px;
+  position: relative;
+  z-index: 3;
 
   ion-button {
     --color: #717171;
@@ -3133,12 +3131,10 @@ $msg-sidebar-w: 360px;
   --padding-end: 0;
   --padding-top: 0;
   --padding-bottom: 0;
-  --highlight-color-focused: transparent;
-  --highlight-color-valid: transparent;
-  --highlight-color-invalid: transparent;
   --highlight-height: 0;
   --border-width: 0;
   --border-color: transparent;
+  --border-color-focused: transparent;
   --placeholder-color: #717171;
   --placeholder-opacity: 1;
   font-size: 15px;

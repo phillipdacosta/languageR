@@ -322,7 +322,12 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
 
 .transfers-section.earnings-surface-card {
   margin-bottom: 0;
-  padding: 20px 20px 22px;
+  padding: 20px 20px 28px;
+
+  // Match transactions empty panel height (filters row + gap above empty-state).
+  .transfers-empty {
+    padding-top: calc(60px + 68px);
+  }
 
   .transfers-list {
     border: none;
@@ -332,7 +337,7 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
   }
 
   @media (max-width: 600px) {
-    padding: 16px;
+    padding: 16px 16px 24px;
   }
 }
 
