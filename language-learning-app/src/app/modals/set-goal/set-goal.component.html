@@ -1,21 +1,16 @@
-<ion-header class="set-goal-header" [translucent]="true">
-  <ion-toolbar>
-    <ion-buttons slot="start">
-      <ion-button (click)="dismiss()" fill="clear" class="set-goal-close">
-        <ion-icon name="close" slot="icon-only"></ion-icon>
-      </ion-button>
-    </ion-buttons>
-    <ion-title>{{ 'ONBOARDING.SET_GOAL.MODAL_TITLE' | translate }}</ion-title>
-  </ion-toolbar>
-</ion-header>
+<ion-content class="set-goal-content">
+  <button
+    type="button"
+    class="floating-close-button"
+    (click)="dismiss()"
+    [attr.aria-label]="'COMMON.CLOSE' | translate">
+    <ion-icon name="close"></ion-icon>
+  </button>
 
-<ion-content class="set-goal-content" [fullscreen]="true">
   <div class="set-goal-inner">
     <header class="set-goal-intro">
-      <h1>{{ 'ONBOARDING.SET_GOAL.INTRO_TITLE' | translate }}</h1>
-      <p>
-        {{ 'ONBOARDING.SET_GOAL.INTRO_BODY' | translate }}
-      </p>
+      <h1 class="set-goal-title">{{ 'ONBOARDING.SET_GOAL.INTRO_TITLE' | translate }}</h1>
+      <p class="set-goal-lede">{{ 'ONBOARDING.SET_GOAL.INTRO_BODY' | translate }}</p>
     </header>
 
     <section class="set-goal-section">

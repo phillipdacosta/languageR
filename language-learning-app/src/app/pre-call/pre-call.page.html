@@ -155,7 +155,7 @@
       <p class="lesson-subtitle" *ngIf="lessonSubtitlePlain">{{ lessonSubtitlePlain }}</p>
 
       <!-- AI Analysis status (shown to tutor AND student) -->
-      <div class="ai-status-card" *ngIf="aiStatusResolved"
+      <div class="ai-status-card" *ngIf="aiStatusResolved && !isTrialLesson"
            [class.ai-on]="aiAnalysisEnabled"
            [class.ai-off]="!aiAnalysisEnabled">
         <div class="ai-status-icon">

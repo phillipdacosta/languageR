@@ -98,7 +98,7 @@
           <div class="messages-main-heading messages-header-layer">
             <h2 class="messages-main-title">{{ 'MESSAGES.TITLE' | translate }}</h2>
             <div class="messages-heading-actions">
-              <ion-button fill="clear" size="small" [attr.aria-label]="'MESSAGES.SETTINGS' | translate">
+              <ion-button fill="clear" size="small" [attr.aria-label]="'MESSAGES.SETTINGS' | translate" (click)="openMessagesSettings($event)">
                 <ion-icon name="settings-outline"></ion-icon>
               </ion-button>
             </div>
@@ -880,6 +880,11 @@
       <div class="conversations-panel" *ngIf="!selectedConversation">
         <div class="messages-main-heading messages-main-heading--title-only">
           <h2 class="messages-main-title">{{ 'MESSAGES.TITLE' | translate }}</h2>
+          <div class="messages-heading-actions">
+            <ion-button fill="clear" size="small" [attr.aria-label]="'MESSAGES.SETTINGS' | translate" (click)="openMessagesSettings($event)">
+              <ion-icon name="settings-outline"></ion-icon>
+            </ion-button>
+          </div>
         </div>
 
         <!-- Mobile: Conversations Search Header -->

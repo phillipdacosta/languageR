@@ -28,6 +28,10 @@ export interface CachedLessonDetailBundle {
   recommendedMaterials?: any[];
   recommendedStruggles?: string[];
   tutorMaterials?: any[];
+  /** Set when every event-details async bundle has resolved — safe to paint without shift. */
+  detailReady?: boolean;
+  planSummaries?: any[];
+  lessonPrep?: any;
   fingerprint: string;
   cachedAt: number;
 }
@@ -257,6 +261,44 @@ export class LessonService {
    * then revalidates in the background.
    */
   private detailCache = new Map<string, CachedLessonDetailBundle>();
+  private static readonly DETAIL_STORAGE_PREFIX = 'll-lesson-detail:';
+
+  private detailStorageKey(id: string): string {
+    return `${LessonService.DETAIL_STORAGE_PREFIX}${id}`;
+  }
+
+  private readDetailFromStorage(id: string): CachedLessonDetailBundle | null {
+    if (typeof sessionStorage === 'undefined') return null;
+    try {
+      const raw = sessionStorage.getItem(this.detailStorageKey(id));
+      if (!raw) return null;
+      const entry = JSON.parse(raw) as CachedLessonDetailBundle;
+      if (!entry?.detailReady) return null;
+      if (Date.now() - (entry.cachedAt || 0) > LESSON_DETAIL_TTL_MS) {
+        sessionStorage.removeItem(this.detailStorageKey(id));
+        return null;
+      }
+      return entry;
+    } catch {
+      return null;
+    }
+  }
+
+  private writeDetailToStorage(id: string, entry: CachedLessonDetailBundle): void {
+    if (typeof sessionStorage === 'undefined' || !entry.detailReady) return;
+    try {
+      sessionStorage.setItem(this.detailStorageKey(id), JSON.stringify(entry));
+    } catch {
+      // Storage quota — in-memory cache still works for SPA navigation.
+    }
+  }
+
+  private removeDetailFromStorage(id: string): void {
+    if (typeof sessionStorage === 'undefined') return;
+    try {
+      sessionStorage.removeItem(this.detailStorageKey(id));
+    } catch { /* ignore */ }
+  }
   private lastCachedUserId: string | null = null;
 
   constructor(
@@ -821,14 +863,22 @@ export class LessonService {
    * fingerprint must still match — otherwise we treat the entry as stale.
    */
   getCachedLessonDetail(id: string, listLesson?: Lesson): CachedLessonDetailBundle | null {
-    const entry = this.detailCache.get(id);
+    let entry = this.detailCache.get(id) || null;
+    if (!entry) {
+      entry = this.readDetailFromStorage(id);
+      if (entry) {
+        this.detailCache.set(id, entry);
+      }
+    }
     if (!entry) return null;
     if (Date.now() - entry.cachedAt > LESSON_DETAIL_TTL_MS) {
       this.detailCache.delete(id);
+      this.removeDetailFromStorage(id);
       return null;
     }
     if (listLesson && entry.fingerprint && lessonFingerprint(listLesson) !== entry.fingerprint) {
       this.detailCache.delete(id);
+      this.removeDetailFromStorage(id);
       return null;
     }
     return entry;
@@ -860,14 +910,20 @@ export class LessonService {
       recommendedMaterials: patch.recommendedMaterials ?? prev?.recommendedMaterials,
       recommendedStruggles: patch.recommendedStruggles ?? prev?.recommendedStruggles,
       tutorMaterials: patch.tutorMaterials ?? prev?.tutorMaterials,
+      detailReady: patch.detailReady ?? prev?.detailReady,
+      planSummaries: patch.planSummaries !== undefined ? patch.planSummaries : prev?.planSummaries,
+      lessonPrep: patch.lessonPrep !== undefined ? patch.lessonPrep : prev?.lessonPrep,
       fingerprint: patch.lesson
         ? lessonFingerprint(patch.lesson)
         : (prev?.fingerprint ?? (patch.classData ? 'class' : '')),
-      cachedAt: Date.now(),
+      cachedAt: patch.detailReady ? Date.now() : (prev?.cachedAt ?? Date.now()),
     };
 
     this.detailCache.delete(id); // re-insert to move to LRU tail
     this.detailCache.set(id, merged);
+    if (merged.detailReady) {
+      this.writeDetailToStorage(id, merged);
+    }
     if (this.detailCache.size > LESSON_DETAIL_MAX_ENTRIES) {
       const oldest = this.detailCache.keys().next().value;
       if (oldest) this.detailCache.delete(oldest);
@@ -876,8 +932,21 @@ export class LessonService {
 
   /** Evict one entry (when known-stale) or the whole cache. */
   clearDetailCache(id?: string): void {
-    if (id) this.detailCache.delete(id);
-    else this.detailCache.clear();
+    if (id) {
+      this.detailCache.delete(id);
+      this.removeDetailFromStorage(id);
+    } else {
+      this.detailCache.clear();
+      if (typeof sessionStorage !== 'undefined') {
+        try {
+          const prefix = LessonService.DETAIL_STORAGE_PREFIX;
+          for (let i = sessionStorage.length - 1; i >= 0; i--) {
+            const key = sessionStorage.key(i);
+            if (key?.startsWith(prefix)) sessionStorage.removeItem(key);
+          }
+        } catch { /* ignore */ }
+      }
+    }
   }
 
   /**
@@ -894,6 +963,7 @@ export class LessonService {
       if (!entry || !entry.fingerprint) continue;
       if (lessonFingerprint(l) !== entry.fingerprint) {
         this.detailCache.delete(id);
+        this.removeDetailFromStorage(id);
       }
     }
   }

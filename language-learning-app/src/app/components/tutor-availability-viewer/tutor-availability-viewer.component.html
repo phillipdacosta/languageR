@@ -19,7 +19,7 @@
 
 <!-- Inline rendering (for modals and page embeds) - no ion-content wrapper -->
 <ng-template #inlineTpl>
-  <div class="availability-container">
+  <div class="availability-container" [class.availability-container--card]="isCardEmbed">
     <ng-container *ngTemplateOutlet="calendarAndConfirmation"></ng-container>
   </div>
 </ng-template>
@@ -28,7 +28,7 @@
 <ng-template #calendarAndConfirmation>
   <div class="step-wrapper">
     <!-- STEP 1: Calendar View -->
-    <div class="calendar-step" *ngIf="!showConfirmation">
+    <div class="calendar-step" *ngIf="!showConfirmation" [class.calendar-step--card]="isCardEmbed" [class.calendar-step--ready]="!isLoading">
       <!-- Header Controls -->
       <div class="header-controls">
         <div class="week-navigation">
@@ -90,7 +90,7 @@
       </div>
 
       <!-- Legend -->
-      <div class="legend" *ngIf="!tutorBlocked">
+      <div class="legend" *ngIf="!tutorBlocked && (!isCardEmbed || !isLoading)">
         <div class="legend-item">
           <span class="legend-swatch available"></span>
           <span>Available</span>
@@ -102,7 +102,7 @@
       </div>
 
       <!-- Calendar Grid -->
-      <div class="calendar-grid" [class.blocked]="tutorBlocked" *ngIf="!isLoading">
+      <div class="calendar-grid" [class.blocked]="tutorBlocked" [class.calendar-grid--card]="isCardEmbed" *ngIf="!isLoading">
         <div class="day-header" *ngFor="let dateSlot of weekDateSlots; trackBy: trackByDate">
           <div class="day-name">{{ daysOfWeek[dateSlot.date.getDay()] }}</div>
           <div class="day-number">{{ dateSlot.date.getDate() }}</div>
@@ -126,8 +126,18 @@
         </div>
       </div>
 
-      <!-- Loading State -->
-      <div class="loading-container" *ngIf="isLoading">
+      <!-- Card embed skeleton -->
+      <div class="card-loading-skeleton" *ngIf="isLoading && isCardEmbed" aria-hidden="true">
+        <div class="sk-grid">
+          <div class="sk-day" *ngFor="let _ of skeletonDays">
+            <div class="sk-day-head"></div>
+            <div class="sk-slot" *ngFor="let __ of skeletonSlots"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Default loading state -->
+      <div class="loading-container" *ngIf="isLoading && !isCardEmbed">
         <ion-spinner name="crescent"></ion-spinner>
         <p>Loading availability...</p>
       </div>

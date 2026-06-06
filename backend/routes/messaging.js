@@ -797,6 +797,8 @@ router.post('/conversations/:receiverId/upload', verifyToken, upload.single('fil
       fileName: savedMessage.fileName,
       fileType: savedMessage.fileType,
       fileSize: savedMessage.fileSize,
+      duration: savedMessage.duration,
+      thumbnailUrl: savedMessage.thumbnailUrl,
       read: savedMessage.read,
       createdAt: savedMessage.createdAt,
       sender: sender ? {
@@ -806,20 +808,25 @@ router.post('/conversations/:receiverId/upload', verifyToken, upload.single('fil
       } : null
     };
 
-    // Emit via WebSocket to sender (confirmation)
-    const senderSocketId = req.connectedUsers?.get(senderId);
-    if (senderSocketId && req.io) {
-      console.log('📤 Sending file upload confirmation to sender:', senderId);
-      req.io.to(senderSocketId).emit('message_sent', messageResponse);
-    }
+    // Emit via WebSocket using user rooms (same as text messages — reaches all tabs).
+    const receiverRoom = `user:${receiverId}`;
+    const receiverSockets = req.io?.sockets?.adapter?.rooms?.get(receiverRoom);
+    const receiverSocketCount = receiverSockets ? receiverSockets.size : 0;
 
-    // Emit via WebSocket to receiver (real-time notification)
-    const receiverSocketId = req.connectedUsers?.get(receiverId);
-    if (receiverSocketId && req.io) {
-      console.log('📤 Sending file message to receiver:', receiverId);
-      req.io.to(receiverSocketId).emit('new_message', messageResponse);
+    if (receiverSocketCount > 0 && req.io) {
+      console.log(`✅ Emitting new_message (file) to ${receiverSocketCount} socket(s) in room: ${receiverRoom}`);
+      req.io.to(receiverRoom).emit('new_message', messageResponse);
     } else {
       console.log('📭 Receiver not online:', receiverId);
+    }
+
+    const senderRoom = `user:${senderId}`;
+    const senderSockets = req.io?.sockets?.adapter?.rooms?.get(senderRoom);
+    const senderSocketCount = senderSockets ? senderSockets.size : 0;
+
+    if (senderSocketCount > 0 && req.io) {
+      console.log(`✅ Emitting message_sent (file) to ${senderSocketCount} socket(s) in room: ${senderRoom}`);
+      req.io.to(senderRoom).emit('message_sent', messageResponse);
     }
 
     res.json({

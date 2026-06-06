@@ -571,7 +571,7 @@ export class TutorGrowthService {
       if (cooldownOver) {
         raw.push({
           id: 'share_profile',
-          iconSrc: GROWTH_TICKER_ICONS.share,
+          iconSrc: GROWTH_TICKER_ICONS.hourglass,
           messageKey: 'HOME.GROWTH.INSIGHT_SHARE_PROFILE',
           route: '/tabs/profile',
           priority: 54,

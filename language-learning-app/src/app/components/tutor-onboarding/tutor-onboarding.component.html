@@ -20,17 +20,23 @@
     [class.tutor-approval-wizard--wide-content]="approvalWizardWideContentLayout">
     <header class="tutor-approval-modal-topbar tutor-approval-modal-topbar--wizard">
       <div class="tutor-approval-modal-topbar__left">
-        <button
-          *ngIf="approvalWizardTopBackVisible"
-          type="button"
-          class="tutor-approval-modal-topbar__back"
-          (click)="previousStep()">
-          <ion-icon name="chevron-back-outline" aria-hidden="true"></ion-icon>
-          {{ approvalWizardPreviousStepTitleKey | translate }}
-        </button>
-      </div>
-      <div class="tutor-approval-modal-topbar__center">
-        <span class="cm-details-wizard-step-indicator tutor-approval-modal-topbar__step">{{ 'ONBOARDING.STEP_INDICATOR' | translate: approvalStepIndicatorI18nParams }}</span>
+        <div class="tutor-approval-modal-topbar__back-slot">
+          <button
+            *ngIf="approvalWizardTopBackVisible"
+            type="button"
+            class="tutor-approval-modal-topbar__back"
+            (click)="previousStep()">
+            <ion-icon name="chevron-back-outline" aria-hidden="true"></ion-icon>
+            <span class="tutor-approval-modal-topbar__back-label">{{ approvalWizardPreviousStepTitleKey | translate }}</span>
+          </button>
+          <p *ngIf="!approvalWizardTopBackVisible" class="tutor-approval-modal-topbar__intro">
+            {{ 'TUTOR_APPROVAL.WIZARD_INTRO_LABEL' | translate }}
+          </p>
+        </div>
+        <div class="tutor-approval-modal-topbar__step-meta">
+          <span class="tutor-approval-modal-topbar__sep" aria-hidden="true"></span>
+          <span class="cm-details-wizard-step-indicator tutor-approval-modal-topbar__step">{{ 'ONBOARDING.STEP_INDICATOR' | translate: approvalStepIndicatorI18nParams }}</span>
+        </div>
       </div>
       <div class="tutor-approval-modal-topbar__right">
         <button type="button" class="tutor-approval-modal-topbar__close" (click)="closeOnboarding()">
@@ -69,10 +75,10 @@
                     *ngFor="let avatarSrc of photoExampleAvatars"
                     [src]="avatarSrc"
                     alt=""
-                    class="photo-needs__example" />
+                    class="photo-needs__example"
+                    loading="eager"
+                    decoding="sync" />
                 </div>
-
-                <h4 class="photo-needs__subtitle">{{ 'TUTOR_APPROVAL.PHOTO_NEEDS_TITLE' | translate }}</h4>
 
                 <ul class="photo-needs__checklist">
                   <li *ngFor="let requirementKey of photoRequirementKeys" class="photo-needs__checklist-item">
@@ -80,6 +86,17 @@
                     <span>{{ requirementKey | translate }}</span>
                   </li>
                 </ul>
+
+                <div class="approval-split-guidance-mascot-wrap" aria-hidden="true">
+                  <img
+                    src="assets/mascot-photo-upload.png"
+                    alt=""
+                    class="approval-split-guidance-mascot"
+                    width="80"
+                    height="80"
+                    loading="eager"
+                    decoding="sync" />
+                </div>
               </div>
 
               <div class="photo-step-upload approval-split-main">
@@ -166,7 +183,7 @@
           <!-- Video Step -->
           <div *ngIf="approvalStepId === 'video'" class="video-step tutor-approval-step-pane">
             <div class="video-step-layout approval-split-layout approval-step-card">
-              <div class="video-step-guidance approval-split-guidance">
+              <div class="video-step-guidance approval-split-guidance ob-wizard-scroll-container">
                 <h3 class="approval-split-guidance__title">{{ 'TUTOR_APPROVAL.VIDEO_GUIDANCE_TITLE' | translate }}</h3>
                 <p class="video-requirements__summary">{{ 'TUTOR_APPROVAL.VIDEO_REQUIREMENTS_SUMMARY' | translate }}</p>
                 <h4 class="video-requirements__subtitle">{{ 'TUTOR_APPROVAL.VIDEO_REQUIREMENTS_TITLE' | translate }}</h4>
@@ -177,6 +194,17 @@
                     <span>{{ requirementKey | translate }}</span>
                   </li>
                 </ul>
+
+                <div class="approval-split-guidance-mascot-wrap" aria-hidden="true">
+                  <img
+                    src="assets/mascot-video-upload.png"
+                    alt=""
+                    class="approval-split-guidance-mascot"
+                    width="80"
+                    height="80"
+                    loading="eager"
+                    decoding="sync" />
+                </div>
               </div>
 
               <div class="video-step-upload approval-split-main">
@@ -237,7 +265,7 @@
           <!-- Identity Step (manual government-ID — skipped for Stripe-verified tutors) -->
           <div *ngIf="approvalStepId === 'identity'" class="identity-step tutor-approval-step-pane">
             <div class="identity-step-layout approval-split-layout approval-step-card">
-              <div class="approval-split-guidance">
+              <div class="approval-split-guidance identity-step-guidance ob-wizard-scroll-container">
                 <h3 class="approval-split-guidance__title">{{ approvalStepTitleKey | translate }}</h3>
                 <p class="approval-split-guidance__desc">{{ approvalStepDescriptionKey | translate }}</p>
 
@@ -269,11 +297,40 @@
                       <p>{{ 'TUTOR_APPROVAL.CRED_INFO_QUICK_DESC' | translate }}</p>
                     </div>
                   </div>
+                  <div class="approval-guidance-item">
+                    <div class="approval-guidance-item__icon-wrap approval-guidance-item__icon-wrap--face">
+                      <ion-icon name="checkmark-circle-outline" aria-hidden="true"></ion-icon>
+                    </div>
+                    <div class="approval-guidance-item__text">
+                      <h4>{{ 'TUTOR_APPROVAL.GOV_ID_GUIDE_VALID_TITLE' | translate }}</h4>
+                      <p>{{ 'TUTOR_APPROVAL.GOV_ID_GUIDE_VALID_DESC' | translate }}</p>
+                    </div>
+                  </div>
+                  <div class="approval-guidance-item">
+                    <div class="approval-guidance-item__icon-wrap approval-guidance-item__icon-wrap--trust">
+                      <ion-icon name="person-outline" aria-hidden="true"></ion-icon>
+                    </div>
+                    <div class="approval-guidance-item__text">
+                      <h4>{{ 'TUTOR_APPROVAL.GOV_ID_GUIDE_MATCH_TITLE' | translate }}</h4>
+                      <p>{{ 'TUTOR_APPROVAL.GOV_ID_GUIDE_MATCH_DESC' | translate }}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="approval-split-guidance-mascot-wrap" aria-hidden="true">
+                  <img
+                    src="assets/mascot-identity.png"
+                    alt=""
+                    class="approval-split-guidance-mascot"
+                    width="80"
+                    height="80"
+                    loading="eager"
+                    decoding="sync" />
                 </div>
               </div>
 
               <div class="identity-step-upload approval-split-main">
-                <div class="identity-step-upload-inner" id="tutor-cred-gov-anchor">
+                <div class="identity-step-upload-inner ob-wizard-scroll-container" id="tutor-cred-gov-anchor">
                   <div
                     class="identity-step-status"
                     *ngIf="governmentIdStatus !== 'not_uploaded'">
@@ -378,7 +435,7 @@
           <!-- Qualifications Step (teaching certifications + optional documents) -->
           <div *ngIf="approvalStepId === 'qualifications'" class="qualifications-step tutor-approval-step-pane">
             <div class="qualifications-step-layout approval-split-layout approval-step-card">
-              <div class="approval-split-guidance">
+              <div class="approval-split-guidance qualifications-step-guidance ob-wizard-scroll-container">
                 <h3 class="approval-split-guidance__title">{{ approvalStepTitleKey | translate }}</h3>
                 <p class="approval-split-guidance__desc">{{ approvalStepDescriptionKey | translate }}</p>
 
@@ -410,11 +467,31 @@
                       <p>{{ 'TUTOR_APPROVAL.CRED_INFO_QUICK_DESC' | translate }}</p>
                     </div>
                   </div>
+                  <div class="approval-guidance-item">
+                    <div class="approval-guidance-item__icon-wrap approval-guidance-item__icon-wrap--trust">
+                      <ion-icon name="folder-open-outline" aria-hidden="true"></ion-icon>
+                    </div>
+                    <div class="approval-guidance-item__text">
+                      <h4>{{ 'TUTOR_APPROVAL.CRED_ADDITIONAL_TITLE' | translate }}</h4>
+                      <p>{{ 'TUTOR_APPROVAL.CRED_ADDITIONAL_SUBTITLE' | translate }}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="approval-split-guidance-mascot-wrap" aria-hidden="true">
+                  <img
+                    src="assets/mascot-qualifications.png"
+                    alt=""
+                    class="approval-split-guidance-mascot"
+                    width="80"
+                    height="80"
+                    loading="eager"
+                    decoding="sync" />
                 </div>
               </div>
 
               <div class="qualifications-step-upload approval-split-main">
-                <div class="qualifications-step-upload-inner">
+                <div class="qualifications-step-upload-inner ob-wizard-scroll-container">
                   <section class="qualifications-panel qualifications-panel--education">
                     <label class="qualifications-education-check">
                       <ion-checkbox
@@ -706,7 +783,9 @@
           <!-- Payment Setup Step -->
           <div *ngIf="approvalStepId === 'stripe'" class="stripe-step tutor-approval-step-pane">
             <div class="stripe-step-layout approval-split-layout approval-step-card">
-              <div class="approval-split-guidance">
+              <div
+                class="approval-split-guidance ob-wizard-scroll-container"
+                [class.stripe-step-guidance--connected]="approvalStatus?.stripeComplete">
                 <h3 class="approval-split-guidance__title">{{ approvalStepTitleKey | translate }}</h3>
                 <p class="approval-split-guidance__desc">{{ approvalStepDescriptionKey | translate }}</p>
 
@@ -729,38 +808,103 @@
                       <p>{{ 'TUTOR_APPROVAL.INFO_WEEKLY_DESC' | translate }}</p>
                     </div>
                   </div>
-                  <div class="approval-guidance-item">
-                    <div class="approval-guidance-item__icon-wrap approval-guidance-item__icon-wrap--payout">
-                      <ion-icon name="flash-outline" aria-hidden="true"></ion-icon>
+                  <ng-container *ngIf="payoutGuidanceUsesPayPal">
+                    <div class="approval-guidance-item">
+                      <div class="approval-guidance-item__icon-wrap approval-guidance-item__icon-wrap--payout">
+                        <ion-icon name="paper-plane-outline" aria-hidden="true"></ion-icon>
+                      </div>
+                      <div class="approval-guidance-item__text">
+                        <h4>{{ 'TUTOR_APPROVAL.PAYPAL_CONNECT_INSTANT_TITLE' | translate }}</h4>
+                        <p>{{ 'TUTOR_APPROVAL.PAYPAL_CONNECT_INSTANT_DESC' | translate }}</p>
+                      </div>
                     </div>
-                    <div class="approval-guidance-item__text">
-                      <h4>{{ 'TUTOR_APPROVAL.INFO_PAYOUT_FAST_TITLE' | translate }}</h4>
-                      <p>{{ 'TUTOR_APPROVAL.INFO_PAYOUT_FAST_DESC' | translate }}</p>
+                    <div class="approval-guidance-item">
+                      <div class="approval-guidance-item__icon-wrap approval-guidance-item__icon-wrap--secure">
+                        <ion-icon name="mail-outline" aria-hidden="true"></ion-icon>
+                      </div>
+                      <div class="approval-guidance-item__text">
+                        <h4>{{ 'TUTOR_APPROVAL.INFO_PAYOUT_MANAGE_PAYPAL_TITLE' | translate }}</h4>
+                        <p>{{ 'TUTOR_APPROVAL.INFO_PAYOUT_MANAGE_PAYPAL_DESC' | translate }}</p>
+                      </div>
                     </div>
-                  </div>
+                  </ng-container>
+                  <ng-container *ngIf="!payoutGuidanceUsesPayPal">
+                    <div class="approval-guidance-item">
+                      <div class="approval-guidance-item__icon-wrap approval-guidance-item__icon-wrap--payout">
+                        <ion-icon name="flash-outline" aria-hidden="true"></ion-icon>
+                      </div>
+                      <div class="approval-guidance-item__text">
+                        <h4>{{ 'TUTOR_APPROVAL.INFO_PAYOUT_FAST_TITLE' | translate }}</h4>
+                        <p>{{ 'TUTOR_APPROVAL.INFO_PAYOUT_FAST_DESC' | translate }}</p>
+                      </div>
+                    </div>
+                    <div class="approval-guidance-item">
+                      <div class="approval-guidance-item__icon-wrap approval-guidance-item__icon-wrap--secure">
+                        <ion-icon name="settings-outline" aria-hidden="true"></ion-icon>
+                      </div>
+                      <div class="approval-guidance-item__text">
+                        <h4>{{ 'TUTOR_APPROVAL.INFO_PAYOUT_MANAGE_TITLE' | translate }}</h4>
+                        <p>{{ 'TUTOR_APPROVAL.INFO_PAYOUT_MANAGE_DESC' | translate }}</p>
+                      </div>
+                    </div>
+                  </ng-container>
+                </div>
+
+                <div *ngIf="approvalStatus?.stripeComplete" class="approval-split-guidance-mascot-wrap" aria-hidden="true">
+                  <img
+                    src="assets/mascot-payout-connected.png"
+                    alt=""
+                    class="approval-split-guidance-mascot"
+                    width="80"
+                    height="80"
+                    loading="eager"
+                    decoding="sync" />
                 </div>
               </div>
 
-              <div class="approval-split-main" [class.approval-split-main--form]="!approvalStatus?.stripeComplete">
+              <div
+                class="approval-split-main ob-wizard-scroll-container"
+                [class.approval-split-main--form]="!approvalStatus?.stripeComplete"
+                [class.approval-split-main--payout-connected]="approvalStatus?.stripeComplete">
                 <div class="approval-split-main-inner">
             <!-- Already completed state -->
             <ng-container *ngIf="approvalStatus?.stripeComplete">
-              <div class="profile-payout-panel">
+              <div class="profile-payout-panel profile-payout-panel--wizard-connected">
               <div *ngIf="currentUser?.payoutProvider === 'stripe'" class="profile-payout-provider tutor-approval-step-pane--sub">
-                <app-stripe-connect-card [connected]="true"></app-stripe-connect-card>
+                <app-stripe-connect-card
+                  [connected]="true"
+                  [connectedHeroLayout]="true"
+                  [loading]="isLoadingPayoutEdit"
+                  [showSecondaryAction]="true"
+                  secondaryActionLabelKey="PROFILE_SCREEN.EDIT_PAYOUT_SETTINGS"
+                  (secondaryActionClick)="editStripeConnectAccount()">
+                </app-stripe-connect-card>
               </div>
 
               <div *ngIf="currentUser?.payoutProvider === 'paypal'" class="profile-payout-provider tutor-approval-step-pane--sub">
                 <app-paypal-connect-card
                   [connected]="true"
+                  [connectedHeroLayout]="true"
                   [connectedEmail]="currentUser?.payoutDetails?.paypalEmail || ''"
-                  (editEmailClick)="startEditPayoutEmail()">
+                  [loading]="isLoadingPayoutEdit"
+                  [showSecondaryAction]="true"
+                  secondaryActionLabelKey="PROFILE_SCREEN.CHANGE_PAYOUT_METHOD"
+                  (secondaryActionClick)="changeConnectedPayoutMethod()">
                 </app-paypal-connect-card>
               </div>
 
-              <div *ngIf="currentUser?.payoutProvider !== 'stripe' && currentUser?.payoutProvider !== 'paypal'" class="status-card-large success tutor-approval-step-pane--sub">
-                <ion-icon name="checkmark-circle"></ion-icon>
-                <p>{{ 'TUTOR_APPROVAL.PAYMENT_CONNECTED' | translate }}</p>
+              <div *ngIf="currentUser?.payoutProvider !== 'stripe' && currentUser?.payoutProvider !== 'paypal'" class="profile-payout-provider tutor-approval-step-pane--sub">
+                <div class="status-card-large success">
+                  <ion-icon name="checkmark-circle"></ion-icon>
+                  <p>{{ 'TUTOR_APPROVAL.PAYMENT_CONNECTED' | translate }}</p>
+                </div>
+                <button
+                  type="button"
+                  class="payout-edit-btn"
+                  [disabled]="isLoadingPayoutEdit"
+                  (click)="changeConnectedPayoutMethod()">
+                  {{ 'PROFILE_SCREEN.CHANGE_PAYOUT_METHOD' | translate }}
+                </button>
               </div>
               </div>
             </ng-container>
@@ -914,7 +1058,7 @@
           <!-- TOS Step -->
           <div *ngIf="approvalStepId === 'tos'" class="tos-step tutor-approval-step-pane">
             <div class="tos-step-layout approval-split-layout approval-step-card">
-              <div class="approval-split-guidance">
+              <div class="approval-split-guidance tos-step-guidance ob-wizard-scroll-container">
                 <h3 class="approval-split-guidance__title">{{ approvalStepTitleKey | translate }}</h3>
                 <p class="approval-split-guidance__desc">{{ approvalStepDescriptionKey | translate }}</p>
 
@@ -946,10 +1090,32 @@
                       <p>{{ 'TUTOR_APPROVAL.TOS_GUIDE_FINAL_DESC' | translate }}</p>
                     </div>
                   </div>
+                  <div class="approval-guidance-item">
+                    <div class="approval-guidance-item__icon-wrap approval-guidance-item__icon-wrap--light">
+                      <ion-icon name="book-outline" aria-hidden="true"></ion-icon>
+                    </div>
+                    <div class="approval-guidance-item__text">
+                      <h4>{{ 'TUTOR_APPROVAL.TOS_GUIDE_READ_TITLE' | translate }}</h4>
+                      <p>{{ 'TUTOR_APPROVAL.TOS_GUIDE_READ_DESC' | translate }}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="approval-split-guidance-mascot-wrap" aria-hidden="true">
+                  <img
+                    src="assets/mascot-tos.png"
+                    alt=""
+                    class="approval-split-guidance-mascot"
+                    width="80"
+                    height="80"
+                    loading="eager"
+                    decoding="sync" />
                 </div>
               </div>
 
-              <div class="tos-step-upload approval-split-main approval-split-main--scroll">
+              <div
+                class="tos-step-upload approval-split-main approval-split-main--scroll"
+                [class.tos-step-upload--completed]="tosStepCompleted">
                 <div class="tos-step-upload-inner">
                   <div *ngIf="tosStepCompleted" class="tos-success-card">
                     <div class="tos-success-card__visual" aria-hidden="true">
@@ -976,7 +1142,7 @@
                       </div>
                     </div>
 
-                    <div class="tos-scroll-area">
+                    <div class="tos-scroll-area ob-wizard-scroll-container">
                       <div class="tos-clause-card">
                         <div class="tos-clause-card__number">1</div>
                         <div class="tos-clause-card__body">
@@ -1024,25 +1190,25 @@
                           <p>{{ 'TUTOR_APPROVAL.TOS_CLAUSE_6_BODY' | translate }}</p>
                         </div>
                       </div>
-                    </div>
 
-                    <div class="tos-accept-card" [class.tos-accept-card--checked]="tosChecked">
-                      <label class="tos-checkbox-label">
-                        <input type="checkbox" [(ngModel)]="tosChecked" class="tos-checkbox-input">
-                        <span class="tos-checkmark"></span>
-                        <span class="tos-label-text">{{ 'TUTOR_APPROVAL.TOS_CHECKBOX_LABEL' | translate }}</span>
-                      </label>
-                    </div>
+                      <div class="tos-accept-card" [class.tos-accept-card--checked]="tosChecked">
+                        <label class="tos-checkbox-label">
+                          <input type="checkbox" [(ngModel)]="tosChecked" class="tos-checkbox-input">
+                          <span class="tos-checkmark"></span>
+                          <span class="tos-label-text">{{ 'TUTOR_APPROVAL.TOS_CHECKBOX_LABEL' | translate }}</span>
+                        </label>
+                      </div>
 
-                    <div class="tos-panel-footer">
-                      <button
-                        type="button"
-                        class="tos-accept-cta"
-                        [disabled]="!tosChecked || isAcceptingTos"
-                        (click)="acceptTos()">
-                        <ion-icon name="shield-checkmark-outline" aria-hidden="true"></ion-icon>
-                        <span>{{ 'TUTOR_APPROVAL.TOS_ACCEPT_BUTTON' | translate }}</span>
-                      </button>
+                      <div class="tos-panel-footer">
+                        <button
+                          type="button"
+                          class="tos-accept-cta"
+                          [disabled]="!tosChecked || isAcceptingTos"
+                          (click)="acceptTos()">
+                          <ion-icon name="shield-checkmark-outline" aria-hidden="true"></ion-icon>
+                          <span>{{ 'TUTOR_APPROVAL.TOS_ACCEPT_BUTTON' | translate }}</span>
+                        </button>
+                      </div>
                     </div>
                   </section>
                 </div>
@@ -1062,7 +1228,10 @@
 
   <div class="cm-wizard-viewport-footer tutor-approval-viewport-footer" role="navigation" [attr.aria-label]="'TUTOR_APPROVAL.WIZARD_NAV_APPROVAL' | translate">
     <div class="cm-wizard-viewport-footer__start">
-      <button type="button" class="cm-details-wizard-text-link tutor-approval-skip" (click)="skipForNow()">
+      <button
+        type="button"
+        class="cm-details-wizard-text-link tutor-approval-skip"
+        (click)="skipForNow()">
         <span *ngIf="approvalWizardAllStepsComplete">{{ 'TUTOR_APPROVAL.FOOTER_ALL_DONE' | translate }}</span>
         <span *ngIf="!approvalWizardAllStepsComplete">{{ 'TUTOR_APPROVAL.FOOTER_SKIP' | translate }}</span>
       </button>

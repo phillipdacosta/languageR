@@ -21,6 +21,8 @@ export interface LessonMockSpec {
 }
 
 export const LESSON_MOCK_SPECS: LessonMockSpec[] = [
+  /** Tutor-perspective lesson detail — listed on the student lessons screen for design QA. */
+  { id: '__mock_preview_tutor_view__', cardRole: 'tutor', status: 'scheduled', durationMin: 60, price: 40, otherName: 'James L.', otherPicture: 'https://randomuser.me/api/portraits/men/22.jpg' },
   { id: '__mock_student_completed__', cardRole: 'student', status: 'completed', durationMin: 45, price: 25, otherName: 'Maria G.', otherPicture: 'https://randomuser.me/api/portraits/women/44.jpg', actualDurationMin: 43, actualPrice: 25 },
   { id: '__mock_student_upcoming__', cardRole: 'student', status: 'scheduled', durationMin: 60, price: 30, otherName: 'Carlos R.', otherPicture: 'https://randomuser.me/api/portraits/men/32.jpg' },
   { id: '__mock_student_cancelled__', cardRole: 'student', status: 'cancelled', durationMin: 30, price: 15, otherName: 'Lucia P.', otherPicture: 'https://randomuser.me/api/portraits/women/68.jpg' },
@@ -153,6 +155,14 @@ function applyMockAnalysisData(lesson: any, id: string): void {
       lesson.tutorNote = {
         text: 'Buen progreso con el pretérito hoy. Sigue practicando los verbos irregulares antes de la próxima sesión.',
       };
+      lesson.tutorFeedback = {
+        status: 'completed',
+        strengths: ['Good pronunciation of vowel sounds', 'Active participation throughout'],
+        areasForImprovement: ['Irregular preterite verbs still inconsistent', 'Ser vs estar in past contexts'],
+        overallNotes: 'Great session! You are building a solid base in past tense narration. Keep up the daily listening practice.',
+        estimatedCefrLevel: 'B1',
+        providedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+      };
       break;
     case '__mock_student_generating__':
       lesson.aiAnalysis = { status: 'generating', hasAnalysis: false };
@@ -230,6 +240,14 @@ function applyMockAnalysisData(lesson: any, id: string): void {
         text: 'Covered ser vs estar in present tense. Student struggled with temporary vs permanent states — assign extra practice on contextual usage.',
       };
       lesson.notes = 'Covered ser vs estar in present tense. Student struggled with temporary vs permanent states — assign extra practice on contextual usage.';
+      lesson.tutorFeedback = {
+        status: 'completed',
+        strengths: ['Consistent effort throughout the session', 'Good pronunciation of rolled r'],
+        areasForImprovement: ['Ser vs estar in temporary states', 'Irregular preterite stems (ir, ser, tener)'],
+        overallNotes: 'Solid session overall. Recommend 10 minutes of daily conjugation drilling before next lesson.',
+        estimatedCefrLevel: 'B1',
+        providedAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
+      };
       break;
     case '__mock_tutor_feedback_needed__':
       // AI was DISABLED → tutor feedback required, banner visible, skip hidden
@@ -244,8 +262,33 @@ function applyMockAnalysisData(lesson: any, id: string): void {
       lesson.notes = 'Optional note: AI handled the analysis for this lesson.';
       break;
     case '__mock_tutor_tip_received__':
+      lesson.aiAnalysis = {
+        status: 'completed',
+        hasAnalysis: true,
+        overallAssessment: {
+          proficiencyLevel: 'B2 – Upper Intermediate',
+          confidence: 85,
+          summary: 'Excellent reading comprehension work. Strong analytical skills with short passages.',
+          progressFromLastLesson: 'Noticeable improvement in reading speed and inference.',
+        },
+        grammarAnalysis: { accuracyScore: 80 },
+        vocabularyAnalysis: { uniqueWordCount: 98, vocabularyRange: 'Upper-Intermediate' },
+        fluencyAnalysis: { overallFluencyScore: 74 },
+        pronunciationAnalysis: { overallScore: 78 },
+        topicsDiscussed: ['Reading comprehension', 'Analytical passages', 'Vocabulary in context'],
+        recommendedFocus: ['Complex sentence structures', 'Advanced vocabulary usage'],
+      };
       lesson.tutorNote = {
         text: 'Reviewed reading comprehension strategies. Student showed strong analytical skills with short passages.',
+      };
+      lesson.notes = 'Reviewed reading comprehension strategies. Student showed strong analytical skills with short passages.';
+      lesson.tutorFeedback = {
+        status: 'completed',
+        strengths: ['Excellent reading speed', 'Strong inference skills', 'Good vocabulary recall'],
+        areasForImprovement: ['Complex grammatical structures in written tasks'],
+        overallNotes: 'Outstanding session. Student clearly put in the extra study time — the tip is very appreciated!',
+        estimatedCefrLevel: 'B2',
+        providedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
       };
       lesson.tip = {
         amount: 8,
@@ -278,6 +321,7 @@ function applyMockAnalysisData(lesson: any, id: string): void {
       };
       break;
     case '__mock_tutor_upcoming__':
+    case '__mock_preview_tutor_view__':
       lesson.lastSessionContext = {
         isFirstLesson: false,
         summary: 'Covered ser vs estar in present tense. Student struggled with temporary vs permanent states — assign extra practice on contextual usage.',
@@ -410,13 +454,71 @@ export function getMockRecommendedMaterials(mockId: string): MockRecommendedMate
   return MOCK_RECS;
 }
 
+export interface MockPaymentBreakdownRow {
+  /** Suffix under EVENT_DETAILS.PAYMENT (e.g. ROW_LESSON_PRICE) */
+  key: string;
+  value: string;
+}
+
 export interface MockBillingPayment {
   billing: { actualPrice?: number; actualDuration?: number; estimatedPrice?: number; estimatedDuration?: number; status?: string };
   payment: { status?: string; amount?: number; transferStatus?: string; tutorPayout?: number };
+  /** Preview-only rows appended after computePaymentStatus (student mocks). */
+  breakdown?: MockPaymentBreakdownRow[];
+  /** Preview-only payment method label source (student mocks). */
+  paymentMethod?: string;
 }
+
+/** Preview payment extras — student mock with expandable breakdown. */
+const MOCK_PAYMENT_EXTRAS: Record<string, Pick<MockBillingPayment, 'breakdown' | 'paymentMethod'>> = {
+  '__mock_student_completed__': {
+    paymentMethod: 'wallet',
+    breakdown: [
+      { key: 'ROW_LESSON_PRICE', value: '$25.00' },
+      { key: 'ROW_FINAL_CHARGE', value: '$25.00' },
+    ],
+  },
+  '__mock_student_awaiting__': {
+    paymentMethod: 'card',
+    breakdown: [
+      { key: 'ROW_LESSON_PRICE', value: '$25.00' },
+      { key: 'ROW_FINAL_CHARGE', value: '$25.00' },
+    ],
+  },
+  '__mock_student_tip__': {
+    paymentMethod: 'card',
+    breakdown: [
+      { key: 'ROW_LESSON_PRICE', value: '$35.00' },
+      { key: 'ROW_TIP_SENT', value: '$5.00' },
+      { key: 'ROW_FINAL_CHARGE', value: '$40.00' },
+    ],
+  },
+  '__mock_student_generating__': {
+    paymentMethod: 'apple_pay',
+    breakdown: [
+      { key: 'ROW_LESSON_PRICE', value: '$25.00' },
+      { key: 'ROW_FINAL_CHARGE', value: '$25.00' },
+    ],
+  },
+  '__mock_student_analysis_empty__': {
+    paymentMethod: 'wallet',
+    breakdown: [
+      { key: 'ROW_LESSON_PRICE', value: '$20.00' },
+      { key: 'ROW_FINAL_CHARGE', value: '$20.00' },
+    ],
+  },
+  '__mock_student_tutor_feedback__': {
+    paymentMethod: 'card',
+    breakdown: [
+      { key: 'ROW_LESSON_PRICE', value: '$30.00' },
+      { key: 'ROW_FINAL_CHARGE', value: '$30.00' },
+    ],
+  },
+};
 
 /** Mock IDs that show the Learning focus section on event details. */
 const MOCK_IDS_WITH_LEARNING_PLAN = new Set([
+  '__mock_preview_tutor_view__',
   '__mock_student_upcoming__',
   '__mock_tutor_upcoming__',
   '__mock_student_completed__',
@@ -426,8 +528,10 @@ const MOCK_IDS_WITH_LEARNING_PLAN = new Set([
   '__mock_student_tutor_feedback__',
   '__mock_student_awaiting__',
   '__mock_student_generating__',
+  '__mock_student_analysis_empty__',
   '__mock_tutor_feedback_needed__',
   '__mock_tutor_feedback_optional__',
+  '__mock_tutor_no_notes__',
 ]);
 
 const MOCK_SPANISH_PLAN_SUMMARY: LearningPlanSummary = {
@@ -537,11 +641,13 @@ export function getMockLearningPlanContext(
 ): { summary: LearningPlanSummary; prep: LessonPrep } | null {
   if (!MOCK_IDS_WITH_LEARNING_PLAN.has(mockId)) return null;
   const includeBriefing =
+    mockId === '__mock_preview_tutor_view__' ||
     mockId === '__mock_tutor_upcoming__' ||
     mockId === '__mock_tutor_completed__' ||
     mockId === '__mock_tutor_tip_received__' ||
     mockId === '__mock_tutor_feedback_needed__' ||
-    mockId === '__mock_tutor_feedback_optional__';
+    mockId === '__mock_tutor_feedback_optional__' ||
+    mockId === '__mock_tutor_no_notes__';
   return {
     summary: MOCK_SPANISH_PLAN_SUMMARY,
     prep: buildMockLessonPrep(MOCK_SPANISH_PLAN_SUMMARY, includeBriefing),
@@ -564,7 +670,13 @@ export function getMockBillingAndPayment(id: string): MockBillingPayment | null 
     status: spec.status === 'cancelled' ? 'cancelled' : 'succeeded',
     amount: spec.price,
     transferStatus: 'paid',
-    tutorPayout: spec.price * 0.75,
+    tutorPayout: Math.round(spec.price * 0.75 * 100) / 100,
   };
-  return { billing, payment };
+  const extras = MOCK_PAYMENT_EXTRAS[id];
+  return {
+    billing,
+    payment,
+    breakdown: extras?.breakdown,
+    paymentMethod: extras?.paymentMethod,
+  };
 }

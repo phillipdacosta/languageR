@@ -1,0 +1,68 @@
+<div class="message-preview-panel" *ngIf="preview as item" [@previewAnim]>
+  <div class="message-preview-panel-header">
+    <h3 class="message-preview-title">{{ 'MESSAGES.TITLE' | translate }}</h3>
+    <button type="button" class="message-preview-close-btn" (click)="onDismiss($event)" [attr.aria-label]="'COMMON.CLOSE' | translate">
+      <ion-icon name="close"></ion-icon>
+    </button>
+  </div>
+
+  <div class="message-preview-panel-content">
+    <button type="button" class="message-preview-item" (click)="onPreviewClick()">
+
+      <!-- Avatar / thumbnail -->
+      <div class="message-preview-avatar"
+           [class.message-preview-avatar--media]="item.previewKind === 'image' && item.mediaUrl"
+           [class.message-preview-avatar--multi]="item.aggregateCount > 1">
+        <ng-container *ngIf="item.aggregateCount === 1; else multiAvatar">
+          <img
+            *ngIf="item.previewKind === 'image' && item.mediaUrl; else senderAvatar"
+            [src]="item.mediaUrl"
+            alt=""
+            referrerpolicy="no-referrer" />
+          <ng-template #senderAvatar>
+            <img *ngIf="item.senderPicture" [src]="item.senderPicture" alt="" referrerpolicy="no-referrer" />
+            <span *ngIf="!item.senderPicture">{{ item.senderName.charAt(0) || '?' }}</span>
+          </ng-template>
+        </ng-container>
+
+        <!-- Multi-sender: stacked icon -->
+        <ng-template #multiAvatar>
+          <ion-icon name="chatbubbles" class="message-preview-multi-icon"></ion-icon>
+        </ng-template>
+      </div>
+
+      <!-- Body -->
+      <div class="message-preview-body">
+        <div class="message-preview-meta">
+          <span class="message-preview-sender">{{ item.senderName }}</span>
+          <span class="message-preview-extra-senders" *ngIf="item.extraSenders.length">
+            &amp; {{ item.extraSenders.join(', ') }}
+          </span>
+          <span class="message-preview-context" *ngIf="item.contextLabel && item.aggregateCount === 1">
+            {{ item.contextLabel }}
+          </span>
+        </div>
+
+        <!-- Aggregate: show count summary -->
+        <p class="message-preview-text" *ngIf="item.aggregateCount > 1">
+          {{ item.aggregateCount }} new messages
+        </p>
+
+        <!-- Single: show content with optional type icon -->
+        <p class="message-preview-text message-preview-text--media"
+           *ngIf="item.aggregateCount === 1 && item.previewKind !== 'text'">
+          <ion-icon *ngIf="item.previewKind === 'voice'" name="mic" class="message-preview-type-icon" aria-hidden="true"></ion-icon>
+          <ion-icon *ngIf="item.previewKind === 'file'" name="document-outline" class="message-preview-type-icon" aria-hidden="true"></ion-icon>
+          <ion-icon *ngIf="item.previewKind === 'material'" name="book-outline" class="message-preview-type-icon" aria-hidden="true"></ion-icon>
+          <ion-icon *ngIf="item.previewKind === 'image' && !item.mediaUrl" name="image-outline" class="message-preview-type-icon" aria-hidden="true"></ion-icon>
+          {{ item.previewText }}
+        </p>
+
+        <p class="message-preview-text" *ngIf="item.aggregateCount === 1 && item.previewKind === 'text'">
+          {{ item.previewText }}
+        </p>
+      </div>
+
+    </button>
+  </div>
+</div>

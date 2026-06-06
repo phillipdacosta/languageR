@@ -87,6 +87,34 @@ async function resolveNextFocus(plan) {
 }
 
 /**
+ * Resolve the focus to surface for a *specific* tutor's lesson (e.g. the
+ * lessons/:id card). Unlike resolveNextFocus (which keys off the student's
+ * next upcoming lesson), this prefers the lane the given tutor set so each
+ * tutor sees their own advisory focus, falling back to the shared plan focus.
+ *
+ * Returns: { focus, source: 'tutor-lane'|'plan'|'none', tutor?: { id, name } }
+ */
+function resolveFocusForTutor(plan, tutorId) {
+  if (!plan) return { focus: '', source: 'none' };
+  const lanes = Array.isArray(plan.tutorFocusByTutorId) ? plan.tutorFocusByTutorId : [];
+  const tid = tutorId ? String(tutorId) : '';
+  if (tid) {
+    const lane = lanes.find(e => String(e.tutorId) === tid && e.focus);
+    if (lane) {
+      return {
+        focus: lane.focus,
+        source: 'tutor-lane',
+        tutor: { id: tid, name: lane.tutorName || '' }
+      };
+    }
+  }
+  if (plan.nextLessonFocus) {
+    return { focus: plan.nextLessonFocus, source: 'plan' };
+  }
+  return { focus: '', source: 'none' };
+}
+
+/**
  * Build the student's "Coming Up" feed for the journey page.
  * Returns up to `limit` upcoming lessons enriched with per-tutor focus
  * if that tutor has one set in their lane.
@@ -135,6 +163,7 @@ function getOtherTutorNotes(plan, requestingTutorId, { limit = 3 } = {}) {
 
 module.exports = {
   resolveNextFocus,
+  resolveFocusForTutor,
   getComingUp,
   getOtherTutorNotes
 };

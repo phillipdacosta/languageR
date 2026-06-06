@@ -7,12 +7,17 @@ import { LoadingController, AlertController, ToastController, ModalController } 
 import { LessonAnalysis } from '../services/transcription.service';
 import { UserService } from '../services/user.service';
 import { LessonService } from '../services/lesson.service';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
+import { TranslateService } from '@ngx-translate/core';
 import { formatTimeInTz, formatDateInTz } from '../shared/timezone.utils';
 import { CardManagementModalComponent } from '../components/card-management-modal/card-management-modal.component';
 import { VocabularyService, VocabEntry, GoalEntry } from '../services/vocabulary.service';
 import { ReviewDeckService } from '../services/review-deck.service';
 import { LearningPlanService } from '../services/learning-plan.service';
+
+type LessonRating = 'great' | 'okay' | 'not_so_good';
+type RightPanelStep = 'rating' | 'sorry' | 'book';
 
 interface LessonInfo {
   _id: string;
@@ -53,7 +58,72 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
   isTrialLesson = false;
   tutorFirstName = '';
   tutorDisplayName = 'Tutor';
-  
+
+  // Computed display properties (avoid function calls in template)
+  pageTitle = '';
+  pageSubtitle = '';
+  lessonWithTutorTitle = '';
+  lessonDateTime = '';
+  lessonDurationLabel = '';
+  lessonSubjectFallback = '';
+  loadingLabel = '';
+  tipCtaLabel = '';
+  tipSentLabel = '';
+  reviewLabel = '';
+  seeProfileLabel = '';
+  trialNextTitle = '';
+  trialNextSub = '';
+  analysisLoadingTitle = '';
+  analysisLoadingSub = '';
+  analysisUnavailableTitle = '';
+  analysisUnavailableSub = '';
+  analysisReadyTitle = '';
+  analysisDetailsToggleLabel = '';
+  viewFullAnalysisLabel = '';
+  takeawaysTitle = '';
+  vocabSectionTitle = '';
+  vocabCountLabel = '';
+  goalsSectionTitle = '';
+  saveToDeckLabel = '';
+  savedToDeckLabel = '';
+  saveAllLabel = '';
+  savingAllLabel = '';
+  tipModalTitle = '';
+  tipCustomPlaceholder = '';
+  walletTabLabel = '';
+  cardTabLabel = '';
+  walletBalanceLabel = '';
+  walletNoFeeNote = '';
+  walletInsufficientNote = '';
+  changeCardLabel = '';
+  addCardLabel = '';
+  addCardToTipLabel = '';
+  cardFeeDetailNote = '';
+  cardFeeGenericNote = '';
+  tipSendButtonLabel = '';
+  tipFootnote = '';
+  lessonRatingQuestion = '';
+  ratingQuestionLead = '';
+  subheaderTitle = '';
+  showSubheaderRatingLayout = false;
+  showSubheaderEmoji = true;
+  positiveEnjoyedTitle = '';
+  ratingGreatLabel = '';
+  ratingOkayLabel = '';
+  ratingNotGoodLabel = '';
+  sorryTitle = '';
+  sorryBody = '';
+  findNewTutorsLabel = '';
+  giveAnotherShotLabel = '';
+  stepBackLabel = '';
+
+  // Right-panel step flow (rating → book | sorry → book)
+  showLessonRatingOptions = true;
+  lessonsCompletedWithTutor = 0;
+  selectedLessonRating: LessonRating | null = null;
+  rightPanelSteps: RightPanelStep[] = ['rating'];
+  rightPanelStepIndex = 0;
+
   // AI analysis
   aiAnalysisEnabled = true;
   
@@ -136,8 +206,13 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
     tone: 'neutral' | 'strong' | 'solid' | 'building' | 'needs_work';
   }> = [];
 
+  private readonly destroy$ = new Subject<void>();
+
   toggleAnalysisDetails() {
     this.showAnalysisDetails = !this.showAnalysisDetails;
+    this.analysisDetailsToggleLabel = this.showAnalysisDetails
+      ? this.t('POST_LESSON.STUDENT.HIDE_SCORES')
+      : this.t('POST_LESSON.STUDENT.SHOW_SCORES');
   }
 
   /** Map a 0–100 score → student-facing qualitative bucket + tone. */
@@ -165,21 +240,21 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
     this.quickSummaryChips = [
       {
         key: 'level',
-        label: 'Level',
+        label: this.t('POST_LESSON.STUDENT.LEVEL'),
         qualitative: level,
         detail: level,
         tone: 'neutral'
       },
       {
         key: 'vocabulary',
-        label: 'Vocabulary',
+        label: this.t('POST_LESSON.STUDENT.VOCABULARY'),
         qualitative: `${vocabCount} word${vocabCount === 1 ? '' : 's'}`,
         detail: `${vocabCount}`,
         tone: 'neutral'
       },
       {
         key: 'grammar',
-        label: 'Grammar',
+        label: this.t('POST_LESSON.STUDENT.GRAMMAR'),
         qualitative: grammarQ.label,
         detail: grammarScore === null ? '—' : `${Math.round(grammarScore)}%`,
         tone: grammarQ.tone
@@ -229,11 +304,20 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
     private vocabularyService: VocabularyService,
     private reviewDeckService: ReviewDeckService,
     private location: Location,
-    private learningPlanService: LearningPlanService
+    private learningPlanService: LearningPlanService,
+    private translate: TranslateService
   ) {}
 
   async ngOnInit() {
     this.lessonId = this.route.snapshot.paramMap.get('id') || '';
+    this.buildLocalizedStrings();
+    this.translate.onLangChange.pipe(takeUntil(this.destroy$)).subscribe(() => {
+      this.buildLocalizedStrings();
+      this.updateLessonDisplay();
+      if (this.analysis) {
+        this.rebuildQuickSummary();
+      }
+    });
     console.log('🎓 POST-LESSON-STUDENT: Initializing with lessonId:', this.lessonId);
     
     // Wait for user to be loaded first
@@ -450,9 +534,230 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    this.destroy$.next();
+    this.destroy$.complete();
     if (this.pollingInterval) {
       clearInterval(this.pollingInterval);
     }
+  }
+
+  private t(key: string, params?: Record<string, unknown>): string {
+    return this.translate.instant(key, params);
+  }
+
+  private buildLocalizedStrings(): void {
+    this.lessonSubjectFallback = this.t('POST_LESSON.STUDENT.LESSON');
+    this.loadingLabel = this.t('POST_LESSON.STUDENT.LOADING');
+    this.tipSentLabel = this.t('POST_LESSON.STUDENT.TIP_SENT');
+    this.reviewLabel = this.t('POST_LESSON.STUDENT.REVIEW');
+    this.seeProfileLabel = this.t('POST_LESSON.STUDENT.SEE_PROFILE');
+    this.trialNextTitle = this.t('POST_LESSON.STUDENT.TRIAL_NEXT');
+    this.analysisLoadingTitle = this.t('POST_LESSON.STUDENT.ANALYSIS_LOADING_TITLE');
+    this.analysisLoadingSub = this.t('POST_LESSON.STUDENT.ANALYSIS_LOADING_SUB');
+    this.analysisUnavailableTitle = this.t('POST_LESSON.STUDENT.ANALYSIS_NONE_TITLE');
+    this.analysisUnavailableSub = this.t('POST_LESSON.STUDENT.ANALYSIS_NONE_SUB');
+    this.analysisReadyTitle = this.t('POST_LESSON.STUDENT.ANALYSIS_READY');
+    this.analysisDetailsToggleLabel = this.showAnalysisDetails
+      ? this.t('POST_LESSON.STUDENT.HIDE_SCORES')
+      : this.t('POST_LESSON.STUDENT.SHOW_SCORES');
+    this.viewFullAnalysisLabel = this.t('POST_LESSON.STUDENT.VIEW_FULL');
+    this.takeawaysTitle = this.t('POST_LESSON.STUDENT.TAKEAWAYS');
+    this.vocabSectionTitle = this.t('POST_LESSON.STUDENT.VOCAB_SECTION');
+    this.goalsSectionTitle = this.t('POST_LESSON.STUDENT.GOALS_SECTION');
+    this.saveToDeckLabel = this.t('POST_LESSON.STUDENT.SAVE_TO_DECK');
+    this.savedToDeckLabel = this.t('POST_LESSON.STUDENT.SAVED');
+    this.saveAllLabel = this.t('POST_LESSON.STUDENT.SAVE_ALL');
+    this.savingAllLabel = this.t('POST_LESSON.STUDENT.SAVING_ALL');
+    this.tipCustomPlaceholder = this.t('POST_LESSON.STUDENT.TIP_CUSTOM');
+    this.walletTabLabel = this.t('POST_LESSON.STUDENT.WALLET_TAB');
+    this.cardTabLabel = this.t('POST_LESSON.STUDENT.CARD_TAB');
+    this.walletBalanceLabel = this.t('POST_LESSON.STUDENT.WALLET_BALANCE');
+    this.walletNoFeeNote = this.t('POST_LESSON.STUDENT.WALLET_NO_FEE');
+    this.walletInsufficientNote = this.t('POST_LESSON.STUDENT.WALLET_INSUFFICIENT');
+    this.changeCardLabel = this.t('POST_LESSON.STUDENT.CHANGE_CARD');
+    this.addCardLabel = this.t('POST_LESSON.STUDENT.ADD_CARD');
+    this.addCardToTipLabel = this.t('POST_LESSON.STUDENT.ADD_CARD_TO_TIP');
+    this.tipFootnote = this.t('POST_LESSON.STUDENT.TIP_FOOTNOTE');
+    this.ratingGreatLabel = this.t('POST_LESSON.STUDENT.RATING_GREAT');
+    this.ratingOkayLabel = this.t('POST_LESSON.STUDENT.RATING_OKAY');
+    this.ratingNotGoodLabel = this.t('POST_LESSON.STUDENT.RATING_NOT_GOOD');
+    this.ratingQuestionLead = this.t('POST_LESSON.STUDENT.RATING_QUESTION_LEAD');
+    this.sorryTitle = this.t('POST_LESSON.STUDENT.SORRY_TITLE');
+    this.findNewTutorsLabel = this.t('POST_LESSON.STUDENT.FIND_NEW_TUTORS');
+    this.stepBackLabel = this.t('POST_LESSON.STUDENT.STEP_BACK');
+    this.cardFeeGenericNote = this.t('POST_LESSON.STUDENT.CARD_FEE_GENERIC', { label: this.cardFeeLabel });
+    this.updateVocabCountLabel();
+    this.updateTipLabels();
+    if (this.tutorFirstName) {
+      this.lessonRatingQuestion = this.t('POST_LESSON.STUDENT.RATING_QUESTION', { name: this.tutorFirstName });
+      this.positiveEnjoyedTitle = this.t('POST_LESSON.STUDENT.POSITIVE_ENJOYED', { name: this.tutorFirstName });
+      this.sorryBody = this.t('POST_LESSON.STUDENT.SORRY_BODY', { name: this.tutorFirstName });
+      this.giveAnotherShotLabel = this.t('POST_LESSON.STUDENT.GIVE_ANOTHER_SHOT', { name: this.tutorFirstName });
+    }
+  }
+
+  get currentRightPanelStep(): RightPanelStep {
+    return this.rightPanelSteps[this.rightPanelStepIndex] ?? 'rating';
+  }
+
+  get canRightPanelGoBack(): boolean {
+    return this.rightPanelStepIndex > 0;
+  }
+
+  get showRightPanelStepNav(): boolean {
+    return this.showLessonRatingOptions && this.canRightPanelGoBack;
+  }
+
+  selectLessonRating(rating: LessonRating): void {
+    this.selectedLessonRating = rating;
+    if (rating === 'not_so_good') {
+      this.pushRightPanelStep('sorry');
+    } else {
+      this.pushRightPanelStep('book');
+    }
+    this.updateSubheaderDisplay();
+  }
+
+  giveTutorAnotherShot(): void {
+    this.pushRightPanelStep('book');
+    this.updateSubheaderDisplay();
+  }
+
+  findNewTutors(): void {
+    this.router.navigate(['/tabs/tutor-search']);
+  }
+
+  rightPanelGoBack(): void {
+    if (!this.canRightPanelGoBack) return;
+    this.rightPanelStepIndex--;
+    this.updateSubheaderDisplay();
+  }
+
+  private pushRightPanelStep(step: RightPanelStep): void {
+    if (this.rightPanelStepIndex < this.rightPanelSteps.length - 1) {
+      this.rightPanelSteps = this.rightPanelSteps.slice(0, this.rightPanelStepIndex + 1);
+    }
+    if (this.rightPanelSteps[this.rightPanelSteps.length - 1] === step) {
+      return;
+    }
+    this.rightPanelSteps = [...this.rightPanelSteps, step];
+    this.rightPanelStepIndex = this.rightPanelSteps.length - 1;
+  }
+
+  private resetRightPanelFlow(): void {
+    this.selectedLessonRating = null;
+    if (this.showLessonRatingOptions) {
+      this.rightPanelSteps = ['rating'];
+    } else {
+      this.rightPanelSteps = ['book'];
+    }
+    this.rightPanelStepIndex = 0;
+    this.updateSubheaderDisplay();
+  }
+
+  private updateSubheaderDisplay(): void {
+    const positiveRating =
+      this.selectedLessonRating === 'great' || this.selectedLessonRating === 'okay';
+    const onRatingStep = this.currentRightPanelStep === 'rating';
+    const onSorryStep = this.currentRightPanelStep === 'sorry';
+    const onBookAfterPositive =
+      this.currentRightPanelStep === 'book' && positiveRating;
+    const onBookAfterNegative =
+      this.currentRightPanelStep === 'book' && this.selectedLessonRating === 'not_so_good';
+
+    if (onRatingStep && this.tutor && this.showLessonRatingOptions) {
+      this.showSubheaderRatingLayout = true;
+      this.showSubheaderEmoji = false;
+      this.subheaderTitle = '';
+      return;
+    }
+
+    this.showSubheaderRatingLayout = false;
+
+    if (onBookAfterPositive) {
+      this.showSubheaderEmoji = true;
+      this.subheaderTitle = this.positiveEnjoyedTitle;
+      return;
+    }
+
+    if (onSorryStep) {
+      this.showSubheaderEmoji = false;
+      this.subheaderTitle = '';
+      return;
+    }
+
+    if (onBookAfterNegative) {
+      this.showSubheaderEmoji = false;
+      this.subheaderTitle = this.trialNextTitle;
+      return;
+    }
+
+    this.showSubheaderEmoji = true;
+    this.subheaderTitle = this.pageTitle;
+  }
+
+  private updateLessonDisplay(): void {
+    if (this.isTrialLesson) {
+      this.pageTitle = this.t('POST_LESSON.STUDENT.GREAT_LESSON_TRIAL', { name: this.tutorFirstName });
+      this.pageSubtitle = this.t('POST_LESSON.STUDENT.SUB_TRIAL', { name: this.tutorFirstName });
+      this.trialNextSub = this.t('POST_LESSON.STUDENT.TRIAL_HINT');
+    } else {
+      this.pageTitle = this.t('POST_LESSON.STUDENT.GREAT_LESSON');
+      this.pageSubtitle = this.t('POST_LESSON.STUDENT.SUB');
+      this.trialNextSub = this.t('POST_LESSON.STUDENT.TRIAL_HINT');
+    }
+    this.lessonWithTutorTitle = this.t('POST_LESSON.STUDENT.LESSON_WITH', { name: this.tutorDisplayName });
+    this.lessonDateTime = this.computeLessonDateTime();
+    this.lessonDurationLabel = this.computeLessonDurationLabel();
+    this.ratingQuestionLead = this.t('POST_LESSON.STUDENT.RATING_QUESTION_LEAD');
+    this.lessonRatingQuestion = this.t('POST_LESSON.STUDENT.RATING_QUESTION', { name: this.tutorFirstName });
+    this.positiveEnjoyedTitle = this.t('POST_LESSON.STUDENT.POSITIVE_ENJOYED', { name: this.tutorFirstName });
+    this.sorryBody = this.t('POST_LESSON.STUDENT.SORRY_BODY', { name: this.tutorFirstName });
+    this.giveAnotherShotLabel = this.t('POST_LESSON.STUDENT.GIVE_ANOTHER_SHOT', { name: this.tutorFirstName });
+    this.updateTipLabels();
+    this.updateSubheaderDisplay();
+  }
+
+  private computeLessonDateTime(): string {
+    if (!this.lesson?.startTime) return '';
+    const date = this.formatDate(this.lesson.startTime);
+    const startTime = this.formatTime(this.lesson.startTime);
+    const endTime = this.lesson.endTime ? this.formatTime(this.lesson.endTime) : '';
+    if (endTime) {
+      return `${date} · ${startTime} - ${endTime}`;
+    }
+    return `${date} · ${startTime}`;
+  }
+
+  private computeLessonDurationLabel(): string {
+    if (!this.lesson) return '';
+    const mins = this.lesson.actualDurationMinutes || this.lesson.duration;
+    return mins ? this.t('POST_LESSON.STUDENT.MIN_LESSON', { mins }) : '';
+  }
+
+  private updateTipLabels(): void {
+    this.tipCtaLabel = this.t('POST_LESSON.STUDENT.TIP_CTA', { name: this.tutorFirstName });
+    this.tipModalTitle = this.t('POST_LESSON.STUDENT.TIP_MODAL', { name: this.tutorFirstName });
+    this.updateTipPaymentNotes();
+  }
+
+  private updateTipPaymentNotes(): void {
+    this.tipSendButtonLabel = this.tipAmount > 0
+      ? this.t('POST_LESSON.STUDENT.TIP_SEND', { amount: this.tipAmount })
+      : this.t('POST_LESSON.STUDENT.TIP_SEND', { amount: 0 });
+    this.cardFeeDetailNote = this.t('POST_LESSON.STUDENT.CARD_FEE_DETAIL', {
+      fee: this.cardProcessingFee.toFixed(2),
+      label: this.cardFeeLabel,
+      name: this.tutorFirstName,
+      amount: this.tutorReceivesAfterFee.toFixed(2)
+    });
+    this.cardFeeGenericNote = this.t('POST_LESSON.STUDENT.CARD_FEE_GENERIC', { label: this.cardFeeLabel });
+  }
+
+  private updateVocabCountLabel(): void {
+    const count = this.vocabItems.length;
+    const wordKey = count === 1 ? 'POST_LESSON.STUDENT.WORD' : 'POST_LESSON.STUDENT.WORDS';
+    this.vocabCountLabel = `${count} ${this.t(wordKey)}`;
   }
 
   async loadLessonInfo() {
@@ -473,7 +778,12 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
         
         // Set trial lesson flag and tutor name properties
         this.isTrialLesson = response.lesson.isTrial || response.lesson.isTrialLesson || false;
+        this.lessonsCompletedWithTutor =
+          typeof response.lessonsCompleted === 'number' ? response.lessonsCompleted : 1;
+        this.showLessonRatingOptions = this.lessonsCompletedWithTutor <= 1;
         this.updateTutorProperties();
+        this.resetRightPanelFlow();
+        this.updateLessonDisplay();
         
         // Check if tip was already sent for this lesson
         if (response.lesson.tip && response.lesson.tip.amount) {
@@ -629,6 +939,7 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
 
   selectPaymentMethod(card: any) {
     this.selectedPaymentMethodId = card.stripePaymentMethodId;
+    this.updateTipPaymentNotes();
   }
 
   selectTipAmount(amount: number) {
@@ -653,6 +964,7 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
 
   private updateTipAmount() {
     this.tipAmount = this.getTipAmount();
+    this.updateTipPaymentNotes();
   }
 
   calculatePercentageTip(percentage: number): number {
@@ -825,6 +1137,7 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
         if (response?.data) {
           this.vocabItems = response.data.vocabulary || [];
           this.goalItems = response.data.goals || [];
+          this.updateVocabCountLabel();
         }
       },
       error: (err) => {

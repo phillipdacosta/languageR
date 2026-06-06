@@ -4739,6 +4739,9 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
           }
 
           setTimeout(() => {
+            // Re-attach BOTH feeds: the screen-share PiP took over the camera
+            // <video> element, so the normal local PiP is empty until restored.
+            this.setupLocalVideoDisplay();
             this.playRemoteVideoInCorrectContainer();
           }, 300);
 
@@ -4790,6 +4793,9 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       }
 
       setTimeout(() => {
+        // Re-attach BOTH feeds: the screen-share PiP took over the camera
+        // <video> element, so the normal local PiP is empty until restored.
+        this.setupLocalVideoDisplay();
         this.playRemoteVideoInCorrectContainer();
       }, 300);
       
@@ -5020,7 +5026,10 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
           if (this.screenShareVideoRef?.nativeElement) {
             this.screenShareVideoRef.nativeElement.innerHTML = '';
           }
-          setTimeout(() => this.playRemoteVideoInCorrectContainer(), 300);
+          setTimeout(() => {
+            this.setupLocalVideoDisplay();
+            this.playRemoteVideoInCorrectContainer();
+          }, 300);
           this.cdr.detectChanges();
         });
       });

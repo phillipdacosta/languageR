@@ -1,4 +1,8 @@
-<div class="paypal-connect-card" [class.paypal-connect-card--connected]="connected" [class.paypal-connect-card--compact]="compactLayout">
+<div
+  class="paypal-connect-card"
+  [class.paypal-connect-card--connected]="connected"
+  [class.paypal-connect-card--compact]="compactLayout"
+  [class.paypal-connect-card--hero]="connectedHeroLayout">
   <img
     class="paypal-connect-card__logo"
     src="assets/icon/paypal-icon.png"
@@ -11,6 +15,7 @@
       <ion-icon name="checkmark-circle" color="success"></ion-icon>
       <span>{{ 'TUTOR_APPROVAL.PAYMENT_VIA_PAYPAL' | translate }}</span>
     </div>
+    <p class="paypal-connect-card__connected-headline">{{ 'PROFILE_SCREEN.PAYOUT_CONNECTED_BARNABI_PAYPAL' | translate }}</p>
     <p class="paypal-connect-card__connected-email" *ngIf="connectedEmail">{{ connectedEmail }}</p>
     <p class="paypal-connect-card__connected-desc">{{ 'PROFILE_SCREEN.PAYOUTS_EARNINGS_PAYPAL' | translate }}</p>
     <button

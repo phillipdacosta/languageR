@@ -186,6 +186,8 @@ export interface LearningPlanSummary {
   currentPhase: LearningPlanPhase | null;
   studentSummary: string;
   nextLessonFocus: string;
+  nextLessonFocusSource?: 'tutor-lane' | 'plan' | 'none';
+  nextLessonFocusTutor?: { id: string; name: string } | null;
   tutorOverrides: TutorOverride[];
   selfAssessedLevel: string;
 }
@@ -457,13 +459,19 @@ export class LearningPlanService {
     );
   }
 
-  getStudentPlanSummary(studentId: string): Observable<{ success: boolean; summaries: LearningPlanSummary[] }> {
+  getStudentPlanSummary(
+    studentId: string,
+    tutorId?: string
+  ): Observable<{ success: boolean; summaries: LearningPlanSummary[] }> {
     return this.userService.getCurrentUser().pipe(
       take(1),
       switchMap(() => {
         const headers = this.userService.getAuthHeadersSync();
+        const url = tutorId
+          ? `${this.apiUrl}/student/${studentId}/summary?tutorId=${encodeURIComponent(tutorId)}`
+          : `${this.apiUrl}/student/${studentId}/summary`;
         return this.http.get<{ success: boolean; summaries: LearningPlanSummary[] }>(
-          `${this.apiUrl}/student/${studentId}/summary`,
+          url,
           { headers }
         );
       })

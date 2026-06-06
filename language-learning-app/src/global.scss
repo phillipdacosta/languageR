@@ -31,6 +31,7 @@
 
 /* Create Material / tutor checklist desktop modal shell (860×580 card, blur backdrop) */
 @import "./app/shared/styles/cm-modal-shell-global.scss";
+@import "./app/shared/styles/ob-wizard-persistent-scrollbar-global";
 @import "./app/shared/styles/payout-connect-cards";
 @import "./app/shared/styles/motion";
 
@@ -231,6 +232,17 @@ button, ion-button {
 input, textarea, ion-input, ion-textarea {
   letter-spacing: var(--ion-letter-spacing-normal);
   font-weight: 400;
+}
+
+/* Ensure text cursor (caret) is always visible in textareas/inputs */
+ion-textarea::part(native),
+ion-input::part(native) {
+  caret-color: auto;
+}
+
+html.ion-palette-dark ion-textarea::part(native),
+html.ion-palette-dark ion-input::part(native) {
+  caret-color: auto;
 }
 
 /* Modern input — let fill="outline" handle borders natively */
@@ -483,6 +495,38 @@ ion-action-sheet,
 .action-sheet-group,
 .alert-radio-group {
   font-family: "Segoe UI Emoji", "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Symbol", sans-serif !important;
+}
+
+ion-popover.messages-settings-popover-shell {
+  --width: 320px;
+  --box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+}
+
+html.ion-palette-dark ion-popover.messages-settings-popover-shell {
+  --background: #242426;
+  --box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.08);
+
+  .messages-settings-label,
+  .messages-settings-hint {
+    color: #8e8e93 !important;
+  }
+
+  .messages-settings-option {
+    color: #f5f5f7 !important;
+
+    ion-icon {
+      color: #f5f5f7 !important;
+    }
+
+    &:hover,
+    &.active {
+      background: rgba(255, 255, 255, 0.06) !important;
+    }
+  }
+
+  .messages-settings-divider {
+    background: rgba(255, 255, 255, 0.1) !important;
+  }
 }
 
 // For ion-select-popover, only apply emoji font to actual emoji content, not all text
@@ -2652,7 +2696,7 @@ ion-modal.video-player-modal {
   border-radius: 14px;
   padding: 16px 18px;
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
-  border: 1px solid rgba(0, 0, 0, 0.04);
+  border: 1px solid rgb(171 197 230 / 43%);
   width: 100%;
   box-sizing: border-box;
 }
@@ -2699,7 +2743,7 @@ ion-modal.video-player-modal {
 
   .pcl-subtitle {
     margin: 5px 0 0 26px;
-    font-size: 15px;
+    font-size: 12px;
     color: var(--ion-color-medium, #6b7280);
     line-height: 1.4;
   }
@@ -2776,7 +2820,7 @@ ion-modal.video-player-modal {
 html.ion-palette-dark {
   .profile-checklist-section {
     background: #1c1c1e;
-    border-color: rgba(255, 255, 255, 0.06);
+    border-color: rgb(171 197 230 / 43%);
     box-shadow: none;
   }
 
@@ -4693,6 +4737,68 @@ body.cm-desktop-modal-open {
 // Clones are created as fixed-position text elements on document.body
 // and animated via CSS transitions. All styles are inline.
 
+
+// ── Set learning goal modal (profile unframed → structured plan)
+ion-modal.set-goal-modal {
+  --width: 92%;
+  --max-width: 640px;
+  --height: min(820px, 90vh);
+  --min-height: 620px;
+  --max-height: 90vh;
+  --border-radius: 24px;
+  --box-shadow: 0 12px 48px rgba(0, 0, 0, 0.14);
+
+  &::part(backdrop) {
+    background: rgba(0, 0, 0, 0.36);
+    backdrop-filter: blur(12px) saturate(1.2);
+    -webkit-backdrop-filter: blur(12px) saturate(1.2);
+  }
+
+  ion-backdrop {
+    background: rgba(0, 0, 0, 0.36);
+    backdrop-filter: blur(12px) saturate(1.2);
+    -webkit-backdrop-filter: blur(12px) saturate(1.2);
+  }
+
+  &::part(content) {
+    border-radius: 24px;
+    overflow: hidden;
+  }
+
+  @media (max-width: 768px) {
+    --width: 94% !important;
+    --max-width: 94% !important;
+    --height: 92% !important;
+    --max-height: 92% !important;
+    --min-height: 0 !important;
+    --border-radius: 24px !important;
+    --box-shadow: 0 12px 48px rgba(0, 0, 0, 0.18) !important;
+  }
+
+  .ion-page {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: #fff;
+  }
+
+  app-set-goal {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    height: 100%;
+
+    ion-content {
+      flex: 1;
+      min-height: 0;
+    }
+
+    ion-footer {
+      flex-shrink: 0;
+    }
+  }
+}
 
 // ── Journey intro modal — same pattern as cancel-reason-modal but narrower.
 ion-modal.journey-intro-modal {

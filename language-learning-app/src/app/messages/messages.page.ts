@@ -1,6 +1,6 @@
 import { Component, OnInit, OnDestroy, AfterViewInit, ViewChild, ElementRef, ChangeDetectorRef } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { ModalController, AlertController, ToastController } from '@ionic/angular';
+import { IonTextarea, ModalController, AlertController, ToastController, PopoverController } from '@ionic/angular';
 import { PlatformService } from '../services/platform.service';
 import { MessagingService, Conversation, Message } from '../services/messaging.service';
 import { WebSocketService } from '../services/websocket.service';
@@ -14,6 +14,8 @@ import { TranslateService } from '@ngx-translate/core';
 import { formatTimeInTz, formatDateInTz, getGlobalHour12, setGlobalTimeFormat } from '../shared/timezone.utils';
 import { Subject, BehaviorSubject, Subscription } from 'rxjs';
 import { takeUntil, debounceTime, take, switchMap, filter } from 'rxjs/operators';
+import { MessagePreviewService } from '../services/message-preview.service';
+import { MessagesSettingsPopoverComponent } from '../components/messages-settings-popover/messages-settings-popover.component';
 import { trigger, style, transition, animate } from '@angular/animations';
 
 @Component({
@@ -66,7 +68,7 @@ import { trigger, style, transition, animate } from '@angular/animations';
 export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
   private isInitialized = false;
   private isPageVisible = false; // Track if page is currently visible
-  @ViewChild('messageInput', { static: false }) messageInput?: ElementRef;
+  @ViewChild('messageInput', { static: false }) messageInput?: IonTextarea;
   @ViewChild('chatContainer', { static: false }) chatContainer?: ElementRef;
   @ViewChild('availabilityContainer', { static: false }) availabilityContainer?: ElementRef;
   @ViewChild('topScrollbar', { static: false }) topScrollbar?: ElementRef;
@@ -271,6 +273,8 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     private modalController: ModalController,
     private alertController: AlertController,
     private toastController: ToastController,
+    private popoverController: PopoverController,
+    private messagePreviewService: MessagePreviewService,
     private cdr: ChangeDetectorRef,
     private translateService: TranslateService
   ) {}
@@ -569,6 +573,13 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
             queryParams: { groupId: null },
             queryParamsHandling: 'merge'
           });
+        } else if (params['conversationId']) {
+          this.openConversationById(params['conversationId']);
+          this.router.navigate([], {
+            relativeTo: this.route,
+            queryParams: { conversationId: null },
+            queryParamsHandling: 'merge'
+          });
         }
       });
 
@@ -732,7 +743,32 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
       });
     }
 
-    return filtered;
+    return filtered.sort((a, b) => {
+      const dateA = new Date(a.updatedAt || a.lastMessage?.createdAt || 0).getTime();
+      const dateB = new Date(b.updatedAt || b.lastMessage?.createdAt || 0).getTime();
+      return dateB - dateA;
+    });
+  }
+
+  private syncMessagePreviewContext(): void {
+    this.messagePreviewService.setMessagesPageContext(
+      this.selectedConversation?.conversationId || null,
+      this.isPageVisible
+    );
+  }
+
+  async openMessagesSettings(event: Event): Promise<void> {
+    event.stopPropagation();
+    const popover = await this.popoverController.create({
+      component: MessagesSettingsPopoverComponent,
+      event,
+      translucent: true,
+      cssClass: 'messages-settings-popover-shell',
+      side: 'bottom',
+      alignment: 'end',
+    });
+
+    await popover.present();
   }
 
   private normalizeUserId(id: string | undefined | null): string {
@@ -1184,13 +1220,15 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     const firstPositions = new Map<string, DOMRect>();
     const conversationElements = document.querySelectorAll('.conversation-item');
     
+    const sortByRecent = (a: Conversation, b: Conversation) => {
+      const dateA = new Date(a.updatedAt || a.lastMessage?.createdAt || 0).getTime();
+      const dateB = new Date(b.updatedAt || b.lastMessage?.createdAt || 0).getTime();
+      return dateB - dateA;
+    };
+
     // If no elements in DOM yet, just sort without animation
     if (conversationElements.length === 0) {
-      this.conversations.sort((a, b) => {
-        const dateA = new Date(a.updatedAt || a.lastMessage?.createdAt || 0).getTime();
-        const dateB = new Date(b.updatedAt || b.lastMessage?.createdAt || 0).getTime();
-        return dateB - dateA; // Most recent first
-      });
+      this.conversations.sort(sortByRecent);
       return;
     }
 
@@ -1201,12 +1239,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
       }
     });
 
-    // Sort conversations by most recent (updatedAt)
-    this.conversations.sort((a, b) => {
-      const dateA = new Date(a.updatedAt || a.lastMessage?.createdAt || 0).getTime();
-      const dateB = new Date(b.updatedAt || b.lastMessage?.createdAt || 0).getTime();
-      return dateB - dateA; // Most recent first
-    });
+    this.conversations.sort(sortByRecent);
 
     // Trigger change detection to update DOM
     this.cdr.detectChanges();
@@ -1318,11 +1351,13 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
         }
       }, 500);
     }
+    this.syncMessagePreviewContext();
   }
 
   // Ionic lifecycle hook - called every time the view leaves
   ionViewWillLeave() {
     this.isPageVisible = false;
+    this.syncMessagePreviewContext();
 
     this.selectedConversation = null;
     this.refreshSelectedThreadTypeFlags();
@@ -1391,9 +1426,8 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
               this.isLoadingMessages = false;
               this.messagingService.setHasSelectedConversation(true);
               setTimeout(() => {
-                if (this.messageInput?.nativeElement) {
-                  const inputElement = this.messageInput.nativeElement.querySelector('input');
-                  if (inputElement) inputElement.focus();
+                if (!this.platformService.isSmallScreen()) {
+                  void this.messageInput?.setFocus();
                 }
                 this.scrollToBottom();
               }, 100);
@@ -1446,6 +1480,24 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
           this.selectConversation(conversation);
         } else {
           console.warn('💬 No existing group conversation found for groupId:', groupId);
+        }
+      },
+      error: (error) => {
+        console.error('❌ Error loading conversations:', error);
+      }
+    });
+  }
+
+  private openConversationById(conversationId: string) {
+    this.conversationsFilter = 'all';
+    this.messagingService.getConversations('all').subscribe({
+      next: (response) => {
+        this.conversations = response.conversations;
+        const conversation = this.conversations.find(
+          (conv) => conv.conversationId === conversationId
+        );
+        if (conversation) {
+          this.selectConversation(conversation);
         }
       },
       error: (error) => {
@@ -2275,6 +2327,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     this.decorateGroupAvatarCluster(this.selectedConversation);
     this.refreshSelectedThreadTypeFlags();
     this.hasConversationSelected = true;
+    this.syncMessagePreviewContext();
     this.startLocalTimeClock();
     console.log(`✅ [${Date.now()}] selectedConversation SET, hasConversationSelected: ${this.hasConversationSelected}`);
     
@@ -2299,6 +2352,11 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     setTimeout(() => {
       console.log(`📤 [${Date.now()}] Calling loadMessages for: ${conversation.otherUser?.name}`);
       this.loadMessages(unreadCount, requestId);
+
+      // Autofocus composer on desktop only (mobile keyboard would cover chat)
+      if (!this.platformService.isSmallScreen()) {
+        void this.messageInput?.setFocus();
+      }
     }, 0);
     
     // Mark as read
@@ -4276,20 +4334,9 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     this.replyingToMessage = message;
     this.cdr.detectChanges(); // Force change detection
     
-    // Focus the input (works for both desktop and mobile)
-    setTimeout(async () => {
-      if (this.messageInput?.nativeElement) {
-        // For ion-input, we need to call setFocus() method
-        try {
-          await this.messageInput.nativeElement.setFocus();
-        } catch (e) {
-          // Fallback to regular focus if setFocus is not available
-          const inputElement = this.messageInput.nativeElement.querySelector('input');
-          if (inputElement) {
-            inputElement.focus();
-          }
-        }
-      }
+    // Focus the input when replying
+    setTimeout(() => {
+      void this.messageInput?.setFocus();
     }, 100);
   }
 

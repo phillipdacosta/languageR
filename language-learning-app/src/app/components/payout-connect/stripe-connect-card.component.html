@@ -1,4 +1,8 @@
-<div class="stripe-connect-card" [class.stripe-connect-card--connected]="connected" [class.stripe-connect-card--compact]="compactLayout">
+<div
+  class="stripe-connect-card"
+  [class.stripe-connect-card--connected]="connected"
+  [class.stripe-connect-card--compact]="compactLayout"
+  [class.stripe-connect-card--hero]="connectedHeroLayout">
   <img
     class="stripe-connect-card__logo"
     src="assets/icon/stripe-wordmark-blurple.svg"
@@ -12,6 +16,7 @@
       <ion-icon name="checkmark-circle" color="success"></ion-icon>
       <span>{{ 'TUTOR_APPROVAL.PAYMENT_VIA_STRIPE' | translate }}</span>
     </div>
+    <p class="stripe-connect-card__connected-headline">{{ 'PROFILE_SCREEN.PAYOUT_CONNECTED_BARNABI_STRIPE' | translate }}</p>
     <p class="stripe-connect-card__connected-desc">{{ 'PROFILE_SCREEN.PAYOUTS_EARNINGS_BANK' | translate }}</p>
     <button
       *ngIf="showSecondaryAction"
