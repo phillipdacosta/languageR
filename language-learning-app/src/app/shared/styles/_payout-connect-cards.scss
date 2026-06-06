@@ -251,6 +251,14 @@
     }
   }
 
+  &__connected-headline {
+    margin: 0 0 8px;
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.45;
+    color: #0a2540;
+  }
+
   &__connected-email {
     margin: 0 0 8px;
     font-size: 14px;
@@ -679,6 +687,14 @@
     }
   }
 
+  .stripe-connect-card__connected-headline,
+  .paypal-connect-card__connected-headline {
+    margin: 0 0 10px;
+    max-width: 340px;
+    font-size: 16px;
+    line-height: 1.45;
+  }
+
   .stripe-connect-card__connected-desc,
   .paypal-connect-card__connected-desc {
     margin: 0;
@@ -755,6 +771,10 @@ html.ion-palette-dark {
     }
 
     &__connected-badge {
+      color: #f5f5f7;
+    }
+
+    &__connected-headline {
       color: #f5f5f7;
     }
 

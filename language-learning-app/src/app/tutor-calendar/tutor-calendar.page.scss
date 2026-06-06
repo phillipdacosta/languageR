@@ -3672,7 +3672,7 @@ ion-app.dark {
   border-radius: 14px;
   padding: 16px 18px;
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
-  border: 1px solid rgba(0, 0, 0, 0.04);
+  border: 1px solid rgb(171 197 230 / 43%);
   width: 100%;
 }
 
@@ -3804,7 +3804,7 @@ ion-app.dark {
 :host-context(html.ion-palette-dark) {
   .profile-checklist-section {
     background: #1c1c1e;
-    border-color: rgba(255, 255, 255, 0.06);
+    border-color: rgb(171 197 230 / 43%);
     box-shadow: none;
   }
 

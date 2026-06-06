@@ -1,0 +1,57 @@
+// Always-visible scrollbars for tutor approval wizard split steps.
+// Global CSS only — ::-webkit-scrollbar does not work under Angular emulated encapsulation.
+
+.ob-wizard-scroll-container {
+  overflow-x: hidden !important;
+  overflow-y: scroll !important;
+
+  &::-webkit-scrollbar {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 8px;
+    height: 8px;
+    display: block;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+    border: 2px solid #f1f1f1;
+    min-height: 44px;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: #555;
+  }
+}
+
+// Left guidance column: scrollbar on outer (left) edge — keeps the 1px column divider thin.
+app-tutor-onboarding .approval-split-guidance.ob-wizard-scroll-container {
+  direction: rtl;
+
+  > * {
+    direction: ltr;
+  }
+}
+
+html.ion-palette-dark {
+  app-tutor-onboarding .ob-wizard-scroll-container {
+    &::-webkit-scrollbar-track {
+      background: #3a3a3c;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: #636366;
+      border-color: #3a3a3c;
+    }
+
+    &::-webkit-scrollbar-thumb:hover {
+      background: #98989f;
+    }
+  }
+}

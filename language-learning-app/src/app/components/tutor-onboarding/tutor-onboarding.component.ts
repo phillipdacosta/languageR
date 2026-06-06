@@ -1,7 +1,7 @@
 import { ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, OnInit, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { IonicModule, LoadingController, AlertController, ToastController, ModalController } from '@ionic/angular';
+import { IonicModule, LoadingController, AlertController, ToastController, ModalController, Platform } from '@ionic/angular';
 import { Router } from '@angular/router';
 import { User, UserService } from '../../services/user.service';
 import { HttpClient } from '@angular/common/http';
@@ -11,6 +11,7 @@ import { SharedModule } from '../../shared/shared.module';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { PayoutSelectionModalComponent } from '../payout-selection-modal/payout-selection-modal.component';
 import { FileUploadService } from '../../services/file-upload.service';
+import { ImagePreloadService } from '../../services/image-preload.service';
 import { ImageCropperComponent } from '../image-cropper/image-cropper.component';
 import { isStripeSupportedCountry } from '../../data/stripe-supported-countries';
 import { TranslateService } from '@ngx-translate/core';
@@ -59,6 +60,7 @@ export class TutorOnboardingComponent implements OnInit {
   approvalStepIcon = 'person-circle';
   approvalStepTitleKey = '';
   approvalStepDescriptionKey = '';
+  payoutGuidanceUsesPayPal = false;
   approvalStepCompleted = false;
   approvalWizardProgressPercent = 0;
   /** Params for `ONBOARDING.STEP_INDICATOR` (matches student / tutor onboarding wizard). */
@@ -85,7 +87,18 @@ export class TutorOnboardingComponent implements OnInit {
   readonly photoExampleAvatars = [
     'assets/tutor-approval/photo-example-1.png',
     'assets/tutor-approval/photo-example-2.png',
+    'assets/tutor-approval/photo-example-3.png',
     'assets/tutor-approval/photo-example-4.png',
+  ];
+
+  /** Barnabi step mascots — warm cache so they paint instantly when a step mounts. */
+  private static readonly APPROVAL_WIZARD_MASCOT_URLS: readonly string[] = [
+    'assets/mascot-photo-upload.png',
+    'assets/mascot-video-upload.png',
+    'assets/mascot-identity.png',
+    'assets/mascot-qualifications.png',
+    'assets/mascot-payout-connected.png',
+    'assets/mascot-tos.png',
   ];
 
   readonly photoRequirementKeys = [
@@ -94,7 +107,6 @@ export class TutorOnboardingComponent implements OnInit {
     'TUTOR_APPROVAL.PHOTO_NEED_6',
     'TUTOR_APPROVAL.PHOTO_NEED_1',
     'TUTOR_APPROVAL.PHOTO_NEED_5',
-    'TUTOR_APPROVAL.PHOTO_NEED_4',
   ];
 
   readonly videoRequirementKeys = [
@@ -231,6 +243,7 @@ export class TutorOnboardingComponent implements OnInit {
   paypalEmailError = '';
   /** When true, completed PayPal screen shows the edit form instead of the success card. */
   editingPayoutEmail = false;
+  isLoadingPayoutEdit = false;
   readonly stripePrivacyPolicyUrl = 'https://stripe.com/privacy';
   readonly paypalPrivacyPolicyUrl = 'https://www.paypal.com/us/legalhub/privacy-full';
   /** True when payout routing is driven by `residenceCountry` (post-onboarding). */
@@ -264,10 +277,17 @@ export class TutorOnboardingComponent implements OnInit {
     private fileUploadService: FileUploadService,
     private readonly elRef: ElementRef<HTMLElement>,
     private readonly cdr: ChangeDetectorRef,
-    private readonly translate: TranslateService
+    private readonly translate: TranslateService,
+    private readonly platform: Platform,
+    private readonly imagePreloadService: ImagePreloadService
   ) {}
 
   async ngOnInit() {
+    this.imagePreloadService.preloadWhenIdle([
+      ...this.photoExampleAvatars,
+      ...TutorOnboardingComponent.APPROVAL_WIZARD_MASCOT_URLS,
+    ]);
+
     // Initialize the visible-step cache so the wizard renders cleanly before
     // the first status emission lands.
     this.recomputeVisibleSteps();
@@ -541,6 +561,8 @@ export class TutorOnboardingComponent implements OnInit {
         }
       }
 
+      this.syncPayoutGuidanceUsesPayPal();
+
       // Recompute visible-step cache so step indicator + nav reflect any new
       // visibility (e.g. Stripe-verified tutors don't see the identity step).
       this.recomputeVisibleSteps();
@@ -658,6 +680,23 @@ export class TutorOnboardingComponent implements OnInit {
     this.approvalWizardTopBackVisible = visibleIdx > 0;
     const prevVisible = visibleIdx > 0 ? visible[visibleIdx - 1] : null;
     this.approvalWizardPreviousStepTitleKey = prevVisible?.titleKey ?? '';
+    this.syncPayoutGuidanceUsesPayPal();
+  }
+
+  private syncPayoutGuidanceUsesPayPal(): void {
+    if (this.approvalStepId !== 'stripe') {
+      this.payoutGuidanceUsesPayPal = false;
+      return;
+    }
+    if (this.currentUser?.payoutProvider === 'paypal') {
+      this.payoutGuidanceUsesPayPal = true;
+      return;
+    }
+    if (this.currentUser?.payoutProvider === 'stripe') {
+      this.payoutGuidanceUsesPayPal = false;
+      return;
+    }
+    this.payoutGuidanceUsesPayPal = this.determinedPayoutMethod === 'paypal';
   }
 
   get progressPercentage(): number {
@@ -796,6 +835,7 @@ export class TutorOnboardingComponent implements OnInit {
       this.wizardPaypalReasonKey = '';
       this.wizardPaymentConnectDisabled = this.determinedPayoutMethod === null;
     }
+    this.syncPayoutGuidanceUsesPayPal();
   }
 
   async startEditPayoutEmail() {
@@ -819,6 +859,50 @@ export class TutorOnboardingComponent implements OnInit {
       case 'manual':
         await this.setupManualPayout(data.isUSPersonForTax, data.hasUSBankAccount);
         break;
+    }
+  }
+
+  /** Connected PayPal / manual — open payout picker (same as Profile › Payouts). */
+  async changeConnectedPayoutMethod(): Promise<void> {
+    await this.startEditPayoutEmail();
+  }
+
+  /** Connected Stripe — open Express Dashboard to edit bank / payout details. */
+  async editStripeConnectAccount(): Promise<void> {
+    this.isLoadingPayoutEdit = true;
+
+    try {
+      const response = await firstValueFrom(
+        this.http.post<{ success?: boolean; dashboardUrl?: string }>(
+          `${environment.apiUrl}/payments/stripe-connect/dashboard`,
+          {},
+          { headers: this.userService.getAuthHeadersSync() }
+        )
+      );
+
+      if (response.success && response.dashboardUrl) {
+        const target = this.platform.is('mobile') || this.platform.is('mobileweb') ? '_self' : '_blank';
+        window.open(response.dashboardUrl, target);
+        await this.showToast('Opening Stripe Express Dashboard...', 'primary');
+      }
+    } catch (error: unknown) {
+      console.error('Error opening Stripe dashboard:', error);
+      const alert = await this.alertController.create({
+        header: 'Update Payout Settings',
+        message: 'Would you like to update your payout information?',
+        buttons: [
+          { text: 'Cancel', role: 'cancel' },
+          {
+            text: 'Update',
+            handler: () => {
+              void this.startEditPayoutEmail();
+            },
+          },
+        ],
+      });
+      await alert.present();
+    } finally {
+      this.isLoadingPayoutEdit = false;
     }
   }
 
