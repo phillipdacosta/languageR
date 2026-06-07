@@ -1765,8 +1765,10 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
                 // HOWEVER, we still need to update the unread count for the badge
                 if (isSelectedConv) {
                   console.log(`⏭️ [${Date.now()}] Skipping full update for selected conversation, but updating unread count: ${this.selectedConversation?.otherUser?.name}`);
-                  // Only update unread count and lastMessage preview (for the badge in sidebar)
-                  this.conversations[existingIndex].unreadCount = serverUnread;
+                  // While the user is actively viewing this conversation, always treat it as read.
+                  // A reload can race ahead of markAsRead, causing the badge to flash momentarily.
+                  const effectiveUnread = this.isPageVisible ? 0 : serverUnread;
+                  this.conversations[existingIndex].unreadCount = effectiveUnread;
                   if (newConv.lastMessage) {
                     this.conversations[existingIndex].lastMessage = newConv.lastMessage;
                   }
