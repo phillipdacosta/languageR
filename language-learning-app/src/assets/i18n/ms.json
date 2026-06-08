@@ -555,10 +555,9 @@
     "WITHDRAW_CONFIRM_TITLE": "Sahkan Pengeluaran",
     "WITHDRAW_CONFIRM_MSG": "Adakah anda pasti mahu mengeluarkan ${{amount}}? Ini akan dihantar ke akaun {{method}} anda.",
     "WITHDRAW_CONFIRM_BTN": "Sahkan",
-    "WITHDRAW_SUCCESS": "Pengeluaran ${{amount}} berjaya diminta! Diproses dalam 1-2 hari bekerja.",
-    "WITHDRAW_SUCCESS_TITLE": "Pembayaran Dihantar!",
-    "WITHDRAW_SUCCESS_DETAIL": "{{amount}} dihantar ke {{method}} anda!",
-    "WITHDRAW_SUCCESS_NOTE": "Dana biasanya tersedia dalam 1-2 hari perniagaan.",
+    "WITHDRAW_SUCCESS": "Pengeluaran ${{amount}} berjaya diminta!",
+    "WITHDRAW_SUCCESS_TITLE": "Bayaran Dihantar!",
+    "WITHDRAW_SUCCESS_DETAIL": "{{amount}} dihantar kepada {{method}} anda!",
     "WITHDRAW_SUCCESS_DONE": "Selesai",
     "WITHDRAW_ERROR": "Gagal meminta pengeluaran. Sila cuba lagi.",
     "WITHDRAW_MIN_STRIPE_ERROR": "Sila masukkan jumlah pengeluaran yang sah",
@@ -590,7 +589,12 @@
     "WITHDRAW_METHOD_REQUIRED_MSG_PAYPAL": "Kaedah pembayaran anda ialah PayPal. Lengkapkan persediaan dalam Profil › Pembayaran sebelum anda boleh mengeluarkan.",
     "WITHDRAW_METHOD_REQUIRED_MSG_MANUAL": "Lengkapkan persediaan pembayaran dalam Profil › Pembayaran sebelum anda boleh mengeluarkan.",
     "WITHDRAW_METHOD_REQUIRED_MSG_GENERIC": "Sila sediakan kaedah pembayaran anda dalam Profil › Pembayaran sebelum meminta pengeluaran.",
-    "WITHDRAW_GO_TO_SETUP": "Pergi ke Persediaan"
+    "WITHDRAW_GO_TO_SETUP": "Pergi ke Persediaan",
+    "WITHDRAW_SUCCESS_SENT_TO": "Dihantar ke",
+    "WITHDRAW_SUCCESS_NOTE_STRIPE_BEFORE": "Pemindahan ini dihantar kepada anda",
+    "WITHDRAW_SUCCESS_NOTE_STRIPE_AFTER": "akaun serta-merta. Deposit bank mengikut jadual pembayaran Stripe anda.",
+    "WITHDRAW_SUCCESS_NOTE_PAYPAL_BEFORE": "Pemindahan ini dihantar kepada anda",
+    "WITHDRAW_SUCCESS_NOTE_PAYPAL_AFTER": "akaun. Dana biasanya tersedia dalam baki PayPal anda dalam masa beberapa minit."
   },
   "MESSAGES": {
     "TITLE": "Mesej",
@@ -3077,7 +3081,8 @@
     "AI_STATUS_OFF_TUTOR": "Ingat untuk mengumpul dan menyerahkan maklum balas untuk pelajaran ini.",
     "AI_STATUS_ON_STUDENT": "Anda akan mendapat maklum balas AI selepas pelajaran ini.",
     "AI_STATUS_OFF_STUDENT": "Tutor anda akan menghantar maklum balas anda selepas pelajaran ini.",
-    "CHAT_DROP_HINT": "Lepaskan imej atau fail untuk dihantar"
+    "CHAT_DROP_HINT": "Lepaskan imej atau fail untuk dihantar",
+    "LESSON_TIME_REMAINING": "Time left in lesson"
   },
   "ALERTS": {
     "LESSON": {

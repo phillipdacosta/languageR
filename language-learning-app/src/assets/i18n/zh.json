@@ -504,11 +504,10 @@
     "WITHDRAW_CONFIRM_TITLE": "确认提现",
     "WITHDRAW_CONFIRM_MSG": "您确定要提现 ${{amount}} 吗？款项将发送到您的 {{method}} 账户。",
     "WITHDRAW_CONFIRM_BTN": "确认",
-    "WITHDRAW_SUCCESS": "成功申请提现 ${{amount}}！将在1-2个工作日内处理。",
+    "WITHDRAW_SUCCESS": "提现 ${{amount}} 请求成功！",
     "WITHDRAW_SUCCESS_TITLE": "付款已发送！",
-    "WITHDRAW_SUCCESS_DETAIL": "{{amount}}已发送至您的{{method}}！",
-    "WITHDRAW_SUCCESS_NOTE": "资金通常在1-2个工作日内到账。",
-    "WITHDRAW_SUCCESS_DONE": "完成",
+    "WITHDRAW_SUCCESS_DETAIL": "{{amount}} 已发送至您的 {{method}}！",
+    "WITHDRAW_SUCCESS_DONE": "完毕",
     "WITHDRAW_ERROR": "提现申请失败。请重试。",
     "WITHDRAW_MIN_STRIPE_ERROR": "请输入有效的提现金额",
     "WITHDRAW_MIN_PAYPAL_ERROR": "最低提现金额为 $10",
@@ -539,7 +538,12 @@
     "WITHDRAW_METHOD_REQUIRED_MSG_PAYPAL": "您的付款方式是 PayPal。在提款之前，请在“个人资料”>“付款”中完成设置。",
     "WITHDRAW_METHOD_REQUIRED_MSG_MANUAL": "在提款之前，请在“个人资料”>“付款”中完成付款设置。",
     "WITHDRAW_METHOD_REQUIRED_MSG_GENERIC": "请求提款之前，请在个人资料 › 付款中设置您的付款方式。",
-    "WITHDRAW_GO_TO_SETUP": "转到设置"
+    "WITHDRAW_GO_TO_SETUP": "转到设置",
+    "WITHDRAW_SUCCESS_SENT_TO": "发送至",
+    "WITHDRAW_SUCCESS_NOTE_STRIPE_BEFORE": "此转账将发送至您的",
+    "WITHDRAW_SUCCESS_NOTE_STRIPE_AFTER": "立即帐户。银行存款遵循您的 Stripe 付款时间表。",
+    "WITHDRAW_SUCCESS_NOTE_PAYPAL_BEFORE": "此转账将发送至您的",
+    "WITHDRAW_SUCCESS_NOTE_PAYPAL_AFTER": "帐户。资金通常会在几分钟内存入您的 PayPal 余额中。"
   },
   "LOGIN": {
     "TITLE": "登录",
@@ -3078,7 +3082,8 @@
     "AI_STATUS_OFF_TUTOR": "请记住收集并提交本课程的反馈。",
     "AI_STATUS_ON_STUDENT": "本课结束后您将获得人工智能反馈。",
     "AI_STATUS_OFF_STUDENT": "您的导师将在本课结束后向您发送反馈。",
-    "CHAT_DROP_HINT": "拖放要发送的图像或文件"
+    "CHAT_DROP_HINT": "拖放要发送的图像或文件",
+    "LESSON_TIME_REMAINING": "Time left in lesson"
   },
   "ALERTS": {
     "LESSON": {

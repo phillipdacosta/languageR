@@ -415,6 +415,12 @@ ion-modal.withdrawal-modal.withdrawal-modal--home-context {
 .ion-palette-dark ion-modal.withdrawal-modal {
   --background: #242426;
   --ion-background-color: #242426;
+  --wd-bg: #242426;
+  --wd-text: #f5f5f7;
+  --wd-text-muted: #aeaeb2;
+  --wd-btn-primary-bg: #f5f5f7;
+  --wd-btn-primary-color: #000000;
+  --wd-btn-primary-hover: #ffffff;
 }
 
 .ion-palette-dark ion-modal.withdrawal-modal.withdrawal-modal--home-context {
@@ -3658,6 +3664,43 @@ html.ion-palette-dark {
       &:disabled {
         opacity: 0.35 !important;
       }
+    }
+
+    .withdrawal-success-title {
+      color: #f5f5f7 !important;
+    }
+
+    .withdrawal-success-amount {
+      color: #f5f5f7 !important;
+    }
+
+    .withdrawal-success-note {
+      color: #aeaeb2 !important;
+    }
+
+    .withdrawal-success-done-btn {
+      background: #f5f5f7 !important;
+      color: #000 !important;
+
+      &:hover {
+        background: #ffffff !important;
+      }
+    }
+
+    .withdrawal-success-inline-wordmark-img--light {
+      display: block !important;
+    }
+
+    .withdrawal-success-inline-wordmark-img--dark {
+      display: none !important;
+    }
+
+    .withdrawal-powered-by-stripe-badge--theme-light {
+      display: inline-flex !important;
+    }
+
+    .withdrawal-powered-by-stripe-badge--theme-dark {
+      display: none !important;
     }
 
     .info-note {

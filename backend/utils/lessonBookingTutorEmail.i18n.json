@@ -1,0 +1,40 @@
+{
+  "en": {
+    "brandName": "Barnabi",
+    "studentLabel": "Student",
+    "dateLabel": "Date",
+    "timeLabel": "Time",
+    "durationLabel": "Duration",
+    "languageLabel": "Language",
+    "lessonTypeLabel": "Type",
+    "durationMinutes": "{{minutes}} minutes",
+    "dashboardText": "Need to review your schedule or prepare for upcoming lessons?",
+    "dashboardLinkText": "Go to your calendar",
+    "footerReason": "You're receiving this email because a student booked a lesson with you on Barnabi.",
+    "footerHelpText": "Questions? Contact us at",
+    "lessonDetailsTitle": "Lesson details",
+    "viewLessonButton": "View lesson",
+    "regular": {
+      "subject": "{{studentName}} booked a {{language}} lesson with you",
+      "emailEyebrow": "New Lesson Booked",
+      "emailTitle": "You have a new lesson!",
+      "emailIntro": "A student just booked time on your calendar.",
+      "emailGreeting": "Hi {{tutorFirstName}},",
+      "emailBody": "{{studentName}} booked a {{language}} lesson with you. Here are the details:",
+      "mascotTitle": "See you in class!",
+      "mascotText": "Review the lesson from your calendar when you're ready. You can enter the classroom up to 15 minutes before start time.",
+      "lessonType": "Lesson"
+    },
+    "trial": {
+      "subject": "{{studentName}} booked a trial {{language}} lesson with you",
+      "emailEyebrow": "Trial Lesson Booked",
+      "emailTitle": "New trial lesson on your calendar",
+      "emailIntro": "A student scheduled their first session with you.",
+      "emailGreeting": "Hi {{tutorFirstName}},",
+      "emailBody": "{{studentName}} booked a trial {{language}} lesson with you. Here are the details:",
+      "mascotTitle": "A new student!",
+      "mascotText": "Trial lessons are a great chance to make a strong first impression. Review the details in your calendar and join up to 15 minutes early.",
+      "lessonType": "Trial lesson"
+    }
+  }
+}

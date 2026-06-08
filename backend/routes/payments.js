@@ -32,6 +32,7 @@ const {
 const TutorFeedback = require('../models/TutorFeedback');
 const { toZonedTime } = require('date-fns-tz');
 const { pushLessonToGoogleCalendar } = require('../services/googleCalendarService');
+const { sendLessonBookedEmails } = require('../utils/lessonBookingEmail');
 
 // Use shared name formatter
 const formatDisplayName = formatNameWithInitial;
@@ -475,7 +476,7 @@ router.post('/book-lesson-with-payment', verifyToken, async (req, res) => {
       // Populate lesson data for response
       const populatedLesson = await Lesson.findById(lesson._id)
         .populate('tutorId', 'name firstName lastName email picture interfaceLanguage onboardingData auth0Id')
-        .populate('studentId', 'name firstName lastName email picture auth0Id');
+        .populate('studentId', 'name firstName lastName email picture auth0Id interfaceLanguage profile');
 
       // Push to tutor's Google Calendar (non-blocking)
       pushLessonToGoogleCalendar(populatedLesson).catch(err => {
@@ -566,6 +567,16 @@ router.post('/book-lesson-with-payment', verifyToken, async (req, res) => {
       } catch (notifError) {
         console.error('❌ Error creating notification for student:', notifError);
       }
+
+      sendLessonBookedEmails({
+        student,
+        tutor,
+        lesson: populatedLesson,
+        language,
+        isTrialLesson
+      }).catch((emailError) => {
+        console.error('❌ Error sending lesson booked emails:', emailError.message);
+      });
 
       // Emit WebSocket notifications if users are connected
       if (req.io && req.connectedUsers) {

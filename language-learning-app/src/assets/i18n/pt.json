@@ -504,11 +504,10 @@
     "WITHDRAW_CONFIRM_TITLE": "Confirmar saque",
     "WITHDRAW_CONFIRM_MSG": "Tem certeza de que deseja sacar ${{amount}}? Será enviado para sua conta {{method}}.",
     "WITHDRAW_CONFIRM_BTN": "Confirmar",
-    "WITHDRAW_SUCCESS": "Saque de ${{amount}} solicitado com sucesso! Processamento em 1-2 dias úteis.",
-    "WITHDRAW_SUCCESS_TITLE": "Pagamento Enviado!",
-    "WITHDRAW_SUCCESS_DETAIL": "{{amount}} enviado para o seu {{method}}!",
-    "WITHDRAW_SUCCESS_NOTE": "Os fundos costumam estar disponíveis em 1 a 2 dias úteis.",
-    "WITHDRAW_SUCCESS_DONE": "Concluído",
+    "WITHDRAW_SUCCESS": "Retirada de ${{amount}} solicitada com sucesso!",
+    "WITHDRAW_SUCCESS_TITLE": "Pagamento enviado!",
+    "WITHDRAW_SUCCESS_DETAIL": "{{amount}} enviado para seu {{method}}!",
+    "WITHDRAW_SUCCESS_DONE": "Feito",
     "WITHDRAW_ERROR": "Falha ao solicitar o saque. Tente novamente.",
     "WITHDRAW_MIN_STRIPE_ERROR": "Insira um valor de saque válido",
     "WITHDRAW_MIN_PAYPAL_ERROR": "O valor mínimo de saque é $10",
@@ -539,7 +538,12 @@
     "WITHDRAW_METHOD_REQUIRED_MSG_PAYPAL": "Seu método de pagamento é PayPal. Conclua a configuração em Perfil › Pagamentos antes de poder sacar.",
     "WITHDRAW_METHOD_REQUIRED_MSG_MANUAL": "Conclua a configuração do pagamento em Perfil › Pagamentos antes de poder sacar.",
     "WITHDRAW_METHOD_REQUIRED_MSG_GENERIC": "Configure sua forma de pagamento em Perfil › Pagamentos antes de solicitar um saque.",
-    "WITHDRAW_GO_TO_SETUP": "Vá para configuração"
+    "WITHDRAW_GO_TO_SETUP": "Vá para configuração",
+    "WITHDRAW_SUCCESS_SENT_TO": "Enviado para",
+    "WITHDRAW_SUCCESS_NOTE_STRIPE_BEFORE": "Esta transferência é enviada para o seu",
+    "WITHDRAW_SUCCESS_NOTE_STRIPE_AFTER": "conta instantaneamente. Os depósitos bancários seguem seu cronograma de pagamento de Stripe.",
+    "WITHDRAW_SUCCESS_NOTE_PAYPAL_BEFORE": "Esta transferência é enviada para o seu",
+    "WITHDRAW_SUCCESS_NOTE_PAYPAL_AFTER": "conta. Os fundos geralmente ficam disponíveis no seu saldo de PayPal em poucos minutos."
   },
   "ONBOARDING": {
     "TITLE": "Bem-vindo ao Aprendizado de Idiomas",
@@ -3156,7 +3160,8 @@
     "AI_STATUS_OFF_TUTOR": "Lembre-se de coletar e enviar feedback para esta lição.",
     "AI_STATUS_ON_STUDENT": "Você receberá feedback da IA ​​após esta lição.",
     "AI_STATUS_OFF_STUDENT": "Seu tutor enviará seu feedback após esta lição.",
-    "CHAT_DROP_HINT": "Solte imagens ou arquivos para enviar"
+    "CHAT_DROP_HINT": "Solte imagens ou arquivos para enviar",
+    "LESSON_TIME_REMAINING": "Time left in lesson"
   },
   "ALERTS": {
     "LESSON": {

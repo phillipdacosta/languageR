@@ -555,11 +555,10 @@
     "WITHDRAW_CONFIRM_TITLE": "ยืนยันการถอนเงิน",
     "WITHDRAW_CONFIRM_MSG": "คุณแน่ใจหรือไม่ว่าต้องการถอน ${{amount}}? จะถูกส่งไปยังบัญชี {{method}} ของคุณ",
     "WITHDRAW_CONFIRM_BTN": "ยืนยัน",
-    "WITHDRAW_SUCCESS": "ขอถอนเงิน ${{amount}} สำเร็จ! ดำเนินการภายใน 1-2 วันทำการ",
+    "WITHDRAW_SUCCESS": "ร้องขอการถอนเงิน ${{amount}} เรียบร้อยแล้ว!",
     "WITHDRAW_SUCCESS_TITLE": "ส่งการชำระเงินแล้ว!",
-    "WITHDRAW_SUCCESS_DETAIL": "ส่ง {{amount}} ไปยัง {{method}} ของคุณแล้ว!",
-    "WITHDRAW_SUCCESS_NOTE": "โดยปกติเงินจะเข้าภายใน 1-2 วันทำการ",
-    "WITHDRAW_SUCCESS_DONE": "เสร็จสิ้น",
+    "WITHDRAW_SUCCESS_DETAIL": "{{amount}} ส่งไปที่ {{method}} ของคุณแล้ว!",
+    "WITHDRAW_SUCCESS_DONE": "เสร็จแล้ว",
     "WITHDRAW_ERROR": "ไม่สามารถขอถอนเงินได้ กรุณาลองอีกครั้ง",
     "WITHDRAW_MIN_STRIPE_ERROR": "กรุณาป้อนจำนวนเงินถอนที่ถูกต้อง",
     "WITHDRAW_MIN_PAYPAL_ERROR": "จำนวนเงินถอนขั้นต่ำคือ $10",
@@ -590,7 +589,12 @@
     "WITHDRAW_METHOD_REQUIRED_MSG_PAYPAL": "วิธีการชำระเงินของคุณคือ PayPal ตั้งค่าให้เสร็จสิ้นในโปรไฟล์ › การจ่ายเงินก่อนจึงจะสามารถถอนออกได้",
     "WITHDRAW_METHOD_REQUIRED_MSG_MANUAL": "ตั้งค่าการจ่ายเงินให้เสร็จสิ้นในโปรไฟล์ › การจ่ายเงินก่อนที่คุณจะสามารถถอนออกได้",
     "WITHDRAW_METHOD_REQUIRED_MSG_GENERIC": "โปรดตั้งค่าวิธีจ่ายเงินของคุณในโปรไฟล์ › การจ่ายเงินก่อนที่จะขอถอนเงิน",
-    "WITHDRAW_GO_TO_SETUP": "ไปที่การตั้งค่า"
+    "WITHDRAW_GO_TO_SETUP": "ไปที่การตั้งค่า",
+    "WITHDRAW_SUCCESS_SENT_TO": "ส่งไปที่",
+    "WITHDRAW_SUCCESS_NOTE_STRIPE_BEFORE": "การโอนนี้ถูกส่งไปยังของคุณ",
+    "WITHDRAW_SUCCESS_NOTE_STRIPE_AFTER": " บัญชีทันที เงินฝากธนาคารเป็นไปตามกำหนดการชำระเงิน Stripe ของคุณ",
+    "WITHDRAW_SUCCESS_NOTE_PAYPAL_BEFORE": "การโอนนี้ถูกส่งไปยังของคุณ",
+    "WITHDRAW_SUCCESS_NOTE_PAYPAL_AFTER": " บัญชี โดยปกติเงินจะอยู่ในยอดคงเหลือ PayPal ของคุณภายในไม่กี่นาที"
   },
   "MESSAGES": {
     "TITLE": "ข้อความ",
@@ -3077,7 +3081,8 @@
     "AI_STATUS_OFF_TUTOR": "อย่าลืมรวบรวมและส่งความคิดเห็นสำหรับบทเรียนนี้",
     "AI_STATUS_ON_STUDENT": "คุณจะได้รับคำติชมจาก AI หลังจากบทเรียนนี้",
     "AI_STATUS_OFF_STUDENT": "ครูผู้สอนของคุณจะส่งคำติชมของคุณหลังจากบทเรียนนี้",
-    "CHAT_DROP_HINT": "วางรูปภาพหรือไฟล์ที่จะส่ง"
+    "CHAT_DROP_HINT": "วางรูปภาพหรือไฟล์ที่จะส่ง",
+    "LESSON_TIME_REMAINING": "Time left in lesson"
   },
   "ALERTS": {
     "LESSON": {

@@ -497,6 +497,16 @@
         </div>
 
         <ng-container *ngIf="!mcTutorFeedbackEmpty">
+          <!-- Tutor's personal note (free-text) -->
+          <div class="ed-fb-block" *ngIf="hasTutorNote">
+            <h3 class="ed-sub-label">{{ 'EVENT_DETAILS.LESSON_SCREEN.TUTOR_NOTE' | translate }}</h3>
+            <span class="ed-impression" *ngIf="analysisData?.tutorNote?.quickImpression">{{ analysisData?.tutorNote?.quickImpression | titlecase }}</span>
+            <div class="ed-rich-body" [innerHTML]="sanitizedTutorNote"></div>
+            <div class="ed-fb-homework" *ngIf="analysisData?.tutorNote?.homework">
+              <h3 class="ed-sub-label">{{ 'EVENT_DETAILS.LESSON_SCREEN.HOMEWORK' | translate }}</h3>
+              <p class="ed-body">{{ analysisData?.tutorNote?.homework }}</p>
+            </div>
+          </div>
           <div class="ed-fb-block" *ngIf="feedbackStrengths.length">
             <button type="button" class="ed-fb-collapsible-header" (click)="toggleFeedbackStrengthsSection()" [attr.aria-expanded]="feedbackStrengthsExpanded">
               <h3 class="ed-sub-label green">{{ 'EVENT_DETAILS.LESSON_SCREEN.STRENGTHS' | translate }}</h3>

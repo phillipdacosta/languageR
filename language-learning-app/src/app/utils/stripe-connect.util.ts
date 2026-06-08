@@ -1,4 +1,6 @@
 import { Params } from '@angular/router';
+import { Browser } from '@capacitor/browser';
+import { Capacitor } from '@capacitor/core';
 import { LanguageService } from '../services/language.service';
 
 export type StripeConnectReturnContext = 'profile-payout' | 'tutor-approval-wizard';
@@ -126,4 +128,13 @@ function readInterfaceLocale(): string {
   } catch {
     return 'en';
   }
+}
+
+/** Open Stripe dashboard / onboarding — new tab on web, in-app browser on native. */
+export async function openStripeExternalUrl(url: string): Promise<void> {
+  if (Capacitor.isNativePlatform()) {
+    await Browser.open({ url });
+    return;
+  }
+  window.open(url, '_blank', 'noopener,noreferrer');
 }

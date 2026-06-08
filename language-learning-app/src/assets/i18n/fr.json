@@ -504,11 +504,10 @@
     "WITHDRAW_CONFIRM_TITLE": "Confirmer le retrait",
     "WITHDRAW_CONFIRM_MSG": "Êtes-vous sûr de vouloir retirer ${{amount}} ? Ce montant sera envoyé à votre compte {{method}}.",
     "WITHDRAW_CONFIRM_BTN": "Confirmer",
-    "WITHDRAW_SUCCESS": "Retrait de ${{amount}} demandé avec succès ! Traitement sous 1-2 jours ouvrables.",
-    "WITHDRAW_SUCCESS_TITLE": "Paiement Envoyé !",
-    "WITHDRAW_SUCCESS_DETAIL": "{{amount}} envoyé à votre {{method}} !",
-    "WITHDRAW_SUCCESS_NOTE": "Les fonds sont généralement disponibles sous 1 à 2 jours ouvrables.",
-    "WITHDRAW_SUCCESS_DONE": "Terminé",
+    "WITHDRAW_SUCCESS": "Retrait de {{amount}}$ demandé avec succès !",
+    "WITHDRAW_SUCCESS_TITLE": "Paiement envoyé !",
+    "WITHDRAW_SUCCESS_DETAIL": "{{amount}} envoyé à votre {{method}} !",
+    "WITHDRAW_SUCCESS_DONE": "Fait",
     "WITHDRAW_ERROR": "Échec de la demande de retrait. Veuillez réessayer.",
     "WITHDRAW_MIN_STRIPE_ERROR": "Veuillez entrer un montant de retrait valide",
     "WITHDRAW_MIN_PAYPAL_ERROR": "Le montant minimum de retrait est de 10 $",
@@ -539,7 +538,12 @@
     "WITHDRAW_METHOD_REQUIRED_MSG_PAYPAL": "Votre mode de paiement est PayPal. Terminez la configuration dans Profil > Paiements avant de pouvoir retirer.",
     "WITHDRAW_METHOD_REQUIRED_MSG_MANUAL": "Terminez la configuration des paiements dans Profil > Paiements avant de pouvoir retirer.",
     "WITHDRAW_METHOD_REQUIRED_MSG_GENERIC": "Veuillez configurer votre méthode de paiement dans Profil > Paiements avant de demander un retrait.",
-    "WITHDRAW_GO_TO_SETUP": "Allez dans Configuration"
+    "WITHDRAW_GO_TO_SETUP": "Allez dans Configuration",
+    "WITHDRAW_SUCCESS_SENT_TO": "Envoyé à",
+    "WITHDRAW_SUCCESS_NOTE_STRIPE_BEFORE": "Ce virement est envoyé à votre",
+    "WITHDRAW_SUCCESS_NOTE_STRIPE_AFTER": "compte instantanément. Les dépôts bancaires suivent votre calendrier de paiement Stripe.",
+    "WITHDRAW_SUCCESS_NOTE_PAYPAL_BEFORE": "Ce virement est envoyé à votre",
+    "WITHDRAW_SUCCESS_NOTE_PAYPAL_AFTER": "compte. Les fonds sont généralement disponibles sur votre solde PayPal en quelques minutes."
   },
   "ONBOARDING": {
     "TITLE": "Bienvenue à l'apprentissage des langues",
@@ -3156,7 +3160,8 @@
     "AI_STATUS_ON_TUTOR": "AI résumera cette leçon – vos notes sont facultatives.",
     "AI_STATUS_OFF_TUTOR": "N'oubliez pas de collecter et de soumettre des commentaires pour cette leçon.",
     "AI_STATUS_ON_STUDENT": "Vous recevrez des commentaires sur l'IA après cette leçon.",
-    "AI_STATUS_OFF_STUDENT": "Votre tuteur vous enverra vos commentaires après cette leçon."
+    "AI_STATUS_OFF_STUDENT": "Votre tuteur vous enverra vos commentaires après cette leçon.",
+    "LESSON_TIME_REMAINING": "Time left in lesson"
   },
   "ALERTS": {
     "LESSON": {

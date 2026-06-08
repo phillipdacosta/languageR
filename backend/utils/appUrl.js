@@ -1,4 +1,6 @@
 const LOCAL_DEV_ORIGIN = 'http://localhost:8100';
+const DEFAULT_DEV_FRONTEND_URL = 'https://languager-frontend.onrender.com';
+const DEFAULT_PUBLIC_BACKEND_URL = 'https://api.barnabi.ai';
 
 function normalizeOrigin(url) {
   if (!url || typeof url !== 'string') return null;
@@ -47,6 +49,77 @@ function originIsAllowed(origin, allowedOrigins) {
   return false;
 }
 
+/**
+ * Public frontend origin for email images and links.
+ * Email clients cannot load localhost URLs, so when FRONTEND_URL is local we fall back
+ * to EMAIL_PUBLIC_FRONTEND_URL, FRONTEND_URL_DEV, or the Render dev frontend.
+ */
+function resolveEmailFrontendUrl() {
+  for (const key of ['EMAIL_PUBLIC_FRONTEND_URL', 'PUBLIC_APP_URL']) {
+    const origin = normalizeOrigin(process.env[key]?.split(',')[0]);
+    if (origin && !isLocalhostOrigin(origin)) {
+      return origin;
+    }
+  }
+
+  const configured = normalizeOrigin(process.env.FRONTEND_URL?.split(',')[0]);
+  if (configured && !isLocalhostOrigin(configured)) {
+    return configured;
+  }
+
+  return normalizeOrigin(process.env.FRONTEND_URL_DEV?.split(',')[0])
+    || DEFAULT_DEV_FRONTEND_URL;
+}
+
+/**
+ * Public base URL for email image assets (served from backend /email-assets).
+ * Email clients cannot load localhost or undeployed frontend /assets URLs.
+ * When developing locally, defaults to the deployed backend (BACKEND_URL_DEV or api.barnabi.ai).
+ */
+function resolveEmailAssetBaseUrl() {
+  const explicit = process.env.EMAIL_ASSET_BASE_URL?.trim().replace(/\/$/, '');
+  if (explicit) return explicit;
+
+  for (const key of ['BACKEND_PUBLIC_URL', 'RENDER_EXTERNAL_URL']) {
+    const origin = normalizeOrigin(process.env[key]?.split(',')[0]);
+    if (origin && !isLocalhostOrigin(origin)) {
+      return `${origin}/email-assets`;
+    }
+  }
+
+  const frontend = normalizeOrigin(process.env.FRONTEND_URL?.split(',')[0]);
+  const runningLocally = isLocalhostOrigin(frontend) || process.env.NODE_ENV !== 'production';
+
+  if (runningLocally) {
+    const port = process.env.PORT || 3000;
+    return `http://localhost:${port}/email-assets`;
+  }
+
+  const devBackend = normalizeOrigin(process.env.BACKEND_URL_DEV?.split(',')[0])
+    || DEFAULT_PUBLIC_BACKEND_URL;
+  return `${devBackend}/email-assets`;
+}
+
+/**
+ * Default frontend origin for server-initiated links (emails, etc.).
+ * - Local machine → localhost:8100 (or FRONTEND_URL from config.env)
+ * - Render deploy → FRONTEND_URL if set, else FRONTEND_URL_DEV, else languager-frontend.onrender.com
+ */
+function resolveDefaultFrontendUrl() {
+  const isOnRender = process.env.RENDER === 'true';
+
+  if (isOnRender) {
+    return normalizeOrigin(process.env.FRONTEND_URL?.split(',')[0])
+      || normalizeOrigin(process.env.FRONTEND_URL_DEV?.split(',')[0])
+      || normalizeOrigin(process.env.PUBLIC_APP_URL?.split(',')[0])
+      || DEFAULT_DEV_FRONTEND_URL;
+  }
+
+  return normalizeOrigin(process.env.FRONTEND_URL?.split(',')[0])
+    || normalizeOrigin(process.env.PUBLIC_APP_URL?.split(',')[0])
+    || LOCAL_DEV_ORIGIN;
+}
+
 function resolveFrontendOrigin({ req, explicitOrigin } = {}) {
   const allowedOrigins = collectConfiguredOrigins();
 
@@ -78,18 +151,7 @@ function resolveFrontendOrigin({ req, explicitOrigin } = {}) {
     }
   }
 
-  const configuredFrontend = normalizeOrigin(process.env.FRONTEND_URL);
-  if (configuredFrontend) {
-    return configuredFrontend;
-  }
-
-  if (process.env.NODE_ENV !== 'production') {
-    return LOCAL_DEV_ORIGIN;
-  }
-
-  throw new Error(
-    'Unable to resolve frontend URL for Stripe redirect. Set FRONTEND_URL (or pass frontendOrigin from the client).'
-  );
+  return resolveDefaultFrontendUrl();
 }
 
 function normalizePath(path, fallback) {
@@ -113,6 +175,9 @@ function resolveReturnUrl({
 }
 
 module.exports = {
+  resolveDefaultFrontendUrl,
+  resolveEmailFrontendUrl,
+  resolveEmailAssetBaseUrl,
   resolveFrontendOrigin,
   resolveReturnUrl,
   normalizeOrigin,

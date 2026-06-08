@@ -1196,13 +1196,12 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
       cardDescText = T('LESSONS_PAGE.RESCHEDULE_PENDING');
     } else if (status === 'scheduled' || status === 'confirmed') {
       const ctx = lesson.lastSessionContext;
-      const otherName = other?.name || '';
-      const shortName = otherName.split(' ')[0] || otherName;
+      const displayName = other?.name || '';
       if (ctx?.isFirstLesson) {
         const key = role === 'tutor'
           ? 'LESSONS_PAGE.FIRST_LESSON_TUTOR'
           : 'LESSONS_PAGE.FIRST_LESSON_STUDENT';
-        cardDescText = T(key, { name: shortName });
+        cardDescText = T(key, { name: displayName });
       } else if (ctx?.summary) {
         cardDescText = T('LESSONS_PAGE.LAST_SESSION_PREFIX') + this.truncateCardText(ctx.summary, 180);
       }

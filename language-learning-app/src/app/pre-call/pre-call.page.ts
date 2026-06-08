@@ -41,6 +41,7 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
   lessonSubtitlePrefix = '';
   lessonSubtitleParticipantName = '';
   lessonSubtitleParticipantPicture = '';
+  lessonSubtitleParticipantInitial = '';
   lessonSubtitlePlain = '';
   participantPicture = '';
   tutorName: string = '';
@@ -81,6 +82,7 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
   otherParticipantJoined: boolean = false;
   otherParticipantName: string = '';
   otherParticipantPicture: string = '';
+  otherParticipantInitial = '';
   private destroy$ = new Subject<void>();
   // Track the tutor for this session so we can adjust tutor-search UI after cancellations
   private lessonTutorId: string | null = null;
@@ -2431,6 +2433,11 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
     this.refreshPresenceJoinedLine();
   }
 
+  private participantInitialFromName(name: string): string {
+    const trimmed = (name || '').trim();
+    return trimmed ? trimmed.charAt(0).toUpperCase() : '?';
+  }
+
   private refreshLessonSubtitle(): void {
     const studentFallback = this.t('PRE_CALL.YOUR_STUDENT');
     const tutorFallback = this.t('PRE_CALL.YOUR_TUTOR');
@@ -2439,6 +2446,7 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
       this.lessonSubtitlePrefix = '';
       this.lessonSubtitleParticipantName = '';
       this.lessonSubtitleParticipantPicture = '';
+      this.lessonSubtitleParticipantInitial = '';
       this.lessonSubtitlePlain = '';
       this.lessonSubtitle = '';
       return;
@@ -2464,6 +2472,7 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
     this.lessonSubtitlePrefix = prefixKey ? this.t(prefixKey) : '';
     this.lessonSubtitleParticipantName = name;
     this.lessonSubtitleParticipantPicture = this.participantPicture;
+    this.lessonSubtitleParticipantInitial = this.participantInitialFromName(name);
     this.lessonSubtitlePlain = '';
     this.lessonSubtitle = name
       ? `${this.lessonSubtitlePrefix} ${name}`.trim()
@@ -2473,6 +2482,7 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
   private refreshPresenceJoinedLine(): void {
     const fallback = this.isTutor ? this.t('PRE_CALL.STUDENT') : this.t('PRE_CALL.TUTOR');
     const name = this.otherParticipantName || fallback;
+    this.otherParticipantInitial = this.participantInitialFromName(name);
     this.presenceJoinedLine = this.t('PRE_CALL.PARTICIPANT_JOINED', { name });
   }
 

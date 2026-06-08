@@ -504,11 +504,10 @@
     "WITHDRAW_CONFIRM_TITLE": "出金の確認",
     "WITHDRAW_CONFIRM_MSG": "${{amount}} を出金してよろしいですか？お客様の {{method}} アカウントに送金されます。",
     "WITHDRAW_CONFIRM_BTN": "確認",
-    "WITHDRAW_SUCCESS": "${{amount}} の出金リクエストが正常に送信されました！1〜2営業日以内に処理されます。",
-    "WITHDRAW_SUCCESS_TITLE": "送金完了！",
-    "WITHDRAW_SUCCESS_DETAIL": "{{amount}}が{{method}}に送金されました！",
-    "WITHDRAW_SUCCESS_NOTE": "通常1〜2営業日以内に反映されます。",
-    "WITHDRAW_SUCCESS_DONE": "完了",
+    "WITHDRAW_SUCCESS": "${{amount}} の出金が正常に要求されました。",
+    "WITHDRAW_SUCCESS_TITLE": "支払いが送信されました!",
+    "WITHDRAW_SUCCESS_DETAIL": "{{amount}} があなたの {{method}} に送信されました!",
+    "WITHDRAW_SUCCESS_DONE": "終わり",
     "WITHDRAW_ERROR": "出金リクエストに失敗しました。もう一度お試しください。",
     "WITHDRAW_MIN_STRIPE_ERROR": "有効な出金額を入力してください",
     "WITHDRAW_MIN_PAYPAL_ERROR": "最低出金額は $10 です",
@@ -539,7 +538,12 @@
     "WITHDRAW_METHOD_REQUIRED_MSG_PAYPAL": "お支払い方法は PayPal です。出金する前に、「プロフィール」 > 「支払い」で設定を完了してください。",
     "WITHDRAW_METHOD_REQUIRED_MSG_MANUAL": "出金する前に、[プロフィール] › [支払い] で支払いの設定を完了してください。",
     "WITHDRAW_METHOD_REQUIRED_MSG_GENERIC": "出金をリクエストする前に、プロフィール › 支払いで支払い方法を設定してください。",
-    "WITHDRAW_GO_TO_SETUP": "セットアップに移動"
+    "WITHDRAW_GO_TO_SETUP": "セットアップに移動",
+    "WITHDRAW_SUCCESS_SENT_TO": "送信先",
+    "WITHDRAW_SUCCESS_NOTE_STRIPE_BEFORE": "この送金はあなたの宛に送信されます",
+    "WITHDRAW_SUCCESS_NOTE_STRIPE_AFTER": "即座にアカウントを作成します。銀行預金は、Stripe の支払いスケジュールに従います。",
+    "WITHDRAW_SUCCESS_NOTE_PAYPAL_BEFORE": "この送金はあなたの宛に送信されます",
+    "WITHDRAW_SUCCESS_NOTE_PAYPAL_AFTER": "アカウント。通常、資金は数分以内に PayPal 残高で利用可能になります。"
   },
   "LOGIN": {
     "TITLE": "ログイン",
@@ -3078,7 +3082,8 @@
     "AI_STATUS_OFF_TUTOR": "このレッスンに対するフィードバックを必ず収集して送信してください。",
     "AI_STATUS_ON_STUDENT": "このレッスンの後に AI フィードバックが得られます。",
     "AI_STATUS_OFF_STUDENT": "このレッスンの後、講師がフィードバックを送信します。",
-    "CHAT_DROP_HINT": "画像またはファイルをドロップして送信します"
+    "CHAT_DROP_HINT": "画像またはファイルをドロップして送信します",
+    "LESSON_TIME_REMAINING": "Time left in lesson"
   },
   "ALERTS": {
     "LESSON": {

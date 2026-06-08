@@ -1075,6 +1075,7 @@ export class LessonService {
       { headers }
     );
   }
+
 }
 
 export interface PreviousNotesAnalysis {

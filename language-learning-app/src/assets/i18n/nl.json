@@ -504,10 +504,9 @@
     "WITHDRAW_CONFIRM_TITLE": "Opname bevestigen",
     "WITHDRAW_CONFIRM_MSG": "Weet je zeker dat je ${{amount}} wilt opnemen? Dit wordt naar je {{method}}-rekening gestuurd.",
     "WITHDRAW_CONFIRM_BTN": "Bevestigen",
-    "WITHDRAW_SUCCESS": "Opname van ${{amount}} succesvol aangevraagd! Verwerking binnen 1-2 werkdagen.",
-    "WITHDRAW_SUCCESS_TITLE": "Betaling Verzonden!",
-    "WITHDRAW_SUCCESS_DETAIL": "{{amount}} verzonden naar je {{method}}!",
-    "WITHDRAW_SUCCESS_NOTE": "Fondsen zijn doorgaans beschikbaar binnen 1–2 werkdagen.",
+    "WITHDRAW_SUCCESS": "Opname van ${{amount}} succesvol aangevraagd!",
+    "WITHDRAW_SUCCESS_TITLE": "Betaling verzonden!",
+    "WITHDRAW_SUCCESS_DETAIL": "{{amount}} verzonden naar uw {{method}}!",
     "WITHDRAW_SUCCESS_DONE": "Klaar",
     "WITHDRAW_ERROR": "Opname aanvragen mislukt. Probeer het opnieuw.",
     "WITHDRAW_MIN_STRIPE_ERROR": "Voer een geldig opnamebedrag in",
@@ -539,7 +538,12 @@
     "WITHDRAW_METHOD_REQUIRED_MSG_PAYPAL": "Uw uitbetalingsmethode is PayPal. Voltooi de configuratie in Profiel › Uitbetalingen voordat u kunt opnemen.",
     "WITHDRAW_METHOD_REQUIRED_MSG_MANUAL": "Voltooi de uitbetalingsinstellingen in Profiel ›Uitbetalingen voordat u kunt opnemen.",
     "WITHDRAW_METHOD_REQUIRED_MSG_GENERIC": "Stel uw uitbetalingsmethode in Profiel > Uitbetalingen in voordat u een opname aanvraagt.",
-    "WITHDRAW_GO_TO_SETUP": "Ga naar Instellingen"
+    "WITHDRAW_GO_TO_SETUP": "Ga naar Instellingen",
+    "WITHDRAW_SUCCESS_SENT_TO": "Verzonden naar",
+    "WITHDRAW_SUCCESS_NOTE_STRIPE_BEFORE": "Deze overschrijving wordt naar uw verzonden",
+    "WITHDRAW_SUCCESS_NOTE_STRIPE_AFTER": "meteen rekening. Bankstortingen volgen uw uitbetalingsschema van Stripe.",
+    "WITHDRAW_SUCCESS_NOTE_PAYPAL_BEFORE": "Deze overschrijving wordt naar uw verzonden",
+    "WITHDRAW_SUCCESS_NOTE_PAYPAL_AFTER": "rekening. Het geld is doorgaans binnen enkele minuten beschikbaar op uw PayPal-saldo."
   },
   "LOGIN": {
     "TITLE": "Inloggen",
@@ -3078,7 +3082,8 @@
     "AI_STATUS_OFF_TUTOR": "Vergeet niet om feedback voor deze les te verzamelen en in te dienen.",
     "AI_STATUS_ON_STUDENT": "Na deze les krijg je AI-feedback.",
     "AI_STATUS_OFF_STUDENT": "Je docent stuurt je feedback na deze les.",
-    "CHAT_DROP_HINT": "Zet afbeeldingen of bestanden neer om te verzenden"
+    "CHAT_DROP_HINT": "Zet afbeeldingen of bestanden neer om te verzenden",
+    "LESSON_TIME_REMAINING": "Time left in lesson"
   },
   "ALERTS": {
     "LESSON": {

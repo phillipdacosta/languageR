@@ -32,6 +32,7 @@ require('dotenv').config({ path: './config.env' });
 })();
 
 const express = require('express');
+const path = require('path');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -44,6 +45,7 @@ const cron = require('node-cron');
 const { setupDeepgramWebSocket } = require('./routes/deepgram-audio');
 const { autoCompleteTranscripts } = require('./jobs/autoCompleteTranscripts');
 const { autoFinalizeLessons } = require('./jobs/autoFinalizeLessons');
+const { resolveStuckPendingAnalyses } = require('./services/analysisRetryService');
 const { autoCancelClasses } = require('./jobs/autoCancelClasses');
 const autoReleaseClassPayments = require('./jobs/autoReleaseClassPayments');
 const autoReleaseLessonPayments = require('./jobs/autoReleaseLessonPayments');
@@ -150,6 +152,16 @@ const regionHandler = async (req, res) => {
 };
 app.get('/region', regionHandler);
 app.get('/api/region', regionHandler);
+
+// Email template images — public, cacheable, no auth (used by SendGrid img src URLs)
+app.use('/email-assets', express.static(path.join(__dirname, 'email-assets'), {
+  maxAge: '7d',
+  immutable: true,
+  setHeaders(res) {
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Cross-Origin-Resource-Policy', 'cross-origin');
+  }
+}));
 
 // Middleware
 app.use(helmet());
@@ -588,6 +600,16 @@ server.listen(PORT, '0.0.0.0', () => {
     });
   });
   console.log('⏰ Cron job started: Auto-finalize lessons (every minute)');
+
+  // Safety net: resolve analyses stuck in pending/processing whose transcript
+  // can never produce results (empty/failed), so the post-lesson screen shows a
+  // definitive state instead of polling until timeout. Runs every 5 minutes.
+  cron.schedule('*/5 * * * *', () => {
+    resolveStuckPendingAnalyses().catch(err => {
+      console.error('❌ [Cron] Error in resolveStuckPendingAnalyses:', err);
+    });
+  });
+  console.log('⏰ Cron job started: Resolve stuck pending analyses (every 5 minutes)');
   
   // Start background job to auto-cancel classes that don't meet minimum enrollment
   // Runs every 10 minutes (checks for classes 55-65 minutes out, ~1 hour before start)

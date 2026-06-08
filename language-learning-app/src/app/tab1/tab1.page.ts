@@ -9593,62 +9593,50 @@ navigateToLessons() {
   }
 
   async openWithdrawModal() {
+    await this.invokeOnEarningsComponent(component => component.requestWithdrawal());
+  }
+
+  private invokeOnEarningsComponent(action: (component: EarningsPage) => void): Promise<void> {
     // Earnings component is always in DOM (hidden) for modal access
-    // No need to navigate - component already exists
     this.cdr.detectChanges();
 
-    // Wait for earnings component to be ready AND data to be loaded
-    const waitForEarningsReady = (): Promise<void> => {
-      return new Promise((resolve) => {
-        let attempts = 0;
-        const maxAttempts = 50; // 5 seconds max wait (50 * 100ms)
-        
-        const checkComponent = () => {
-          attempts++;
-          
-          if (this.earningsComponent) {
-            // Wait for component to finish loading data (ngOnInit completes)
-            // Check if loading is false, which means loadBalance() and loadEarnings() have completed
-            if (this.earningsComponent.loading === false) {
-              // Give it one more frame to ensure all properties are set
-              requestAnimationFrame(() => {
-                if (typeof this.earningsComponent.requestWithdrawal === 'function') {
-                  this.earningsComponent.requestWithdrawal();
-                  resolve();
-                } else {
-                  if (attempts < maxAttempts) {
-                    setTimeout(checkComponent, 100);
-                  } else {
-                    console.error('❌ Earnings component requestWithdrawal method not available');
-                    resolve();
-                  }
-                }
-              });
-            } else {
-              // Still loading, wait a bit more
-              if (attempts < maxAttempts) {
-                setTimeout(checkComponent, 100);
-              } else {
-                console.error('❌ Earnings component took too long to load');
-                resolve();
-              }
-            }
-          } else {
-            // Component not created yet, wait
-            if (attempts < maxAttempts) {
-              setTimeout(checkComponent, 50);
-            } else {
-              console.error('❌ Earnings component not found');
-              resolve();
-            }
-          }
-        };
-        // Start checking immediately since component should already be in DOM
-        checkComponent();
-      });
-    };
+    return new Promise((resolve) => {
+      let attempts = 0;
+      const maxAttempts = 50;
 
-    await waitForEarningsReady();
+      const checkComponent = () => {
+        attempts++;
+
+        if (this.earningsComponent) {
+          if (this.earningsComponent.loading === false) {
+            requestAnimationFrame(() => {
+              action(this.earningsComponent);
+              resolve();
+            });
+            return;
+          }
+
+          if (attempts < maxAttempts) {
+            setTimeout(checkComponent, 100);
+            return;
+          }
+
+          console.error('❌ Earnings component took too long to load');
+          resolve();
+          return;
+        }
+
+        if (attempts < maxAttempts) {
+          setTimeout(checkComponent, 50);
+          return;
+        }
+
+        console.error('❌ Earnings component not found');
+        resolve();
+      };
+
+      checkComponent();
+    });
   }
 
   navigateToEarnings() {

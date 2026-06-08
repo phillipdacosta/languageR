@@ -204,7 +204,7 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
   withdrawalSuccess: boolean = false;
   withdrawalSuccessRevealed: boolean = false;
   withdrawalSuccessAmount: string = '';
-  withdrawalSuccessMethod: string = '';
+  withdrawalSuccessMethodKey: 'stripe_connect' | 'paypal' | null = null;
   withdrawalModalDismissing: boolean = false;
   withdrawalHeaderRevealed = false;
   
@@ -1265,7 +1265,7 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
     this.withdrawalSuccess = false;
     this.withdrawalSuccessRevealed = false;
     this.withdrawalSuccessAmount = '';
-    this.withdrawalSuccessMethod = '';
+    this.withdrawalSuccessMethodKey = null;
     this.withdrawalModalDismissing = false;
     this.withdrawalHeaderRevealed = false;
     this.cdr.detectChanges();
@@ -1273,10 +1273,36 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
 
   onWithdrawalModalPresented(): void {
     if (this.withdrawalSuccess) {
+      this.revealWithdrawalSuccess();
       return;
     }
     this.revealWithdrawalHeader();
     this.focusWithdrawalAmountInput();
+  }
+
+  private showWithdrawalSuccessState(
+    amount: string,
+    methodKey: 'stripe_connect' | 'paypal'
+  ): void {
+    this.withdrawalSuccessAmount = amount;
+    this.withdrawalSuccessMethodKey = methodKey;
+    this.withdrawalSuccess = true;
+    this.withdrawalSuccessRevealed = false;
+    this.cdr.detectChanges();
+    this.revealWithdrawalSuccess();
+  }
+
+  private revealWithdrawalSuccess(): void {
+    requestAnimationFrame(() => {
+      this.withdrawalSuccessRevealed = true;
+      this.cdr.detectChanges();
+      requestAnimationFrame(() => {
+        const player = document.querySelector(
+          '.withdrawal-modal .withdrawal-success-lottie'
+        ) as { play?: () => void } | null;
+        player?.play?.();
+      });
+    });
   }
 
   private revealWithdrawalHeader(): void {
@@ -1472,7 +1498,7 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
     await alert.present();
   }
 
-  async processWithdrawal(amount: number, method: string) {
+  async processWithdrawal(amount: number, method: 'stripe_connect' | 'paypal') {
     // Stripe has no minimum withdrawal amount, PayPal requires $10
     const minAmount = method === 'stripe_connect' ? 0.01 : 10;
     if (amount < minAmount) {
@@ -1512,18 +1538,7 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
       );
 
       if (response.success) {
-        const methodLabel = method === 'stripe_connect' ? 'Stripe Connect' : 'PayPal';
-
-        this.withdrawalSuccessAmount = '$' + amount.toFixed(2);
-        this.withdrawalSuccessMethod = methodLabel;
-        this.withdrawalSuccess = true;
-        this.withdrawalSuccessRevealed = false;
-        this.cdr.detectChanges();
-
-        setTimeout(() => {
-          this.withdrawalSuccessRevealed = true;
-          this.cdr.detectChanges();
-        }, 2400);
+        this.showWithdrawalSuccessState('$' + amount.toFixed(2), method);
 
         await Promise.all([
           this.loadBalance(),

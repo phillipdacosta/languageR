@@ -1626,9 +1626,11 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     this.showMcPracticeAreas = completed && this.isStudentUser;
     this.mcPracticeAreasEmpty = !this.recommendedLoading && !this.hasRecommendations;
 
-    // Student: one unified section combining personal note + structured feedback
+    // Student: one unified section combining personal note + structured feedback.
+    // Include the tutor's free-text note (hasTutorNote) — on AI-enabled lessons
+    // it's the only feedback and would otherwise never surface for the student.
     this.showMcTutorFeedback = completed && this.isStudentUser;
-    this.mcTutorFeedbackEmpty = !this.hasTutorFeedback;
+    this.mcTutorFeedbackEmpty = !this.hasTutorFeedback && !this.hasTutorNote;
 
     // Tutor: their own note + structured feedback they left
     this.showMcYourFeedback = completed && this.isTutorUser;
@@ -1658,9 +1660,10 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     }
 
     const tutorId = String(this.lesson.tutorId?._id || this.lesson.tutorId);
+    const studentId = String(this.lesson.studentId?._id || this.lesson.studentId);
     const userId = String((this.currentUser as any)._id || this.currentUser.id);
     this.isTutorUser = tutorId === userId;
-    this.isStudentUser = !this.isTutorUser;
+    this.isStudentUser = studentId === userId;
     this.userRole = this.isTutorUser ? 'tutor' : 'student';
   }
 
@@ -2058,12 +2061,11 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       return;
     }
     const other = this.isTutorUser ? this.lesson?.studentId : this.lesson?.tutorId;
-    const otherName = other?.name || other?.firstName || this.participantName || '';
-    const shortName = otherName.split(' ')[0] || otherName;
+    const displayName = this.participantName || (other ? this.formatPersonName(other) : '');
     const key = this.isTutorUser
       ? 'LESSONS_PAGE.FIRST_LESSON_TUTOR'
       : 'LESSONS_PAGE.FIRST_LESSON_STUDENT';
-    this.firstLessonMessage = this.translate.instant(key, { name: shortName });
+    this.firstLessonMessage = this.translate.instant(key, { name: displayName });
     this.hasFirstLessonContext = !!this.firstLessonMessage;
   }
 

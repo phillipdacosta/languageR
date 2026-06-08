@@ -448,6 +448,16 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   private talkTimeCheckInterval: any = null;
   talkTimePopupDismissed: boolean = false; // user dismissed the popup
   private talkTimeAutoHideTimer: any = null; // auto-hide after 10 seconds
+  showLessonTimeRemainingPopup: boolean = false;
+  lessonTimeRemainingCompact: boolean = false;
+  lessonTimeRemainingDismissed: boolean = false;
+  lessonTimeRemainingDisplay: string = '0:00';
+  lessonTimeRemainingProgressPercent: number = 100;
+  private lessonTimeRemainingCheckInterval: any = null;
+  private lessonTimeRemainingCompactTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Final window before scheduled end when the time-remaining popup appears. */
+  private readonly lessonTimeRemainingWindowMs = 3 * 60 * 1000;
+  private readonly lessonTimeRemainingCompactDelayMs = 4000;
   private scheduledLessonStartTime: number = 0; // Scheduled start time timestamp — talk time only tracked after this
   isWaitingForLessonStart: boolean = false; // True if user joined early, before scheduled start
   // Pre-calculated display properties (no functions in template)
@@ -1009,9 +1019,17 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         // Store the AI analysis snapshot (locked at lesson start, immutable for this lesson)
         if (joinResponse.lesson?.aiAnalysisEnabledAtTime !== undefined) {
           this.aiAnalysisEnabledAtTime = joinResponse.lesson.aiAnalysisEnabledAtTime ?? null;
-          this.aiAnalysisDisabledForLesson = this.aiAnalysisEnabledAtTime === false;
+          // Trial lessons never run AI analysis and never require structured tutor
+          // feedback — they must not be treated as "AI disabled" (which would force
+          // mandatory feedback and show the AI-off messaging).
+          const joinLesson = joinResponse.lesson as any;
+          const isTrial = this.isTrialLesson
+            || joinLesson?.isTrialLesson
+            || joinLesson?.isTrial
+            || false;
+          this.aiAnalysisDisabledForLesson = !isTrial && this.aiAnalysisEnabledAtTime === false;
           this.refreshInCallFeedbackState();
-          console.log('📸 AI analysis snapshot from join response:', this.aiAnalysisEnabledAtTime);
+          console.log('📸 AI analysis snapshot from join response:', this.aiAnalysisEnabledAtTime, 'isTrial:', isTrial);
         }
         
         console.log('✅ Successfully joined lesson via backend, channel:', this.channelName);
@@ -1166,6 +1184,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       
       // Start real-time talk time tracking & popup (both tutor and student see this)
       this.startTalkTimeTracking();
+      this.startLessonTimeRemainingTracking();
       
       console.log('✅ Successfully connected to lesson video call');
       console.log('📊 Participant box state:', {
@@ -1266,6 +1285,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
 
       // Start real-time talk time tracking & popup timer
       this.startTalkTimeTracking();
+      this.startLessonTimeRemainingTracking();
 
       console.log('Successfully connected to video call');
 
@@ -2692,9 +2712,11 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /** True when the student had AI analysis OFF for this lesson — tutor feedback
-   * is then mandatory and must include the structured assessment fields. */
+   * is then mandatory and must include the structured assessment fields.
+   * Trial lessons are excluded: they never run AI analysis and never require
+   * mandatory structured feedback. */
   get isAiAnalysisDisabledForLesson(): boolean {
-    return this.aiAnalysisEnabledAtTime === false;
+    return !this.isTrialLesson && this.aiAnalysisEnabledAtTime === false;
   }
 
   /** Whether the in-call notes contain enough to count as the tutor's feedback.
@@ -6265,7 +6287,10 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         // On-time exit — go straight to post-lesson page (call-end fires in background)
         console.log('🚪 On-time exit — navigating to post-lesson page...');
         if (userRole === 'student') {
-          await this.router.navigate(['/post-lesson-student', lessonId]);
+          await this.router.navigate(['/post-lesson-student', lessonId], {
+            queryParams: { fromPostCall: 'true' },
+            replaceUrl: true
+          });
         } else if (isTrialLesson || tutorHasInCallFeedback) {
           await this.router.navigate(['/tabs/lessons']);
         } else {
@@ -6277,7 +6302,10 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         // Other participant ended — navigate to post-lesson page
         console.log('🚪 Other participant ended — navigating to post-lesson page...');
         if (userRole === 'student') {
-          await this.router.navigate(['/post-lesson-student', lessonId]);
+          await this.router.navigate(['/post-lesson-student', lessonId], {
+            queryParams: { fromPostCall: 'true' },
+            replaceUrl: true
+          });
         } else if (isTrialLesson || tutorHasInCallFeedback) {
           await this.router.navigate(['/tabs/lessons']);
         } else {
@@ -6688,6 +6716,11 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       clearTimeout(this.talkTimeAutoHideTimer);
       this.talkTimeAutoHideTimer = null;
     }
+    if (this.lessonTimeRemainingCheckInterval) {
+      clearInterval(this.lessonTimeRemainingCheckInterval);
+      this.lessonTimeRemainingCheckInterval = null;
+    }
+    this.clearLessonTimeRemainingCompactTimer();
     
     // Stop remote user monitoring
     if (this.remoteUserMonitorInterval) {
@@ -7172,9 +7205,9 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * Start tracking talk time. The popup appears at 60% of the booked lesson 
+   * Start tracking talk time. The popup appears at 80% of the booked lesson 
    * duration (measured from the scheduled start time) and auto-dismisses 
-   * after 10 seconds. Both tutor and student see this.
+   * after 10 seconds. Both tutor and student see this (1:1 lessons only).
    */
   private startTalkTimeTracking(): void {
     console.log('🗣️ startTalkTimeTracking called', {
@@ -7212,10 +7245,10 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       console.log('⏳ User joined before lesson start time — talk time tracking paused until lesson begins');
     }
 
-    // Don't show popup yet — it will appear at 60% of booked time
+    // Don't show popup yet — it will appear at 80% of booked time
     this.computeTalkTimeDisplay();
     this.cdr.detectChanges();
-    console.log('🗣️ Talk time tracking started (popup will appear at 60% of lesson time)');
+    console.log('🗣️ Talk time tracking started (popup will appear at 80% of lesson time)');
 
     // Update display live every 2 seconds and check if it's time to show the popup
     this.talkTimeCheckInterval = setInterval(() => {
@@ -7233,11 +7266,16 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       
       this.computeTalkTimeDisplay();
 
-      // Show popup at 60% of booked lesson time (only once, and only if not dismissed)
-      if (!this.talkTimePopupShown && !this.talkTimePopupDismissed && this.shouldShowTalkTimePopup()) {
+      // Show popup at 80% of booked lesson time (only once, and only if not dismissed).
+      // Never overlap the final 3-minute time-remaining popup.
+      if (this.isInLessonTimeRemainingWindow()) {
+        if (this.showTalkTimePopup) {
+          this.dismissTalkTimePopup();
+        }
+      } else if (!this.talkTimePopupShown && !this.talkTimePopupDismissed && this.shouldShowTalkTimePopup()) {
         this.showTalkTimePopup = true;
         this.talkTimePopupShown = true;
-        console.log('🗣️ Talk time popup shown at 60% of lesson time');
+        console.log('🗣️ Talk time popup shown at 80% of lesson time');
 
         // Auto-dismiss after 10 seconds
         this.talkTimeAutoHideTimer = setTimeout(() => {
@@ -7253,18 +7291,29 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * Checks whether 60% of the booked lesson duration has elapsed since the
-   * scheduled start time.
+   * Checks whether 80% of the booked lesson duration has elapsed since the
+   * scheduled start time. Group classes never show this popup. Suppressed
+   * during the final 3 minutes so it does not overlap the time-remaining popup.
    */
   private shouldShowTalkTimePopup(): boolean {
+    if (this.isClass) return false;
     if (!this.scheduledLessonStartTime || !this.bookedDuration) return false;
     if (!this.hasLessonStarted()) return false;
+    if (this.isInLessonTimeRemainingWindow()) return false;
 
     const elapsedMs = Date.now() - this.scheduledLessonStartTime;
     const bookedMs = this.bookedDuration * 60 * 1000;
-    const threshold = bookedMs * 0.6; // 60%
+    const threshold = bookedMs * 0.8; // 80%
 
     return elapsedMs >= threshold;
+  }
+
+  private isInLessonTimeRemainingWindow(): boolean {
+    if (!this.hasLessonStarted()) {
+      return false;
+    }
+    const remainingMs = this.getLessonRemainingMs();
+    return remainingMs > 0 && remainingMs <= this.lessonTimeRemainingWindowMs;
   }
 
   // ── Talk Time Persistence (survives page refresh) ────────────────
@@ -7404,6 +7453,97 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       this.talkTimeAutoHideTimer = null;
     }
     this.cdr.detectChanges();
+  }
+
+  /**
+   * Start tracking booked lesson time remaining. Popup appears 3 minutes before
+   * the scheduled end. Positioned bottom-left so it does not overlap speak-time.
+   */
+  private startLessonTimeRemainingTracking(): void {
+    if (this.isOfficeHours) {
+      return;
+    }
+    if (!this.scheduledLessonStartTime || !this.bookedDuration) {
+      return;
+    }
+
+    this.updateLessonTimeRemainingDisplay();
+
+    if (this.lessonTimeRemainingCheckInterval) {
+      clearInterval(this.lessonTimeRemainingCheckInterval);
+    }
+
+    this.lessonTimeRemainingCheckInterval = setInterval(() => {
+      this.updateLessonTimeRemainingDisplay();
+
+      if (!this.lessonTimeRemainingDismissed && this.shouldShowLessonTimeRemainingPopup()) {
+        if (!this.showLessonTimeRemainingPopup) {
+          if (this.showTalkTimePopup) {
+            this.dismissTalkTimePopup();
+          }
+          this.showLessonTimeRemainingPopup = true;
+          this.scheduleLessonTimeRemainingCompact();
+          console.log('⏳ Lesson time remaining popup shown (3 min before end)');
+        }
+      }
+
+      this.cdr.detectChanges();
+    }, 1000);
+  }
+
+  private getScheduledLessonEndMs(): number | null {
+    if (!this.scheduledLessonStartTime || !this.bookedDuration) {
+      return null;
+    }
+    return this.scheduledLessonStartTime + (this.bookedDuration * 60 * 1000);
+  }
+
+  private getLessonRemainingMs(): number {
+    const scheduledEndMs = this.getScheduledLessonEndMs();
+    if (!scheduledEndMs) {
+      return 0;
+    }
+    return Math.max(0, scheduledEndMs - Date.now());
+  }
+
+  private shouldShowLessonTimeRemainingPopup(): boolean {
+    return this.isInLessonTimeRemainingWindow();
+  }
+
+  private updateLessonTimeRemainingDisplay(): void {
+    const remainingMs = this.getLessonRemainingMs();
+    const totalSeconds = Math.ceil(remainingMs / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    this.lessonTimeRemainingDisplay = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+
+    this.lessonTimeRemainingProgressPercent = this.lessonTimeRemainingWindowMs > 0
+      ? Math.max(0, Math.min(100, (remainingMs / this.lessonTimeRemainingWindowMs) * 100))
+      : 0;
+  }
+
+  dismissLessonTimeRemainingPopup(): void {
+    this.clearLessonTimeRemainingCompactTimer();
+    this.showLessonTimeRemainingPopup = false;
+    this.lessonTimeRemainingCompact = false;
+    this.lessonTimeRemainingDismissed = true;
+    this.cdr.detectChanges();
+  }
+
+  private scheduleLessonTimeRemainingCompact(): void {
+    this.clearLessonTimeRemainingCompactTimer();
+    this.lessonTimeRemainingCompact = false;
+    this.lessonTimeRemainingCompactTimer = setTimeout(() => {
+      this.lessonTimeRemainingCompact = true;
+      this.cdr.detectChanges();
+    }, this.lessonTimeRemainingCompactDelayMs);
+  }
+
+  private clearLessonTimeRemainingCompactTimer(): void {
+    if (this.lessonTimeRemainingCompactTimer) {
+      clearTimeout(this.lessonTimeRemainingCompactTimer);
+      this.lessonTimeRemainingCompactTimer = null;
+    }
   }
 
   // ========================================

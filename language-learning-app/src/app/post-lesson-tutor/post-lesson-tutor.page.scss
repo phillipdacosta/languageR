@@ -19,8 +19,6 @@ $plt-viewport-height: calc(100dvh - #{$plt-chrome-height});
 
 .post-lesson-tutor-content {
   --background: #ffffff;
-  --highlight-color: transparent;
-  --highlight-color-focused: transparent;
 }
 
 .plt-page {
@@ -605,12 +603,18 @@ $plt-viewport-height: calc(100dvh - #{$plt-chrome-height});
     --padding-end: 14px;
     --padding-top: 12px;
     --padding-bottom: 12px;
-    --highlight-color: transparent;
-    --highlight-color-focused: transparent;
+    --highlight-height: 0;
+    --border-width: 0;
+    --border-color: transparent;
+    --border-color-focused: transparent;
     border: 1.5px solid #dddddd;
     border-radius: 12px;
     font-size: 14px;
     transition: border-color 0.15s ease;
+
+    &::part(native) {
+      caret-color: auto;
+    }
 
     &:focus-within { border-color: $plt-text-primary; }
   }
@@ -667,8 +671,13 @@ $plt-viewport-height: calc(100dvh - #{$plt-chrome-height});
       --background: #fff;
       --padding-start: 10px;
       --padding-end: 10px;
+      --highlight-height: 0;
       font-size: 13px;
       min-height: 38px;
+
+      &::part(native) {
+        caret-color: auto;
+      }
     }
   }
 }
@@ -735,6 +744,15 @@ $plt-viewport-height: calc(100dvh - #{$plt-chrome-height});
 
   &__body {
     padding: 12px 16px 16px;
+
+    ion-input,
+    ion-textarea {
+      --highlight-height: 0;
+
+      &::part(native) {
+        caret-color: auto;
+      }
+    }
   }
 
   &__context {
