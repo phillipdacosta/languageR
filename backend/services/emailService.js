@@ -39,11 +39,14 @@ class EmailService {
 
   /**
    * Send a SendGrid dynamic template email.
+   * Subject must live in dynamicTemplateData.subject; the template Subject field
+   * should be set to {{subject}} (or {{{subject}}}) in SendGrid — top-level msg.subject
+   * is ignored and can cause blank subjects with dynamic templates.
    * @param {Object} opts
    * @param {string} opts.to
    * @param {string} opts.templateId
    * @param {Object} opts.dynamicTemplateData
-   * @param {string} [opts.subject] Fallback subject if template does not define one
+   * @param {string} [opts.subject] Merged into dynamicTemplateData.subject
    */
   async sendTemplateEmail({ to, templateId, dynamicTemplateData, subject }) {
     if (!this.apiKey) {
@@ -56,6 +59,11 @@ class EmailService {
       throw new Error('Recipient email is required');
     }
 
+    const resolvedSubject = String(subject || dynamicTemplateData?.subject || '').trim();
+    if (!resolvedSubject) {
+      console.warn('📧 [EMAIL] SendGrid dynamicTemplateData.subject is empty — set template Subject to {{subject}} in SendGrid');
+    }
+
     const msg = {
       to,
       from: {
@@ -63,7 +71,10 @@ class EmailService {
         name: this.fromName
       },
       templateId: templateId || this.lessonBookedTemplateId,
-      dynamicTemplateData
+      dynamicTemplateData: {
+        ...dynamicTemplateData,
+        subject: resolvedSubject
+      }
     };
 
     if (this.replyToEmail) {
@@ -71,10 +82,6 @@ class EmailService {
         email: this.replyToEmail,
         name: this.fromName
       };
-    }
-
-    if (subject) {
-      msg.subject = subject;
     }
 
     try {

@@ -280,7 +280,10 @@ function buildLessonBookedTemplateData({
     footerReason: strings.footerReason,
     footerHelpText: strings.footerHelpText,
     supportEmail: process.env.SUPPORT_EMAIL || DEFAULT_SUPPORT_EMAIL,
-    subject: interpolate(variant.subject, params),
+    subject: interpolate(variant.subject, params) || interpolate(enVariant.subject, params)
+      || (isTrialLesson
+        ? `Your trial ${lessonLanguage} lesson with ${tutorName} is confirmed`
+        : `Your ${lessonLanguage} lesson with ${tutorName} is confirmed`),
     showStudentContext: false
   };
 }
@@ -376,7 +379,12 @@ function buildLessonBookedTutorTemplateData({
     footerReason: strings.footerReason,
     footerHelpText: strings.footerHelpText,
     supportEmail: process.env.SUPPORT_EMAIL || DEFAULT_SUPPORT_EMAIL,
-    subject: interpolate(variant.subject, params)
+    subject: interpolate(variant.subject, params) || interpolate(
+      (isTrialLesson ? EN_TUTOR.trial : EN_TUTOR.regular).subject,
+      params
+    ) || (isTrialLesson
+      ? `${studentName} booked a trial ${lessonLanguage} lesson with you`
+      : `${studentName} booked a ${lessonLanguage} lesson with you`)
   };
 }
 
