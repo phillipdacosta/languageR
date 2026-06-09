@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="{{locale}}">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{emailTitle}}</title>
+
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        background: #f3f8fc;
+        font-family: Arial, Helvetica, sans-serif;
+        color: #172033;
+      }
+
+      table {
+        border-spacing: 0;
+      }
+
+      img {
+        border: 0;
+        display: block;
+        max-width: 100%;
+      }
+
+      .page {
+        width: 100%;
+        background: #f3f8fc;
+      }
+
+      .page-cell {
+        padding: 28px 14px;
+      }
+
+      .container {
+        width: 100%;
+        max-width: 560px;
+        background: #ffffff;
+        border-radius: 26px;
+        overflow: hidden;
+        box-shadow: 0 18px 45px rgba(24, 69, 102, 0.08);
+      }
+
+      .brand-bar {
+        padding: 24px 28px 10px;
+        text-align: center;
+      }
+
+      .brand-mascot-cell {
+        width: 48px;
+        vertical-align: middle;
+        padding-right: 10px;
+      }
+
+      .brand-mascot {
+        width: 48px;
+        height: 48px;
+      }
+
+      .brand-wordmark-cell {
+        vertical-align: middle;
+      }
+
+      .brand-wordmark {
+        height: 20px;
+        width: auto;
+      }
+
+      .hero {
+        padding: 10px 34px 8px;
+        text-align: center;
+      }
+
+      .badge {
+        display: inline-block;
+        padding: 7px 12px;
+        border-radius: 999px;
+        background: #eef8ff;
+        color: #247bb3;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .title {
+        margin: 18px 0 16px;
+        font-size: 28px;
+        line-height: 1.18;
+        font-weight: 850;
+        letter-spacing: -0.04em;
+        color: #111827;
+      }
+
+      .meeting-card {
+        width: 100%;
+        max-width: 360px;
+        margin: 0 auto 18px;
+        background: #ffffff;
+        border: 1px solid #dfeaf2;
+        border-radius: 18px;
+      }
+
+      .meeting-cell {
+        padding: 14px 16px;
+      }
+
+      .participant-avatar-cell {
+        width: 56px;
+        vertical-align: middle;
+        padding-right: 14px;
+      }
+
+      .participant-avatar {
+        width: 56px;
+        height: 56px;
+        border-radius: 14px;
+        object-fit: cover;
+      }
+
+      .participant-avatar-fallback {
+        width: 56px;
+        height: 56px;
+        border-radius: 14px;
+        background: #eef8ff;
+        color: #247bb3;
+        font-size: 22px;
+        font-weight: 800;
+        line-height: 56px;
+        text-align: center;
+      }
+
+      .participant-copy-cell {
+        vertical-align: middle;
+        text-align: left;
+      }
+
+      .participant-name {
+        margin: 0 0 4px;
+        font-size: 16px;
+        line-height: 1.25;
+        font-weight: 850;
+        color: #111827;
+      }
+
+      .participant-datetime {
+        margin: 0;
+        font-size: 14px;
+        line-height: 1.45;
+        color: #536173;
+      }
+
+      .hero-cta-cell {
+        padding: 0 34px 24px;
+        text-align: center;
+      }
+
+      .content {
+        padding: 0 34px 32px;
+      }
+
+      .greeting {
+        margin: 0 0 18px;
+        font-size: 15px;
+        line-height: 1.7;
+        color: #374151;
+      }
+
+      .mascot-card,
+      .student-context-card {
+        width: 100%;
+        margin: 0 0 18px;
+        background: linear-gradient(135deg, #f0f9ff 0%, #f8fcff 100%);
+        border: 1px solid #d9edf9;
+        border-radius: 20px;
+      }
+
+      .student-context-card {
+        background: #ffffff;
+        border-color: #dfeaf2;
+      }
+
+      .mascot-cell,
+      .student-context-cell {
+        padding: 18px;
+      }
+
+      .mascot-image-cell {
+        width: 104px;
+        vertical-align: top;
+        padding-right: 16px;
+      }
+
+      .mascot-image {
+        width: 88px;
+        height: auto;
+      }
+
+      .mascot-copy-cell {
+        vertical-align: top;
+      }
+
+      .mascot-title,
+      .student-context-title {
+        margin: 0 0 5px;
+        font-size: 15px;
+        line-height: 1.35;
+        font-weight: 800;
+        color: #12384f;
+      }
+
+      .student-context-title {
+        color: #111827;
+        margin-bottom: 12px;
+      }
+
+      .mascot-text {
+        margin: 0;
+        font-size: 13px;
+        line-height: 1.55;
+        color: #4b6171;
+      }
+
+      .guide-block {
+        margin-top: 14px;
+        padding-top: 14px;
+        border-top: 1px solid #d9edf9;
+      }
+
+      .guide-title {
+        margin: 0 0 6px;
+        font-size: 14px;
+        line-height: 1.35;
+        font-weight: 800;
+        color: #12384f;
+      }
+
+      .guide-intro {
+        margin: 0 0 8px;
+        font-size: 13px;
+        line-height: 1.55;
+        color: #4b6171;
+      }
+
+      .guide-list {
+        margin: 0;
+        padding-left: 18px;
+      }
+
+      .guide-list li {
+        margin: 0 0 6px;
+        font-size: 13px;
+        line-height: 1.5;
+        color: #4b6171;
+      }
+
+      .context-row-label {
+        padding: 8px 0 2px;
+        font-size: 12px;
+        line-height: 1.4;
+        color: #7a8796;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      .context-row-value {
+        padding: 0 0 10px;
+        font-size: 14px;
+        line-height: 1.5;
+        color: #111827;
+        font-weight: 600;
+      }
+
+      .lesson-card {
+        width: 100%;
+        background: #ffffff;
+        border: 1px solid #dfeaf2;
+        border-radius: 20px;
+        overflow: hidden;
+      }
+
+      .lesson-card-header {
+        padding: 20px 22px 8px;
+      }
+
+      .section-title {
+        margin: 0;
+        font-size: 17px;
+        line-height: 1.3;
+        font-weight: 850;
+        letter-spacing: -0.02em;
+        color: #111827;
+      }
+
+      .details {
+        width: 100%;
+        padding: 6px 22px 20px;
+      }
+
+      .detail-label {
+        padding: 10px 0;
+        font-size: 13px;
+        line-height: 1.4;
+        color: #7a8796;
+        width: 40%;
+      }
+
+      .detail-value {
+        padding: 10px 0;
+        font-size: 14px;
+        line-height: 1.4;
+        color: #111827;
+        font-weight: 800;
+        text-align: right;
+      }
+
+      .divider {
+        height: 1px;
+        background: #edf3f7;
+        line-height: 1px;
+        font-size: 1px;
+      }
+
+      .secondary-text {
+        margin: 18px 0 0;
+        font-size: 13px;
+        line-height: 1.65;
+        color: #6b7280;
+        text-align: center;
+      }
+
+      .dashboard-link-wrap {
+        margin: 10px 0 0;
+        text-align: center;
+      }
+
+      .button {
+        display: inline-block;
+        background: #44adeb;
+        color: #ffffff !important;
+        text-decoration: none;
+        font-size: 15px;
+        font-weight: 850;
+        padding: 14px 28px;
+        border-radius: 999px;
+        min-width: 150px;
+        text-align: center;
+      }
+
+      .text-link {
+        color: #238bd0;
+        font-weight: 800;
+        text-decoration: none;
+      }
+
+      .footer {
+        padding: 22px 30px 30px;
+        background: #fbfdff;
+        border-top: 1px solid #edf3f7;
+        text-align: center;
+      }
+
+      .footer-text {
+        margin: 0 0 8px;
+        font-size: 12px;
+        line-height: 1.6;
+        color: #8a96a5;
+      }
+
+      .footer-subtext {
+        margin: 0;
+        font-size: 12px;
+        line-height: 1.6;
+        color: #8a96a5;
+      }
+
+      @media only screen and (max-width: 600px) {
+        .page-cell {
+          padding: 18px 10px;
+        }
+
+        .container {
+          border-radius: 22px;
+        }
+
+        .brand-bar {
+          padding: 22px 22px 8px;
+        }
+
+        .hero,
+        .hero-cta-cell {
+          padding-left: 20px;
+          padding-right: 20px;
+        }
+
+        .content {
+          padding: 0 20px 28px;
+        }
+
+        .title {
+          font-size: 25px;
+        }
+
+        .mascot-image-cell {
+          width: 96px;
+          padding-right: 12px;
+        }
+
+        .mascot-image {
+          width: 80px;
+        }
+
+        .button {
+          display: block;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <table class="page" width="100%" cellpadding="0" cellspacing="0" role="presentation">
+      <tr>
+        <td class="page-cell" align="center">
+          <table class="container" width="100%" cellpadding="0" cellspacing="0" role="presentation">
+
+            <tr>
+              <td class="brand-bar">
+                <table cellpadding="0" cellspacing="0" role="presentation" align="center">
+                  <tr>
+                    <td class="brand-mascot-cell">
+                      <img src="{{brandMascotImageUrl}}" alt="{{brandName}}" class="brand-mascot" width="48" height="48" />
+                    </td>
+                    <td class="brand-wordmark-cell">
+                      <img src="{{brandWordmarkImageUrl}}" alt="{{brandName}}" class="brand-wordmark" height="20" />
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <tr>
+              <td class="hero">
+                <span class="badge">{{emailEyebrow}}</span>
+                <h1 class="title">{{emailTitle}}</h1>
+
+                <table class="meeting-card" width="100%" cellpadding="0" cellspacing="0" role="presentation" align="center">
+                  <tr>
+                    <td class="meeting-cell">
+                      <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+                        <tr>
+                          {{#if participantImageUrl}}
+                          <td class="participant-avatar-cell">
+                            <img src="{{participantImageUrl}}" alt="{{participantFirstName}}" class="participant-avatar" width="56" height="56" />
+                          </td>
+                          {{else}}
+                          <td class="participant-avatar-cell">
+                            <table cellpadding="0" cellspacing="0" role="presentation">
+                              <tr>
+                                <td class="participant-avatar-fallback" align="center" valign="middle" width="56" height="56">{{participantInitial}}</td>
+                              </tr>
+                            </table>
+                          </td>
+                          {{/if}}
+                          <td class="participant-copy-cell">
+                            <p class="participant-name">{{participantFirstName}}</p>
+                            <p class="participant-datetime">{{lessonDateTimeLine}}</p>
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <tr>
+              <td class="hero-cta-cell">
+                <a href="{{lessonUrl}}" class="button">{{viewLessonButton}}</a>
+              </td>
+            </tr>
+
+            <tr>
+              <td class="content">
+                <p class="greeting">{{emailGreeting}}</p>
+
+                <table class="mascot-card" width="100%" cellpadding="0" cellspacing="0" role="presentation">
+                  <tr>
+                    <td class="mascot-cell">
+                      <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+                        <tr>
+                          <td class="mascot-image-cell">
+                            <img src="{{mascotImageUrl}}" alt="{{brandName}}" class="mascot-image" width="88" />
+                          </td>
+                          <td class="mascot-copy-cell">
+                            <p class="mascot-title">{{mascotTitle}}</p>
+                            <p class="mascot-text">{{mascotText}}</p>
+
+                            {{#if showFirstLessonGuide}}
+                            <div class="guide-block">
+                              <p class="guide-title">{{firstLessonGuideTitle}}</p>
+                              <p class="guide-intro">{{firstLessonGuideIntro}}</p>
+                              <ul class="guide-list">
+                                <li>{{firstLessonBullet1}}</li>
+                                <li>{{firstLessonBullet2}}</li>
+                                <li>{{firstLessonBullet3}}</li>
+                              </ul>
+                            </div>
+                            {{/if}}
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                </table>
+
+                {{#if showStudentContext}}
+                <table class="student-context-card" width="100%" cellpadding="0" cellspacing="0" role="presentation">
+                  <tr>
+                    <td class="student-context-cell">
+                      <p class="student-context-title">{{studentContextTitle}}</p>
+
+                      {{#if showStudentContextGoal}}
+                      <p class="context-row-label">{{studentContextGoalLabel}}</p>
+                      <p class="context-row-value">{{studentContextGoalValue}}</p>
+                      {{/if}}
+
+                      {{#if showStudentContextLevel}}
+                      <p class="context-row-label">{{studentContextLevelLabel}}</p>
+                      <p class="context-row-value">{{studentContextLevelValue}}</p>
+                      {{/if}}
+
+                      {{#if showStudentContextFocus}}
+                      <p class="context-row-label">{{studentContextFocusLabel}}</p>
+                      <p class="context-row-value">{{studentContextFocusValue}}</p>
+                      {{/if}}
+                    </td>
+                  </tr>
+                </table>
+                {{/if}}
+
+                <table class="lesson-card" width="100%" cellpadding="0" cellspacing="0" role="presentation">
+                  <tr>
+                    <td class="lesson-card-header">
+                      <h2 class="section-title">{{lessonDetailsTitle}}</h2>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <table class="details" width="100%" cellpadding="0" cellspacing="0" role="presentation">
+                        <tr>
+                          <td class="detail-label">{{dateLabel}}</td>
+                          <td class="detail-value">{{lessonDate}}</td>
+                        </tr>
+                        <tr><td colspan="2" class="divider"></td></tr>
+                        <tr>
+                          <td class="detail-label">{{timeLabel}}</td>
+                          <td class="detail-value">{{lessonTime}}</td>
+                        </tr>
+                        <tr><td colspan="2" class="divider"></td></tr>
+                        <tr>
+                          <td class="detail-label">{{durationLabel}}</td>
+                          <td class="detail-value">{{lessonDuration}}</td>
+                        </tr>
+                        <tr><td colspan="2" class="divider"></td></tr>
+                        <tr>
+                          <td class="detail-label">{{languageLabel}}</td>
+                          <td class="detail-value">{{lessonLanguage}}</td>
+                        </tr>
+                        <tr><td colspan="2" class="divider"></td></tr>
+                        <tr>
+                          <td class="detail-label">{{lessonTypeLabel}}</td>
+                          <td class="detail-value">{{lessonType}}</td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                </table>
+
+                <p class="secondary-text">{{dashboardText}}</p>
+                <p class="dashboard-link-wrap">
+                  <a href="{{dashboardUrl}}" class="text-link">{{dashboardLinkText}}</a>
+                </p>
+              </td>
+            </tr>
+
+            <tr>
+              <td class="footer">
+                <p class="footer-text">{{footerReason}}</p>
+                <p class="footer-subtext">
+                  {{footerHelpText}}
+                  <a href="mailto:{{supportEmail}}" class="text-link">{{supportEmail}}</a>
+                </p>
+              </td>
+            </tr>
+
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

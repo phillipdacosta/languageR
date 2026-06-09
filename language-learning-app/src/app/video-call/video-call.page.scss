@@ -3115,6 +3115,209 @@ $classroom-stage-bg: #000000;
   }
 }
 
+// ========================================
+// Lesson Time Remaining Popup (Bottom Left)
+// ========================================
+.lesson-time-popup {
+  position: fixed;
+  bottom: 100px;
+  left: 24px;
+  z-index: 2000;
+  width: fit-content;
+  background: rgba(30, 30, 30, 0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 16px;
+  padding: 16px 20px;
+  min-width: 220px;
+  max-width: 280px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  animation: talkTimeSlideIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transition:
+    min-width 0.7s cubic-bezier(0.32, 0.72, 0, 1),
+    max-width 0.7s cubic-bezier(0.32, 0.72, 0, 1),
+    width 0.7s cubic-bezier(0.32, 0.72, 0, 1),
+    opacity 0.7s cubic-bezier(0.32, 0.72, 0, 1),
+    box-shadow 0.7s ease,
+    padding 0.7s cubic-bezier(0.32, 0.72, 0, 1),
+    border-radius 0.7s cubic-bezier(0.32, 0.72, 0, 1);
+
+  &.lesson-time-popup--compact {
+    animation: none;
+    transform: none;
+    min-width: 0;
+    max-width: 76px;
+    width: auto;
+    opacity: 0.82;
+    padding: 6px 8px;
+    border-radius: 10px;
+    overflow: visible;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.22), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  }
+
+  &.dismissing {
+    animation: talkTimeSlideOut 0.3s ease-in forwards;
+  }
+
+  @media (max-width: 768px) {
+    bottom: 90px;
+    left: 12px;
+    right: auto;
+    min-width: 200px;
+    max-width: calc(50vw - 18px);
+
+    &.lesson-time-popup--compact {
+      min-width: 0;
+      max-width: 72px;
+    }
+  }
+}
+
+.lesson-time-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.6);
+  transition:
+    top 0.7s cubic-bezier(0.32, 0.72, 0, 1),
+    right 0.7s cubic-bezier(0.32, 0.72, 0, 1),
+    width 0.7s cubic-bezier(0.32, 0.72, 0, 1),
+    height 0.7s cubic-bezier(0.32, 0.72, 0, 1),
+    background 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.7s ease,
+    border-color 0.2s ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: #ffffff;
+  }
+
+  ion-icon {
+    font-size: 14px;
+  }
+}
+
+.lesson-time-popup--compact .lesson-time-close {
+  top: -7px;
+  right: -7px;
+  width: 20px;
+  height: 20px;
+  background: rgba(40, 40, 40, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  z-index: 1;
+  transition:
+    top 0.7s cubic-bezier(0.32, 0.72, 0, 1),
+    right 0.7s cubic-bezier(0.32, 0.72, 0, 1),
+    width 0.7s cubic-bezier(0.32, 0.72, 0, 1),
+    height 0.7s cubic-bezier(0.32, 0.72, 0, 1),
+    background 0.2s ease,
+    color 0.2s ease;
+
+  &:hover {
+    background: rgba(55, 55, 55, 0.98);
+    color: #ffffff;
+  }
+
+  ion-icon {
+    font-size: 12px;
+  }
+}
+
+.lesson-time-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-right: 20px;
+  transition: margin-bottom 0.7s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.lesson-time-popup--compact .lesson-time-header {
+  gap: 0;
+  margin-bottom: 2px;
+  padding-right: 0;
+}
+
+.lesson-time-icon {
+  font-size: 18px;
+  color: #FF9500;
+  transition: font-size 0.7s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.lesson-time-popup--compact .lesson-time-icon {
+  font-size: 12px;
+}
+
+.lesson-time-title {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+  color: rgba(255, 255, 255, 0.9);
+  transition: font-size 0.7s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.lesson-time-popup--compact .lesson-time-title {
+  display: none;
+}
+
+.lesson-time-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: gap 0.7s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.lesson-time-popup--compact .lesson-time-body {
+  gap: 4px;
+}
+
+.lesson-time-countdown {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  color: #ffffff;
+  line-height: 1;
+  transition: font-size 0.7s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.lesson-time-popup--compact .lesson-time-countdown {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.lesson-time-bar-container {
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+  transition: height 0.7s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.lesson-time-popup--compact .lesson-time-bar-container {
+  height: 3px;
+}
+
+.lesson-time-bar {
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #FF9500, #FFCC00);
+  transition: width 1s linear;
+}
+
 .talk-time-value {
   font-size: 13px;
   font-weight: 600;

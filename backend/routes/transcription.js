@@ -146,6 +146,15 @@ async function analyzeAudioEnergy(audioBuffer, mimeType = 'audio/mpeg') {
           if (durationMatch) {
             durationSeconds = parseInt(durationMatch[1]) * 3600 + parseInt(durationMatch[2]) * 60 + parseFloat(durationMatch[3]);
           }
+          // Fallback: streamed WebM/Opus blobs from MediaRecorder often have no
+          // Duration header, so FFmpeg reports "Duration: N/A". Recover it from the
+          // astats sample count instead (we resample to 16 kHz mono above).
+          if (!durationSeconds) {
+            const samplesMatch = stderrOutput.match(/Number of samples:\s*(\d+)/);
+            if (samplesMatch) {
+              durationSeconds = parseInt(samplesMatch[1], 10) / 16000;
+            }
+          }
 
           const silenceStarts = [...stderrOutput.matchAll(/silence_start:\s*([\d.]+)/g)].map(m => parseFloat(m[1]));
           const silenceEnds = [...stderrOutput.matchAll(/silence_end:\s*([\d.]+)/g)].map(m => parseFloat(m[1]));
@@ -159,9 +168,17 @@ async function analyzeAudioEnergy(audioBuffer, mimeType = 'audio/mpeg') {
             totalSilence += durationSeconds - silenceStarts[silenceStarts.length - 1];
           }
 
-          const silenceRatio = durationSeconds > 0 ? totalSilence / durationSeconds : 1;
+          // CRITICAL: if duration is still unknown, do NOT assume 100% silence.
+          // Forcing silenceRatio=1 here previously caused real speech (loud RMS)
+          // to be dropped before Whisper, producing empty transcripts. Fail open:
+          // judge purely on the measured RMS level.
+          const durationUnknown = !(durationSeconds > 0);
+          const silenceRatio = durationUnknown ? 0 : totalSilence / durationSeconds;
 
-          const hasSpeech = rmsLevelDb > -40 && silenceRatio < 0.90;
+          const hasSpeech = rmsLevelDb > -40 && (durationUnknown || silenceRatio < 0.90);
+          if (durationUnknown) {
+            console.warn('⚠️ Audio energy: duration unknown (no FFmpeg Duration/samples) — using RMS-only speech gate to avoid dropping real audio');
+          }
 
           const result = { rmsLevelDb, peakLevelDb, silenceRatio: Math.round(silenceRatio * 1000) / 1000, durationSeconds, hasSpeech };
           console.log(`🔊 Audio energy analysis: RMS=${rmsLevelDb}dB, Peak=${peakLevelDb}dB, silence=${(silenceRatio * 100).toFixed(1)}%, hasSpeech=${hasSpeech}`);
@@ -223,6 +240,14 @@ async function extractSpeechIntervals(audioBuffer, mimeType = 'audio/webm') {
           let durationSeconds = 0;
           if (durationMatch) {
             durationSeconds = parseInt(durationMatch[1]) * 3600 + parseInt(durationMatch[2]) * 60 + parseFloat(durationMatch[3]);
+          }
+          // Fallback when the container has no Duration header (streamed WebM/Opus):
+          // recover duration from the astats sample count (resampled to 16 kHz mono).
+          if (!durationSeconds) {
+            const samplesMatch = stderrOutput.match(/Number of samples:\s*(\d+)/);
+            if (samplesMatch) {
+              durationSeconds = parseInt(samplesMatch[1], 10) / 16000;
+            }
           }
 
           const silenceStarts = [...stderrOutput.matchAll(/silence_start:\s*([\d.]+)/g)].map(m => parseFloat(m[1]));
@@ -1936,7 +1961,27 @@ async function analyzeLesson(transcriptId) {
     
     if (studentSegments.length === 0) {
       console.error('❌❌❌ CRITICAL: NO STUDENT SEGMENTS FOUND! Cannot analyze empty transcript.');
-      throw new Error('No student audio captured - transcript is empty');
+      // Resolve any pending placeholder to a terminal state so the post-lesson
+      // screen shows "no analysis" immediately instead of polling until timeout.
+      try {
+        await LessonAnalysis.findOneAndUpdate(
+          { lessonId: transcript.lessonId },
+          {
+            lessonId: transcript.lessonId,
+            transcriptId: transcript._id,
+            studentId: transcript.studentId,
+            tutorId: transcript.tutorId,
+            language: transcript.language,
+            lessonDate: transcript.startTime,
+            status: 'insufficient_data',
+            error: 'No student speech was captured during the lesson (empty transcript).'
+          },
+          { upsert: true, new: true }
+        );
+      } catch (markErr) {
+        console.warn('⚠️ Failed to mark empty-transcript analysis as insufficient_data:', markErr.message);
+      }
+      return null;
     }
     
     // Log first few student segments to verify content

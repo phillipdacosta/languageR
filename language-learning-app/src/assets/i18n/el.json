@@ -504,11 +504,10 @@
     "WITHDRAW_CONFIRM_TITLE": "Επιβεβαίωση ανάληψης",
     "WITHDRAW_CONFIRM_MSG": "Είστε σίγουροι ότι θέλετε να αναλάβετε ${{amount}}; Θα σταλεί στον λογαριασμό {{method}} σας.",
     "WITHDRAW_CONFIRM_BTN": "Επιβεβαίωση",
-    "WITHDRAW_SUCCESS": "Η ανάληψη ${{amount}} ζητήθηκε επιτυχώς! Επεξεργασία εντός 1-2 εργάσιμων ημερών.",
-    "WITHDRAW_SUCCESS_TITLE": "Πληρωμή Απεστάλη!",
-    "WITHDRAW_SUCCESS_DETAIL": "{{amount}} στάλθηκε στο {{method}} σας!",
-    "WITHDRAW_SUCCESS_NOTE": "Τα κεφάλαια είναι συνήθως διαθέσιμα εντός 1–2 εργάσιμων ημερών.",
-    "WITHDRAW_SUCCESS_DONE": "Τέλος",
+    "WITHDRAW_SUCCESS": "Η ανάληψη ${{amount}} ζητήθηκε με επιτυχία!",
+    "WITHDRAW_SUCCESS_TITLE": "Η πληρωμή εστάλη!",
+    "WITHDRAW_SUCCESS_DETAIL": "Το {{amount}} στάλθηκε στο {{method}} σας!",
+    "WITHDRAW_SUCCESS_DONE": "Γινώμενος",
     "WITHDRAW_ERROR": "Αποτυχία αιτήματος ανάληψης. Δοκιμάστε ξανά.",
     "WITHDRAW_MIN_STRIPE_ERROR": "Εισάγετε ένα έγκυρο ποσό ανάληψης",
     "WITHDRAW_MIN_PAYPAL_ERROR": "Το ελάχιστο ποσό ανάληψης είναι $10",
@@ -539,7 +538,12 @@
     "WITHDRAW_METHOD_REQUIRED_MSG_PAYPAL": "Ο τρόπος πληρωμής σας είναι το PayPal. Ολοκληρώστε τη ρύθμιση στο Προφίλ › Πληρωμές πριν μπορέσετε να κάνετε ανάληψη.",
     "WITHDRAW_METHOD_REQUIRED_MSG_MANUAL": "Ολοκληρώστε τη ρύθμιση πληρωμών στο Προφίλ › Πληρωμές προτού μπορέσετε να κάνετε ανάληψη.",
     "WITHDRAW_METHOD_REQUIRED_MSG_GENERIC": "Ρυθμίστε τη μέθοδο πληρωμής σας στο Προφίλ › Πληρωμές πριν ζητήσετε ανάληψη.",
-    "WITHDRAW_GO_TO_SETUP": "Μεταβείτε στο Setup"
+    "WITHDRAW_GO_TO_SETUP": "Μεταβείτε στο Setup",
+    "WITHDRAW_SUCCESS_SENT_TO": "Στάλθηκε σε",
+    "WITHDRAW_SUCCESS_NOTE_STRIPE_BEFORE": "Αυτή η μεταφορά αποστέλλεται σε εσάς",
+    "WITHDRAW_SUCCESS_NOTE_STRIPE_AFTER": "λογαριασμός αμέσως. Οι τραπεζικές καταθέσεις ακολουθούν το πρόγραμμα πληρωμών Stripe.",
+    "WITHDRAW_SUCCESS_NOTE_PAYPAL_BEFORE": "Αυτή η μεταφορά αποστέλλεται σε εσάς",
+    "WITHDRAW_SUCCESS_NOTE_PAYPAL_AFTER": "λογαριασμός. Τα χρήματα είναι συνήθως διαθέσιμα στο PayPal υπόλοιπό σας μέσα σε λίγα λεπτά."
   },
   "LOGIN": {
     "TITLE": "Σύνδεση",
@@ -3077,7 +3081,8 @@
     "AI_STATUS_ON_TUTOR": "Το AI θα συνοψίσει αυτό το μάθημα — οι σημειώσεις σας είναι προαιρετικές.",
     "AI_STATUS_OFF_TUTOR": "Θυμηθείτε να συλλέξετε και να υποβάλετε σχόλια για αυτό το μάθημα.",
     "AI_STATUS_ON_STUDENT": "Θα λάβετε σχόλια AI μετά από αυτό το μάθημα.",
-    "AI_STATUS_OFF_STUDENT": "Ο δάσκαλός σας θα στείλει τα σχόλιά σας μετά από αυτό το μάθημα."
+    "AI_STATUS_OFF_STUDENT": "Ο δάσκαλός σας θα στείλει τα σχόλιά σας μετά από αυτό το μάθημα.",
+    "LESSON_TIME_REMAINING": "Time left in lesson"
   },
   "ALERTS": {
     "LESSON": {

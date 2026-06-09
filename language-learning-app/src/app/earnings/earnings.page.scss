@@ -739,6 +739,9 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
 .withdraw-row {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
   margin: 16px 0 32px;
 }
 
@@ -2257,6 +2260,161 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
     }
   }
 
+  .withdrawal-success-view {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100%;
+    padding: 56px 24px 32px;
+    box-sizing: border-box;
+  }
+
+  .withdrawal-success-card {
+    width: 100%;
+    max-width: 420px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 16px;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity 0.35s ease, transform 0.35s ease;
+
+    &.revealed {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .withdrawal-success-lottie-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 120px;
+    height: 120px;
+    flex-shrink: 0;
+  }
+
+  .withdrawal-success-lottie-glow {
+    position: absolute;
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: radial-gradient(
+      circle,
+      rgba(0, 166, 153, 0.22) 0%,
+      rgba(0, 166, 153, 0.06) 50%,
+      transparent 70%
+    );
+    animation: withdrawalSuccessGlowPulse 2.5s ease-in-out infinite;
+  }
+
+  @keyframes withdrawalSuccessGlowPulse {
+    0%, 100% { transform: scale(1); opacity: 0.75; }
+    50% { transform: scale(1.1); opacity: 1; }
+  }
+
+  .withdrawal-success-lottie {
+    position: relative;
+    z-index: 1;
+    width: 120px;
+    height: 120px;
+  }
+
+  .withdrawal-success-body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 12px;
+    width: 100%;
+  }
+
+  .withdrawal-success-title {
+    margin: 0;
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    color: var(--wd-text);
+  }
+
+  .withdrawal-success-amount {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    color: var(--wd-text);
+  }
+
+  .withdrawal-success-note {
+    margin: 0;
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--wd-text-muted);
+    max-width: 340px;
+  }
+
+  .withdrawal-success-inline-wordmark {
+    display: inline-flex;
+    align-items: center;
+    vertical-align: middle;
+    margin: 0 3px;
+    line-height: 0;
+  }
+
+  .withdrawal-success-inline-wordmark-img {
+    height: 16px;
+    width: auto;
+    min-width: 44px;
+    display: block;
+    object-fit: contain;
+  }
+
+  .withdrawal-success-inline-wordmark-img--dark {
+    display: none;
+  }
+
+  .withdrawal-success-inline-paypal-logo {
+    height: 18px;
+    width: auto;
+    margin: 0 3px;
+    vertical-align: middle;
+    object-fit: contain;
+  }
+
+  .withdrawal-success-powered-by {
+    margin-top: 4px;
+    margin-bottom: 0;
+  }
+
+  .withdrawal-success-done-btn {
+    margin-top: 8px;
+    min-width: 160px;
+    padding: 14px 28px;
+    border: none;
+    border-radius: 12px;
+    background: var(--wd-btn-primary-bg);
+    color: var(--wd-btn-primary-color);
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.15s ease;
+
+    &:hover {
+      background: var(--wd-btn-primary-hover);
+    }
+
+    &:active {
+      transform: scale(0.98);
+    }
+  }
+
   ion-footer.withdrawal-modal-footer {
     --background: var(--wd-bg);
     background: var(--wd-bg);
@@ -2325,6 +2483,35 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
     @media (max-width: 768px) {
       margin-bottom: 4px;
     }
+  }
+
+  .withdrawal-powered-by-stripe-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 10px;
+    border: 1px solid rgba(99, 91, 255, 0.4);
+    border-radius: 6px;
+    line-height: 1;
+
+    &--theme-dark {
+      display: none;
+    }
+  }
+
+  .withdrawal-powered-by-caption {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    color: #635bff;
+    white-space: nowrap;
+  }
+
+  .withdrawal-powered-by-stripe-mark {
+    height: 14px;
+    width: auto;
+    display: block;
+    object-fit: contain;
   }
 
   .withdrawal-powered-by-badge {
@@ -2557,12 +2744,20 @@ html.ion-palette-dark .withdrawal-modal {
   --wd-radio-border: rgba(255, 255, 255, 0.2);
   --wd-radio-dot: #f5f5f7;
 
-  .withdrawal-powered-by-badge--light {
+  .withdrawal-powered-by-stripe-badge--theme-light {
+    display: inline-flex;
+  }
+
+  .withdrawal-powered-by-stripe-badge--theme-dark {
     display: none;
   }
 
-  .withdrawal-powered-by-badge--dark {
+  .withdrawal-success-inline-wordmark-img--light {
     display: block;
+  }
+
+  .withdrawal-success-inline-wordmark-img--dark {
+    display: none;
   }
 }
 
@@ -3905,7 +4100,7 @@ html.ion-palette-dark .withdrawal-modal {
   }
 
   .withdrawal-success-title { color: #f5f5f7 !important; }
-  .withdrawal-success-detail { color: #f5f5f7 !important; }
+  .withdrawal-success-amount { color: #f5f5f7 !important; }
   .withdrawal-success-note { color: #aeaeb2 !important; }
   .withdrawal-success-done-btn { background: #f5f5f7 !important; color: #000 !important; }
 }

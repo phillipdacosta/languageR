@@ -56,6 +56,7 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
   
   // Trial lesson properties
   isTrialLesson = false;
+  isPostCall = false; // True when arriving directly after a video call
   tutorFirstName = '';
   tutorDisplayName = 'Tutor';
 
@@ -310,6 +311,7 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
 
   async ngOnInit() {
     this.lessonId = this.route.snapshot.paramMap.get('id') || '';
+    this.isPostCall = this.route.snapshot.queryParamMap.get('fromPostCall') === 'true';
     this.buildLocalizedStrings();
     this.translate.onLangChange.pipe(takeUntil(this.destroy$)).subscribe(() => {
       this.buildLocalizedStrings();
@@ -779,8 +781,10 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
         // Set trial lesson flag and tutor name properties
         this.isTrialLesson = response.lesson.isTrial || response.lesson.isTrialLesson || false;
         this.lessonsCompletedWithTutor =
-          typeof response.lessonsCompleted === 'number' ? response.lessonsCompleted : 1;
-        this.showLessonRatingOptions = this.lessonsCompletedWithTutor <= 1;
+          typeof response.lessonsCompleted === 'number' ? response.lessonsCompleted : 0;
+        // Thumbs up/down flow is trial-only. Pair count is unreliable here because
+        // post-lesson loads before the just-finished lesson is marked completed.
+        this.showLessonRatingOptions = this.isTrialLesson;
         this.updateTutorProperties();
         this.resetRightPanelFlow();
         this.updateLessonDisplay();
@@ -837,12 +841,18 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
     this.checkAnalysis();
     
     // Poll every 3 seconds
-    this.pollingInterval = setInterval(() => {
+    this.pollingInterval = setInterval(async () => {
       this.pollCount++;
       if (this.pollCount >= this.maxPollAttempts) {
         clearInterval(this.pollingInterval);
-        this.analysisUnavailable = true;
-        console.log('⏰ Max poll attempts reached — marking analysis unavailable');
+        this.pollingInterval = null;
+        // One final check before giving up, so an analysis that just completed
+        // (or was just resolved to insufficient_data) isn't missed by timing.
+        await this.checkAnalysis();
+        if (!this.analysisReady && !this.analysisUnavailable) {
+          this.analysisUnavailable = true;
+          console.log('⏰ Max poll attempts reached — marking analysis unavailable');
+        }
         return;
       }
       this.checkAnalysis();
@@ -1081,7 +1091,12 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
   }
 
   goBack() {
-    this.location.back();
+    if (this.isPostCall) {
+      // Came directly from video call — don't return to the call page
+      this.router.navigate(['/tabs/home']);
+    } else {
+      this.location.back();
+    }
   }
 
   formatDate(date: Date): string {

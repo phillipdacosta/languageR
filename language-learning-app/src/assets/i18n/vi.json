@@ -555,10 +555,9 @@
     "WITHDRAW_CONFIRM_TITLE": "Xác nhận rút tiền",
     "WITHDRAW_CONFIRM_MSG": "Bạn có chắc muốn rút ${{amount}}? Số tiền sẽ được gửi đến tài khoản {{method}} của bạn.",
     "WITHDRAW_CONFIRM_BTN": "Xác nhận",
-    "WITHDRAW_SUCCESS": "Yêu cầu rút ${{amount}} thành công! Xử lý trong 1-2 ngày làm việc.",
-    "WITHDRAW_SUCCESS_TITLE": "Đã Gửi Thanh Toán!",
-    "WITHDRAW_SUCCESS_DETAIL": "{{amount}} đã được gửi đến {{method}} của bạn!",
-    "WITHDRAW_SUCCESS_NOTE": "Tiền thường có sẵn trong 1-2 ngày làm việc.",
+    "WITHDRAW_SUCCESS": "Yêu cầu rút ${{amount}} thành công!",
+    "WITHDRAW_SUCCESS_TITLE": "Đã gửi thanh toán!",
+    "WITHDRAW_SUCCESS_DETAIL": "{{amount}} được gửi tới {{method}} của bạn!",
     "WITHDRAW_SUCCESS_DONE": "Xong",
     "WITHDRAW_ERROR": "Không thể yêu cầu rút tiền. Vui lòng thử lại.",
     "WITHDRAW_MIN_STRIPE_ERROR": "Vui lòng nhập số tiền rút hợp lệ",
@@ -590,7 +589,12 @@
     "WITHDRAW_METHOD_REQUIRED_MSG_PAYPAL": "Phương thức thanh toán của bạn là PayPal. Hoàn tất thiết lập trong Hồ sơ > Khoản thanh toán trước khi bạn có thể rút tiền.",
     "WITHDRAW_METHOD_REQUIRED_MSG_MANUAL": "Hoàn tất thiết lập thanh toán trong Hồ sơ > Các khoản thanh toán trước khi bạn có thể rút tiền.",
     "WITHDRAW_METHOD_REQUIRED_MSG_GENERIC": "Vui lòng thiết lập phương thức thanh toán của bạn trong Hồ sơ > Xuất chi trước khi yêu cầu rút tiền.",
-    "WITHDRAW_GO_TO_SETUP": "Đi tới Cài đặt"
+    "WITHDRAW_GO_TO_SETUP": "Đi tới Cài đặt",
+    "WITHDRAW_SUCCESS_SENT_TO": "Đã gửi tới",
+    "WITHDRAW_SUCCESS_NOTE_STRIPE_BEFORE": "Việc chuyển khoản này được gửi tới",
+    "WITHDRAW_SUCCESS_NOTE_STRIPE_AFTER": "tài khoản ngay lập tức. Tiền gửi ngân hàng tuân theo lịch thanh toán Stripe của bạn.",
+    "WITHDRAW_SUCCESS_NOTE_PAYPAL_BEFORE": "Việc chuyển khoản này được gửi tới",
+    "WITHDRAW_SUCCESS_NOTE_PAYPAL_AFTER": "tài khoản. Tiền thường có sẵn trong số dư PayPal của bạn trong vòng vài phút."
   },
   "MESSAGES": {
     "TITLE": "Tin nhắn",
@@ -3077,7 +3081,8 @@
     "AI_STATUS_OFF_TUTOR": "Hãy nhớ thu thập và gửi phản hồi cho bài học này.",
     "AI_STATUS_ON_STUDENT": "Bạn sẽ nhận được phản hồi của AI sau bài học này.",
     "AI_STATUS_OFF_STUDENT": "Gia sư sẽ gửi phản hồi cho bạn sau bài học này.",
-    "CHAT_DROP_HINT": "Thả hình ảnh hoặc tập tin để gửi"
+    "CHAT_DROP_HINT": "Thả hình ảnh hoặc tập tin để gửi",
+    "LESSON_TIME_REMAINING": "Time left in lesson"
   },
   "ALERTS": {
     "LESSON": {

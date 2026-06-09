@@ -16,6 +16,7 @@ const { buildSystemMessage } = require('../utils/systemMessages');
 const { sendTutorImpressionCelebrationMessage } = require('../utils/tutorImpressionMessages');
 const { formatNameWithInitial } = require('../utils/nameFormatter');
 const { pushLessonToGoogleCalendar, removeLessonFromGoogleCalendar, updateLessonOnGoogleCalendar } = require('../services/googleCalendarService');
+const { sendLessonBookedEmails, sendLessonBookedEmailForLessonId, getLessonBookedEmailDebugForLessonId } = require('../utils/lessonBookingEmail');
 const { translateAnalysisFields, translateFeedbackFields, translateGenericFields } = require('../services/aiService');
 
 /**
@@ -74,6 +75,22 @@ function inferSummaryProseLanguage({ pAnalysis, pFeedback, hasRawNotes, student,
     );
   }
   return 'en';
+}
+
+function getLessonParticipantIds(lesson) {
+  const studentId = lesson?.studentId?._id || lesson?.studentId;
+  const tutorId = lesson?.tutorId?._id || lesson?.tutorId;
+  return {
+    studentId: studentId ? String(studentId) : '',
+    tutorId: tutorId ? String(tutorId) : ''
+  };
+}
+
+function userIsLessonParticipant(lesson, user) {
+  if (!user?._id) return false;
+  const userId = String(user._id);
+  const { studentId, tutorId } = getLessonParticipantIds(lesson);
+  return userId === studentId || userId === tutorId;
 }
 
 function assertProseTranslationTarget(user, targetLanguage) {
@@ -645,6 +662,16 @@ router.post('/', verifyToken, async (req, res) => {
     } catch (notifError) {
       console.error('❌ Error creating notification for student:', notifError);
     }
+
+    sendLessonBookedEmails({
+      student,
+      tutor,
+      lesson,
+      language,
+      isTrialLesson
+    }).catch((emailError) => {
+      console.error('❌ Error sending lesson booked emails:', emailError.message);
+    });
 
     // Emit WebSocket notifications if users are connected
     if (req.io && req.connectedUsers) {
@@ -1347,6 +1374,117 @@ router.get('/my-lessons', verifyToken, async (req, res) => {
       success: false, 
       message: 'Failed to fetch lessons' 
     });
+  }
+});
+
+/**
+ * @route   GET /api/lessons/:lessonId/booking-email-debug
+ * @desc    Dev/test: preview booking email payload, SendGrid config, and image URL checks.
+ * @access  Private — student or tutor on the lesson (dev only)
+ */
+router.get('/:lessonId/booking-email-debug', verifyToken, async (req, res) => {
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(403).json({ success: false, message: 'Not available in production' });
+  }
+
+  try {
+    const { lessonId } = req.params;
+    const user = await getUserFromRequest(req);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const lesson = await Lesson.findById(lessonId).select('_id studentId tutorId').lean();
+    if (!lesson) {
+      return res.status(404).json({ success: false, message: 'Lesson not found' });
+    }
+
+    if (!userIsLessonParticipant(lesson, user)) {
+      return res.status(403).json({ success: false, message: 'Only the student or tutor on this lesson can view email debug' });
+    }
+
+    const debug = await getLessonBookedEmailDebugForLessonId(lessonId);
+    return res.json(debug);
+  } catch (error) {
+    const status = error.statusCode || 500;
+    console.error('❌ Error building booking email debug:', error);
+    return res.status(status).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * @route   POST /api/lessons/:lessonId/send-booking-email
+ * @desc    Dev/test: resend booking confirmation email(s) via SendGrid.
+ *          Query: recipient=student|tutor|both (default student)
+ * @access  Private — student or tutor on the lesson (dev only)
+ */
+router.post('/:lessonId/send-booking-email', verifyToken, async (req, res) => {
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(403).json({ success: false, message: 'Not available in production' });
+  }
+
+  try {
+    const { lessonId } = req.params;
+    const recipient = String(req.query.recipient || 'student').toLowerCase();
+    if (!['student', 'tutor', 'both'].includes(recipient)) {
+      return res.status(400).json({ success: false, message: 'recipient must be student, tutor, or both' });
+    }
+
+    const user = await getUserFromRequest(req);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const lesson = await Lesson.findById(lessonId).select('_id studentId tutorId').lean();
+    if (!lesson) {
+      return res.status(404).json({ success: false, message: 'Lesson not found' });
+    }
+
+    if (!userIsLessonParticipant(lesson, user)) {
+      return res.status(403).json({ success: false, message: 'Only the student or tutor on this lesson can trigger the test email' });
+    }
+
+    const result = await sendLessonBookedEmailForLessonId(lessonId, { recipient });
+
+    if (recipient === 'both') {
+      const studentSent = result.student?.sent;
+      const tutorSent = result.tutor?.sent;
+      if (studentSent || tutorSent) {
+        return res.json({
+          success: true,
+          message: `Emails sent — student: ${studentSent ? result.student.to : 'skipped'}, tutor: ${tutorSent ? result.tutor.to : 'skipped'}`,
+          ...result
+        });
+      }
+      const reason = result.student?.reason || result.tutor?.reason;
+      return res.status(reason === 'sendgrid_not_configured' ? 503 : 502).json({
+        success: false,
+        message: reason === 'sendgrid_not_configured'
+          ? 'SendGrid is not fully configured on the backend'
+          : 'Failed to send booking emails',
+        ...result
+      });
+    }
+
+    if (result.sent) {
+      return res.json({
+        success: true,
+        message: `Booking email sent to ${result.to}`,
+        ...result
+      });
+    }
+
+    return res.status(result.reason === 'sendgrid_not_configured' ? 503 : 502).json({
+      success: false,
+      message: result.reason === 'sendgrid_not_configured'
+        ? 'SendGrid is not fully configured on the backend'
+        : 'Failed to send booking email',
+      ...result
+    });
+  } catch (error) {
+    const status = error.statusCode || 500;
+    console.error('❌ Error sending test booking email:', error);
+    return res.status(status).json({ success: false, message: error.message });
   }
 });
 
@@ -3743,7 +3881,46 @@ router.post('/:id/tutor-note', verifyToken, async (req, res) => {
       console.error('⚠️ Error creating tutor notification (non-critical):', notifError);
       // Don't fail the request if notification fails
     }
-    
+
+    // ── Notify the STUDENT that the tutor left them feedback ──────────
+    // The structured-feedback flow (tutorFeedback.js) already notifies the
+    // student for AI-disabled lessons. For AI-enabled lessons the tutor's
+    // free-text note is the only feedback, and nothing notified the student
+    // — so the note silently never surfaced. Only send here when this is NOT
+    // a structured tutor assessment to avoid double-notifying.
+    if (!isTutorAssessment) {
+      try {
+        const studentDoc = await User.findById(lesson.studentId).select('auth0Id');
+        const tutorDisplayName = formatDisplayName(user);
+        const studentNotification = await Notification.create({
+          userId: lesson.studentId,
+          type: 'feedback_received',
+          title: 'Feedback Available! 📝',
+          message: `${tutorDisplayName} left feedback for your ${dateStr} lesson.`,
+          relatedUserId: user._id,
+          relatedUserPicture: user.picture || null,
+          data: {
+            lessonId: populatedLesson._id,
+            tutorName: tutorDisplayName,
+            lessonDate: populatedLesson.startTime
+          },
+          read: false
+        });
+
+        if (req.io && studentDoc?.auth0Id) {
+          const studentRoom = `user:${studentDoc.auth0Id}`;
+          req.io.to(studentRoom).emit('new_notification', studentNotification);
+          req.io.to(studentRoom).emit('feedback_received', {
+            lessonId: populatedLesson._id,
+            tutorName: user.name
+          });
+          console.log(`📤 Sent student feedback notification to ${studentRoom}`);
+        }
+      } catch (studentNotifErr) {
+        console.error('⚠️ Error creating student feedback notification (non-critical):', studentNotifErr.message);
+      }
+    }
+
     // ── Recalculate coaching metrics immediately ──────────────────
     // So the tutor sees updated stats on /tabs/progress right away
     try {

@@ -555,10 +555,9 @@
     "WITHDRAW_CONFIRM_TITLE": "تأیید برداشت",
     "WITHDRAW_CONFIRM_MSG": "آیا مطمئن هستید که می‌خواهید ${{amount}} برداشت کنید؟ این مبلغ به حساب {{method}} شما ارسال خواهد شد.",
     "WITHDRAW_CONFIRM_BTN": "تأیید",
-    "WITHDRAW_SUCCESS": "درخواست برداشت ${{amount}} با موفقیت ثبت شد! پردازش طی ۱-۲ روز کاری.",
+    "WITHDRAW_SUCCESS": "برداشت ${{amount}} با موفقیت درخواست شد!",
     "WITHDRAW_SUCCESS_TITLE": "پرداخت ارسال شد!",
     "WITHDRAW_SUCCESS_DETAIL": "{{amount}} به {{method}} شما ارسال شد!",
-    "WITHDRAW_SUCCESS_NOTE": "وجوه معمولاً ظرف ۱ تا ۲ روز کاری در دسترس قرار می‌گیرند.",
     "WITHDRAW_SUCCESS_DONE": "انجام شد",
     "WITHDRAW_ERROR": "درخواست برداشت ناموفق بود. لطفاً دوباره تلاش کنید.",
     "WITHDRAW_MIN_STRIPE_ERROR": "لطفاً مبلغ برداشت معتبری وارد کنید",
@@ -590,7 +589,12 @@
     "WITHDRAW_METHOD_REQUIRED_MSG_PAYPAL": "روش پرداخت شما پی پال است. قبل از اینکه بتوانید برداشت کنید، تنظیمات را در نمایه › پرداخت‌ها کامل کنید.",
     "WITHDRAW_METHOD_REQUIRED_MSG_MANUAL": "قبل از اینکه بتوانید برداشت کنید، تنظیمات پرداخت را در نمایه › پرداخت ها تکمیل کنید.",
     "WITHDRAW_METHOD_REQUIRED_MSG_GENERIC": "لطفاً قبل از درخواست برداشت، روش پرداخت خود را در نمایه › پرداخت‌ها تنظیم کنید.",
-    "WITHDRAW_GO_TO_SETUP": "به Setup بروید"
+    "WITHDRAW_GO_TO_SETUP": "به Setup بروید",
+    "WITHDRAW_SUCCESS_SENT_TO": "ارسال شد به",
+    "WITHDRAW_SUCCESS_NOTE_STRIPE_BEFORE": "این انتقال برای شما ارسال می شود",
+    "WITHDRAW_SUCCESS_NOTE_STRIPE_AFTER": "حساب کاربری فورا سپرده های بانکی از برنامه پرداخت Stripe شما پیروی می کند.",
+    "WITHDRAW_SUCCESS_NOTE_PAYPAL_BEFORE": "این انتقال برای شما ارسال می شود",
+    "WITHDRAW_SUCCESS_NOTE_PAYPAL_AFTER": "حساب کاربری وجوه معمولاً در عرض چند دقیقه در موجودی PayPal شما موجود می شود."
   },
   "MESSAGES": {
     "TITLE": "پیام‌ها",
@@ -3077,7 +3081,8 @@
     "AI_STATUS_ON_TUTOR": "هوش مصنوعی این درس را خلاصه می کند - یادداشت های شما اختیاری هستند.",
     "AI_STATUS_OFF_TUTOR": "به یاد داشته باشید که برای این درس بازخورد جمع آوری و ارسال کنید.",
     "AI_STATUS_ON_STUDENT": "پس از این درس بازخورد هوش مصنوعی دریافت خواهید کرد.",
-    "AI_STATUS_OFF_STUDENT": "معلم شما پس از این درس نظرات شما را ارسال خواهد کرد."
+    "AI_STATUS_OFF_STUDENT": "معلم شما پس از این درس نظرات شما را ارسال خواهد کرد.",
+    "LESSON_TIME_REMAINING": "Time left in lesson"
   },
   "ALERTS": {
     "LESSON": {

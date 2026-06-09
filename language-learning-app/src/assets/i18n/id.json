@@ -555,10 +555,9 @@
     "WITHDRAW_CONFIRM_TITLE": "Konfirmasi Penarikan",
     "WITHDRAW_CONFIRM_MSG": "Apakah Anda yakin ingin menarik ${{amount}}? Ini akan dikirim ke akun {{method}} Anda.",
     "WITHDRAW_CONFIRM_BTN": "Konfirmasi",
-    "WITHDRAW_SUCCESS": "Penarikan ${{amount}} berhasil diminta! Diproses dalam 1-2 hari kerja.",
+    "WITHDRAW_SUCCESS": "Penarikan ${{amount}} yang diminta berhasil!",
     "WITHDRAW_SUCCESS_TITLE": "Pembayaran Terkirim!",
     "WITHDRAW_SUCCESS_DETAIL": "{{amount}} dikirim ke {{method}} Anda!",
-    "WITHDRAW_SUCCESS_NOTE": "Dana biasanya tersedia dalam 1-2 hari kerja.",
     "WITHDRAW_SUCCESS_DONE": "Selesai",
     "WITHDRAW_ERROR": "Gagal meminta penarikan. Silakan coba lagi.",
     "WITHDRAW_MIN_STRIPE_ERROR": "Silakan masukkan jumlah penarikan yang valid",
@@ -590,7 +589,12 @@
     "WITHDRAW_METHOD_REQUIRED_MSG_PAYPAL": "Metode pembayaran Anda adalah PayPal. Selesaikan pengaturan di Profil › Pembayaran sebelum Anda dapat menarik.",
     "WITHDRAW_METHOD_REQUIRED_MSG_MANUAL": "Selesaikan pengaturan pembayaran di Profil › Pembayaran sebelum Anda dapat menarik.",
     "WITHDRAW_METHOD_REQUIRED_MSG_GENERIC": "Silakan atur metode pembayaran Anda di Profil › Pembayaran sebelum meminta penarikan.",
-    "WITHDRAW_GO_TO_SETUP": "Buka Pengaturan"
+    "WITHDRAW_GO_TO_SETUP": "Buka Pengaturan",
+    "WITHDRAW_SUCCESS_SENT_TO": "Dikirim ke",
+    "WITHDRAW_SUCCESS_NOTE_STRIPE_BEFORE": "Transfer ini dikirimkan ke Anda",
+    "WITHDRAW_SUCCESS_NOTE_STRIPE_AFTER": "akun secara instan. Setoran bank mengikuti jadwal pembayaran Stripe Anda.",
+    "WITHDRAW_SUCCESS_NOTE_PAYPAL_BEFORE": "Transfer ini dikirimkan ke Anda",
+    "WITHDRAW_SUCCESS_NOTE_PAYPAL_AFTER": " akun. Dana biasanya tersedia di saldo PayPal Anda dalam beberapa menit."
   },
   "MESSAGES": {
     "TITLE": "Pesan",
@@ -3077,7 +3081,8 @@
     "AI_STATUS_ON_TUTOR": "AI akan merangkum pelajaran ini — catatan Anda bersifat opsional.",
     "AI_STATUS_OFF_TUTOR": "Ingatlah untuk mengumpulkan dan mengirimkan umpan balik untuk pelajaran ini.",
     "AI_STATUS_ON_STUDENT": "Anda akan mendapatkan masukan AI setelah pelajaran ini.",
-    "AI_STATUS_OFF_STUDENT": "Tutor Anda akan mengirimkan tanggapan Anda setelah pelajaran ini."
+    "AI_STATUS_OFF_STUDENT": "Tutor Anda akan mengirimkan tanggapan Anda setelah pelajaran ini.",
+    "LESSON_TIME_REMAINING": "Time left in lesson"
   },
   "ALERTS": {
     "LESSON": {

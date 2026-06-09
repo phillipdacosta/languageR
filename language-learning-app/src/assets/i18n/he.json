@@ -559,11 +559,10 @@
     "WITHDRAW_CONFIRM_TITLE": "אשר משיכה",
     "WITHDRAW_CONFIRM_MSG": "האם אתה בטוח שברצונך למשוך ${{amount}}? הסכום יישלח לחשבון {{method}} שלך.",
     "WITHDRAW_CONFIRM_BTN": "אישור",
-    "WITHDRAW_SUCCESS": "בקשת משיכה של ${{amount}} בוצעה בהצלחה! עיבוד תוך 1-2 ימי עסקים.",
+    "WITHDRAW_SUCCESS": "משיכה של ${{amount}} התבקשה בהצלחה!",
     "WITHDRAW_SUCCESS_TITLE": "התשלום נשלח!",
-    "WITHDRAW_SUCCESS_DETAIL": "{{amount}} נשלח ל-{{method}} שלך!",
-    "WITHDRAW_SUCCESS_NOTE": "הכספים זמינים בדרך כלל תוך 1-2 ימי עסקים.",
-    "WITHDRAW_SUCCESS_DONE": "סיום",
+    "WITHDRAW_SUCCESS_DETAIL": "{{amount}} נשלח אל {{method}} שלך!",
+    "WITHDRAW_SUCCESS_DONE": "נַעֲשָׂה",
     "WITHDRAW_ERROR": "בקשת המשיכה נכשלה. אנא נסה שוב.",
     "WITHDRAW_MIN_STRIPE_ERROR": "אנא הזן סכום משיכה תקין",
     "WITHDRAW_MIN_PAYPAL_ERROR": "סכום משיכה מינימלי הוא $10",
@@ -590,7 +589,12 @@
     "WITHDRAW_METHOD_REQUIRED_MSG_PAYPAL": "שיטת התשלום שלך היא PayPal. השלם את ההגדרה בפרופיל › תשלומים לפני שתוכל למשוך.",
     "WITHDRAW_METHOD_REQUIRED_MSG_MANUAL": "השלם את הגדרת התשלומים בפרופיל › תשלומים לפני שתוכל למשוך.",
     "WITHDRAW_METHOD_REQUIRED_MSG_GENERIC": "הגדר את שיטת התשלום שלך בפרופיל › תשלומים לפני בקשת משיכה.",
-    "WITHDRAW_GO_TO_SETUP": "עבור אל הגדרות"
+    "WITHDRAW_GO_TO_SETUP": "עבור אל הגדרות",
+    "WITHDRAW_SUCCESS_SENT_TO": "נשלח ל",
+    "WITHDRAW_SUCCESS_NOTE_STRIPE_BEFORE": "העברה זו נשלחת אליכם",
+    "WITHDRAW_SUCCESS_NOTE_STRIPE_AFTER": "חשבון באופן מיידי. הפקדות בנקאיות עוקבות אחר לוח התשלומים Stripe שלך.",
+    "WITHDRAW_SUCCESS_NOTE_PAYPAL_BEFORE": "העברה זו נשלחת אליכם",
+    "WITHDRAW_SUCCESS_NOTE_PAYPAL_AFTER": "חֶשְׁבּוֹן. הכספים זמינים בדרך כלל ביתרה PayPal שלך תוך מספר דקות."
   },
   "MESSAGES": {
     "TITLE": "הודעות",
@@ -3079,7 +3083,8 @@
     "AI_STATUS_ON_TUTOR": "בינה מלאכותית תסכם את השיעור הזה - ההערות שלך הן אופציונליות.",
     "AI_STATUS_OFF_TUTOR": "זכור לאסוף ולשלוח משוב לשיעור זה.",
     "AI_STATUS_ON_STUDENT": "תקבל משוב בינה מלאכותית לאחר שיעור זה.",
-    "AI_STATUS_OFF_STUDENT": "המורה שלך ישלח את המשוב שלך לאחר שיעור זה."
+    "AI_STATUS_OFF_STUDENT": "המורה שלך ישלח את המשוב שלך לאחר שיעור זה.",
+    "LESSON_TIME_REMAINING": "Time left in lesson"
   },
   "ALERTS": {
     "LESSON": {

@@ -695,7 +695,7 @@
   
   <ng-template>
     <ion-content>
-      <!-- Close (success view only; form header aligns close with lottie) -->
+      <!-- Close (success view only) -->
       <ion-button
         *ngIf="withdrawalSuccess"
         class="floating-close-button"
@@ -707,10 +707,10 @@
       <!-- Withdrawal Success View -->
       <div class="withdrawal-success-view" *ngIf="withdrawalSuccess">
         <div class="withdrawal-success-card" [class.revealed]="withdrawalSuccessRevealed">
-          <div class="withdrawal-success-lottie-wrapper">
-            <div class="withdrawal-success-glow"></div>
+          <div class="withdrawal-success-lottie-wrap" aria-hidden="true">
+            <div class="withdrawal-success-lottie-glow"></div>
             <dotlottie-player
-              src="/assets/Payment-success.lottie"
+              src="/assets/Done.lottie"
               autoplay
               speed="1"
               class="withdrawal-success-lottie">
@@ -718,11 +718,57 @@
           </div>
           <div class="withdrawal-success-body">
             <h2 class="withdrawal-success-title">{{ 'EARNINGS.WITHDRAW_SUCCESS_TITLE' | translate }}</h2>
-            <p class="withdrawal-success-detail">
-              {{ 'EARNINGS.WITHDRAW_SUCCESS_DETAIL' | translate:{ amount: withdrawalSuccessAmount, method: withdrawalSuccessMethod } }}
+            <p class="withdrawal-success-amount">{{ withdrawalSuccessAmount }}</p>
+            <p class="withdrawal-success-note" *ngIf="withdrawalSuccessMethodKey === 'stripe_connect'">
+              {{ 'EARNINGS.WITHDRAW_SUCCESS_NOTE_STRIPE_BEFORE' | translate }}
+              <span class="withdrawal-success-inline-wordmark">
+                <img
+                  src="assets/icon/stripe-wordmark-blurple.svg"
+                  alt="Stripe"
+                  class="withdrawal-success-inline-wordmark-img withdrawal-success-inline-wordmark-img--light"
+                  decoding="async" />
+                <img
+                  src="assets/icon/stripe-wordmark-slate.svg"
+                  alt=""
+                  class="withdrawal-success-inline-wordmark-img withdrawal-success-inline-wordmark-img--dark"
+                  aria-hidden="true"
+                  decoding="async" />
+              </span>{{ 'EARNINGS.WITHDRAW_SUCCESS_NOTE_STRIPE_AFTER' | translate }}
             </p>
-            <p class="withdrawal-success-note">{{ 'EARNINGS.WITHDRAW_SUCCESS_NOTE' | translate }}</p>
-            <button class="withdrawal-success-done-btn" (click)="closeWithdrawalModal()">
+            <p class="withdrawal-success-note" *ngIf="withdrawalSuccessMethodKey === 'paypal'">
+              {{ 'EARNINGS.WITHDRAW_SUCCESS_NOTE_PAYPAL_BEFORE' | translate }}
+              <img
+                src="assets/icon/paypal-icon.png"
+                alt="PayPal"
+                class="withdrawal-success-inline-paypal-logo"
+                decoding="async" />{{ 'EARNINGS.WITHDRAW_SUCCESS_NOTE_PAYPAL_AFTER' | translate }}
+            </p>
+            <div class="withdrawal-success-powered-by withdrawal-powered-by" *ngIf="withdrawalSuccessMethodKey === 'stripe_connect'">
+              <div class="withdrawal-powered-by-stripe-badge withdrawal-powered-by-stripe-badge--theme-light">
+                <span class="withdrawal-powered-by-caption">Powered by</span>
+                <img
+                  src="assets/icon/stripe-wordmark-blurple.svg"
+                  alt="Stripe"
+                  class="withdrawal-powered-by-stripe-mark"
+                  decoding="async" />
+              </div>
+              <div class="withdrawal-powered-by-stripe-badge withdrawal-powered-by-stripe-badge--theme-dark">
+                <span class="withdrawal-powered-by-caption">Powered by</span>
+                <img
+                  src="assets/icon/stripe-wordmark-slate.svg"
+                  alt="Stripe"
+                  class="withdrawal-powered-by-stripe-mark"
+                  decoding="async" />
+              </div>
+            </div>
+            <div class="withdrawal-success-powered-by withdrawal-powered-by" *ngIf="withdrawalSuccessMethodKey === 'paypal'">
+              <img
+                src="assets/icon/powered-by-paypal.png"
+                alt="Powered by PayPal"
+                class="withdrawal-powered-by-badge withdrawal-powered-by-badge--paypal"
+                decoding="async" />
+            </div>
+            <button type="button" class="withdrawal-success-done-btn" (click)="closeWithdrawalModal()">
               {{ 'EARNINGS.WITHDRAW_SUCCESS_DONE' | translate }}
             </button>
           </div>
@@ -933,15 +979,22 @@
     <ion-footer *ngIf="!withdrawalSuccess" class="withdrawal-modal-footer ion-no-border">
       <div class="withdrawal-footer-meta">
         <div class="withdrawal-powered-by" *ngIf="payoutProvider === 'stripe'">
-          <img
-            src="assets/icon/powered-by-stripe-blurple.png"
-            alt="Powered by Stripe"
-            class="withdrawal-powered-by-badge withdrawal-powered-by-badge--light" />
-          <img
-            src="assets/icon/powered-by-stripe-dark.png"
-            alt=""
-            class="withdrawal-powered-by-badge withdrawal-powered-by-badge--dark"
-            aria-hidden="true" />
+          <div class="withdrawal-powered-by-stripe-badge withdrawal-powered-by-stripe-badge--theme-light">
+            <span class="withdrawal-powered-by-caption">Powered by</span>
+            <img
+              src="assets/icon/stripe-wordmark-blurple.svg"
+              alt="Stripe"
+              class="withdrawal-powered-by-stripe-mark"
+              decoding="async" />
+          </div>
+          <div class="withdrawal-powered-by-stripe-badge withdrawal-powered-by-stripe-badge--theme-dark">
+            <span class="withdrawal-powered-by-caption">Powered by</span>
+            <img
+              src="assets/icon/stripe-wordmark-slate.svg"
+              alt="Stripe"
+              class="withdrawal-powered-by-stripe-mark"
+              decoding="async" />
+          </div>
         </div>
         <div class="withdrawal-powered-by" *ngIf="payoutProvider === 'paypal'">
           <img

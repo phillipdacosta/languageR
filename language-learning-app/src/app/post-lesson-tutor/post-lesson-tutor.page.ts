@@ -23,6 +23,8 @@ interface LessonInfo {
   actualDurationMinutes?: number;
   price?: number;
   aiAnalysisEnabledAtTime?: boolean | null;
+  isTrialLesson?: boolean;
+  isTrial?: boolean;
   tutor: {
     _id: string;
     name: string;
@@ -305,9 +307,16 @@ export class PostLessonTutorPage implements OnInit, OnDestroy {
         // Backend returns studentId and tutorId, not student and tutor
         this.student = response.lesson.studentId || response.lesson.student;
         
+        const isTrial = !!(response.lesson.isTrialLesson || response.lesson.isTrial);
+
         // Use the lesson's snapshot of the AI setting (immutable at lesson completion).
         // Fall back to live student profile for legacy lessons without the snapshot.
-        if (this.lesson!.aiAnalysisEnabledAtTime !== null && this.lesson!.aiAnalysisEnabledAtTime !== undefined) {
+        // Trial lessons never run AI analysis and never require mandatory structured
+        // feedback, so they are always treated as "AI enabled" here to avoid forcing
+        // the tutor into the countdown / required-assessment flow.
+        if (isTrial) {
+          this.studentAiEnabled = true;
+        } else if (this.lesson!.aiAnalysisEnabledAtTime !== null && this.lesson!.aiAnalysisEnabledAtTime !== undefined) {
           this.studentAiEnabled = this.lesson!.aiAnalysisEnabledAtTime !== false;
         } else if (this.student && typeof this.student === 'object' && this.student.profile) {
           this.studentAiEnabled = this.student.profile.aiAnalysisEnabled !== false;

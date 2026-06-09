@@ -142,14 +142,19 @@
           <span>{{ 'PRE_CALL.TRIAL_LESSON' | translate }}</span>
         </div>
       </div>
-      <p class="lesson-subtitle is-primary" *ngIf="lessonSubtitleParticipantName">
+      <p class="lesson-subtitle is-primary" *ngIf="isLessonReady && lessonSubtitleParticipantName">
         <span class="lesson-subtitle-prefix">{{ lessonSubtitlePrefix }}</span>
         <span class="lesson-subtitle-name">{{ lessonSubtitleParticipantName }}</span>
         <ion-avatar class="lesson-subtitle-avatar">
           <img
-            [src]="lessonSubtitleParticipantPicture || 'assets/avatar.png'"
+            *ngIf="lessonSubtitleParticipantPicture"
+            [src]="lessonSubtitleParticipantPicture"
             [alt]="lessonSubtitleParticipantName"
             referrerpolicy="no-referrer" />
+          <span
+            *ngIf="!lessonSubtitleParticipantPicture"
+            class="lesson-subtitle-avatar-initial"
+            aria-hidden="true">{{ lessonSubtitleParticipantInitial }}</span>
         </ion-avatar>
       </p>
       <p class="lesson-subtitle" *ngIf="lessonSubtitlePlain">{{ lessonSubtitlePlain }}</p>
@@ -214,7 +219,15 @@
       <!-- Presence indicator -->
       <div class="presence-indicator-card" *ngIf="otherParticipantJoined">
         <ion-avatar class="presence-avatar">
-          <img [src]="otherParticipantPicture || 'assets/avatar.png'" [alt]="otherParticipantName" />
+          <img
+            *ngIf="otherParticipantPicture"
+            [src]="otherParticipantPicture"
+            [alt]="otherParticipantName"
+            referrerpolicy="no-referrer" />
+          <span
+            *ngIf="!otherParticipantPicture"
+            class="presence-avatar-initial"
+            aria-hidden="true">{{ otherParticipantInitial }}</span>
           <div class="presence-badge">
             <ion-icon name="checkmark-circle"></ion-icon>
           </div>

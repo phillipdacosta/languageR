@@ -504,11 +504,10 @@
     "WITHDRAW_CONFIRM_TITLE": "Çekimi Onayla",
     "WITHDRAW_CONFIRM_MSG": "${{amount}} çekmek istediğinizden emin misiniz? Bu {{method}} hesabınıza gönderilecek.",
     "WITHDRAW_CONFIRM_BTN": "Onayla",
-    "WITHDRAW_SUCCESS": "${{amount}} çekim talebi başarıyla gönderildi! 1-2 iş günü içinde işlenecek.",
+    "WITHDRAW_SUCCESS": "${{amount}} tutarındaki paranın çekilmesi başarıyla talep edildi!",
     "WITHDRAW_SUCCESS_TITLE": "Ödeme Gönderildi!",
-    "WITHDRAW_SUCCESS_DETAIL": "{{amount}} {{method}} hesabınıza gönderildi!",
-    "WITHDRAW_SUCCESS_NOTE": "Fonlar genellikle 1-2 iş günü içinde hesabınıza yansır.",
-    "WITHDRAW_SUCCESS_DONE": "Tamam",
+    "WITHDRAW_SUCCESS_DETAIL": "{{amount}} {{method}}'nize gönderildi!",
+    "WITHDRAW_SUCCESS_DONE": "Tamamlamak",
     "WITHDRAW_ERROR": "Çekim talebi başarısız oldu. Lütfen tekrar deneyin.",
     "WITHDRAW_MIN_STRIPE_ERROR": "Lütfen geçerli bir çekim tutarı girin",
     "WITHDRAW_MIN_PAYPAL_ERROR": "Minimum çekim tutarı $10",
@@ -539,7 +538,12 @@
     "WITHDRAW_METHOD_REQUIRED_MSG_PAYPAL": "Ödeme yönteminiz PayPal'dır. Para çekmeden önce Profil › Ödemeler bölümünde kurulumu tamamlayın.",
     "WITHDRAW_METHOD_REQUIRED_MSG_MANUAL": "Para çekmeden önce Profil › Ödemeler bölümünde ödeme kurulumunu tamamlayın.",
     "WITHDRAW_METHOD_REQUIRED_MSG_GENERIC": "Lütfen para çekme talebinde bulunmadan önce Profil › Ödemeler bölümünde ödeme yönteminizi ayarlayın.",
-    "WITHDRAW_GO_TO_SETUP": "Kuruluma Git"
+    "WITHDRAW_GO_TO_SETUP": "Kuruluma Git",
+    "WITHDRAW_SUCCESS_SENT_TO": "Gönderildi",
+    "WITHDRAW_SUCCESS_NOTE_STRIPE_BEFORE": "Bu transfer adresinize gönderildi",
+    "WITHDRAW_SUCCESS_NOTE_STRIPE_AFTER": "anında hesap açın. Banka mevduatları Stripe ödeme planınızı takip eder.",
+    "WITHDRAW_SUCCESS_NOTE_PAYPAL_BEFORE": "Bu transfer adresinize gönderildi",
+    "WITHDRAW_SUCCESS_NOTE_PAYPAL_AFTER": "hesap. Fonlar genellikle birkaç dakika içinde PayPal bakiyenizde bulunur."
   },
   "LOGIN": {
     "TITLE": "Giriş yap",
@@ -3078,7 +3082,8 @@
     "AI_STATUS_OFF_TUTOR": "Bu ders için geri bildirim toplamayı ve göndermeyi unutmayın.",
     "AI_STATUS_ON_STUDENT": "Bu dersten sonra yapay zeka geri bildirimi alacaksınız.",
     "AI_STATUS_OFF_STUDENT": "Öğretmeniniz bu dersten sonra geri bildiriminizi gönderecektir.",
-    "CHAT_DROP_HINT": "Gönderilecek resimleri veya dosyaları bırakın"
+    "CHAT_DROP_HINT": "Gönderilecek resimleri veya dosyaları bırakın",
+    "LESSON_TIME_REMAINING": "Time left in lesson"
   },
   "ALERTS": {
     "LESSON": {

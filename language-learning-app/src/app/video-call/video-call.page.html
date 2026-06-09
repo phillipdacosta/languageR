@@ -1248,3 +1248,24 @@
     </div>
   </div>
 </div>
+
+<!-- Lesson Time Remaining Popup (Bottom Left) — separate from speak-time popup -->
+<div
+  class="lesson-time-popup"
+  *ngIf="showLessonTimeRemainingPopup"
+  [class.dismissing]="lessonTimeRemainingDismissed"
+  [class.lesson-time-popup--compact]="lessonTimeRemainingCompact">
+  <button type="button" class="lesson-time-close" (click)="dismissLessonTimeRemainingPopup()" aria-label="Dismiss">
+    <ion-icon name="close"></ion-icon>
+  </button>
+  <div class="lesson-time-header">
+    <ion-icon name="hourglass-outline" class="lesson-time-icon"></ion-icon>
+    <span class="lesson-time-title">{{ 'VIDEO_CALL.LESSON_TIME_REMAINING' | translate }}</span>
+  </div>
+  <div class="lesson-time-body">
+    <div class="lesson-time-countdown">{{ lessonTimeRemainingDisplay }}</div>
+    <div class="lesson-time-bar-container">
+      <div class="lesson-time-bar" [style.width.%]="lessonTimeRemainingProgressPercent"></div>
+    </div>
+  </div>
+</div>

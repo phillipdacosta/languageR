@@ -86,10 +86,37 @@ function capitalize(str) {
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
 }
 
+/**
+ * First name only for friendly salutations (e.g. "Hi Phil," not "Hi Phil D.,").
+ */
+function formatFirstName(user) {
+  if (!user) return 'User';
+
+  if (typeof user === 'string') {
+    const trimmed = user.trim();
+    if (!trimmed) return 'User';
+    if (trimmed.includes('@')) {
+      const base = trimmed.split('@')[0];
+      const part = base.split(/[.\s_]+/).filter(Boolean)[0];
+      return part ? capitalize(part) : 'User';
+    }
+    const part = trimmed.split(' ').filter(Boolean)[0];
+    return part ? capitalize(part) : 'User';
+  }
+
+  const firstName = user.firstName
+    || (user.name && user.name.split(' ')[0])
+    || (user.email && user.email.split('@')[0].split(/[.\s_]+/)[0])
+    || 'User';
+
+  return capitalize(firstName);
+}
+
 module.exports = {
   formatNameWithInitial,
   formatNameWithInitialListStyle,
   formatStringName,
+  formatFirstName,
   capitalize
 };
 

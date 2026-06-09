@@ -21,6 +21,7 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { environment } from '../../environments/environment';
 import {
   buildStripeConnectPayloadForProfilePayout,
+  openStripeExternalUrl,
   parseStripeConnectReturnParams,
   stripStripeConnectQueryParams,
   StripeConnectReturnState,
@@ -2441,10 +2442,7 @@ export class ProfilePage implements OnInit, ViewWillEnter {
 
       if (response.success && (response.url || response.onboardingUrl)) {
         const redirectUrl = response.url || response.onboardingUrl;
-        // On mobile, open in same window (_self) to keep it within the app
-        // On desktop, open in new tab (_blank)
-        const target = this.platform.is('mobile') || this.platform.is('mobileweb') ? '_self' : '_blank';
-        window.open(redirectUrl, target);
+        await openStripeExternalUrl(redirectUrl);
         
         const toast = await this.toastController.create({
           message: 'Complete the setup in the new window. Refresh this page when done.',
@@ -2596,10 +2594,7 @@ export class ProfilePage implements OnInit, ViewWillEnter {
       );
 
       if (response.success && response.onboardingUrl) {
-        // On mobile, open in same window (_self) to keep it within the app
-        // On desktop, open in new tab (_blank)
-        const target = this.platform.is('mobile') || this.platform.is('mobileweb') ? '_self' : '_blank';
-        window.open(response.onboardingUrl, target);
+        await openStripeExternalUrl(response.onboardingUrl);
         
         const toast = await this.toastController.create({
           message: 'Complete the setup in the new window. Refresh this page when done.',
@@ -2641,10 +2636,7 @@ export class ProfilePage implements OnInit, ViewWillEnter {
       );
 
       if (response.success && response.dashboardUrl) {
-        // On mobile, open in same window (_self) to keep it within the app
-        // On desktop, open in new tab (_blank)
-        const target = this.platform.is('mobile') || this.platform.is('mobileweb') ? '_self' : '_blank';
-        window.open(response.dashboardUrl, target);
+        await openStripeExternalUrl(response.dashboardUrl);
         
         const toast = await this.toastController.create({
           message: 'Opening Stripe Express Dashboard...',

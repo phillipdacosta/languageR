@@ -143,6 +143,72 @@ async function retryFailedAnalyses(maxAttempts = 3) {
 }
 
 /**
+ * Resolve analyses stuck in 'pending'/'processing' that can never complete.
+ *
+ * A placeholder analysis can get orphaned when the transcript ends up empty
+ * (no student speech captured). Because the empty-transcript path bails out,
+ * and the auto-complete cron only inspects 'recording'/'processing' transcripts,
+ * an already-'completed' empty transcript leaves the analysis stuck 'pending'
+ * forever — which makes the post-lesson screen poll until it times out.
+ *
+ * This safety net marks such rows as 'insufficient_data' so the UI shows a
+ * definitive state immediately on the next visit.
+ *
+ * @param {number} olderThanMinutes - Only touch rows untouched for this long.
+ * @returns {Promise<{checked: number, resolved: number}>}
+ */
+async function resolveStuckPendingAnalyses(olderThanMinutes = 15) {
+  try {
+    const cutoff = new Date(Date.now() - olderThanMinutes * 60 * 1000);
+    const stuck = await LessonAnalysis.find({
+      status: { $in: ['pending', 'processing'] },
+      updatedAt: { $lt: cutoff }
+    }).lean();
+
+    if (stuck.length === 0) {
+      return { checked: 0, resolved: 0 };
+    }
+
+    console.log(`🩹 [StuckAnalyses] Found ${stuck.length} pending/processing analyses older than ${olderThanMinutes}m`);
+
+    let resolved = 0;
+    for (const analysis of stuck) {
+      const transcript = await LessonTranscript.findOne({ lessonId: analysis.lessonId })
+        .select('status segments')
+        .lean();
+
+      const segmentCount = transcript?.segments?.length || 0;
+      const transcriptEmpty = !transcript
+        || transcript.status === 'failed'
+        || segmentCount === 0;
+
+      // Only resolve rows that genuinely can't produce analysis. Rows whose
+      // transcript still has segments are left alone (the failed-analysis retry
+      // path handles those once they're marked 'failed').
+      if (transcriptEmpty) {
+        await LessonAnalysis.updateOne(
+          { _id: analysis._id, status: { $in: ['pending', 'processing'] } },
+          {
+            $set: {
+              status: 'insufficient_data',
+              error: 'No student speech was captured during the lesson (empty transcript).'
+            }
+          }
+        );
+        resolved++;
+        console.log(`🩹 [StuckAnalyses] Resolved lesson ${analysis.lessonId} → insufficient_data (segments=${segmentCount}, transcript=${transcript?.status || 'missing'})`);
+      }
+    }
+
+    console.log(`🩹 [StuckAnalyses] Resolved ${resolved}/${stuck.length} stuck analyses`);
+    return { checked: stuck.length, resolved };
+  } catch (error) {
+    console.error('❌ Error resolving stuck pending analyses:', error);
+    return { checked: 0, resolved: 0 };
+  }
+}
+
+/**
  * Get analysis retry statistics
  * @returns {Promise<{pendingRetries: number, permanentlyFailed: number, totalFailed: number}>}
  */
@@ -265,6 +331,7 @@ async function retryAnalysis(analysisId) {
 
 module.exports = {
   retryFailedAnalyses,
+  resolveStuckPendingAnalyses,
   getAnalysisRetryStats,
   retryAnalysis
 };

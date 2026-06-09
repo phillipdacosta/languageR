@@ -504,11 +504,10 @@
     "WITHDRAW_CONFIRM_TITLE": "Подтвердить вывод",
     "WITHDRAW_CONFIRM_MSG": "Вы уверены, что хотите вывести ${{amount}}? Средства будут отправлены на ваш счёт {{method}}.",
     "WITHDRAW_CONFIRM_BTN": "Подтвердить",
-    "WITHDRAW_SUCCESS": "Запрос на вывод ${{amount}} успешно отправлен! Обработка в течение 1-2 рабочих дней.",
-    "WITHDRAW_SUCCESS_TITLE": "Платёж отправлен!",
+    "WITHDRAW_SUCCESS": "Вывод ${{amount}} запрошен успешно!",
+    "WITHDRAW_SUCCESS_TITLE": "Платеж отправлен!",
     "WITHDRAW_SUCCESS_DETAIL": "{{amount}} отправлено на ваш {{method}}!",
-    "WITHDRAW_SUCCESS_NOTE": "Средства обычно поступают в течение 1–2 рабочих дней.",
-    "WITHDRAW_SUCCESS_DONE": "Готово",
+    "WITHDRAW_SUCCESS_DONE": "Сделанный",
     "WITHDRAW_ERROR": "Не удалось запросить вывод. Попробуйте снова.",
     "WITHDRAW_MIN_STRIPE_ERROR": "Введите корректную сумму вывода",
     "WITHDRAW_MIN_PAYPAL_ERROR": "Минимальная сумма вывода — $10",
@@ -539,7 +538,12 @@
     "WITHDRAW_METHOD_REQUIRED_MSG_PAYPAL": "Ваш метод выплаты — PayPal. Завершите настройку в Профиле › Выплаты, прежде чем сможете вывести средства.",
     "WITHDRAW_METHOD_REQUIRED_MSG_MANUAL": "Завершите настройку выплат в Профиле › Выплаты, прежде чем сможете вывести средства.",
     "WITHDRAW_METHOD_REQUIRED_MSG_GENERIC": "Пожалуйста, настройте способ выплаты в Профиле › Выплаты, прежде чем запрашивать вывод средств.",
-    "WITHDRAW_GO_TO_SETUP": "Перейти к настройке"
+    "WITHDRAW_GO_TO_SETUP": "Перейти к настройке",
+    "WITHDRAW_SUCCESS_SENT_TO": "Отправлено в",
+    "WITHDRAW_SUCCESS_NOTE_STRIPE_BEFORE": "Этот перевод будет отправлен на ваш",
+    "WITHDRAW_SUCCESS_NOTE_STRIPE_AFTER": "аккаунт мгновенно. Банковские депозиты следуют вашему графику выплат Stripe.",
+    "WITHDRAW_SUCCESS_NOTE_PAYPAL_BEFORE": "Этот перевод будет отправлен на ваш",
+    "WITHDRAW_SUCCESS_NOTE_PAYPAL_AFTER": "счет. Средства обычно поступают на ваш PayPal баланс в течение нескольких минут."
   },
   "LOGIN": {
     "TITLE": "Войти",
@@ -3078,7 +3082,8 @@
     "AI_STATUS_OFF_TUTOR": "Не забудьте собрать и отправить отзывы об этом уроке.",
     "AI_STATUS_ON_STUDENT": "После этого урока вы получите обратную связь от ИИ.",
     "AI_STATUS_OFF_STUDENT": "Ваш репетитор пришлет вам отзыв после этого урока.",
-    "CHAT_DROP_HINT": "Перетащите изображения или файлы для отправки"
+    "CHAT_DROP_HINT": "Перетащите изображения или файлы для отправки",
+    "LESSON_TIME_REMAINING": "Time left in lesson"
   },
   "ALERTS": {
     "LESSON": {

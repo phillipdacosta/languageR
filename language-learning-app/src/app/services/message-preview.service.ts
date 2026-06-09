@@ -1,8 +1,8 @@
 import { Injectable, NgZone } from '@angular/core';
-import { Router } from '@angular/router';
+import { NavigationEnd, Router } from '@angular/router';
 import { TranslateService } from '@ngx-translate/core';
 import { BehaviorSubject, Subject } from 'rxjs';
-import { takeUntil } from 'rxjs/operators';
+import { filter, takeUntil } from 'rxjs/operators';
 import { Message, MessagingService } from './messaging.service';
 import { MessageSettingsService } from './message-settings.service';
 import { AuthService } from './auth.service';
@@ -58,6 +58,8 @@ export class MessagePreviewService {
   private currentUserId = '';
   private messagesPageVisible = false;
   private activeConversationId: string | null = null;
+  /** Hide previews while in pre-call / video-call — user is in a live session. */
+  private previewSuppressedByRoute = false;
 
   constructor(
     private readonly websocketService: WebSocketService,
@@ -90,6 +92,14 @@ export class MessagePreviewService {
     this.websocketService.newMessage$.pipe(takeUntil(this.destroy$)).subscribe(message => {
       this.handleIncomingMessage(message);
     });
+
+    this.updateRouteSuppression(this.router.url);
+    this.router.events.pipe(
+      takeUntil(this.destroy$),
+      filter((event): event is NavigationEnd => event instanceof NavigationEnd)
+    ).subscribe(event => {
+      this.updateRouteSuppression(event.urlAfterRedirects);
+    });
   }
 
   setMessagesPageContext(conversationId: string | null, pageVisible: boolean): void {
@@ -115,6 +125,7 @@ export class MessagePreviewService {
 
   private handleIncomingMessage(message: Message): void {
     if (!this.messageSettingsService.showIncomingPreview) return;
+    if (this.previewSuppressedByRoute) return;
     if (!this.currentUserId) return;
     if (message.type === 'system' || message.isSystemMessage) return;
     if (this.isMyMessage(message)) return;
@@ -241,6 +252,28 @@ export class MessagePreviewService {
       clearTimeout(this.dismissTimer);
       this.dismissTimer = null;
     }
+  }
+
+  private updateRouteSuppression(url: string): void {
+    const suppressed = this.isCallFlowRoute(url);
+    this.previewSuppressedByRoute = suppressed;
+    if (suppressed) {
+      this.clearPendingBatch();
+      this.dismissPreview();
+    }
+  }
+
+  private isCallFlowRoute(url: string): boolean {
+    const path = (url || '').split('?')[0].split('#')[0];
+    return path.includes('/pre-call') || path.includes('/video-call');
+  }
+
+  private clearPendingBatch(): void {
+    if (this.batchTimer) {
+      clearTimeout(this.batchTimer);
+      this.batchTimer = null;
+    }
+    this.pendingBatch = [];
   }
 
   private isMyMessage(message: Message): boolean {

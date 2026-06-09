@@ -504,10 +504,9 @@
     "WITHDRAW_CONFIRM_TITLE": "Підтвердити виведення",
     "WITHDRAW_CONFIRM_MSG": "Ви впевнені, що хочете вивести ${{amount}}? Це буде надіслано на ваш рахунок {{method}}.",
     "WITHDRAW_CONFIRM_BTN": "Підтвердити",
-    "WITHDRAW_SUCCESS": "Виведення ${{amount}} успішно запитано! Обробка протягом 1–2 робочих днів.",
-    "WITHDRAW_SUCCESS_TITLE": "Платіж Надіслано!",
-    "WITHDRAW_SUCCESS_DETAIL": "{{amount}} надіслано на ваш {{method}}!",
-    "WITHDRAW_SUCCESS_NOTE": "Кошти зазвичай надходять протягом 1–2 робочих днів.",
+    "WITHDRAW_SUCCESS": "Запит на зняття ${{amount}} успішно надіслано!",
+    "WITHDRAW_SUCCESS_TITLE": "Платіж відправлено!",
+    "WITHDRAW_SUCCESS_DETAIL": "{{amount}} відправлено на ваш {{method}}!",
     "WITHDRAW_SUCCESS_DONE": "Готово",
     "WITHDRAW_ERROR": "Не вдалося запитати виведення. Будь ласка, спробуйте ще раз.",
     "WITHDRAW_MIN_STRIPE_ERROR": "Будь ласка, введіть дійсну суму виведення",
@@ -539,7 +538,12 @@
     "WITHDRAW_METHOD_REQUIRED_MSG_PAYPAL": "Ваш метод виплати – PayPal. Завершіть налаштування в Профілі › Виплати, перш ніж ви зможете зняти кошти.",
     "WITHDRAW_METHOD_REQUIRED_MSG_MANUAL": "Завершіть налаштування виплат у Профілі › Виплати, перш ніж ви зможете зняти кошти.",
     "WITHDRAW_METHOD_REQUIRED_MSG_GENERIC": "Будь ласка, налаштуйте спосіб виплати в Профілі › Виплати, перш ніж запитувати зняття коштів.",
-    "WITHDRAW_GO_TO_SETUP": "Перейдіть до налаштування"
+    "WITHDRAW_GO_TO_SETUP": "Перейдіть до налаштування",
+    "WITHDRAW_SUCCESS_SENT_TO": "Надіслано до",
+    "WITHDRAW_SUCCESS_NOTE_STRIPE_BEFORE": "Цей переказ надіслано на вашу адресу",
+    "WITHDRAW_SUCCESS_NOTE_STRIPE_AFTER": "обліковий запис миттєво. Банківські депозити відповідають вашому графіку виплат Stripe.",
+    "WITHDRAW_SUCCESS_NOTE_PAYPAL_BEFORE": "Цей переказ надіслано на вашу адресу",
+    "WITHDRAW_SUCCESS_NOTE_PAYPAL_AFTER": "рахунок. Кошти зазвичай доступні на вашому балансі PayPal протягом кількох хвилин."
   },
   "LOGIN": {
     "TITLE": "Увійти",
@@ -3077,7 +3081,8 @@
     "AI_STATUS_OFF_TUTOR": "Не забувайте збирати та надсилати відгуки для цього уроку.",
     "AI_STATUS_ON_STUDENT": "Після цього уроку ви отримаєте відгук про ШІ.",
     "AI_STATUS_OFF_STUDENT": "Ваш викладач надішле ваш відгук після цього уроку.",
-    "CHAT_DROP_HINT": "Перетягніть зображення або файли для надсилання"
+    "CHAT_DROP_HINT": "Перетягніть зображення або файли для надсилання",
+    "LESSON_TIME_REMAINING": "Time left in lesson"
   },
   "ALERTS": {
     "LESSON": {

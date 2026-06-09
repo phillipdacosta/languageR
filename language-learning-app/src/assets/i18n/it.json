@@ -504,10 +504,9 @@
     "WITHDRAW_CONFIRM_TITLE": "Conferma prelievo",
     "WITHDRAW_CONFIRM_MSG": "Sei sicuro di voler prelevare ${{amount}}? L'importo verrà inviato al tuo account {{method}}.",
     "WITHDRAW_CONFIRM_BTN": "Conferma",
-    "WITHDRAW_SUCCESS": "Prelievo di ${{amount}} richiesto con successo! Elaborazione entro 1-2 giorni lavorativi.",
-    "WITHDRAW_SUCCESS_TITLE": "Pagamento Inviato!",
+    "WITHDRAW_SUCCESS": "Prelievo di ${{amount}} richiesto con successo!",
+    "WITHDRAW_SUCCESS_TITLE": "Pagamento inviato!",
     "WITHDRAW_SUCCESS_DETAIL": "{{amount}} inviato al tuo {{method}}!",
-    "WITHDRAW_SUCCESS_NOTE": "I fondi sono generalmente disponibili entro 1–2 giorni lavorativi.",
     "WITHDRAW_SUCCESS_DONE": "Fatto",
     "WITHDRAW_ERROR": "Impossibile richiedere il prelievo. Riprova.",
     "WITHDRAW_MIN_STRIPE_ERROR": "Inserisci un importo di prelievo valido",
@@ -539,7 +538,12 @@
     "WITHDRAW_METHOD_REQUIRED_MSG_PAYPAL": "Il tuo metodo di pagamento è PayPal. Completa la configurazione in Profilo › Pagamenti prima di poter prelevare.",
     "WITHDRAW_METHOD_REQUIRED_MSG_MANUAL": "Completa la configurazione dei pagamenti nel Profilo › Pagamenti prima di poter prelevare.",
     "WITHDRAW_METHOD_REQUIRED_MSG_GENERIC": "Imposta il tuo metodo di pagamento nel Profilo › Pagamenti prima di richiedere un prelievo.",
-    "WITHDRAW_GO_TO_SETUP": "Vai a Configurazione"
+    "WITHDRAW_GO_TO_SETUP": "Vai a Configurazione",
+    "WITHDRAW_SUCCESS_SENT_TO": "Inviato a",
+    "WITHDRAW_SUCCESS_NOTE_STRIPE_BEFORE": "Questo trasferimento viene inviato al tuo",
+    "WITHDRAW_SUCCESS_NOTE_STRIPE_AFTER": "conto immediatamente. I depositi bancari seguono il tuo programma di pagamento di Stripe.",
+    "WITHDRAW_SUCCESS_NOTE_PAYPAL_BEFORE": "Questo trasferimento viene inviato al tuo",
+    "WITHDRAW_SUCCESS_NOTE_PAYPAL_AFTER": "account. Solitamente i fondi sono disponibili nel tuo saldo di PayPal entro pochi minuti."
   },
   "LOGIN": {
     "TITLE": "Accedi",
@@ -3078,7 +3082,8 @@
     "AI_STATUS_OFF_TUTOR": "Ricordati di raccogliere e inviare feedback per questa lezione.",
     "AI_STATUS_ON_STUDENT": "Riceverai feedback dall'IA dopo questa lezione.",
     "AI_STATUS_OFF_STUDENT": "Il tuo tutor ti invierà il tuo feedback dopo questa lezione.",
-    "CHAT_DROP_HINT": "Rilascia immagini o file da inviare"
+    "CHAT_DROP_HINT": "Rilascia immagini o file da inviare",
+    "LESSON_TIME_REMAINING": "Time left in lesson"
   },
   "ALERTS": {
     "LESSON": {

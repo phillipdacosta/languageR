@@ -15,7 +15,7 @@ import { ImagePreloadService } from '../../services/image-preload.service';
 import { ImageCropperComponent } from '../image-cropper/image-cropper.component';
 import { isStripeSupportedCountry } from '../../data/stripe-supported-countries';
 import { TranslateService } from '@ngx-translate/core';
-import { buildStripeConnectPayloadForApprovalWizardStep } from '../../utils/stripe-connect.util';
+import { buildStripeConnectPayloadForApprovalWizardStep, openStripeExternalUrl } from '../../utils/stripe-connect.util';
 import { StripeConnectCardComponent } from '../payout-connect/stripe-connect-card.component';
 import { PaypalConnectCardComponent } from '../payout-connect/paypal-connect-card.component';
 
@@ -881,8 +881,7 @@ export class TutorOnboardingComponent implements OnInit {
       );
 
       if (response.success && response.dashboardUrl) {
-        const target = this.platform.is('mobile') || this.platform.is('mobileweb') ? '_self' : '_blank';
-        window.open(response.dashboardUrl, target);
+        await openStripeExternalUrl(response.dashboardUrl);
         await this.showToast('Opening Stripe Express Dashboard...', 'primary');
       }
     } catch (error: unknown) {

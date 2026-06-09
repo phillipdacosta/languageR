@@ -15,6 +15,10 @@ services:
         sync: false
       - key: CORS_ORIGIN
         sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: FRONTEND_URL_DEV
+        value: https://languager-frontend.onrender.com
       - key: AUTH0_DOMAIN
         sync: false
       - key: AUTH0_AUDIENCE

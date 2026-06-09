@@ -200,6 +200,9 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   weeklyEarningsScheduledPercent = 0;
   /** Pre-formatted amount label, e.g. "$340 of $500 goal". */
   weeklyEarningsGoalLabel = '';
+  /** e.g. "($12.50 pending)" — empty when no pending balance. */
+  weeklyEarningsPendingLabel = '';
+  showWeeklyEarningsPending = false;
   /** Secondary context line: empty-state / daily target / reached copy. */
   weeklyEarningsGoalSubLabel = '';
   /** True when current total ≥ goal — used to switch the bar to a "success" state. */
@@ -9593,62 +9596,50 @@ navigateToLessons() {
   }
 
   async openWithdrawModal() {
+    await this.invokeOnEarningsComponent(component => component.requestWithdrawal());
+  }
+
+  private invokeOnEarningsComponent(action: (component: EarningsPage) => void): Promise<void> {
     // Earnings component is always in DOM (hidden) for modal access
-    // No need to navigate - component already exists
     this.cdr.detectChanges();
 
-    // Wait for earnings component to be ready AND data to be loaded
-    const waitForEarningsReady = (): Promise<void> => {
-      return new Promise((resolve) => {
-        let attempts = 0;
-        const maxAttempts = 50; // 5 seconds max wait (50 * 100ms)
-        
-        const checkComponent = () => {
-          attempts++;
-          
-          if (this.earningsComponent) {
-            // Wait for component to finish loading data (ngOnInit completes)
-            // Check if loading is false, which means loadBalance() and loadEarnings() have completed
-            if (this.earningsComponent.loading === false) {
-              // Give it one more frame to ensure all properties are set
-              requestAnimationFrame(() => {
-                if (typeof this.earningsComponent.requestWithdrawal === 'function') {
-                  this.earningsComponent.requestWithdrawal();
-                  resolve();
-                } else {
-                  if (attempts < maxAttempts) {
-                    setTimeout(checkComponent, 100);
-                  } else {
-                    console.error('❌ Earnings component requestWithdrawal method not available');
-                    resolve();
-                  }
-                }
-              });
-            } else {
-              // Still loading, wait a bit more
-              if (attempts < maxAttempts) {
-                setTimeout(checkComponent, 100);
-              } else {
-                console.error('❌ Earnings component took too long to load');
-                resolve();
-              }
-            }
-          } else {
-            // Component not created yet, wait
-            if (attempts < maxAttempts) {
-              setTimeout(checkComponent, 50);
-            } else {
-              console.error('❌ Earnings component not found');
-              resolve();
-            }
-          }
-        };
-        // Start checking immediately since component should already be in DOM
-        checkComponent();
-      });
-    };
+    return new Promise((resolve) => {
+      let attempts = 0;
+      const maxAttempts = 50;
 
-    await waitForEarningsReady();
+      const checkComponent = () => {
+        attempts++;
+
+        if (this.earningsComponent) {
+          if (this.earningsComponent.loading === false) {
+            requestAnimationFrame(() => {
+              action(this.earningsComponent);
+              resolve();
+            });
+            return;
+          }
+
+          if (attempts < maxAttempts) {
+            setTimeout(checkComponent, 100);
+            return;
+          }
+
+          console.error('❌ Earnings component took too long to load');
+          resolve();
+          return;
+        }
+
+        if (attempts < maxAttempts) {
+          setTimeout(checkComponent, 50);
+          return;
+        }
+
+        console.error('❌ Earnings component not found');
+        resolve();
+      };
+
+      checkComponent();
+    });
   }
 
   navigateToEarnings() {
@@ -10594,6 +10585,7 @@ navigateToLessons() {
 
   onEarningsBalanceChanged(event: { available: number; pending: number }) {
     this.tutorPendingEarnings = event.pending || 0;
+    this.updateWeeklyEarningsPendingLabel();
     this.animateEarningsCount(event.available || 0);
     this.walletBalance = event.available || 0;
     this.updateWalletDisplay();
@@ -10878,6 +10870,7 @@ navigateToLessons() {
         // Show AVAILABLE balance only (ready to withdraw)
         const nextBalance = response.balance.available || 0;
         this.tutorPendingEarnings = response.balance.pending || 0;
+        this.updateWeeklyEarningsPendingLabel();
         this.animateEarningsCount(nextBalance);
         this.walletBalance = nextBalance;
         this.updateWalletDisplay(); // Update the hidden/revealed display
@@ -10948,12 +10941,12 @@ navigateToLessons() {
       seen.add(id);
       const start = new Date(l.startTime);
       if (!(start >= weekStart && start < weekEnd)) continue;
-      const price = Number((l as any).price);
-      if (!Number.isFinite(price) || price <= 0) continue;
+      const earnings = this.getLessonTutorEarnings(l);
+      if (earnings <= 0) continue;
       if (earnedStatuses.has(l.status)) {
-        earned += price;
+        earned += earnings;
       } else if (upcomingStatuses.has(l.status)) {
-        scheduled += price;
+        scheduled += earnings;
         scheduledCount += 1;
       }
     }
@@ -10961,6 +10954,19 @@ navigateToLessons() {
     this.weeklyEarningsScheduled = Math.round(scheduled * 100) / 100;
     this.weeklyScheduledLessonCount = scheduledCount;
     this.updateWeeklyEarningsLabels();
+  }
+
+  /** Net tutor earnings for a lesson (after platform fee), not gross lesson price. */
+  private getLessonTutorEarnings(lesson: Lesson): number {
+    const payout = Number((lesson as any).tutorPayout);
+    if (Number.isFinite(payout) && payout > 0) {
+      return Math.round(payout * 100) / 100;
+    }
+    const price = Number((lesson as any).price);
+    if (!Number.isFinite(price) || price <= 0) {
+      return 0;
+    }
+    return Math.round(price * 0.8 * 100) / 100;
   }
 
   private updateWeeklyEarningsLabels(): void {
@@ -11003,6 +11009,7 @@ navigateToLessons() {
       earned: fmt(earned),
       goal: fmt(this.weeklyEarningsGoal),
     });
+    this.updateWeeklyEarningsPendingLabel();
 
     const combined = earned + scheduled;
     const lessonsKey = scheduledCount === 1 ? 'HOME.LESSON_SINGULAR' : 'HOME.LESSON_PLURAL';
@@ -11048,6 +11055,18 @@ navigateToLessons() {
     this.weeklyEarningsGoalSubLabel = this.hasAvailability
       ? this.translateService.instant('HOME.WEEKLY_GOAL_OPEN_BOOKINGS')
       : this.translateService.instant('HOME.WEEKLY_GOAL_ADD_AVAILABILITY');
+  }
+
+  private updateWeeklyEarningsPendingLabel(): void {
+    const pending = Math.round((this.tutorPendingEarnings || 0) * 100) / 100;
+    if (pending <= 0) {
+      this.showWeeklyEarningsPending = false;
+      this.weeklyEarningsPendingLabel = '';
+      return;
+    }
+    const amount = Number.isInteger(pending) ? `$${pending}` : `$${pending.toFixed(2)}`;
+    this.weeklyEarningsPendingLabel = this.translateService.instant('HOME.WEEKLY_GOAL_PENDING', { amount });
+    this.showWeeklyEarningsPending = true;
   }
 
   startEditWeeklyGoal(): void {

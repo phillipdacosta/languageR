@@ -504,11 +504,10 @@
     "WITHDRAW_CONFIRM_TITLE": "Potwierdź wypłatę",
     "WITHDRAW_CONFIRM_MSG": "Czy na pewno chcesz wypłacić ${{amount}}? Zostanie to wysłane na Twoje konto {{method}}.",
     "WITHDRAW_CONFIRM_BTN": "Potwierdź",
-    "WITHDRAW_SUCCESS": "Wniosek o wypłatę ${{amount}} złożony pomyślnie! Realizacja w ciągu 1-2 dni roboczych.",
-    "WITHDRAW_SUCCESS_TITLE": "Płatność Wysłana!",
-    "WITHDRAW_SUCCESS_DETAIL": "{{amount}} wysłano na Twoje {{method}}!",
-    "WITHDRAW_SUCCESS_NOTE": "Środki są zazwyczaj dostępne w ciągu 1–2 dni roboczych.",
-    "WITHDRAW_SUCCESS_DONE": "Gotowe",
+    "WITHDRAW_SUCCESS": "Pomyślnie zażądano wypłaty ${{amount}}!",
+    "WITHDRAW_SUCCESS_TITLE": "Płatność wysłana!",
+    "WITHDRAW_SUCCESS_DETAIL": "{{amount}} wysłane na Twój {{method}}!",
+    "WITHDRAW_SUCCESS_DONE": "Zrobione",
     "WITHDRAW_ERROR": "Nie udało się złożyć wniosku o wypłatę. Spróbuj ponownie.",
     "WITHDRAW_MIN_STRIPE_ERROR": "Wprowadź prawidłową kwotę wypłaty",
     "WITHDRAW_MIN_PAYPAL_ERROR": "Minimalna kwota wypłaty to 10 $",
@@ -539,7 +538,12 @@
     "WITHDRAW_METHOD_REQUIRED_MSG_PAYPAL": "Twoja metoda wypłaty to PayPal. Zakończ konfigurację w Profilu › Wypłaty, zanim będziesz mógł wypłacić.",
     "WITHDRAW_METHOD_REQUIRED_MSG_MANUAL": "Dokończ konfigurację wypłat w Profilu › Wypłaty, zanim będziesz mógł wypłacić.",
     "WITHDRAW_METHOD_REQUIRED_MSG_GENERIC": "Przed złożeniem wniosku o wypłatę skonfiguruj metodę wypłaty w Profilu › Wypłaty.",
-    "WITHDRAW_GO_TO_SETUP": "Przejdź do Ustawień"
+    "WITHDRAW_GO_TO_SETUP": "Przejdź do Ustawień",
+    "WITHDRAW_SUCCESS_SENT_TO": "Wysłano do",
+    "WITHDRAW_SUCCESS_NOTE_STRIPE_BEFORE": "Ten przelew zostanie wysłany do Twojego",
+    "WITHDRAW_SUCCESS_NOTE_STRIPE_AFTER": " konto natychmiast. Wpłaty bankowe są zgodne z harmonogramem wypłat Stripe.",
+    "WITHDRAW_SUCCESS_NOTE_PAYPAL_BEFORE": "Ten przelew zostanie wysłany do Twojego",
+    "WITHDRAW_SUCCESS_NOTE_PAYPAL_AFTER": " konto. Środki są zwykle dostępne na saldzie PayPal w ciągu kilku minut."
   },
   "LOGIN": {
     "TITLE": "Zaloguj się",
@@ -3078,7 +3082,8 @@
     "AI_STATUS_OFF_TUTOR": "Pamiętaj, aby zebrać i przesłać uwagi dotyczące tej lekcji.",
     "AI_STATUS_ON_STUDENT": "Po tej lekcji otrzymasz informację zwrotną od sztucznej inteligencji.",
     "AI_STATUS_OFF_STUDENT": "Twój nauczyciel prześle Twoją opinię po tej lekcji.",
-    "CHAT_DROP_HINT": "Upuść obrazy lub pliki do wysłania"
+    "CHAT_DROP_HINT": "Upuść obrazy lub pliki do wysłania",
+    "LESSON_TIME_REMAINING": "Time left in lesson"
   },
   "ALERTS": {
     "LESSON": {
