@@ -1196,10 +1196,16 @@
             <!-- Amount row + edit share grid row 1; bar/sub stay put (no shift). -->
             <div class="earnings-goal__body">
               <div class="earnings-goal__amount" [class.earnings-goal__pane--hidden]="isEditingWeeklyGoal" [attr.title]="weeklyEarningsGoalLabel">
-                <ng-container *ngIf="showWalletBalance || walletTemporarilyVisible">{{ weeklyEarningsGoalLabel }}</ng-container>
-                <span class="earnings-goal__amount-masked" *ngIf="!showWalletBalance && !walletTemporarilyVisible">$•••• / $••••</span>
+                <div class="earnings-goal__amount-line">
+                  <ng-container *ngIf="showWalletBalance || walletTemporarilyVisible">{{ weeklyEarningsGoalLabel }}</ng-container>
+                  <span class="earnings-goal__amount-masked" *ngIf="!showWalletBalance && !walletTemporarilyVisible">$•••• / $••••</span>
+                </div>
+                <div
+                  class="earnings-goal__pending"
+                  *ngIf="showWeeklyEarningsPending && (showWalletBalance || walletTemporarilyVisible)">
+                  {{ weeklyEarningsPendingLabel }}
+                </div>
               </div>
-
               <form
                 class="earnings-goal__edit"
                 [class.earnings-goal__pane--hidden]="!isEditingWeeklyGoal"

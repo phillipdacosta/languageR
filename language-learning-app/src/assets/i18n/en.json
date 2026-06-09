@@ -833,6 +833,7 @@
     "WEEKLY_GOAL_TITLE": "Weekly goal",
     "WEEKLY_GOAL_EDIT_ARIA": "Edit weekly goal",
     "WEEKLY_GOAL_PROGRESS": "{{earned}} of {{goal}} goal",
+    "WEEKLY_GOAL_PENDING": "({{amount}} pending)",
     "WEEKLY_GOAL_REACHED": "Goal reached — nice work",
     "WEEKLY_GOAL_ON_PACE": "On pace · {{amount}} scheduled this week",
     "WEEKLY_GOAL_PER_DAY": "{{amount}}/day to hit goal",

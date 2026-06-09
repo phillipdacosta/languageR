@@ -9,6 +9,8 @@ const I18N_PATH = path.join(__dirname, 'lessonBookingEmail.i18n.json');
 const TUTOR_I18N_PATH = path.join(__dirname, 'lessonBookingTutorEmail.i18n.json');
 const I18N = JSON.parse(fs.readFileSync(I18N_PATH, 'utf8'));
 const TUTOR_I18N = JSON.parse(fs.readFileSync(TUTOR_I18N_PATH, 'utf8'));
+const EN_STUDENT = I18N.en;
+const EN_TUTOR = TUTOR_I18N.en;
 
 const SUPPORTED_LOCALES = [
   'en', 'es', 'fr', 'pt', 'de', 'it', 'ru', 'zh', 'ja', 'ko', 'ar', 'hi',
@@ -100,6 +102,95 @@ function formatLessonDateTime(startTime, locale, timezone) {
   return { lessonDate, lessonTime };
 }
 
+function formatLessonDateTimeLine(startTime, locale, timezone) {
+  const date = new Date(startTime);
+  const intlLocale = LOCALE_MAP[normalizeLocale(locale)] || 'en-US';
+  const tz = timezone || 'UTC';
+
+  return new Intl.DateTimeFormat(intlLocale, {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: intlLocale.startsWith('en') || ['ar', 'hi'].includes(normalizeLocale(locale)),
+    timeZone: tz
+  }).format(date);
+}
+
+function buildParticipantFields(person, lesson, locale, timezone) {
+  const firstName = formatFirstName(person);
+  return {
+    participantFirstName: firstName,
+    participantInitial: (firstName || '?').charAt(0).toUpperCase(),
+    participantImageUrl: person?.picture || '',
+    lessonDateTimeLine: formatLessonDateTimeLine(lesson.startTime, locale, timezone)
+  };
+}
+
+async function loadStudentPlanContext(student, language, tutorId) {
+  const { GOAL_TYPE_LABELS, LEVEL_LABELS } = require('../services/learningPlanService');
+  const perTutorLane = require('../services/perTutorLaneService');
+  const LearningPlan = require('../models/LearningPlan');
+
+  let goalValue = '';
+  let levelValue = '';
+  let focusValue = '';
+
+  const onboardingGoal = student?.onboardingData?.learningGoal;
+  if (onboardingGoal?.type) {
+    goalValue = GOAL_TYPE_LABELS[onboardingGoal.type] || onboardingGoal.type;
+    if (onboardingGoal.description) {
+      goalValue += ` — ${onboardingGoal.description}`;
+    }
+  }
+  if (onboardingGoal?.selfAssessedLevel) {
+    levelValue = LEVEL_LABELS[onboardingGoal.selfAssessedLevel] || onboardingGoal.selfAssessedLevel;
+  }
+
+  if (!student?._id || !language) {
+    return {
+      hasContext: Boolean(goalValue || levelValue || focusValue),
+      goalValue,
+      levelValue,
+      focusValue
+    };
+  }
+
+  try {
+    const plan = await LearningPlan.findOne({
+      studentId: student._id,
+      language,
+      status: { $in: ['draft', 'active', 'completed', 'mastery_mode', 'unframed', 'paused'] }
+    }).lean();
+
+    if (plan?.goal?.type) {
+      goalValue = GOAL_TYPE_LABELS[plan.goal.type] || plan.goal.type;
+      if (plan.goal.description) {
+        goalValue += ` — ${plan.goal.description}`;
+      }
+    }
+    if (plan?.selfAssessedLevel) {
+      levelValue = LEVEL_LABELS[plan.selfAssessedLevel] || plan.selfAssessedLevel;
+    }
+    if (plan) {
+      const resolved = tutorId
+        ? perTutorLane.resolveFocusForTutor(plan, String(tutorId))
+        : { focus: plan.nextLessonFocus };
+      focusValue = resolved?.focus || plan.nextLessonFocus || '';
+    }
+  } catch (error) {
+    console.warn('[EMAIL] Could not load learning plan for booking email:', error.message);
+  }
+
+  return {
+    hasContext: Boolean(goalValue || levelValue || focusValue),
+    goalValue,
+    levelValue,
+    focusValue
+  };
+}
+
 function getEmailLinkBaseUrl() {
   return resolveEmailFrontendUrl();
 }
@@ -109,13 +200,16 @@ function buildLessonBookedTemplateData({
   tutor,
   lesson,
   language,
-  isTrialLesson = false
+  isTrialLesson = false,
+  planContext = null
 }) {
   const locale = normalizeLocale(student?.interfaceLanguage || student?.profile?.preferredLanguage);
   const strings = pickLocaleStrings(locale);
   const variant = isTrialLesson ? strings.trial : strings.regular;
+  const enVariant = isTrialLesson ? EN_STUDENT.trial : EN_STUDENT.regular;
   const studentName = formatFirstName(student);
   const tutorName = formatNameWithInitial(tutor);
+  const tutorFirstName = formatFirstName(tutor);
   const lessonLanguage = language || resolveLessonLanguage(lesson, tutor);
   const timezone = student?.profile?.timezone || 'UTC';
   const { lessonDate, lessonTime } = formatLessonDateTime(lesson.startTime, locale, timezone);
@@ -125,9 +219,13 @@ function buildLessonBookedTemplateData({
   const params = {
     studentName,
     tutorName,
+    tutorFirstName,
     language: lessonLanguage,
     minutes: lesson.duration || 50
   };
+
+  const participantFields = buildParticipantFields(tutor, lesson, locale, timezone);
+  const showFirstLessonGuide = isTrialLesson;
 
   return {
     locale,
@@ -136,9 +234,28 @@ function buildLessonBookedTemplateData({
     brandWordmarkImageUrl: `${linkBaseUrl}/assets/barnabi-logo.png`,
     emailEyebrow: variant.emailEyebrow,
     emailTitle: variant.emailTitle,
-    emailIntro: variant.emailIntro,
+    emailIntro: variant.emailIntro || '',
     emailGreeting: interpolate(variant.emailGreeting, params),
     emailBody: interpolate(variant.emailBody, params),
+    ...participantFields,
+    showFirstLessonGuide,
+    firstLessonGuideTitle: variant.firstLessonGuideTitle || enVariant.firstLessonGuideTitle || '',
+    firstLessonGuideIntro: interpolate(
+      variant.firstLessonGuideIntro || enVariant.firstLessonGuideIntro || '',
+      params
+    ),
+    firstLessonBullet1: interpolate(
+      variant.firstLessonBullet1 || enVariant.firstLessonBullet1 || '',
+      params
+    ),
+    firstLessonBullet2: interpolate(
+      variant.firstLessonBullet2 || enVariant.firstLessonBullet2 || '',
+      params
+    ),
+    firstLessonBullet3: interpolate(
+      variant.firstLessonBullet3 || enVariant.firstLessonBullet3 || '',
+      params
+    ),
     mascotImageUrl: resolveMascotCardImageUrl(isTrialLesson),
     mascotTitle: variant.mascotTitle,
     mascotText: variant.mascotText,
@@ -163,7 +280,8 @@ function buildLessonBookedTemplateData({
     footerReason: strings.footerReason,
     footerHelpText: strings.footerHelpText,
     supportEmail: process.env.SUPPORT_EMAIL || DEFAULT_SUPPORT_EMAIL,
-    subject: interpolate(variant.subject, params)
+    subject: interpolate(variant.subject, params),
+    showStudentContext: false
   };
 }
 
@@ -172,25 +290,36 @@ function buildLessonBookedTutorTemplateData({
   tutor,
   lesson,
   language,
-  isTrialLesson = false
+  isTrialLesson = false,
+  planContext = null
 }) {
   const locale = normalizeLocale(tutor?.interfaceLanguage || tutor?.profile?.preferredLanguage);
   const strings = pickTutorLocaleStrings(locale);
   const variant = isTrialLesson ? strings.trial : strings.regular;
   const tutorFirstName = formatFirstName(tutor);
   const studentName = formatNameWithInitial(student);
+  const studentFirstName = formatFirstName(student);
   const lessonLanguage = language || resolveLessonLanguage(lesson, tutor);
   const timezone = tutor?.profile?.timezone || 'UTC';
   const { lessonDate, lessonTime } = formatLessonDateTime(lesson.startTime, locale, timezone);
   const linkBaseUrl = getEmailLinkBaseUrl();
   const lessonId = lesson._id?.toString?.() || lesson.id;
+  const ctx = planContext || {
+    hasContext: false,
+    goalValue: '',
+    levelValue: '',
+    focusValue: ''
+  };
 
   const params = {
     tutorFirstName,
     studentName,
+    studentFirstName,
     language: lessonLanguage,
     minutes: lesson.duration || 50
   };
+
+  const participantFields = buildParticipantFields(student, lesson, locale, timezone);
 
   return {
     locale,
@@ -199,9 +328,30 @@ function buildLessonBookedTutorTemplateData({
     brandWordmarkImageUrl: `${linkBaseUrl}/assets/barnabi-logo.png`,
     emailEyebrow: variant.emailEyebrow,
     emailTitle: variant.emailTitle,
-    emailIntro: variant.emailIntro,
+    emailIntro: variant.emailIntro || '',
     emailGreeting: interpolate(variant.emailGreeting, params),
     emailBody: interpolate(variant.emailBody, params),
+    ...participantFields,
+    showFirstLessonGuide: false,
+    firstLessonGuideTitle: '',
+    firstLessonGuideIntro: '',
+    firstLessonBullet1: '',
+    firstLessonBullet2: '',
+    firstLessonBullet3: '',
+    showStudentContext: ctx.hasContext,
+    showStudentContextGoal: Boolean(ctx.goalValue),
+    showStudentContextLevel: Boolean(ctx.levelValue),
+    showStudentContextFocus: Boolean(ctx.focusValue),
+    studentContextTitle: interpolate(
+      strings.studentContextTitle || EN_TUTOR.studentContextTitle,
+      params
+    ),
+    studentContextGoalLabel: strings.studentContextGoalLabel || EN_TUTOR.studentContextGoalLabel,
+    studentContextGoalValue: ctx.goalValue,
+    studentContextLevelLabel: strings.studentContextLevelLabel || EN_TUTOR.studentContextLevelLabel,
+    studentContextLevelValue: ctx.levelValue,
+    studentContextFocusLabel: strings.studentContextFocusLabel || EN_TUTOR.studentContextFocusLabel,
+    studentContextFocusValue: ctx.focusValue,
     mascotImageUrl: resolveMascotCardImageUrl(isTrialLesson),
     mascotTitle: variant.mascotTitle,
     mascotText: variant.mascotText,
@@ -303,12 +453,14 @@ async function sendLessonBookedEmail({
   language,
   isTrialLesson = false
 }) {
+  const planContext = await loadStudentPlanContext(student, language, tutor?._id);
   const dynamicTemplateData = buildLessonBookedTemplateData({
     student,
     tutor,
     lesson,
     language,
-    isTrialLesson
+    isTrialLesson,
+    planContext
   });
 
   return sendEmailResult({
@@ -326,12 +478,14 @@ async function sendLessonBookedTutorEmail({
   language,
   isTrialLesson = false
 }) {
+  const planContext = await loadStudentPlanContext(student, language, tutor?._id);
   const dynamicTemplateData = buildLessonBookedTutorTemplateData({
     student,
     tutor,
     lesson,
     language,
-    isTrialLesson
+    isTrialLesson,
+    planContext
   });
 
   return sendEmailResult({
@@ -366,7 +520,7 @@ async function loadLessonBookingContext(lessonId) {
   const Lesson = require('../models/Lesson');
   const lesson = await Lesson.findById(lessonId)
     .populate('tutorId', 'name firstName lastName email picture interfaceLanguage onboardingData auth0Id profile')
-    .populate('studentId', 'name firstName lastName email picture auth0Id interfaceLanguage profile');
+    .populate('studentId', 'name firstName lastName email picture auth0Id interfaceLanguage profile onboardingData');
 
   if (!lesson) {
     const err = new Error('Lesson not found');
@@ -385,6 +539,7 @@ async function loadLessonBookingContext(lessonId) {
     lesson,
     language,
     isTrialLesson,
+    planContext: await loadStudentPlanContext(student, language, tutor?._id),
     payload: { student, tutor, lesson, language, isTrialLesson }
   };
 }
@@ -442,8 +597,14 @@ function summarizeRecipientDebug({
 
 async function getLessonBookedEmailDebugForLessonId(lessonId) {
   const ctx = await loadLessonBookingContext(lessonId);
-  const studentTemplateData = buildLessonBookedTemplateData(ctx.payload);
-  const tutorTemplateData = buildLessonBookedTutorTemplateData(ctx.payload);
+  const studentTemplateData = buildLessonBookedTemplateData({
+    ...ctx.payload,
+    planContext: ctx.planContext
+  });
+  const tutorTemplateData = buildLessonBookedTutorTemplateData({
+    ...ctx.payload,
+    planContext: ctx.planContext
+  });
   const config = emailService.getConfigStatus();
 
   const studentSummary = summarizeRecipientDebug({
@@ -514,6 +675,7 @@ async function sendLessonBookedEmailForLessonId(lessonId, { recipient = 'student
 module.exports = {
   buildLessonBookedTemplateData,
   buildLessonBookedTutorTemplateData,
+  loadStudentPlanContext,
   sendLessonBookedEmail,
   sendLessonBookedTutorEmail,
   sendLessonBookedEmails,

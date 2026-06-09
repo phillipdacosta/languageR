@@ -29,11 +29,16 @@
       "subject": "Your trial {{language}} lesson with {{tutorName}} is confirmed",
       "emailEyebrow": "Trial Lesson Confirmed",
       "emailTitle": "Your trial lesson is booked!",
-      "emailIntro": "Your first session together is on the calendar.",
+      "emailIntro": "",
       "emailGreeting": "Hi {{studentName}},",
       "emailBody": "Welcome! Your trial {{language}} lesson with {{tutorName}} is confirmed. Here are the details:",
       "mascotTitle": "Your first step!",
       "mascotText": "Trial lessons are a great way to find the right tutor. Join from your Home page when it's time — you can enter up to 15 minutes early.",
+      "firstLessonGuideTitle": "What will happen during my first lesson?",
+      "firstLessonGuideIntro": "Your first lesson is a relaxed private session with {{tutorFirstName}}. Most first lessons include time to:",
+      "firstLessonBullet1": "Get to know each other",
+      "firstLessonBullet2": "Talk about your goals in {{language}}",
+      "firstLessonBullet3": "Try something new together",
       "lessonType": "Trial lesson"
     }
   },

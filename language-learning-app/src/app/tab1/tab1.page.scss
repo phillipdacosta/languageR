@@ -10307,7 +10307,7 @@ img.m-card-empty-link-arrow-img {
       min-width: 0;
       flex-shrink: 0;
       grid-template-columns: 1fr;
-      grid-template-rows: 32px 28px 16px;
+      grid-template-rows: minmax(32px, auto) 28px 16px;
       gap: 4px;
       align-items: center;
     }
@@ -10322,13 +10322,31 @@ img.m-card-empty-link-arrow-img {
 
     .earnings-goal__amount {
       display: flex;
-      align-items: center;
+      flex-direction: column;
+      align-items: flex-start;
       margin-top: 0;
       min-height: 32px;
       min-width: 0;
       overflow: hidden;
+    }
+
+    .earnings-goal__amount-line {
+      display: flex;
+      align-items: center;
+      min-width: 0;
+      width: 100%;
       white-space: nowrap;
       text-overflow: ellipsis;
+      overflow: hidden;
+    }
+
+    .earnings-goal__pending {
+      font-size: 12px;
+      font-weight: 500;
+      color: #6b7280;
+      line-height: 1.2;
+      margin-top: 2px;
+      font-variant-numeric: tabular-nums;
     }
 
     .earnings-goal__pane--hidden {
@@ -15147,6 +15165,7 @@ img.m-card-empty-link-arrow-img {
         &:hover { background: #2f2f2f !important; color: #ffffff !important; }
       }
       .earnings-goal__amount { color: #ffffff !important; }
+      .earnings-goal__pending { color: #8a8f95 !important; }
       .earnings-goal__amount-masked { color: #555 !important; }
       .earnings-goal__bar { background: #2f2f2f !important; }
       .earnings-goal__bar-scheduled { background: rgba(156, 163, 175, 0.32) !important; }
