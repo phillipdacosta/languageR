@@ -3,7 +3,7 @@ const path = require('path');
 const axios = require('axios');
 const emailService = require('../services/emailService');
 const { formatNameWithInitial, formatFirstName } = require('./nameFormatter');
-const { resolveEmailFrontendUrl } = require('./appUrl');
+const { resolveEmailFrontendUrl, resolveEmailAssetBaseUrl } = require('./appUrl');
 
 const I18N_PATH = path.join(__dirname, 'lessonBookingEmail.i18n.json');
 const TUTOR_I18N_PATH = path.join(__dirname, 'lessonBookingTutorEmail.i18n.json');
@@ -31,17 +31,28 @@ const DEFAULT_SUPPORT_EMAIL = 'support@languageapp.com';
 const MASCOT_CARD_REGULAR_FILE = 'mascot-email-regular.png';
 const MASCOT_CARD_TRIAL_FILE = 'mascot-email-first-step.png';
 
-function resolveMascotCardImageUrl(isTrialLesson) {
-  const file = isTrialLesson ? MASCOT_CARD_TRIAL_FILE : MASCOT_CARD_REGULAR_FILE;
+function resolveEmailAssetUrl(filename) {
   const explicitBase = process.env.EMAIL_ASSET_BASE_URL?.trim().replace(/\/$/, '');
   if (explicitBase) {
-    return `${explicitBase}/${file}`;
+    return `${explicitBase}/${filename}`;
   }
 
   const bucket = process.env.GOOGLE_CLOUD_BUCKET_NAME || 'languager-videos-2025';
   const gcsBase = process.env.EMAIL_MASCOT_GCS_BASE?.trim().replace(/\/$/, '')
     || `https://storage.googleapis.com/${bucket}/email-assets`;
-  return `${gcsBase}/${file}`;
+  const gcsUrl = `${gcsBase}/${filename}`;
+
+  // Card mascots are public on GCS; brand header assets may not be — use API /email-assets.
+  if (filename.startsWith('mascot-email-')) {
+    return gcsUrl;
+  }
+
+  return `${resolveEmailAssetBaseUrl().replace(/\/$/, '')}/${filename}`;
+}
+
+function resolveMascotCardImageUrl(isTrialLesson) {
+  const file = isTrialLesson ? MASCOT_CARD_TRIAL_FILE : MASCOT_CARD_REGULAR_FILE;
+  return resolveEmailAssetUrl(file);
 }
 
 function normalizeLocale(locale) {
@@ -230,8 +241,8 @@ function buildLessonBookedTemplateData({
   return {
     locale,
     brandName: 'Barnabi',
-    brandMascotImageUrl: `${linkBaseUrl}/assets/mascot-toolbar.png`,
-    brandWordmarkImageUrl: `${linkBaseUrl}/assets/barnabi-logo.png`,
+    brandMascotImageUrl: resolveEmailAssetUrl('mascot-toolbar.png'),
+    brandWordmarkImageUrl: resolveEmailAssetUrl('barnabi-logo.png'),
     emailEyebrow: variant.emailEyebrow,
     emailTitle: variant.emailTitle,
     emailIntro: variant.emailIntro || '',
@@ -327,8 +338,8 @@ function buildLessonBookedTutorTemplateData({
   return {
     locale,
     brandName: 'Barnabi',
-    brandMascotImageUrl: `${linkBaseUrl}/assets/mascot-toolbar.png`,
-    brandWordmarkImageUrl: `${linkBaseUrl}/assets/barnabi-logo.png`,
+    brandMascotImageUrl: resolveEmailAssetUrl('mascot-toolbar.png'),
+    brandWordmarkImageUrl: resolveEmailAssetUrl('barnabi-logo.png'),
     emailEyebrow: variant.emailEyebrow,
     emailTitle: variant.emailTitle,
     emailIntro: variant.emailIntro || '',
@@ -660,8 +671,10 @@ async function getLessonBookedEmailDebugForLessonId(lessonId) {
     tutor: attachUrlChecks(tutorSummary),
     hints: [
       'SendGrid template Subject must be set to {{subject}} (or {{{subject}}}).',
-      'Gmail cannot load localhost image URLs — card mascots use public GCS URLs.',
-      'Brand header images use the deployed frontend /assets URLs.',
+      'Email links use FRONTEND_URL_DEV on Render unless EMAIL_PUBLIC_FRONTEND_URL is set.',
+      'Set EMAIL_PUBLIC_FRONTEND_URL when your custom app domain (e.g. app.barnabi.ai) is live.',
+      'Gmail cannot load localhost image URLs — use public /email-assets or GCS URLs.',
+      'Brand header images are served from the API /email-assets path, not frontend /assets.',
       'Set SENDGRID_LESSON_BOOKED_TUTOR_TEMPLATE_ID only if tutors use a separate template.'
     ]
   };

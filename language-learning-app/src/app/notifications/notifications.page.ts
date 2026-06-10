@@ -13,6 +13,7 @@ import { PlatformService } from '../services/platform.service';
 import { ClassInvitationModalComponent } from '../components/class-invitation-modal/class-invitation-modal.component';
 import { PaymentDisputeModalComponent } from '../components/payment-dispute-modal/payment-dispute-modal.component';
 import { getNotificationNavigationTarget } from '../shared/notification-navigation.util';
+import { HomeInlineToolbarService } from '../services/home-inline-toolbar.service';
 
 // 🚀 PERFORMANCE FIX: Type for cached, formatted notifications
 interface FormattedNotification extends Notification {
@@ -58,7 +59,8 @@ export class NotificationsPage implements OnDestroy {
     private modalController: ModalController,
     private sanitizer: DomSanitizer,
     private translateService: TranslateService,
-    private notificationTranslation: NotificationTranslationService
+    private notificationTranslation: NotificationTranslationService,
+    private homeInlineToolbar: HomeInlineToolbarService
   ) {
     this.filters = [
       { value: 'all', label: this.translateService.instant('NOTIFICATIONS.FILTER_ALL') },
@@ -226,6 +228,12 @@ export class NotificationsPage implements OnDestroy {
 
     if (target.kind === 'class_invitation') {
       void this.openClassInvitation(target.classId, notification);
+      return;
+    }
+
+    if (target.kind === 'earnings') {
+      this.homeInlineToolbar.pendingOpenEarnings = true;
+      this.router.navigate(['/tabs/home']);
       return;
     }
 

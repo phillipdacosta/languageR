@@ -2,7 +2,8 @@ import { Notification } from '../services/notification.service';
 
 export type NotificationNavTarget =
   | { kind: 'route'; commands: any[]; queryParams?: Record<string, string | null> }
-  | { kind: 'class_invitation'; classId: string };
+  | { kind: 'class_invitation'; classId: string }
+  | { kind: 'earnings' };
 
 function asString(value: unknown): string | null {
   if (value == null) {
@@ -143,7 +144,7 @@ export function getNotificationNavigationTarget(
     case 'payment_reduced':
     case 'investigation_resolved':
     case 'dispute_submitted':
-      return { kind: 'route', commands: ['/tabs/home/earnings'] };
+      return { kind: 'earnings' };
 
     case 'tutor_video_approved':
       return { kind: 'route', commands: ['/tabs/availability-setup'] };

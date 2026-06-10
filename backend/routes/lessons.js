@@ -723,7 +723,11 @@ router.post('/', verifyToken, async (req, res) => {
           template: 'trial_lesson_booked',
           student: { _id: student._id, displayName: studentDisplayName },
           tutor,
-          lesson: { startTime: lessonDate, duration: lesson.duration },
+          lesson: {
+            _id: lesson._id,
+            startTime: lessonDate,
+            duration: lesson.duration
+          },
           plan: studentPlan,
           triggerType: 'book_lesson'
         });

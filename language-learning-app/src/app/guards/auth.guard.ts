@@ -3,6 +3,7 @@ import { CanActivate, Router, ActivatedRouteSnapshot, RouterStateSnapshot } from
 import { Observable, combineLatest } from 'rxjs';
 import { map, take, filter } from 'rxjs/operators';
 import { AuthService } from '../services/auth.service';
+import { persistReturnUrl } from '../shared/return-url.util';
 
 @Injectable({
   providedIn: 'root'
@@ -29,8 +30,7 @@ export class AuthGuard implements CanActivate {
         if (isAuthenticated) {
           return true;
         } else {
-          // Redirect to login page
-          console.log('AuthGuard: redirecting to login');
+          persistReturnUrl(state.url);
           this.router.navigate(['/login']);
           return false;
         }

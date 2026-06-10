@@ -950,7 +950,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
           this.closeAllInlinePanelsExceptEarnings();
           this.showEarningsView = true;
           this.cdr.detectChanges();
-          this.ionContent?.scrollToTop(0);
+          this.scrollHomeContentToTop();
         }
       });
 
@@ -1804,7 +1804,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         this.closeAllInlinePanelsExceptEarnings();
         this.showEarningsView = true;
         this.cdr.detectChanges();
-        this.ionContent?.scrollToTop(0);
+        this.scrollHomeContentToTop();
       }
     }
 
@@ -10086,6 +10086,22 @@ navigateToLessons() {
     this.loadTutorEarnings();
   }
 
+  /** Reset home ion-content scroll synchronously so inline earnings chrome stays visible. */
+  private scrollHomeContentToTop(): void {
+    if (this._scrollElRef) {
+      this._scrollElRef.scrollTop = 0;
+      return;
+    }
+    void this.ionContent?.getScrollElement().then(el => {
+      if (!el) {
+        return;
+      }
+      this._scrollElRef = el;
+      el.scrollTop = 0;
+    });
+    this.ionContent?.scrollToTop(0);
+  }
+
   /** Re-open inline earnings on the Transactions (or other) tab after lesson detail back. */
   private restoreEarningsAfterLessonReturn(): void {
     const params = this.activatedRoute.snapshot.queryParamMap;
@@ -10096,7 +10112,10 @@ navigateToLessons() {
     this.closeAllInlinePanelsExceptEarnings();
     this.showEarningsView = true;
     this.cdr.detectChanges();
-    this.ionContent?.scrollToTop(0);
+    this.scrollHomeContentToTop();
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => this.scrollHomeContentToTop());
+    });
     void this.router.navigate([], {
       relativeTo: this.activatedRoute,
       queryParams: { openEarnings: null, earningsSection: null },
@@ -10287,11 +10306,14 @@ navigateToLessons() {
       viewMode?: string;
       showMaterialsList?: boolean;
       showBundlesList?: boolean;
+      myMaterials?: unknown[];
+      myBundles?: unknown[];
     } | undefined;
     const show =
       !!cm &&
       cm.viewMode === 'library' &&
-      (cm.showMaterialsList === true || cm.showBundlesList === true);
+      ((cm.showMaterialsList === true && (cm.myMaterials?.length ?? 0) > 0) ||
+        (cm.showBundlesList === true && (cm.myBundles?.length ?? 0) > 0));
     this.modalShowFooter = show;
   }
 

@@ -261,6 +261,20 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
 
   @media (min-width: $earnings-split-bp) {
     max-width: none;
+    flex: 1;
+    min-height: 0;
+  }
+}
+
+:host {
+  &:has(.earnings-inline-wrapper) {
+    @media (min-width: $earnings-split-bp) {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+      width: 100%;
+    }
   }
 }
 
@@ -271,6 +285,11 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
   flex-direction: column;
   gap: 16px;
   width: 100%;
+
+  @media (min-width: $earnings-split-bp) {
+    flex: 1;
+    min-height: 0;
+  }
 }
 
 .earnings-balance-cluster.earnings-surface-card {
@@ -427,11 +446,19 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
     margin-right: auto;
     padding-left: 80px;
     padding-right: 80px;
+    min-height: calc(100vh - 56px - 64px);
+    box-sizing: border-box;
   }
 
   @media (min-width: 1280px) {
     padding-left: 120px;
     padding-right: 120px;
+  }
+
+  &.earnings-content--inline {
+    @media (min-width: $earnings-split-bp) {
+      min-height: 100%;
+    }
   }
 }
 
@@ -462,6 +489,9 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
     align-items: stretch;
     max-width: 1100px;
     padding-top: 8px;
+    min-height: 100%;
+    height: 100%;
+    box-sizing: border-box;
   }
 
   @media (max-width: $earnings-split-max) {
@@ -483,6 +513,8 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
 
   @media (min-width: $earnings-split-bp) {
     align-self: stretch;
+    min-height: 100%;
+    height: 100%;
     padding-left: 0;
     padding-right: 8px;
     margin: 0;
@@ -579,6 +611,9 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
   gap: 20px;
 
   @media (min-width: $earnings-split-bp) {
+    align-self: stretch;
+    min-height: 100%;
+    height: 100%;
     padding-left: 40px;
     border-left: 1px solid $border;
     box-sizing: border-box;

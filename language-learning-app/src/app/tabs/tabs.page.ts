@@ -15,6 +15,7 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { PaymentDisputeModalComponent } from '../components/payment-dispute-modal/payment-dispute-modal.component';
 import { HomeInlineToolbarService } from '../services/home-inline-toolbar.service';
 import { getNotificationNavigationTarget } from '../shared/notification-navigation.util';
+import { formatConversationTimestamp } from '../shared/timezone.utils';
 
 // 🚀 PERFORMANCE FIX: Type for formatted notifications with cached values
 interface FormattedNotification extends Notification {
@@ -1164,6 +1165,12 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
 
+    if (target.kind === 'earnings') {
+      this.closeNotificationDropdown();
+      this.onToolbarEarningsTap();
+      return;
+    }
+
     this.router.navigate(target.commands, {
       queryParams: target.queryParams,
     });
@@ -1705,18 +1712,11 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
   }
 
   formatConversationTime(dateString: string): string {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-    
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return formatConversationTimestamp(
+      dateString,
+      this.currentUser?.['profile']?.timezone,
+      this.translateService.currentLang || this.translateService.defaultLang || 'en',
+      { yesterday: this.translateService.instant('MESSAGES.YESTERDAY') }
+    );
   }
 }

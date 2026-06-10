@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy, Input, Output, EventEmitter, ChangeDetectorRef, HostBinding, ElementRef } from '@angular/core';
-import { animate, style, transition, trigger } from '@angular/animations';
+import { animate, group, query, stagger, style, transition, trigger } from '@angular/animations';
 import { Subscription, firstValueFrom } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, FormArray, Validators } from '@angular/forms';
@@ -57,6 +57,22 @@ type DetailsWizardStepId =
       transition(':enter', [
         style({ opacity: 0, transform: 'translateY(20px)' }),
         animate('380ms cubic-bezier(0.32, 0.72, 0, 1)', style({ opacity: 1, transform: 'translateY(0)' })),
+      ]),
+    ]),
+    trigger('typeStepEnter', [
+      transition(':enter', [
+        group([
+          query('.cm-step-header--tight', [
+            style({ opacity: 0, transform: 'translateY(10px)' }),
+            animate('520ms cubic-bezier(0.32, 0.72, 0, 1)', style({ opacity: 1, transform: 'translateY(0)' })),
+          ], { optional: true }),
+          query('.cm-type-cards > *', [
+            style({ transform: 'translateY(14px)' }),
+            stagger(70, [
+              animate('520ms cubic-bezier(0.32, 0.72, 0, 1)', style({ transform: 'translateY(0)' })),
+            ]),
+          ], { optional: true }),
+        ]),
       ]),
     ]),
   ],

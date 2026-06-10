@@ -464,7 +464,10 @@ function buildSystemMessage(opts) {
       startTime: lesson.startTime instanceof Date
         ? lesson.startTime.toISOString()
         : (lesson.startTime || null),
-      duration: lesson.duration || null
+      duration: lesson.duration || null,
+      lessonId: lesson._id
+        ? String(lesson._id)
+        : (lesson.id ? String(lesson.id) : null)
     } : {}),
     ...extras
   };
