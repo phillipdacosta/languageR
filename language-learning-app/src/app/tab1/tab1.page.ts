@@ -119,7 +119,6 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   createMaterialModalExpanded = false;
   createMaterialModalReady = false;
   createMaterialBackdropVisible = false;
-  createMaterialModalClosing = false;
   /** Desktop: material/bundle detail rendered via router-outlet inside the materials modal. */
   cmModalRouterOutletActive = false;
   modalSidebarTab: 'materials' | 'bundles' = 'materials';
@@ -265,14 +264,12 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   private _savedScrollBeforeSchedule = 0;
   scheduleClassBackdropVisible = false;
   scheduleClassModalReady = false;
-  scheduleClassModalClosing = false;
 
   /** Forum: same shell as My Classes / Create Material quick actions */
   showForumView = false;
   private _savedScrollBeforeForum = 0;
   forumBackdropVisible = false;
   forumModalReady = false;
-  forumModalClosing = false;
 
   // Cached count of active (non-cancelled) invitations — updated when pendingClassInvitations changes
   activeInvitationsCount = 0;
@@ -2126,7 +2123,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       u.startsWith('/bundle/') ||
       u.includes('/tabs/home/bundle/');
     if (this.showCreateMaterialView && !toMaterial) {
-      this.closeCreateMaterialModalImmediate();
+      this.dismissCreateMaterialModal();
     }
     if (this.showExploreView && !toMaterial) {
       this.showExploreView = false;
@@ -2134,10 +2131,10 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       this.cdr.detectChanges();
     }
     if (this.showScheduleClassView && !toMaterial) {
-      this.closeScheduleClassModal(false, false);
+      this.closeScheduleClassModal(false);
     }
     if (this.showForumView && !toMaterial) {
-      this.closeForumModal(false, false);
+      this.closeForumModal(false);
     }
     if (this.showEarningsView) {
       this.showEarningsView = false;
@@ -3653,33 +3650,15 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   }
 
   /** @param restoreScroll pass false when route already changed */
-  closeScheduleClassModal(restoreScroll = true, animate = true): void {
-    if (this.scheduleClassModalClosing) {
-      return;
+  closeScheduleClassModal(restoreScroll = true): void {
+    this.scheduleClassModalReady = false;
+    this.scheduleClassBackdropVisible = false;
+    this.showScheduleClassView = false;
+    document.body.classList.remove('cm-desktop-modal-open');
+    this.cdr.detectChanges();
+    if (restoreScroll && this._scrollElRef) {
+      this._scrollElRef.scrollTop = this._savedScrollBeforeSchedule;
     }
-    const finalize = () => {
-      this.showScheduleClassView = false;
-      document.body.classList.remove('cm-desktop-modal-open');
-      if (restoreScroll && this._scrollElRef) {
-        this._scrollElRef.scrollTop = this._savedScrollBeforeSchedule;
-      }
-    };
-    if (!animate) {
-      this.scheduleClassModalReady = false;
-      this.scheduleClassBackdropVisible = false;
-      finalize();
-      this.cdr.detectChanges();
-      return;
-    }
-    this.runModalShellClose(
-      () => this.scheduleClassModalClosing,
-      (closing) => { this.scheduleClassModalClosing = closing; },
-      () => {
-        this.scheduleClassModalReady = false;
-        this.scheduleClassBackdropVisible = false;
-      },
-      finalize
-    );
   }
 
   onScheduleClassGoBack(): void {
@@ -3692,9 +3671,6 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   }
 
   onScheduleClassModalBackdropClick(ev: MouseEvent): void {
-    if (this.scheduleClassModalClosing) {
-      return;
-    }
     if ((ev.target as HTMLElement).classList.contains('cm-modal-backdrop')) {
       this.onScheduleClassGoBack();
     }
@@ -3774,33 +3750,15 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     }, 350);
   }
 
-  closeForumModal(restoreScroll = true, animate = true): void {
-    if (this.forumModalClosing) {
-      return;
+  closeForumModal(restoreScroll = true): void {
+    this.forumModalReady = false;
+    this.forumBackdropVisible = false;
+    this.showForumView = false;
+    document.body.classList.remove('cm-desktop-modal-open');
+    this.cdr.detectChanges();
+    if (restoreScroll && this._scrollElRef) {
+      this._scrollElRef.scrollTop = this._savedScrollBeforeForum;
     }
-    const finalize = () => {
-      this.showForumView = false;
-      document.body.classList.remove('cm-desktop-modal-open');
-      if (restoreScroll && this._scrollElRef) {
-        this._scrollElRef.scrollTop = this._savedScrollBeforeForum;
-      }
-    };
-    if (!animate) {
-      this.forumModalReady = false;
-      this.forumBackdropVisible = false;
-      finalize();
-      this.cdr.detectChanges();
-      return;
-    }
-    this.runModalShellClose(
-      () => this.forumModalClosing,
-      (closing) => { this.forumModalClosing = closing; },
-      () => {
-        this.forumModalReady = false;
-        this.forumBackdropVisible = false;
-      },
-      finalize
-    );
   }
 
   onForumGoBack(): void {
@@ -3808,9 +3766,6 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   }
 
   onForumModalBackdropClick(ev: MouseEvent): void {
-    if (this.forumModalClosing) {
-      return;
-    }
     if ((ev.target as HTMLElement).classList.contains('cm-modal-backdrop')) {
       this.onForumGoBack();
     }
@@ -10169,17 +10124,17 @@ navigateToLessons() {
 
   private closeAllInlinePanelsExceptEarnings(): void {
     if (this.showCreateMaterialView) {
-      this.closeCreateMaterialModalImmediate();
+      this.dismissCreateMaterialModal();
     }
     if (this.showExploreView) {
       this.showExploreView = false;
       this.homeInlineToolbar.setExploreViewOpen(false);
     }
     if (this.showScheduleClassView) {
-      this.closeScheduleClassModal(false, false);
+      this.closeScheduleClassModal(false);
     }
     if (this.showForumView) {
-      this.closeForumModal(false, false);
+      this.closeForumModal(false);
     }
   }
 
@@ -10207,33 +10162,16 @@ navigateToLessons() {
   }
 
   onCreateMaterialGoBack() {
-    if (this.createMaterialModalClosing) {
-      return;
-    }
-    this.runModalShellClose(
-      () => this.createMaterialModalClosing,
-      (closing) => { this.createMaterialModalClosing = closing; },
-      () => {
-        this.createMaterialModalReady = false;
-        this.createMaterialBackdropVisible = false;
-      },
-      () => this.finalizeCreateMaterialClose()
-    );
+    this.dismissCreateMaterialModal();
   }
 
-  /** Immediate close when swapping inline panels (no exit animation). */
-  closeCreateMaterialModalImmediate(): void {
-    this.createMaterialModalClosing = false;
-    this.createMaterialModalReady = false;
-    this.createMaterialBackdropVisible = false;
-    this.finalizeCreateMaterialClose();
-  }
-
-  private finalizeCreateMaterialClose(): void {
+  private dismissCreateMaterialModal(): void {
     if (!this.isMobile && this.activatedRoute.firstChild) {
       this.router.navigate(['/tabs/home']);
     }
     this.createMaterialModalExpanded = false;
+    this.createMaterialModalReady = false;
+    this.createMaterialBackdropVisible = false;
     this.cmModalRouterOutletActive = false;
     this.showCreateMaterialView = false;
     this.homeInlineToolbar.setMaterialsViewOpen(false);
@@ -10259,26 +10197,6 @@ navigateToLessons() {
     if (this._scrollElRef) {
       this._scrollElRef.scrollTop = this._savedScrollBeforeMaterial;
     }
-  }
-
-  /** Fade backdrop + card out before removing modal from the DOM. */
-  private runModalShellClose(
-    isClosing: () => boolean,
-    setClosing: (closing: boolean) => void,
-    beginExitVisuals: () => void,
-    finalize: () => void
-  ): void {
-    if (isClosing()) {
-      return;
-    }
-    beginExitVisuals();
-    setClosing(true);
-    this.cdr.detectChanges();
-    window.setTimeout(() => {
-      setClosing(false);
-      finalize();
-      this.cdr.detectChanges();
-    }, 400);
   }
 
   onModalExpand(expanded: boolean) {
@@ -10519,28 +10437,23 @@ navigateToLessons() {
   }
 
   onCreateMaterialModalBackdropClick(event: MouseEvent) {
-    if (this.createMaterialModalExpanded || this.createMaterialModalClosing) return;
+    if (this.createMaterialModalExpanded) return;
     this.onCreateMaterialGoBack();
   }
 
   onModalSidebarSwitch(tab: 'materials' | 'bundles') {
     this.modalSidebarTab = tab;
-    const cmRef = this.createMaterialRef as any;
-    if (cmRef?.switchLibraryTab) {
-      cmRef.switchLibraryTab(tab);
-    }
-    if (cmRef) {
-      cmRef.viewMode = 'library';
-      cmRef.showMaterialsList = false;
-      cmRef.showBundlesList = false;
-      if (tab === 'materials') {
-        cmRef.showMaterialsList = true;
-      } else {
-        cmRef.showBundlesList = true;
-        if (typeof cmRef.loadBundles === 'function') {
-          cmRef.loadBundles();
-        }
-      }
+    const cmRef = this.createMaterialRef as {
+      viewMode?: string;
+      openMaterialsList?: () => void;
+      openBundlesList?: () => void;
+    } | undefined;
+    if (!cmRef) return;
+    cmRef.viewMode = 'library';
+    if (tab === 'materials') {
+      cmRef.openMaterialsList?.();
+    } else {
+      cmRef.openBundlesList?.();
     }
     this.cdr.detectChanges();
     this.applyDesktopModalFooterVisibility();

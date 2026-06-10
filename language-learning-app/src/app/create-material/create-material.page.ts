@@ -158,6 +158,7 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
   // Bundles
   myBundles: ContentBundle[] = [];
   isLoadingBundles = false;
+  private bundlesListLoaded = false;
   editingBundleId: string | null = null;
   bundleTitle = '';
   bundleDescription = '';
@@ -3656,7 +3657,7 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     const libEl = document.querySelector('.cm-library');
     if (libEl) libEl.scrollTop = 0;
 
-    if (tab === 'bundles' && this.myBundles.length === 0 && !this.isLoadingBundles) {
+    if (tab === 'bundles' && !this.bundlesListLoaded) {
       this.loadBundles();
     }
     this.emitModalSidebarTabSync(tab);
@@ -3677,7 +3678,7 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     this.libraryTab = 'bundles';
     this.showBundlesList = true;
     this.showMaterialsList = false;
-    if (!this.isLoadingBundles && this.myBundles.length === 0) {
+    if (!this.bundlesListLoaded) {
       this.loadBundles();
     }
     this.modalExpandEvent.emit(true);
@@ -3713,18 +3714,22 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
     }
   }
 
-  loadBundles() {
+  loadBundles(force = false) {
+    if (this.isLoadingBundles) return;
+    if (this.bundlesListLoaded && !force) return;
     this.isLoadingBundles = true;
     this.cdr.detectChanges();
     this.bundleService.getMyBundles().subscribe({
       next: (bundles) => {
         this.myBundles = bundles || [];
         this.isLoadingBundles = false;
+        this.bundlesListLoaded = true;
         this.cdr.detectChanges();
       },
       error: () => {
         this.myBundles = [];
         this.isLoadingBundles = false;
+        this.bundlesListLoaded = true;
         this.cdr.detectChanges();
       }
     });
@@ -3950,7 +3955,7 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
         this.viewMode = 'library';
         this.libraryTab = 'bundles';
         this.emitModalSidebarTabSync('bundles');
-        this.loadBundles();
+        this.loadBundles(true);
         const toast = await this.toastCtrl.create({
           message: this.editingBundleId ? 'Bundle updated' : 'Bundle created',
           duration: 2000,
@@ -4006,7 +4011,7 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
         this.viewMode = 'library';
         this.libraryTab = 'bundles';
         this.emitModalSidebarTabSync('bundles');
-        this.loadBundles();
+        this.loadBundles(true);
         const toast = await this.toastCtrl.create({
           message: 'Bundle saved as draft',
           duration: 2000,
@@ -4061,7 +4066,7 @@ export class CreateMaterialPage implements OnInit, OnDestroy {
           role: 'destructive',
           handler: () => {
             this.bundleService.deleteBundle(bundle._id).subscribe({
-              next: () => this.loadBundles(),
+              next: () => this.loadBundles(true),
               error: async () => {
                 const toast = await this.toastCtrl.create({
                   message: 'Failed to delete bundle',

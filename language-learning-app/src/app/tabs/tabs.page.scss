@@ -718,6 +718,7 @@
       display: flex;
       align-items: center;
       gap: 12px;
+      min-width: 0;
       
       .notification-title {
         margin: 0;
@@ -735,6 +736,40 @@
         &:hover {
           color: #1f2937;
         }
+      }
+    }
+
+    .notification-header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+      margin-left: auto;
+    }
+
+    .notification-unread-toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .notification-unread-toggle-label {
+      font-size: 14px;
+      font-weight: 400;
+      color: #374151;
+      white-space: nowrap;
+    }
+
+    .notification-unread-ion-toggle {
+      --handle-width: 16px;
+      --handle-height: 16px;
+      --handle-spacing: 2px;
+      transform: scale(0.85);
+
+      &::part(track) {
+        height: 22px;
+        width: 40px;
+        border-radius: 11px;
       }
     }
     
@@ -762,9 +797,8 @@
   .notification-dropdown-content {
     flex: 1;
     min-height: 0;
-    overflow-y: auto;
-    overflow-x: hidden;
-    padding: 8px 0;
+    padding: 8px 12px 12px 16px;
+    box-sizing: border-box;
     display: flex;
     flex-direction: column;
     overscroll-behavior: contain;
@@ -793,11 +827,14 @@
     }
     
     .notification-section {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
       margin-bottom: 16px;
       
       .notification-section-title {
         margin: 0;
-        padding: 8px 20px;
+        padding: 8px 4px;
         font-size: 14px;
         font-weight: 600;
         color: #1f2937;
@@ -1220,7 +1257,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 20px;
+        padding: 20px 4px;
         text-align: center;
         
         p {
@@ -2209,6 +2246,12 @@ ion-tab-button {
       border-bottom-color: rgba(255, 255, 255, 0.1) !important;
 
       .notification-title { color: #f5f5f7 !important; }
+      .notification-unread-toggle-label { color: #d1d1d6 !important; }
+      .notification-unread-ion-toggle {
+        --background: #3a3a3c !important;
+        --background-checked: #4298d2 !important;
+        --handle-background: #f5f5f7 !important;
+      }
       .notification-settings-icon {
         color: #8e8e93 !important;
         &:hover { color: #f5f5f7 !important; }
@@ -2561,6 +2604,12 @@ ion-tab-button {
     .notification-dropdown-header {
       border-bottom-color: rgba(255, 255, 255, 0.1) !important;
       .notification-title { color: #f5f5f7 !important; }
+      .notification-unread-toggle-label { color: #d1d1d6 !important; }
+      .notification-unread-ion-toggle {
+        --background: #3a3a3c !important;
+        --background-checked: #4298d2 !important;
+        --handle-background: #f5f5f7 !important;
+      }
       .notification-settings-icon { color: #8e8e93 !important; &:hover { color: #f5f5f7 !important; } }
       .notification-close-btn { color: #8e8e93 !important; &:hover { color: #f5f5f7 !important; } }
     }

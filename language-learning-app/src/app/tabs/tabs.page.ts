@@ -63,6 +63,8 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
   formattedNotifications$!: Observable<FormattedNotification[]>;
   // Notification dropdown state
   isNotificationDropdownOpen = false;
+  showUnreadOnlyInDropdown = false;
+  private readonly notificationDropdownUnreadOnlyKey = 'notificationDropdownUnreadOnly';
   private notificationHoverTimer: ReturnType<typeof setTimeout> | null = null;
   private notificationCloseTimer: ReturnType<typeof setTimeout> | null = null;
   private isHoveringNotificationDropdown = false;
@@ -243,6 +245,8 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
   private resizeListener: any;
 
   ngOnInit() {
+    this.loadNotificationDropdownUnreadFilter();
+
     // Get platform information
     this.currentPlatform = this.platformService.getPlatform();
     this.platformConfig = this.platformService.getPlatformConfig();
@@ -1185,6 +1189,29 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       clearTimeout(this.notificationHoverTimer);
       this.notificationHoverTimer = null;
     }
+  }
+
+  private loadNotificationDropdownUnreadFilter(): void {
+    try {
+      this.showUnreadOnlyInDropdown = localStorage.getItem(this.notificationDropdownUnreadOnlyKey) === 'true';
+    } catch {
+      this.showUnreadOnlyInDropdown = false;
+    }
+  }
+
+  private saveNotificationDropdownUnreadFilter(): void {
+    try {
+      localStorage.setItem(this.notificationDropdownUnreadOnlyKey, String(this.showUnreadOnlyInDropdown));
+    } catch {
+      // Ignore storage failures (private mode, quota, etc.)
+    }
+  }
+
+  onNotificationUnreadToggleChange(event: CustomEvent): void {
+    event.stopPropagation();
+    this.showUnreadOnlyInDropdown = !!event.detail.checked;
+    this.saveNotificationDropdownUnreadFilter();
+    this.cdr.markForCheck();
   }
 
   async openDisputeModal(notification: Notification, event: Event) {

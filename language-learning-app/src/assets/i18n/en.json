@@ -1865,6 +1865,8 @@
       "IMPORTANT": "Important",
       "MORE": "More notifications",
       "EMPTY": "No notifications",
+      "EMPTY_UNREAD": "No unread notifications",
+      "UNREAD": "Unread",
       "VIEW_ALL": "View All Notifications"
     },
     "TIME": {

@@ -627,40 +627,6 @@ ion-content {
   }
 }
 
-@keyframes cmInlinePanelExit {
-  from {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  to {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-}
-
-.create-material-inline-panel.cm-inline-panel--closing,
-.schedule-class-inline-panel.cm-inline-panel--closing,
-.forum-inline-panel.cm-inline-panel--closing {
-  animation: cmInlinePanelExit 0.38s cubic-bezier(0.32, 0.72, 0, 1) forwards;
-  pointer-events: none;
-
-  @media (prefers-reduced-motion: reduce) {
-    animation: none;
-    opacity: 0;
-  }
-}
-
-.forum-inline-panel.cm-inline-panel--closing {
-  .forum-inline-backdrop {
-    opacity: 0;
-    transition: opacity 0.38s cubic-bezier(0.32, 0.72, 0, 1);
-  }
-
-  .forum-inline-modal {
-    animation: cmInlinePanelExit 0.38s cubic-bezier(0.32, 0.72, 0, 1) forwards;
-  }
-}
-
 // ── Sidebar: on the backdrop, left of the card ──────────
 .cm-modal-sidebar {
   display: flex;

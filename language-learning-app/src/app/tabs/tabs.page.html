@@ -147,12 +147,22 @@
       <div class="notification-header-left">
         <h3 class="notification-title">{{ 'NOTIFICATIONS.TITLE' | translate }}</h3>
       </div>
-      <button class="notification-close-btn" (click)="closeNotificationDropdown()">
-        <ion-icon name="close"></ion-icon>
-      </button>
+      <div class="notification-header-right">
+        <div class="notification-unread-toggle-row" (click)="$event.stopPropagation()">
+          <span class="notification-unread-toggle-label">{{ 'NOTIFICATIONS.DROPDOWN.UNREAD' | translate }}</span>
+          <ion-toggle
+            class="notification-unread-ion-toggle"
+            [checked]="showUnreadOnlyInDropdown"
+            (ionChange)="onNotificationUnreadToggleChange($event)">
+          </ion-toggle>
+        </div>
+        <button class="notification-close-btn" (click)="closeNotificationDropdown()">
+          <ion-icon name="close"></ion-icon>
+        </button>
+      </div>
     </div>
     
-    <div class="notification-dropdown-content">
+    <div class="notification-dropdown-content ob-wizard-scroll-container">
       <ng-container *ngIf="formattedNotifications$ | async as notifications">
         <!-- Loading State — only when there is nothing cached to show yet -->
         <div *ngIf="isLoadingNotifications && notifications.length === 0" class="notification-loading">
@@ -227,8 +237,15 @@
           </div>
         </div>
         
+        <!-- Unread-only empty -->
+        <div
+          class="notification-empty"
+          *ngIf="showUnreadOnlyInDropdown && (notifications | notificationFilter:'unread').length === 0 && !(isLoadingNotifications && notifications.length === 0)">
+          <p>{{ 'NOTIFICATIONS.DROPDOWN.EMPTY_UNREAD' | translate }}</p>
+        </div>
+
         <!-- Read notifications (no section label) -->
-        <div class="notification-section">
+        <div class="notification-section" *ngIf="!showUnreadOnlyInDropdown">
           <div *ngIf="(notifications | notificationFilter:'read').length > 0">
             <div class="notification-item" 
                  *ngFor="let notification of (notifications | notificationFilter:'read'); trackBy: trackByNotificationId"

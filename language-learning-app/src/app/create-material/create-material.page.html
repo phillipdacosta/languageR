@@ -128,7 +128,7 @@
   <ng-container *ngIf="!isLoadingMaterials">
 
     <!-- Sticky header -->
-    <div class="cm-library-sticky" *ngIf="!(showMaterialsList && myMaterials.length === 0) && !(showBundlesList && !isLoadingBundles && myBundles.length === 0)">
+    <div class="cm-library-sticky" *ngIf="!(showMaterialsList && myMaterials.length === 0) && !(showBundlesList && myBundles.length === 0)">
       <div class="cm-library-header">
         <div class="cm-library-header-copy">
           <h1>{{ (libraryTab === 'bundles' ? 'CREATE_MATERIAL.LIBRARY_TITLE_BUNDLES' : 'CREATE_MATERIAL.LIBRARY_TITLE') | translate }}</h1>
@@ -524,7 +524,7 @@
         class="cm-library-panel cm-library-panel--bundles"
         *ngIf="showBundlesList"
         [class.cm-library-panel--bundles-empty]="!isLoadingBundles && myBundles.length === 0">
-        <div class="cm-list-header" *ngIf="isLoadingBundles || myBundles.length > 0">
+        <div class="cm-list-header" *ngIf="myBundles.length > 0">
           <button class="cm-list-back" type="button" (click)="closeBundlesListToGateway()">
             <ion-icon name="chevron-back-outline"></ion-icon>
             {{ 'CREATE_MATERIAL.LIBRARY_LIST_BACK' | translate }}
