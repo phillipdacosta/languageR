@@ -30,7 +30,10 @@
   </div>
 
   <!-- Inline Create Material View (mobile) -->
-  <div class="create-material-inline-panel" *ngIf="showCreateMaterialView && isMobile">
+  <div
+    class="create-material-inline-panel"
+    *ngIf="(showCreateMaterialView || createMaterialModalClosing) && isMobile"
+    [class.cm-inline-panel--closing]="createMaterialModalClosing">
     <app-create-material #createMaterialRef [inline]="true" (goBackEvent)="onCreateMaterialGoBack()" (modalExpandEvent)="onModalExpand($event)"></app-create-material>
   </div>
 
@@ -66,7 +69,10 @@
   </div>
 
   <!-- Schedule Class (mobile, tutor) -->
-  <div class="schedule-class-inline-panel" *ngIf="showScheduleClassView && isMobile">
+  <div
+    class="schedule-class-inline-panel"
+    *ngIf="(showScheduleClassView || scheduleClassModalClosing) && isMobile"
+    [class.cm-inline-panel--closing]="scheduleClassModalClosing">
     <app-schedule-class
       #scheduleClassModalRef
       [inline]="true"
@@ -81,7 +87,10 @@
   </div>
 
   <!-- Forum (mobile): blurred backdrop + card shell (matches My Classes / Materials) -->
-  <div class="forum-inline-panel" *ngIf="showForumView && isMobile">
+  <div
+    class="forum-inline-panel"
+    *ngIf="(showForumView || forumModalClosing) && isMobile"
+    [class.cm-inline-panel--closing]="forumModalClosing">
     <div class="forum-inline-backdrop" aria-hidden="true"></div>
     <div class="forum-inline-modal">
       <app-forum [inline]="true" (goBackEvent)="onForumGoBack()"></app-forum>
@@ -89,7 +98,13 @@
   </div>
 
   <!-- Desktop Create Material Modal -->
-  <div class="cm-modal-backdrop" *ngIf="showCreateMaterialView && !isMobile" [class.cm-modal-backdrop--visible]="createMaterialBackdropVisible" [class.cm-modal-backdrop--deep]="createMaterialModalExpanded" (click)="onCreateMaterialModalBackdropClick($event)">
+  <div
+    class="cm-modal-backdrop"
+    *ngIf="(showCreateMaterialView || createMaterialModalClosing) && !isMobile"
+    [class.cm-modal-backdrop--visible]="createMaterialBackdropVisible"
+    [class.cm-modal-backdrop--deep]="createMaterialModalExpanded"
+    [class.cm-modal-backdrop--closing]="createMaterialModalClosing"
+    (click)="onCreateMaterialModalBackdropClick($event)">
 
     <!-- Sidebar — animates width/opacity with expand/collapse (same timing as .cm-modal-container) -->
     <div
@@ -107,7 +122,12 @@
     </div>
 
     <!-- White modal card -->
-    <div class="cm-modal-container" [class.cm-modal--expanded]="createMaterialModalExpanded" [class.cm-modal--ready]="createMaterialModalReady" (click)="$event.stopPropagation()">
+    <div
+      class="cm-modal-container"
+      [class.cm-modal--expanded]="createMaterialModalExpanded"
+      [class.cm-modal--ready]="createMaterialModalReady"
+      [class.cm-modal--closing]="createMaterialModalClosing"
+      (click)="$event.stopPropagation()">
       <div class="cm-modal-header" [class.cm-modal-header--hidden]="createMaterialModalExpanded">
         <button
           type="button"
@@ -219,13 +239,15 @@
   <!-- Desktop Schedule Class Modal (tutor) — same shell as expanded Create Material -->
   <div
     class="cm-modal-backdrop"
-    *ngIf="showScheduleClassView && !isMobile"
+    *ngIf="(showScheduleClassView || scheduleClassModalClosing) && !isMobile"
     [class.cm-modal-backdrop--visible]="scheduleClassBackdropVisible"
+    [class.cm-modal-backdrop--closing]="scheduleClassModalClosing"
     (click)="onScheduleClassModalBackdropClick($event)"
   >
     <div
       class="cm-modal-container cm-modal--expanded cm-modal-container--schedule-class"
       [class.cm-modal--ready]="scheduleClassModalReady"
+      [class.cm-modal--closing]="scheduleClassModalClosing"
       (click)="$event.stopPropagation()"
     >
       <div class="cm-modal-header cm-modal-header--hidden" aria-hidden="true"></div>
@@ -337,13 +359,15 @@
   <!-- Desktop Forum Modal — same shell as Schedule Class / expanded Create Material -->
   <div
     class="cm-modal-backdrop"
-    *ngIf="showForumView && !isMobile"
+    *ngIf="(showForumView || forumModalClosing) && !isMobile"
     [class.cm-modal-backdrop--visible]="forumBackdropVisible"
+    [class.cm-modal-backdrop--closing]="forumModalClosing"
     (click)="onForumModalBackdropClick($event)"
   >
     <div
       class="cm-modal-container cm-modal--expanded"
       [class.cm-modal--ready]="forumModalReady"
+      [class.cm-modal--closing]="forumModalClosing"
       (click)="$event.stopPropagation()"
     >
       <div class="cm-modal-header cm-modal-header--hidden" aria-hidden="true"></div>

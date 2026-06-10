@@ -146,7 +146,6 @@
     <div class="notification-dropdown-header">
       <div class="notification-header-left">
         <h3 class="notification-title">{{ 'NOTIFICATIONS.TITLE' | translate }}</h3>
-        <ion-icon name="settings-outline" class="notification-settings-icon"></ion-icon>
       </div>
       <button class="notification-close-btn" (click)="closeNotificationDropdown()">
         <ion-icon name="close"></ion-icon>
@@ -154,15 +153,15 @@
     </div>
     
     <div class="notification-dropdown-content">
-      <!-- Loading State -->
-      <div *ngIf="isLoadingNotifications" class="notification-loading">
-        <ion-spinner name="crescent"></ion-spinner>
-        <p>{{ 'NOTIFICATIONS.LOADING' | translate }}</p>
-      </div>
-
       <ng-container *ngIf="formattedNotifications$ | async as notifications">
+        <!-- Loading State — only when there is nothing cached to show yet -->
+        <div *ngIf="isLoadingNotifications && notifications.length === 0" class="notification-loading">
+          <ion-spinner name="crescent"></ion-spinner>
+          <p>{{ 'NOTIFICATIONS.LOADING' | translate }}</p>
+        </div>
+
         <!-- Unread Notifications -->
-        <div class="notification-section" *ngIf="!isLoadingNotifications && (notifications | notificationFilter:'unread').length > 0">
+        <div class="notification-section" *ngIf="(notifications | notificationFilter:'unread').length > 0">
           <div class="notification-item" 
                *ngFor="let notification of (notifications | notificationFilter:'unread'); trackBy: trackByNotificationId"
                [class.unread]="!notification.read"
@@ -229,7 +228,7 @@
         </div>
         
         <!-- Read notifications (no section label) -->
-        <div class="notification-section" *ngIf="!isLoadingNotifications">
+        <div class="notification-section">
           <div *ngIf="(notifications | notificationFilter:'read').length > 0">
             <div class="notification-item" 
                  *ngFor="let notification of (notifications | notificationFilter:'read'); trackBy: trackByNotificationId"

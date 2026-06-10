@@ -2495,6 +2495,13 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
     line-height: 1.2;
   }
 
+  html.ion-palette-dark & .withdrawal-available-badge,
+  .ion-palette-dark & .withdrawal-available-badge {
+    background: var(--wd-surface);
+    border-color: var(--wd-border-subtle);
+    color: var(--wd-text);
+  }
+
   .withdrawal-footer-meta {
     max-width: 880px;
     margin: 0 auto;

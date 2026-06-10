@@ -441,7 +441,7 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       if (user?.email && this.currentUser) {
         // Small delay to ensure currentUser is set in UserService
         setTimeout(() => {
-          this.loadNotifications();
+          this.loadNotifications(false);
           this.loadUnreadNotificationCount();
           // Preload conversations for instant dropdown display
           this.loadConversations();
@@ -457,12 +457,10 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       takeUntil(this.destroy$)
     ).subscribe((notificationData) => {
       console.log('🔔 Received new notification via WebSocket:', notificationData);
-      // Only reload if user is authenticated
       if (this.currentUser) {
-        // Reload notifications when a new one arrives
-        this.loadNotifications();
-        // Also update unread count immediately
+        this.notificationService.ingestRealtimeNotification(notificationData);
         this.loadUnreadNotificationCount();
+        this.loadNotifications(false);
       }
     });
     
@@ -812,32 +810,30 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     }, 100);
   }
 
-  loadNotifications() {
+  loadNotifications(showLoading = true) {
     // Only load if user is authenticated
     if (!this.currentUser) {
       console.warn('⚠️ Cannot load notifications: user not loaded yet');
       return;
     }
 
-    this.isLoadingNotifications = true;
+    const hasCached = this.notificationService.hasCachedNotifications();
+    this.isLoadingNotifications = showLoading && !hasCached;
     this.notificationService.getNotifications().pipe(
       takeUntil(this.destroy$)
     ).subscribe({
       next: (response) => {
         if (response.success) {
-          // Notifications are now automatically updated via the service's BehaviorSubject
           console.log('✅ Loaded', response.notifications.length, 'notifications');
         }
         this.isLoadingNotifications = false;
-        // Load unread count from API for accuracy (single source of truth)
         this.loadUnreadNotificationCount();
+        this.cdr.markForCheck();
       },
       error: (error) => {
         console.error('❌ Error loading notifications:', error);
-        console.error('❌ Error status:', error.status);
-        console.error('❌ Error message:', error.message);
-        console.error('❌ Error URL:', error.url);
         this.isLoadingNotifications = false;
+        this.cdr.markForCheck();
       }
     });
   }
@@ -849,7 +845,7 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     }
     this.isNotificationDropdownOpen = !this.isNotificationDropdownOpen;
     if (this.isNotificationDropdownOpen) {
-      this.loadNotifications();
+      this.loadNotifications(!this.notificationService.hasCachedNotifications());
       this.calculateDropdownPosition();
     }
   }
@@ -867,7 +863,7 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       this.closeNotificationDropdown();
     } else {
       this.isNotificationDropdownOpen = true;
-      this.loadNotifications();
+      this.loadNotifications(!this.notificationService.hasCachedNotifications());
       this.calculateDropdownPosition();
     }
   }
@@ -941,8 +937,8 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     this.isNotificationDropdownOpen = true;
     this.calculateDropdownPosition();
     
-    // Always reload notifications when dropdown opens (updates the observable)
-    this.loadNotifications();
+    // Show cached list immediately; refresh silently in the background.
+    this.loadNotifications(false);
   }
   
   navigateToNotifications() {
@@ -1137,6 +1133,11 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     if (!notification.read) {
       notification.read = true;
       notification.readAt = new Date();
+      this.notificationService.patchNotification({
+        _id: notification._id,
+        read: true,
+        readAt: notification.readAt,
+      });
       
       this.notificationService.markAsRead(notification._id).pipe(
         takeUntil(this.destroy$)
@@ -1206,7 +1207,7 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     if (data?.disputed) {
       // Reload notifications to reflect any changes
       console.log('✅ Dispute submitted, reloading notifications');
-      this.loadNotifications();
+      this.loadNotifications(!this.notificationService.hasCachedNotifications());
       this.loadUnreadNotificationCount();
     }
   }
