@@ -53,13 +53,24 @@ function originIsAllowed(origin, allowedOrigins) {
  * Public frontend origin for email images and links.
  * Email clients cannot load localhost URLs, so when FRONTEND_URL is local we fall back
  * to EMAIL_PUBLIC_FRONTEND_URL, FRONTEND_URL_DEV, or the Render dev frontend.
+ *
+ * On Render, FRONTEND_URL may point at a custom domain still being provisioned (e.g.
+ * app.barnabi.ai). Until EMAIL_PUBLIC_FRONTEND_URL is set to that domain, email links
+ * use FRONTEND_URL_DEV so "View lesson" opens the deployed static app.
  */
 function resolveEmailFrontendUrl() {
-  for (const key of ['EMAIL_PUBLIC_FRONTEND_URL', 'PUBLIC_APP_URL']) {
+  for (const key of ['EMAIL_PUBLIC_FRONTEND_URL']) {
     const origin = normalizeOrigin(process.env[key]?.split(',')[0]);
     if (origin && !isLocalhostOrigin(origin)) {
       return origin;
     }
+  }
+
+  const frontendDev = normalizeOrigin(process.env.FRONTEND_URL_DEV?.split(',')[0])
+    || DEFAULT_DEV_FRONTEND_URL;
+
+  if (process.env.RENDER === 'true' && !isLocalhostOrigin(frontendDev)) {
+    return frontendDev;
   }
 
   const configured = normalizeOrigin(process.env.FRONTEND_URL?.split(',')[0]);
@@ -67,8 +78,14 @@ function resolveEmailFrontendUrl() {
     return configured;
   }
 
-  return normalizeOrigin(process.env.FRONTEND_URL_DEV?.split(',')[0])
-    || DEFAULT_DEV_FRONTEND_URL;
+  for (const key of ['PUBLIC_APP_URL']) {
+    const origin = normalizeOrigin(process.env[key]?.split(',')[0]);
+    if (origin && !isLocalhostOrigin(origin)) {
+      return origin;
+    }
+  }
+
+  return frontendDev;
 }
 
 /**

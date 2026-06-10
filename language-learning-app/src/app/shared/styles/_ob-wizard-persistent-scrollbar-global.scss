@@ -1,4 +1,4 @@
-// Always-visible scrollbars for tutor approval wizard split steps.
+// Always-visible scrollbars for tutor approval wizard split steps and desktop notification dropdown.
 // Global CSS only — ::-webkit-scrollbar does not work under Angular emulated encapsulation.
 
 .ob-wizard-scroll-container {
@@ -40,7 +40,8 @@ app-tutor-onboarding .approval-split-guidance.ob-wizard-scroll-container {
 }
 
 html.ion-palette-dark {
-  app-tutor-onboarding .ob-wizard-scroll-container {
+  app-tutor-onboarding .ob-wizard-scroll-container,
+  .notification-dropdown .ob-wizard-scroll-container {
     &::-webkit-scrollbar-track {
       background: #3a3a3c;
     }

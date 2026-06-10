@@ -121,6 +121,8 @@ export interface Message {
       impression?: string;
       variation?: number;
       iconKey?: string;
+      studentId?: string;
+      lessonId?: string;
       [key: string]: unknown;
     };
     locale?: string;
@@ -130,6 +132,10 @@ export interface Message {
   impressionIconUrl?: string;
   impressionIconEmoji?: string;
   impressionLabel?: string;
+  systemShowLessonButton?: boolean;
+  systemShowProfileButton?: boolean;
+  systemLessonId?: string;
+  systemStudentId?: string;
 }
 
 export interface SharedMaterialCard {

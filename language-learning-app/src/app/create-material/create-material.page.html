@@ -128,7 +128,7 @@
   <ng-container *ngIf="!isLoadingMaterials">
 
     <!-- Sticky header -->
-    <div class="cm-library-sticky">
+    <div class="cm-library-sticky" *ngIf="!(showMaterialsList && myMaterials.length === 0) && !(showBundlesList && myBundles.length === 0)">
       <div class="cm-library-header">
         <div class="cm-library-header-copy">
           <h1>{{ (libraryTab === 'bundles' ? 'CREATE_MATERIAL.LIBRARY_TITLE_BUNDLES' : 'CREATE_MATERIAL.LIBRARY_TITLE') | translate }}</h1>
@@ -311,7 +311,7 @@
       </ng-container>
 
       <!-- ══════ Materials List (both mobile & desktop) ══════ -->
-      <div class="cm-library-panel" *ngIf="showMaterialsList">
+      <div class="cm-library-panel" *ngIf="showMaterialsList" [class.cm-library-panel--materials-empty]="myMaterials.length === 0">
 
         <!-- Post-publish banner (shown right after creating a new quiz) -->
         <div class="cm-publish-banner" *ngIf="justPublishedId">
@@ -344,7 +344,7 @@
           </div>
         </div>
 
-        <div class="cm-list-header">
+        <div class="cm-list-header" *ngIf="myMaterials.length > 0">
           <button class="cm-list-back" type="button" (click)="closeMaterialsListToGateway()">
             <ion-icon name="chevron-back-outline"></ion-icon>
             {{ 'CREATE_MATERIAL.LIBRARY_LIST_BACK' | translate }}
@@ -354,7 +354,7 @@
             {{ 'CREATE_MATERIAL.LIBRARY_NEW' | translate }}
           </button>
         </div>
-        <div class="cm-library-list">
+        <div class="cm-library-list" *ngIf="myMaterials.length > 0">
           <div class="cm-material-card" *ngFor="let m of myMaterials" [attr.data-material-id]="m._id" [class.archived]="m.status === 'archived'" [class.cm-material-card--highlight]="m._id === justPublishedId" [class.cm-material-card--draft]="m.status === 'draft'">
             <div class="cm-mc-thumb">
               <img *ngIf="m.thumbnailUrl" [src]="m.thumbnailUrl" [alt]="m.title" />
@@ -489,11 +489,42 @@
             </div>
           </div>
         </div>
+
+        <div class="cm-library-empty cm-library-empty--materials" *ngIf="myMaterials.length === 0">
+          <div class="cm-library-empty-stack">
+            <div class="cm-library-empty-hero-row">
+              <img class="cm-library-empty-hero-img" src="assets/materials-gateway.png" alt="" />
+              <h1>{{ 'CREATE_MATERIAL.MATERIALS_LIST_EMPTY_TITLE' | translate }}</h1>
+            </div>
+            <p class="cm-library-empty-lead">{{ 'CREATE_MATERIAL.MATERIALS_LIST_EMPTY_BODY' | translate }}</p>
+            <ul class="cm-library-empty-uses">
+              <li>
+                <ion-icon name="chatbubble-ellipses-outline"></ion-icon>
+                <span>{{ 'CREATE_MATERIAL.MATERIALS_LIST_EMPTY_USE_1' | translate }}</span>
+              </li>
+              <li>
+                <ion-icon name="calendar-outline"></ion-icon>
+                <span>{{ 'CREATE_MATERIAL.MATERIALS_LIST_EMPTY_USE_2' | translate }}</span>
+              </li>
+              <li>
+                <ion-icon name="layers-outline"></ion-icon>
+                <span>{{ 'CREATE_MATERIAL.MATERIALS_LIST_EMPTY_USE_3' | translate }}</span>
+              </li>
+            </ul>
+            <button type="button" class="cm-btn-primary cm-btn-empty-create" (click)="startCreate()">
+              <ion-icon name="add-outline"></ion-icon>
+              {{ 'CREATE_MATERIAL.CREATE_FIRST' | translate }}
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- ══════ Bundles List (both mobile & desktop) ══════ -->
-      <div class="cm-library-panel cm-library-panel--bundles" *ngIf="showBundlesList">
-        <div class="cm-list-header">
+      <div
+        class="cm-library-panel cm-library-panel--bundles"
+        *ngIf="showBundlesList"
+        [class.cm-library-panel--bundles-empty]="!isLoadingBundles && myBundles.length === 0">
+        <div class="cm-list-header" *ngIf="myBundles.length > 0">
           <button class="cm-list-back" type="button" (click)="closeBundlesListToGateway()">
             <ion-icon name="chevron-back-outline"></ion-icon>
             {{ 'CREATE_MATERIAL.LIBRARY_LIST_BACK' | translate }}
@@ -509,15 +540,31 @@
         </div>
 
         <div class="cm-library-empty cm-library-empty--bundles" *ngIf="!isLoadingBundles && myBundles.length === 0">
-          <div class="cm-empty-icon">
-            <ion-icon name="folder-outline"></ion-icon>
+          <div class="cm-library-empty-stack">
+            <div class="cm-library-empty-hero-row">
+              <img class="cm-library-empty-hero-img" src="assets/bundles-gateway.png" alt="" />
+              <h1>{{ 'CREATE_MATERIAL.BUNDLES_LIST_EMPTY_TITLE' | translate }}</h1>
+            </div>
+            <p class="cm-library-empty-lead">{{ 'CREATE_MATERIAL.BUNDLES_LIST_EMPTY_BODY' | translate }}</p>
+            <ul class="cm-library-empty-uses">
+              <li>
+                <ion-icon name="pricetag-outline"></ion-icon>
+                <span>{{ 'CREATE_MATERIAL.BUNDLES_LIST_EMPTY_USE_1' | translate }}</span>
+              </li>
+              <li>
+                <ion-icon name="list-outline"></ion-icon>
+                <span>{{ 'CREATE_MATERIAL.BUNDLES_LIST_EMPTY_USE_2' | translate }}</span>
+              </li>
+              <li>
+                <ion-icon name="people-outline"></ion-icon>
+                <span>{{ 'CREATE_MATERIAL.BUNDLES_LIST_EMPTY_USE_3' | translate }}</span>
+              </li>
+            </ul>
+            <button type="button" class="cm-btn-primary cm-btn-empty-create" (click)="startCreateBundle()">
+              <ion-icon name="add-outline"></ion-icon>
+              {{ 'CREATE_MATERIAL.BUNDLES_CREATE_FIRST' | translate }}
+            </button>
           </div>
-          <h3>{{ 'CREATE_MATERIAL.BUNDLES_LIST_EMPTY_TITLE' | translate }}</h3>
-          <p>{{ 'CREATE_MATERIAL.BUNDLES_LIST_EMPTY_DESC' | translate }}</p>
-          <button type="button" class="cm-btn-primary cm-btn-empty-create" (click)="startCreateBundle()">
-            <ion-icon name="add-outline"></ion-icon>
-            {{ 'CREATE_MATERIAL.LIBRARY_LIST_NEW_BUNDLE' | translate }}
-          </button>
         </div>
 
         <div class="cm-bundle-grid" *ngIf="!isLoadingBundles && myBundles.length > 0">
@@ -914,7 +961,7 @@
   </div>
 
   <!-- ═══════════ STEP 1: Material Type ═══════════ -->
-  <div class="cm-step cm-step--compact" *ngIf="currentStep === 'type' && !editingMaterialId">
+  <div class="cm-step cm-step--compact" *ngIf="currentStep === 'type' && !editingMaterialId" [@typeStepEnter]>
     <div class="cm-step-header cm-step-header--tight">
       <h1>{{ 'CREATE_MATERIAL.TYPE_TITLE' | translate }}</h1>
     </div>

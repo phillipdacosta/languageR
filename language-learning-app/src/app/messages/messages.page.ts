@@ -11,7 +11,7 @@ import { MessageContextMenuComponent } from './message-context-menu.component';
 import { TutorAvailabilityViewerComponent } from '../components/tutor-availability-viewer/tutor-availability-viewer.component';
 import { TutorAvailabilitySelectionModalComponent } from '../components/tutor-availability-selection-modal/tutor-availability-selection-modal.component';
 import { TranslateService } from '@ngx-translate/core';
-import { formatTimeInTz, formatDateInTz, getGlobalHour12, setGlobalTimeFormat } from '../shared/timezone.utils';
+import { formatTimeInTz, formatDateInTz, formatConversationTimestamp, getGlobalHour12, setGlobalTimeFormat } from '../shared/timezone.utils';
 import { Subject, BehaviorSubject, Subscription } from 'rxjs';
 import { takeUntil, debounceTime, take, switchMap, filter } from 'rxjs/operators';
 import { MessagePreviewService } from '../services/message-preview.service';
@@ -735,10 +735,10 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
         if ((c.groupName || '').toLowerCase().includes(q)) return true;
         // Group — match any participant's name
         if (c.participants?.some(p => p.name.toLowerCase().includes(q))) return true;
-        // Last message preview text (non-system messages only)
         const msgContent = c.lastMessage?.content || '';
         const isSystem = c.lastMessage?.isSystemMessage || c.lastMessage?.type === 'system';
-        if (!isSystem && msgContent.toLowerCase().includes(q)) return true;
+        if (isSystem && this.barnabiBrandName.toLowerCase().includes(q)) return true;
+        if (this.normalizeSearchText(msgContent).includes(q)) return true;
         return false;
       });
     }
@@ -882,6 +882,18 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
         impressionIconEmoji: this.impressionIconEmojiMap[iconKey] || '🎉',
         impressionLabel: this.buildImpressionLabel(impression)
       };
+    } else if (message.type === 'system' || message.isSystemMessage) {
+      const params = message.systemMessage?.params || {};
+      const template = message.systemMessage?.template || '';
+      const studentId = params.studentId ? String(params.studentId) : '';
+      const lessonId = params.lessonId ? String(params.lessonId) : '';
+      decorated = {
+        ...decorated,
+        systemStudentId: studentId,
+        systemLessonId: lessonId,
+        systemShowProfileButton: Boolean(studentId),
+        systemShowLessonButton: Boolean(lessonId) && template === 'trial_lesson_booked'
+      };
     }
 
     const materialShareLabel = this.getMaterialShareLabel(message);
@@ -901,6 +913,16 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
 
   private decorateMessages(messages: Message[]): Message[] {
     return (messages || []).map((message) => this.decorateMessage(message));
+  }
+
+  private normalizeSearchText(text: string): string {
+    return (text || '')
+      .replace(/<[^>]*>/g, ' ')
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+      .replace(/[*_~`#]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase();
   }
 
   private getMessagePreviewText(message: Message): string {
@@ -3411,6 +3433,15 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     return formatTimeInTz(date, this.userTz);
   }
 
+  formatConversationTime(timestamp: string): string {
+    return formatConversationTimestamp(
+      timestamp,
+      this.userTz,
+      this.userLocale,
+      { yesterday: this.translateService.instant('MESSAGES.YESTERDAY') }
+    );
+  }
+
   formatDate(timestamp: string): string {
     const date = new Date(timestamp);
     const today = new Date();
@@ -3456,7 +3487,6 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
   // Handle clicks on links within system messages
   handleSystemMessageClick(event: Event) {
     const target = event.target as HTMLElement;
-    console.log('System message clicked:', target.tagName, target);
     
     // Check if clicked element is an anchor or inside one
     let anchor = target.tagName === 'A' ? target : target.closest('a');
@@ -3465,14 +3495,29 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
       event.preventDefault();
       event.stopPropagation();
       const href = anchor.getAttribute('href');
-      console.log('Link clicked, href:', href);
       
       if (href && href.startsWith('/')) {
-        // Internal navigation
-        console.log('Navigating to:', href);
-        this.router.navigate([href]);
+        this.router.navigateByUrl(href);
       }
     }
+  }
+
+  navigateToSystemLesson(message: Message, event?: Event): void {
+    event?.stopPropagation();
+    const lessonId = message.systemLessonId;
+    if (!lessonId) {
+      return;
+    }
+    this.router.navigate(['/tabs/lessons', lessonId]);
+  }
+
+  navigateToSystemStudentProfile(message: Message, event?: Event): void {
+    event?.stopPropagation();
+    const studentId = message.systemStudentId;
+    if (!studentId) {
+      return;
+    }
+    this.router.navigate(['/student', studentId]);
   }
 
   // Check if a message was sent by the current user

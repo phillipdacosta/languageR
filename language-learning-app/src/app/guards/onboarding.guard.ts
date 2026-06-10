@@ -5,6 +5,7 @@ import { map, take, switchMap, catchError, filter } from 'rxjs/operators';
 import { AuthService } from '../services/auth.service';
 import { UserService } from '../services/user.service';
 import { LoadingService } from '../services/loading.service';
+import { persistReturnUrl } from '../shared/return-url.util';
 import { environment } from '../../environments/environment';
 
 @Injectable({
@@ -55,6 +56,7 @@ export class OnboardingGuard implements CanActivate {
           switchMap(([isAuthenticated, isLoading]) => {
             if (!isAuthenticated) {
               this.loadingService.hide();
+              persistReturnUrl(state.url);
               this.router.navigate(['/login']);
               observer.next(false);
               observer.complete();

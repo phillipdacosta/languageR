@@ -950,7 +950,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
           this.closeAllInlinePanelsExceptEarnings();
           this.showEarningsView = true;
           this.cdr.detectChanges();
-          this.ionContent?.scrollToTop(0);
+          this.scrollHomeContentToTop();
         }
       });
 
@@ -1804,7 +1804,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         this.closeAllInlinePanelsExceptEarnings();
         this.showEarningsView = true;
         this.cdr.detectChanges();
-        this.ionContent?.scrollToTop(0);
+        this.scrollHomeContentToTop();
       }
     }
 
@@ -2123,9 +2123,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       u.startsWith('/bundle/') ||
       u.includes('/tabs/home/bundle/');
     if (this.showCreateMaterialView && !toMaterial) {
-      this.showCreateMaterialView = false;
-      this.homeInlineToolbar.setMaterialsViewOpen(false);
-      this.cdr.detectChanges();
+      this.dismissCreateMaterialModal();
     }
     if (this.showExploreView && !toMaterial) {
       this.showExploreView = false;
@@ -10086,6 +10084,22 @@ navigateToLessons() {
     this.loadTutorEarnings();
   }
 
+  /** Reset home ion-content scroll synchronously so inline earnings chrome stays visible. */
+  private scrollHomeContentToTop(): void {
+    if (this._scrollElRef) {
+      this._scrollElRef.scrollTop = 0;
+      return;
+    }
+    void this.ionContent?.getScrollElement().then(el => {
+      if (!el) {
+        return;
+      }
+      this._scrollElRef = el;
+      el.scrollTop = 0;
+    });
+    this.ionContent?.scrollToTop(0);
+  }
+
   /** Re-open inline earnings on the Transactions (or other) tab after lesson detail back. */
   private restoreEarningsAfterLessonReturn(): void {
     const params = this.activatedRoute.snapshot.queryParamMap;
@@ -10096,7 +10110,10 @@ navigateToLessons() {
     this.closeAllInlinePanelsExceptEarnings();
     this.showEarningsView = true;
     this.cdr.detectChanges();
-    this.ionContent?.scrollToTop(0);
+    this.scrollHomeContentToTop();
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => this.scrollHomeContentToTop());
+    });
     void this.router.navigate([], {
       relativeTo: this.activatedRoute,
       queryParams: { openEarnings: null, earningsSection: null },
@@ -10107,8 +10124,7 @@ navigateToLessons() {
 
   private closeAllInlinePanelsExceptEarnings(): void {
     if (this.showCreateMaterialView) {
-      this.showCreateMaterialView = false;
-      this.homeInlineToolbar.setMaterialsViewOpen(false);
+      this.dismissCreateMaterialModal();
     }
     if (this.showExploreView) {
       this.showExploreView = false;
@@ -10146,6 +10162,10 @@ navigateToLessons() {
   }
 
   onCreateMaterialGoBack() {
+    this.dismissCreateMaterialModal();
+  }
+
+  private dismissCreateMaterialModal(): void {
     if (!this.isMobile && this.activatedRoute.firstChild) {
       this.router.navigate(['/tabs/home']);
     }
@@ -10287,11 +10307,14 @@ navigateToLessons() {
       viewMode?: string;
       showMaterialsList?: boolean;
       showBundlesList?: boolean;
+      myMaterials?: unknown[];
+      myBundles?: unknown[];
     } | undefined;
     const show =
       !!cm &&
       cm.viewMode === 'library' &&
-      (cm.showMaterialsList === true || cm.showBundlesList === true);
+      ((cm.showMaterialsList === true && (cm.myMaterials?.length ?? 0) > 0) ||
+        (cm.showBundlesList === true && (cm.myBundles?.length ?? 0) > 0));
     this.modalShowFooter = show;
   }
 
@@ -10420,22 +10443,17 @@ navigateToLessons() {
 
   onModalSidebarSwitch(tab: 'materials' | 'bundles') {
     this.modalSidebarTab = tab;
-    const cmRef = this.createMaterialRef as any;
-    if (cmRef?.switchLibraryTab) {
-      cmRef.switchLibraryTab(tab);
-    }
-    if (cmRef) {
-      cmRef.viewMode = 'library';
-      cmRef.showMaterialsList = false;
-      cmRef.showBundlesList = false;
-      if (tab === 'materials') {
-        cmRef.showMaterialsList = true;
-      } else {
-        cmRef.showBundlesList = true;
-        if (typeof cmRef.loadBundles === 'function') {
-          cmRef.loadBundles();
-        }
-      }
+    const cmRef = this.createMaterialRef as {
+      viewMode?: string;
+      openMaterialsList?: () => void;
+      openBundlesList?: () => void;
+    } | undefined;
+    if (!cmRef) return;
+    cmRef.viewMode = 'library';
+    if (tab === 'materials') {
+      cmRef.openMaterialsList?.();
+    } else {
+      cmRef.openBundlesList?.();
     }
     this.cdr.detectChanges();
     this.applyDesktopModalFooterVisibility();

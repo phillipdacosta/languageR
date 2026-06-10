@@ -225,7 +225,7 @@
                   <span class="conversation-pill conversation-pill--cancelled"
                         *ngIf="conversation.classCancelled">Cancelled</span>
                 </h3>
-                <span class="timestamp">{{ formatTime(conversation.lastMessage.createdAt) }}</span>
+                <span class="timestamp">{{ formatConversationTime(conversation.lastMessage.createdAt) }}</span>
               </div>
               <div class="conversation-preview-row">
                 <p class="preview-text" 
@@ -239,11 +239,11 @@
                   <span *ngIf="conversation.lastMessage.type !== 'reaction' && conversation.lastMessage.senderId === getCurrentUserId()">{{ 'MESSAGES.YOU' | translate }}: </span>
                   <!-- Shared material preview (when no accompanying note) -->
                   <span *ngIf="conversation.lastMessage.type === 'material' && !conversation.lastMessage.content">{{ 'CREATE_MATERIAL.SHARE_MODAL_PREVIEW' | translate }}</span>
-                  <!-- Regular message content -->
+                  <!-- Regular and system message content -->
                   <span *ngIf="conversation.lastMessage.type !== 'reaction' && conversation.lastMessage.type !== 'system' && !conversation.lastMessage.isSystemMessage && !(conversation.lastMessage.type === 'material' && !conversation.lastMessage.content)"
                         [innerHTML]="conversation.lastMessage.content | highlight:searchTerm"></span>
-                  <!-- System messages with HTML (no highlight to avoid breaking markup) -->
-                  <span *ngIf="conversation.lastMessage.type !== 'reaction' && (conversation.lastMessage.type === 'system' || conversation.lastMessage.isSystemMessage)" [innerHTML]="conversation.lastMessage.content"></span>
+                  <span *ngIf="conversation.lastMessage.type !== 'reaction' && (conversation.lastMessage.type === 'system' || conversation.lastMessage.isSystemMessage)"
+                        [innerHTML]="conversation.lastMessage.content | highlight:searchTerm"></span>
                 </p>
                 <ion-badge *ngIf="conversation.unreadCount > 0" color="primary" class="unread-badge">
                   {{ conversation.unreadCount }}
@@ -466,26 +466,35 @@
               </div>
             </div>
 
-            <!-- System Message -->
-            <div *ngIf="(message.type === 'system' || message.isSystemMessage) && !message.isImpressionCelebration" class="system-message-row">
-              <article class="system-message-card" (click)="handleSystemMessageClick($event)">
-                <div class="system-message-card__top">
-                  <div class="system-message-card__avatar-wrap">
-                    <img src="assets/mascot-toolbar.png" alt="Barnabi" class="system-message-card__avatar barnabi-mascot-for-light-ui" />
-                    <img src="assets/mascot-toolbar-dark.png" alt="" class="system-message-card__avatar barnabi-mascot-for-dark-ui" aria-hidden="true" />
-                  </div>
-                  <div class="system-message-card__intro">
-                    <div class="system-message-card__badge">
-                      <span class="system-message-card__badge-dot"></span>
-                      <span>{{ 'LOGIN.BRAND_NAME' | translate }}</span>
-                    </div>
-                    <div class="system-message-card__text" [innerHTML]="message.content | markdownLink"></div>
+            <!-- System Message (iOS bubble) -->
+            <div *ngIf="(message.type === 'system' || message.isSystemMessage) && !message.isImpressionCelebration"
+                 class="message-wrapper message-wrapper--barnabi message-wrapper--system received">
+              <img class="msg-avatar msg-avatar--barnabi barnabi-mascot-for-light-ui" src="assets/mascot-toolbar.png" alt="Barnabi" />
+              <img class="msg-avatar msg-avatar--barnabi barnabi-mascot-for-dark-ui" src="assets/mascot-toolbar-dark.png" alt="" aria-hidden="true" />
+              <div class="msg-body">
+                <div class="msg-header">
+                  <span class="msg-sender-name">{{ barnabiBrandName }}</span>
+                  <span class="msg-header-time">{{ formatTime(message.createdAt) }}</span>
+                </div>
+                <div class="message-bubble received system-message-bubble" (click)="handleSystemMessageClick($event)">
+                  <div class="system-message-bubble__text" [innerHTML]="message.content | markdownLink"></div>
+                  <div class="system-message-bubble__actions"
+                       *ngIf="message.systemShowLessonButton || message.systemShowProfileButton">
+                    <button type="button"
+                            class="system-message-bubble__btn"
+                            *ngIf="message.systemShowLessonButton"
+                            (click)="navigateToSystemLesson(message, $event)">
+                      {{ 'MESSAGES.VIEW_LESSON' | translate }}
+                    </button>
+                    <button type="button"
+                            class="system-message-bubble__btn"
+                            *ngIf="message.systemShowProfileButton"
+                            (click)="navigateToSystemStudentProfile(message, $event)">
+                      {{ 'MESSAGES.VIEW_STUDENT_PROFILE' | translate }}
+                    </button>
                   </div>
                 </div>
-                <footer class="system-message-card__footer">
-                  <time class="system-message-card__time">{{ message.createdAt | date: 'MMM d, y \'at\' h:mm a' }}</time>
-                </footer>
-              </article>
+              </div>
             </div>
 
               <!-- Regular Message Bubble -->
@@ -965,27 +974,28 @@
             <div class="conversation-info">
               <div class="conversation-header-row">
                 <h3>
-                  {{ conversation.otherUser?.name || 'Unknown User' }}
+                  <span [innerHTML]="(conversation.otherUser?.name || 'Unknown User') | highlight:searchTerm"></span>
                   <span class="conversation-pill conversation-pill--cancelled"
                         *ngIf="conversation.classCancelled">Cancelled</span>
                 </h3>
-                <span class="timestamp">{{ formatTime(conversation.lastMessage.createdAt) }}</span>
+                <span class="timestamp">{{ formatConversationTime(conversation.lastMessage.createdAt) }}</span>
               </div>
               <div class="conversation-preview-row">
                 <p class="preview-text">
                   <!-- For reactions, show the person's name who reacted -->
-                  <span *ngIf="conversation.lastMessage.type === 'reaction' && conversation.lastMessage.senderId !== getCurrentUserId()">
-                    {{ conversation.otherUser?.name }}: {{ conversation.lastMessage.content }}
-                  </span>
+                  <span *ngIf="conversation.lastMessage.type === 'reaction' && conversation.lastMessage.senderId !== getCurrentUserId()"
+                        [innerHTML]="((conversation.otherUser?.name || '') + ': ' + conversation.lastMessage.content) | highlight:searchTerm"></span>
                   <span *ngIf="conversation.lastMessage.type === 'reaction' && conversation.lastMessage.senderId === getCurrentUserId()">
-                    {{ 'MESSAGES.YOU' | translate }}: {{ conversation.lastMessage.content }}
+                    {{ 'MESSAGES.YOU' | translate }}: <span [innerHTML]="conversation.lastMessage.content | highlight:searchTerm"></span>
                   </span>
+                  <span *ngIf="conversation.lastMessage.type !== 'reaction' && conversation.lastMessage.senderId === getCurrentUserId()">{{ 'MESSAGES.YOU' | translate }}: </span>
                   <!-- Shared material preview (when no accompanying note) -->
                   <span *ngIf="conversation.lastMessage.type === 'material' && !conversation.lastMessage.content">{{ 'CREATE_MATERIAL.SHARE_MODAL_PREVIEW' | translate }}</span>
-                  <!-- Regular message content -->
-                  <span *ngIf="conversation.lastMessage.type !== 'reaction' && conversation.lastMessage.type !== 'system' && !conversation.lastMessage.isSystemMessage && !(conversation.lastMessage.type === 'material' && !conversation.lastMessage.content)">{{ conversation.lastMessage.content }}</span>
-                  <!-- System messages with HTML -->
-                  <span *ngIf="conversation.lastMessage.type !== 'reaction' && (conversation.lastMessage.type === 'system' || conversation.lastMessage.isSystemMessage)" [innerHTML]="conversation.lastMessage.content"></span>
+                  <!-- Regular and system message content -->
+                  <span *ngIf="conversation.lastMessage.type !== 'reaction' && conversation.lastMessage.type !== 'system' && !conversation.lastMessage.isSystemMessage && !(conversation.lastMessage.type === 'material' && !conversation.lastMessage.content)"
+                        [innerHTML]="conversation.lastMessage.content | highlight:searchTerm"></span>
+                  <span *ngIf="conversation.lastMessage.type !== 'reaction' && (conversation.lastMessage.type === 'system' || conversation.lastMessage.isSystemMessage)"
+                        [innerHTML]="conversation.lastMessage.content | highlight:searchTerm"></span>
                 </p>
                 <ion-badge *ngIf="conversation.unreadCount > 0" color="primary" class="unread-badge">
                   {{ conversation.unreadCount }}
@@ -1153,25 +1163,34 @@
             </div>
 
             <!-- System Message (Mobile) -->
-            <div *ngIf="(message.type === 'system' || message.isSystemMessage) && !message.isImpressionCelebration" class="system-message-row">
-              <article class="system-message-card" (click)="handleSystemMessageClick($event)">
-                <div class="system-message-card__top">
-                  <div class="system-message-card__avatar-wrap">
-                    <img src="assets/mascot-toolbar.png" alt="Barnabi" class="system-message-card__avatar barnabi-mascot-for-light-ui" />
-                    <img src="assets/mascot-toolbar-dark.png" alt="" class="system-message-card__avatar barnabi-mascot-for-dark-ui" aria-hidden="true" />
-                  </div>
-                  <div class="system-message-card__intro">
-                    <div class="system-message-card__badge">
-                      <span class="system-message-card__badge-dot"></span>
-                      <span>{{ 'LOGIN.BRAND_NAME' | translate }}</span>
-                    </div>
-                    <div class="system-message-card__text" [innerHTML]="message.content | markdownLink"></div>
+            <div *ngIf="(message.type === 'system' || message.isSystemMessage) && !message.isImpressionCelebration"
+                 class="message-wrapper message-wrapper--barnabi message-wrapper--system received">
+              <img class="msg-avatar msg-avatar--barnabi barnabi-mascot-for-light-ui" src="assets/mascot-toolbar.png" alt="Barnabi" />
+              <img class="msg-avatar msg-avatar--barnabi barnabi-mascot-for-dark-ui" src="assets/mascot-toolbar-dark.png" alt="" aria-hidden="true" />
+              <div class="msg-body">
+                <div class="msg-header">
+                  <span class="msg-sender-name">{{ barnabiBrandName }}</span>
+                  <span class="msg-header-time">{{ formatTime(message.createdAt) }}</span>
+                </div>
+                <div class="message-bubble received system-message-bubble" (click)="handleSystemMessageClick($event)">
+                  <div class="system-message-bubble__text" [innerHTML]="message.content | markdownLink"></div>
+                  <div class="system-message-bubble__actions"
+                       *ngIf="message.systemShowLessonButton || message.systemShowProfileButton">
+                    <button type="button"
+                            class="system-message-bubble__btn"
+                            *ngIf="message.systemShowLessonButton"
+                            (click)="navigateToSystemLesson(message, $event)">
+                      {{ 'MESSAGES.VIEW_LESSON' | translate }}
+                    </button>
+                    <button type="button"
+                            class="system-message-bubble__btn"
+                            *ngIf="message.systemShowProfileButton"
+                            (click)="navigateToSystemStudentProfile(message, $event)">
+                      {{ 'MESSAGES.VIEW_STUDENT_PROFILE' | translate }}
+                    </button>
                   </div>
                 </div>
-                <footer class="system-message-card__footer">
-                  <time class="system-message-card__time">{{ message.createdAt | date: 'MMM d, y \'at\' h:mm a' }}</time>
-                </footer>
-              </article>
+              </div>
             </div>
 
               <!-- Regular Message Bubble (Mobile) -->

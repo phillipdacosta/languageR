@@ -491,15 +491,27 @@ ion-content {
   position: relative;
   z-index: 1;
   isolation: isolate;
-  padding: 20px 16px;
+  padding: 20px 16px 12px;
   max-width: 1200px;
   margin: 0 auto;
   @media (max-width: 600px) {
-    padding: 20px 20px 32px;
+    padding: 20px 20px 16px;
     display: flex;
     flex-direction: column;
     gap: 10px;
     background: transparent;
+  }
+
+  > app-site-footer {
+    display: block;
+  }
+}
+
+:host ::ng-deep .content-wrapper > app-site-footer .site-footer {
+  margin-top: 20px;
+
+  @media (max-width: 768px) {
+    margin-top: 16px;
   }
 }
 
@@ -536,6 +548,15 @@ ion-content {
   z-index: 1;
   min-height: 100%;
   background: #ffffff;
+  display: flex;
+  flex-direction: column;
+
+  app-earnings {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
 
   @media (min-width: 769px) {
     padding: 87px 80px 40px;
@@ -728,6 +749,10 @@ ion-content {
     height: 100% !important;
     max-height: none !important;
     padding: 0 32px 40px !important;
+  }
+
+  ::ng-deep .cm-library:has(.cm-library-panel--materials-empty) {
+    min-height: 100%;
   }
 
   ::ng-deep .cm-list-header {
@@ -9153,7 +9178,7 @@ img.m-card-empty-link-arrow-img {
     "actions actions";
   gap: 24px;
   align-items: stretch;
-  margin-bottom: 28px;
+  margin-bottom: 12px;
 
   &.tutor-dashboard-grid--with-this-week {
     grid-template-rows: auto auto auto;
@@ -9736,9 +9761,11 @@ img.m-card-empty-link-arrow-img {
   animation: fadeInUp 0.4s ease both;
 
   .actions-grid {
-    flex: 1 1 auto;
+    flex: 0 0 auto;
     min-height: 0;
+    height: auto;
     grid-template-columns: repeat(4, 1fr);
+    grid-template-rows: auto;
   }
 
   &.grid-cell-actions--student .actions-grid {

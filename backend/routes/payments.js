@@ -626,7 +626,11 @@ router.post('/book-lesson-with-payment', verifyToken, async (req, res) => {
             template: 'trial_lesson_booked',
             student: { _id: student._id, displayName: studentDisplayName },
             tutor,
-            lesson: { startTime: lessonDate, duration: populatedLesson.duration },
+            lesson: {
+            _id: populatedLesson._id,
+            startTime: lessonDate,
+            duration: populatedLesson.duration
+          },
             plan: studentPlan,
             triggerType: 'book_lesson'
           });

@@ -19,6 +19,8 @@ services:
         sync: false
       - key: FRONTEND_URL_DEV
         value: https://languager-frontend.onrender.com
+      - key: EMAIL_PUBLIC_FRONTEND_URL
+        sync: false
       - key: AUTH0_DOMAIN
         sync: false
       - key: AUTH0_AUDIENCE

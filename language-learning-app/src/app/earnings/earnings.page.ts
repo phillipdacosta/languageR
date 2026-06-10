@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy, Input, Output, EventEmitter, ViewChild, ElementRef, AfterViewInit, CUSTOM_ELEMENTS_SCHEMA, ChangeDetectorRef } from '@angular/core';
 import '@dotlottie/player-component';
 import { CommonModule, Location } from '@angular/common';
-import { IonicModule, AlertController, ToastController, ModalController, NavController, ViewWillEnter, InfiniteScrollCustomEvent } from '@ionic/angular';
+import { IonicModule, AlertController, ToastController, ModalController, NavController, ViewWillEnter, ViewDidEnter, InfiniteScrollCustomEvent, IonContent } from '@ionic/angular';
 import { Router, RouterModule, ActivatedRoute } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { UserService } from '../services/user.service';
@@ -88,7 +88,7 @@ interface WithdrawalHistory {
   imports: [CommonModule, IonicModule, RouterModule, FormsModule, TranslateModule],
   schemas: [CUSTOM_ELEMENTS_SCHEMA]
 })
-export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillEnter {
+export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillEnter, ViewDidEnter {
   /** Restores transactions/details/transfers tab when returning from lesson detail. */
   static pendingReturnSection: 'details' | 'transfers' | 'transactions' | null = null;
 
@@ -110,6 +110,8 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
   // Earnings chart
   @ViewChild('earningsChartCanvas') earningsChartCanvas!: ElementRef<HTMLCanvasElement>;
   @ViewChild('withdrawalAmountInput') withdrawalAmountInput?: ElementRef<HTMLInputElement>;
+  @ViewChild(IonContent) routedContent?: IonContent;
+  private _routedScrollEl: HTMLElement | null = null;
   private earningsChart: Chart | null = null;
   chartPeriod: '1m' | '6m' | 'all' = '1m';
   chartPeriodLabel: string = '';
@@ -343,7 +345,21 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
    * Ionic lifecycle hook - called every time the page is about to enter
    * This ensures data is refreshed when navigating back to the page
    */
+  ionViewDidEnter(): void {
+    if (this.inline) {
+      return;
+    }
+    void this.routedContent?.getScrollElement().then((el: HTMLElement | null) => {
+      this._routedScrollEl = el || null;
+      this.scrollRoutedContentToTop();
+    });
+  }
+
   async ionViewWillEnter() {
+    if (!this.inline) {
+      this.scrollRoutedContentToTop();
+    }
+
     if (!this._hasInitiallyLoaded) return;
 
     this.applyPendingReturnSection();
@@ -589,6 +605,22 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
     } else {
       this.navCtrl.back();
     }
+  }
+
+  /** Routed earnings: reset scroll so sidebar/panel titles are not clipped above the viewport. */
+  private scrollRoutedContentToTop(): void {
+    if (this._routedScrollEl) {
+      this._routedScrollEl.scrollTop = 0;
+      return;
+    }
+    void this.routedContent?.getScrollElement().then((el: HTMLElement | null) => {
+      if (!el) {
+        return;
+      }
+      this._routedScrollEl = el;
+      el.scrollTop = 0;
+    });
+    this.routedContent?.scrollToTop(0);
   }
 
   viewLesson(lessonId: string) {

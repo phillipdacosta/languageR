@@ -132,6 +132,12 @@
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .cm-modal-container {
+    animation: none !important;
+  }
+}
+
 html.ion-palette-dark {
   .cm-modal-container {
     background: #1c1c1e;

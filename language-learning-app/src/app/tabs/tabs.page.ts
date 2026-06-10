@@ -15,6 +15,7 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { PaymentDisputeModalComponent } from '../components/payment-dispute-modal/payment-dispute-modal.component';
 import { HomeInlineToolbarService } from '../services/home-inline-toolbar.service';
 import { getNotificationNavigationTarget } from '../shared/notification-navigation.util';
+import { formatConversationTimestamp } from '../shared/timezone.utils';
 
 // 🚀 PERFORMANCE FIX: Type for formatted notifications with cached values
 interface FormattedNotification extends Notification {
@@ -62,6 +63,8 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
   formattedNotifications$!: Observable<FormattedNotification[]>;
   // Notification dropdown state
   isNotificationDropdownOpen = false;
+  showUnreadOnlyInDropdown = false;
+  private readonly notificationDropdownUnreadOnlyKey = 'notificationDropdownUnreadOnly';
   private notificationHoverTimer: ReturnType<typeof setTimeout> | null = null;
   private notificationCloseTimer: ReturnType<typeof setTimeout> | null = null;
   private isHoveringNotificationDropdown = false;
@@ -242,6 +245,8 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
   private resizeListener: any;
 
   ngOnInit() {
+    this.loadNotificationDropdownUnreadFilter();
+
     // Get platform information
     this.currentPlatform = this.platformService.getPlatform();
     this.platformConfig = this.platformService.getPlatformConfig();
@@ -440,7 +445,7 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       if (user?.email && this.currentUser) {
         // Small delay to ensure currentUser is set in UserService
         setTimeout(() => {
-          this.loadNotifications();
+          this.loadNotifications(false);
           this.loadUnreadNotificationCount();
           // Preload conversations for instant dropdown display
           this.loadConversations();
@@ -456,12 +461,10 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       takeUntil(this.destroy$)
     ).subscribe((notificationData) => {
       console.log('🔔 Received new notification via WebSocket:', notificationData);
-      // Only reload if user is authenticated
       if (this.currentUser) {
-        // Reload notifications when a new one arrives
-        this.loadNotifications();
-        // Also update unread count immediately
+        this.notificationService.ingestRealtimeNotification(notificationData);
         this.loadUnreadNotificationCount();
+        this.loadNotifications(false);
       }
     });
     
@@ -811,32 +814,30 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     }, 100);
   }
 
-  loadNotifications() {
+  loadNotifications(showLoading = true) {
     // Only load if user is authenticated
     if (!this.currentUser) {
       console.warn('⚠️ Cannot load notifications: user not loaded yet');
       return;
     }
 
-    this.isLoadingNotifications = true;
+    const hasCached = this.notificationService.hasCachedNotifications();
+    this.isLoadingNotifications = showLoading && !hasCached;
     this.notificationService.getNotifications().pipe(
       takeUntil(this.destroy$)
     ).subscribe({
       next: (response) => {
         if (response.success) {
-          // Notifications are now automatically updated via the service's BehaviorSubject
           console.log('✅ Loaded', response.notifications.length, 'notifications');
         }
         this.isLoadingNotifications = false;
-        // Load unread count from API for accuracy (single source of truth)
         this.loadUnreadNotificationCount();
+        this.cdr.markForCheck();
       },
       error: (error) => {
         console.error('❌ Error loading notifications:', error);
-        console.error('❌ Error status:', error.status);
-        console.error('❌ Error message:', error.message);
-        console.error('❌ Error URL:', error.url);
         this.isLoadingNotifications = false;
+        this.cdr.markForCheck();
       }
     });
   }
@@ -848,7 +849,7 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     }
     this.isNotificationDropdownOpen = !this.isNotificationDropdownOpen;
     if (this.isNotificationDropdownOpen) {
-      this.loadNotifications();
+      this.loadNotifications(!this.notificationService.hasCachedNotifications());
       this.calculateDropdownPosition();
     }
   }
@@ -866,7 +867,7 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       this.closeNotificationDropdown();
     } else {
       this.isNotificationDropdownOpen = true;
-      this.loadNotifications();
+      this.loadNotifications(!this.notificationService.hasCachedNotifications());
       this.calculateDropdownPosition();
     }
   }
@@ -940,8 +941,8 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     this.isNotificationDropdownOpen = true;
     this.calculateDropdownPosition();
     
-    // Always reload notifications when dropdown opens (updates the observable)
-    this.loadNotifications();
+    // Show cached list immediately; refresh silently in the background.
+    this.loadNotifications(false);
   }
   
   navigateToNotifications() {
@@ -1136,6 +1137,11 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     if (!notification.read) {
       notification.read = true;
       notification.readAt = new Date();
+      this.notificationService.patchNotification({
+        _id: notification._id,
+        read: true,
+        readAt: notification.readAt,
+      });
       
       this.notificationService.markAsRead(notification._id).pipe(
         takeUntil(this.destroy$)
@@ -1164,6 +1170,12 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
 
+    if (target.kind === 'earnings') {
+      this.closeNotificationDropdown();
+      this.onToolbarEarningsTap();
+      return;
+    }
+
     this.router.navigate(target.commands, {
       queryParams: target.queryParams,
     });
@@ -1177,6 +1189,29 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       clearTimeout(this.notificationHoverTimer);
       this.notificationHoverTimer = null;
     }
+  }
+
+  private loadNotificationDropdownUnreadFilter(): void {
+    try {
+      this.showUnreadOnlyInDropdown = localStorage.getItem(this.notificationDropdownUnreadOnlyKey) === 'true';
+    } catch {
+      this.showUnreadOnlyInDropdown = false;
+    }
+  }
+
+  private saveNotificationDropdownUnreadFilter(): void {
+    try {
+      localStorage.setItem(this.notificationDropdownUnreadOnlyKey, String(this.showUnreadOnlyInDropdown));
+    } catch {
+      // Ignore storage failures (private mode, quota, etc.)
+    }
+  }
+
+  onNotificationUnreadToggleChange(event: CustomEvent): void {
+    event.stopPropagation();
+    this.showUnreadOnlyInDropdown = !!event.detail.checked;
+    this.saveNotificationDropdownUnreadFilter();
+    this.cdr.markForCheck();
   }
 
   async openDisputeModal(notification: Notification, event: Event) {
@@ -1199,7 +1234,7 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     if (data?.disputed) {
       // Reload notifications to reflect any changes
       console.log('✅ Dispute submitted, reloading notifications');
-      this.loadNotifications();
+      this.loadNotifications(!this.notificationService.hasCachedNotifications());
       this.loadUnreadNotificationCount();
     }
   }
@@ -1705,18 +1740,11 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
   }
 
   formatConversationTime(dateString: string): string {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-    
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return formatConversationTimestamp(
+      dateString,
+      this.currentUser?.['profile']?.timezone,
+      this.translateService.currentLang || this.translateService.defaultLang || 'en',
+      { yesterday: this.translateService.instant('MESSAGES.YESTERDAY') }
+    );
   }
 }

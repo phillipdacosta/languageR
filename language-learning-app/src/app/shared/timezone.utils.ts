@@ -323,4 +323,69 @@ export function isSameDayInTimezone(date1: Date, date2: Date, timezone: string):
   }
 }
 
+export interface ConversationTimestampLabels {
+  yesterday?: string;
+}
+
+/** Calendar-day difference: `later` minus `earlier` in the given timezone. */
+export function daysBetweenInTimezone(earlier: Date, later: Date, timezone?: string): number {
+  const e = getYmdPartsInTz(earlier, timezone);
+  const l = getYmdPartsInTz(later, timezone);
+  const earlierUtc = Date.UTC(e.year, e.month, e.day);
+  const laterUtc = Date.UTC(l.year, l.month, l.day);
+  return Math.round((laterUtc - earlierUtc) / 86400000);
+}
+
+function getYmdPartsInTz(date: Date, timezone?: string): { year: number; month: number; day: number } {
+  if (!timezone) {
+    return { year: date.getFullYear(), month: date.getMonth(), day: date.getDate() };
+  }
+  const zoned = toZonedTime(date, timezone);
+  return { year: zoned.getFullYear(), month: zoned.getMonth(), day: zoned.getDate() };
+}
+
+/**
+ * Conversation-list timestamp (iMessage-style):
+ * - Today → time only
+ * - Yesterday → localized label
+ * - Within the past week → weekday
+ * - Same year → short date (e.g. Jun 3)
+ * - Older → short date with year
+ */
+export function formatConversationTimestamp(
+  date: Date | string,
+  timezone?: string,
+  locale?: string,
+  labels?: ConversationTimestampLabels,
+  hour12?: boolean
+): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  if (isNaN(d.getTime())) {
+    return '';
+  }
+
+  const now = new Date();
+  const tz = timezone;
+  const daysAgo = daysBetweenInTimezone(d, now, tz);
+
+  if (daysAgo <= 0) {
+    return formatTimeInTz(d, tz, locale, hour12);
+  }
+
+  if (daysAgo === 1 && labels?.yesterday) {
+    return labels.yesterday;
+  }
+
+  if (daysAgo < 7) {
+    return formatDateInTz(d, tz, { weekday: 'short' }, locale);
+  }
+
+  const messageYear = getYmdPartsInTz(d, tz).year;
+  const currentYear = getYmdPartsInTz(now, tz).year;
+  if (messageYear === currentYear) {
+    return formatDateInTz(d, tz, { month: 'short', day: 'numeric' }, locale);
+  }
+
+  return formatDateInTz(d, tz, { month: 'short', day: 'numeric', year: 'numeric' }, locale);
+}
 
