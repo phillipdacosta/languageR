@@ -56,7 +56,17 @@
           </div>
 
           <div class="approval-split-guidance-list">
-            <div class="approval-guidance-item" *ngIf="studentAiEnabled">
+            <div class="approval-guidance-item" *ngIf="isTrialMode">
+              <div class="approval-guidance-item__icon-wrap approval-guidance-item__icon-wrap--light">
+                <ion-icon name="map-outline" aria-hidden="true"></ion-icon>
+              </div>
+              <div class="approval-guidance-item__text">
+                <h4>{{ 'POST_LESSON.TUTOR.TRIAL_GUIDANCE_TITLE' | translate:{ name: studentDisplayName } }}</h4>
+                <p>{{ 'POST_LESSON.TUTOR.TRIAL_GUIDANCE_DESC' | translate }}</p>
+              </div>
+            </div>
+
+            <div class="approval-guidance-item" *ngIf="studentAiEnabled && !isTrialMode">
               <div class="approval-guidance-item__icon-wrap approval-guidance-item__icon-wrap--light">
                 <ion-icon name="sparkles-outline" aria-hidden="true"></ion-icon>
               </div>
@@ -114,8 +124,10 @@
         <div class="plt-actions approval-split-main approval-split-main--scroll">
           <div class="plt-actions-scroll" #actionsScroll>
             <div class="plt-form-header">
-              <h2 class="plt-form-title">{{ 'POST_LESSON.TUTOR.LEAVE_NOTE' | translate }}</h2>
+              <h2 class="plt-form-title" *ngIf="!isTrialMode">{{ 'POST_LESSON.TUTOR.LEAVE_NOTE' | translate }}</h2>
+              <h2 class="plt-form-title" *ngIf="isTrialMode">{{ 'POST_LESSON.TUTOR.TRIAL_FORM_TITLE' | translate }}</h2>
               <span class="plt-assessment-badge" *ngIf="!studentAiEnabled">{{ 'POST_LESSON.TUTOR.ASSESSMENT_REQUIRED' | translate }}</span>
+              <span class="plt-assessment-badge" *ngIf="isTrialMode">{{ 'POST_LESSON.TUTOR.TRIAL_BADGE' | translate }}</span>
             </div>
 
             <div class="plt-impressions">
@@ -130,8 +142,8 @@
               </button>
             </div>
 
-            <!-- Enhanced assessment (AI off) -->
-            <div class="plt-assessment-form" *ngIf="!studentAiEnabled">
+            <!-- Enhanced assessment (AI off) or trial mini-assessment -->
+            <div class="plt-assessment-form" *ngIf="!studentAiEnabled || isTrialMode">
               <div class="plt-form-group">
                 <label>{{ 'VIDEO_CALL.CEFR_LEVEL' | translate }} <span class="plt-req">*</span></label>
                 <div class="plt-cefr-chips">
@@ -146,7 +158,7 @@
                 </div>
               </div>
 
-              <div class="plt-ratings-grid">
+              <div class="plt-ratings-grid" *ngIf="!isTrialMode">
                 <div class="plt-form-group">
                   <label>{{ 'VIDEO_CALL.GRAMMAR' | translate }} <span class="plt-req">*</span></label>
                   <div class="plt-dots-row">
@@ -171,7 +183,7 @@
                 </div>
               </div>
 
-              <div class="plt-form-group">
+              <div class="plt-form-group" *ngIf="!isTrialMode">
                 <label>{{ 'POST_LESSON.TUTOR.KEY_ERROR_AREAS' | translate }} <span class="plt-opt">{{ 'POST_LESSON.TUTOR.OPTIONAL' | translate }}</span></label>
                 <div class="plt-tag-wrap">
                   <button type="button"
@@ -184,7 +196,7 @@
                 </div>
               </div>
 
-              <div class="plt-form-group">
+              <div class="plt-form-group" *ngIf="!isTrialMode">
                 <label>{{ 'VIDEO_CALL.STRENGTHS' | translate }} <span class="plt-req">*</span></label>
                 <div class="plt-tag-wrap">
                   <button type="button"
@@ -198,7 +210,8 @@
               </div>
 
               <div class="plt-form-group">
-                <label>{{ 'VIDEO_CALL.AREAS_IMPROVE' | translate }} <span class="plt-req">*</span></label>
+                <label *ngIf="!isTrialMode">{{ 'VIDEO_CALL.AREAS_IMPROVE' | translate }} <span class="plt-req">*</span></label>
+                <label *ngIf="isTrialMode">{{ 'POST_LESSON.TUTOR.TRIAL_START_WITH' | translate }} <span class="plt-req">*</span></label>
                 <div class="plt-tag-wrap">
                   <button type="button"
                     *ngFor="let a of improvementOptions"
@@ -213,7 +226,11 @@
 
             <div class="plt-textarea-grid">
               <div class="plt-form-group">
-                <label>{{ 'POST_LESSON.TUTOR.YOUR_NOTE' | translate }} <span class="plt-req">*</span></label>
+                <label>
+                  {{ 'POST_LESSON.TUTOR.YOUR_NOTE' | translate }}
+                  <span class="plt-req" *ngIf="!isTrialMode">*</span>
+                  <span class="plt-opt" *ngIf="isTrialMode">{{ 'POST_LESSON.TUTOR.OPTIONAL' | translate }}</span>
+                </label>
                 <ion-textarea
                   [(ngModel)]="noteText"
                   [placeholder]="notePlaceholder"
@@ -221,7 +238,7 @@
                   maxlength="1000">
                 </ion-textarea>
               </div>
-              <div class="plt-form-group">
+              <div class="plt-form-group" *ngIf="!isTrialMode">
                 <label>{{ 'POST_LESSON.TUTOR.HOMEWORK' | translate }} <span class="plt-opt">{{ 'POST_LESSON.TUTOR.OPTIONAL' | translate }}</span></label>
                 <ion-textarea
                   [(ngModel)]="homework"
@@ -232,7 +249,7 @@
               </div>
             </div>
 
-            <div class="plt-corrections" #correctionsSection>
+            <div class="plt-corrections" #correctionsSection *ngIf="!isTrialMode">
               <div class="plt-corrections__header">
                 <div>
                   <h3 class="plt-corrections__title">{{ 'POST_LESSON.TUTOR.CAPTURE_CORRECTIONS' | translate }} <span class="plt-opt">{{ 'POST_LESSON.TUTOR.OPTIONAL' | translate }}</span></h3>
@@ -259,7 +276,7 @@
               </button>
             </div>
 
-            <div class="plt-plan-override" *ngIf="hasActivePlan">
+            <div class="plt-plan-override" *ngIf="hasActivePlan && !isTrialMode">
               <div class="plt-plan-override__header" (click)="showPlanOverride = !showPlanOverride">
                 <span class="plt-plan-override__title">{{ 'POST_LESSON.TUTOR.PLAN_ADJUSTMENT' | translate }}</span>
                 <ion-icon [name]="showPlanOverride ? 'chevron-up-outline' : 'chevron-down-outline'"></ion-icon>

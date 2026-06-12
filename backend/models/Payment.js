@@ -48,6 +48,33 @@ const paymentSchema = new mongoose.Schema({
     type: String,
     default: 'USD'
   },
+
+  // ── Presentment / local-currency charging ──
+  // `amount` above is always the USD anchor used for the ledger, platform fee
+  // and tutor payout. The fields below record what the student was actually
+  // charged when their card settles in a non-USD currency (EUR/GBP).
+  chargeCurrency: {
+    type: String,
+    default: 'usd',
+    lowercase: true,
+    comment: 'Currency the student was actually charged in (usd/eur/gbp)'
+  },
+  chargeAmount: {
+    type: Number,
+    default: null,
+    comment: 'Amount charged in chargeCurrency (USD amount x buffered FX rate)'
+  },
+  fxRate: {
+    type: Number,
+    default: null,
+    comment: 'Buffered USD->chargeCurrency rate applied at charge time (1 for USD)'
+  },
+  fxBuffer: {
+    type: Number,
+    default: 0,
+    comment: 'Buffer fraction added over mid-market rate (e.g. 0.03)'
+  },
+
   paymentMethod: {
     type: String,
     enum: ['wallet', 'card', 'saved-card', 'apple_pay', 'google_pay'],

@@ -10,7 +10,10 @@
 
 const Wallet = require('../models/Wallet');
 const Payment = require('../models/Payment');
+const User = require('../models/User');
 const stripeService = require('./stripeService');
+const fxService = require('./fxService');
+const { getChargeCurrency } = require('../utils/currency');
 
 class WalletService {
   /**
@@ -94,17 +97,39 @@ class WalletService {
       hasBothForSavedCard: !!(paymentMethodId && customerId)
     });
 
+    // Charge in the user's local currency; wallet is credited in USD (walletCredit)
+    let chargeCurrency = 'usd';
+    let chargeAmount = totalCharge;
+    let fxRate = 1;
+    try {
+      const topUpUser = await User.findById(userId);
+      const currency = getChargeCurrency(topUpUser);
+      if (currency !== 'usd') {
+        const conv = await fxService.convert(totalCharge, currency);
+        if (conv) {
+          chargeCurrency = conv.currency;
+          chargeAmount = conv.amount;
+          fxRate = conv.bufferedRate;
+        }
+      }
+    } catch (fxErr) {
+      console.error('⚠️ [WalletService] FX resolve failed, charging USD:', fxErr.message);
+    }
+
     // Build PaymentIntent options
     // Amount to charge is the TOTAL (including exact fee based on card country)
     const paymentIntentOptions = {
-      amount: totalCharge, // Charge the exact total including fee
-      currency: 'usd',
+      amount: chargeAmount, // Charge the exact total including fee (local currency)
+      currency: chargeCurrency,
       metadata: {
         userId: userId.toString(),
         type: 'wallet_top_up',
         walletCredit: walletCredit.toString(),
         expectedStripeFee: stripeFee.toString(),
         saveCard: saveCard?.toString(), // Include saveCard flag in metadata
+        usdAmount: totalCharge.toString(),
+        chargeCurrency,
+        fxRate: String(fxRate),
         ...metadata
       }
     };

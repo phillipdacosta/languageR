@@ -6,6 +6,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { UserService } from '../services/user.service';
 import { LessonService, LessonCreateRequest } from '../services/lesson.service';
 import { ClassService } from '../services/class.service';
+import { CurrencyService } from '../services/currency.service';
 import { AuthService } from '@auth0/auth0-angular';
 import { firstValueFrom } from 'rxjs';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
@@ -90,8 +91,45 @@ export class CheckoutPage implements OnInit, OnDestroy {
     private toastController: ToastController,
     private alertController: AlertController,
     private modalController: ModalController,
-    private http: HttpClient
+    private http: HttpClient,
+    private currencyService: CurrencyService
   ) {}
+
+  // ── Local-currency display (USD anchor preserved by the getters above) ──
+  chargeCurrency = 'usd';
+  isLocalCharge = false;
+  chargeCurrencyLabel = '';
+  rateAmountDisplay = '';
+  basePriceDisplay = '';
+  lessonPriceDisplay = '';
+  discountDisplay = '';
+  processingFeeDisplay = '';
+  totalDisplay = '';
+
+  /**
+   * Precompute money strings in the student's charge currency so the template
+   * stays function-free. USD anchor numbers come from the existing getters; we
+   * convert for display using the buffered FX rate (same rate the server uses
+   * to charge), so the total shown matches what is billed.
+   */
+  private async updatePriceDisplays(): Promise<void> {
+    const ctx = await this.currencyService.getFxContext();
+    this.chargeCurrency = ctx.currency;
+    this.isLocalCharge = ctx.currency !== 'usd';
+    this.chargeCurrencyLabel = ctx.currency.toUpperCase();
+
+    const rate = ctx.rate || 1;
+    const cur = this.currencyService;
+    const tutorRate = this.tutor?.hourlyRate ?? this.tutor?.onboardingData?.hourlyRate ?? 0;
+    const conv = (usd: number) => Math.round(usd * rate * 100) / 100;
+
+    this.rateAmountDisplay = cur.formatMoney(conv(tutorRate), ctx.currency);
+    this.basePriceDisplay = this.rateAmountDisplay;
+    this.lessonPriceDisplay = cur.formatMoney(conv(this.pricePerLesson), ctx.currency);
+    this.discountDisplay = cur.formatMoney(conv(this.discount), ctx.currency);
+    this.processingFeeDisplay = cur.formatMoney(conv(this.processingFee), ctx.currency);
+    this.totalDisplay = cur.formatMoney(conv(this.total), ctx.currency);
+  }
 
   ngOnInit() {
     console.log('🔍 [CHECKOUT] ngOnInit - Inputs:', {
@@ -204,6 +242,9 @@ export class CheckoutPage implements OnInit, OnDestroy {
       
       // Check if this is a trial lesson (first lesson with this tutor)
       await this.checkIfTrialLesson();
+
+      // Precompute local-currency display strings for the price breakdown
+      await this.updatePriceDisplays();
     } catch (error) {
       console.error('Error loading checkout data:', error);
     }
@@ -649,7 +690,9 @@ export class CheckoutPage implements OnInit, OnDestroy {
                 startTime: lessonData.startTime,
                 endTime: lessonData.endTime,
                 duration: lessonData.duration,
-                price: lessonData.price
+                price: lessonData.price,
+                chargeDisplay: this.totalDisplay,
+                chargeCurrency: this.chargeCurrency
               }
             }
           });
@@ -841,7 +884,7 @@ export class CheckoutPage implements OnInit, OnDestroy {
     const tutorName = this.tutorDisplayName || 'this tutor';
     const dateStr = this.formattedDate || this.dateIso;
     const timeStr = this.timeRange || this.time;
-    const price = `$${this.total.toFixed(2)}`;
+    const price = this.totalDisplay || `$${this.total.toFixed(2)}`;
     
     const message = `Book a ${this.lessonMinutes}-minute lesson with ${tutorName} on ${dateStr} at ${timeStr} for ${price}?`;
 

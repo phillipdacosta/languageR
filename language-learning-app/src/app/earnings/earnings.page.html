@@ -99,9 +99,11 @@
              [class.wallet-hidden]="!showWalletBalance && !walletTemporarilyVisible"
              (click)="toggleWalletVisibility($event, 'pending')">
           <span class="stat-label">{{ 'EARNINGS.PENDING' | translate }}</span>
-          <span class="stat-value" *ngIf="showWalletBalance || walletTemporarilyVisible">${{ balance.pending.toFixed(2) }}</span>
-          <span class="stat-value masked" *ngIf="!showWalletBalance && !walletTemporarilyVisible">$••••</span>
-          <span class="stat-value-hover" *ngIf="!showWalletBalance && !walletTemporarilyVisible">${{ balance.pending.toFixed(2) }}</span>
+          <div class="stat-value-slot">
+            <span class="stat-value" *ngIf="showWalletBalance || walletTemporarilyVisible">${{ balance.pending.toFixed(2) }}</span>
+            <span class="stat-value masked" *ngIf="!showWalletBalance && !walletTemporarilyVisible">$••••</span>
+            <span class="stat-value-hover" *ngIf="!showWalletBalance && !walletTemporarilyVisible">${{ balance.pending.toFixed(2) }}</span>
+          </div>
           <span class="stat-sub">{{ 'EARNINGS.PENDING_HOLD' | translate }}</span>
         </div>
         <div class="stat-divider"></div>
@@ -109,9 +111,11 @@
              [class.wallet-hidden]="!showWalletBalance && !walletTemporarilyVisible"
              (click)="toggleWalletVisibility($event, 'available')">
           <span class="stat-label">{{ 'EARNINGS.AVAILABLE' | translate }}</span>
-          <span class="stat-value" *ngIf="showWalletBalance || walletTemporarilyVisible">${{ balance.available.toFixed(2) }}</span>
-          <span class="stat-value masked" *ngIf="!showWalletBalance && !walletTemporarilyVisible">$••••</span>
-          <span class="stat-value-hover" *ngIf="!showWalletBalance && !walletTemporarilyVisible">${{ balance.available.toFixed(2) }}</span>
+          <div class="stat-value-slot">
+            <span class="stat-value" *ngIf="showWalletBalance || walletTemporarilyVisible">${{ balance.available.toFixed(2) }}</span>
+            <span class="stat-value masked" *ngIf="!showWalletBalance && !walletTemporarilyVisible">$••••</span>
+            <span class="stat-value-hover" *ngIf="!showWalletBalance && !walletTemporarilyVisible">${{ balance.available.toFixed(2) }}</span>
+          </div>
           <span class="stat-sub">{{ 'EARNINGS.READY_TO_WITHDRAW' | translate }}</span>
         </div>
         <div class="stat-divider"></div>
@@ -119,9 +123,11 @@
              [class.wallet-hidden]="!showWalletBalance && !walletTemporarilyVisible"
              (click)="toggleWalletVisibility($event, 'lifetime')">
           <span class="stat-label">{{ 'EARNINGS.LIFETIME' | translate }}</span>
-          <span class="stat-value" *ngIf="showWalletBalance || walletTemporarilyVisible">${{ balance.lifetime.toFixed(2) }}</span>
-          <span class="stat-value masked" *ngIf="!showWalletBalance && !walletTemporarilyVisible">$••••</span>
-          <span class="stat-value-hover" *ngIf="!showWalletBalance && !walletTemporarilyVisible">${{ balance.lifetime.toFixed(2) }}</span>
+          <div class="stat-value-slot">
+            <span class="stat-value" *ngIf="showWalletBalance || walletTemporarilyVisible">${{ balance.lifetime.toFixed(2) }}</span>
+            <span class="stat-value masked" *ngIf="!showWalletBalance && !walletTemporarilyVisible">$••••</span>
+            <span class="stat-value-hover" *ngIf="!showWalletBalance && !walletTemporarilyVisible">${{ balance.lifetime.toFixed(2) }}</span>
+          </div>
           <span class="stat-sub">{{ 'EARNINGS.TOTAL_EARNED' | translate }}</span>
         </div>
       </div>
@@ -248,7 +254,8 @@
             <span class="transfer-date">{{ w.requestedAt | date:'MMM d, y' }}</span>
           </div>
           <div class="transfer-right">
-            <span class="transfer-amount">${{ w.amount.toFixed(2) }}</span>
+            <span class="transfer-amount">{{ w.amountDisplay }}</span>
+            <span class="transfer-settled" *ngIf="w.settledDisplay">{{ w.settledDisplay }}</span>
             <span class="transfer-status"
               [class.status-completed]="w.status === 'completed'"
               [class.status-pending]="w.status === 'pending' || w.status === 'processing'"

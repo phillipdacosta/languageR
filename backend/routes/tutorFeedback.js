@@ -368,10 +368,14 @@ router.post('/:feedbackId/submit', verifyToken, async (req, res) => {
 
       if (planStudent && lesson) {
         const planLang = (lesson.subject || 'Unknown').replace(/\s*lesson$/i, '').trim() || lesson.subject || 'Unknown';
+        // Include 'draft' (and other live statuses) — updatePlanAfterLesson is
+        // what flips a draft plan to active on the first analyzed lesson.
+        // Filtering on 'active' only meant fresh-from-onboarding plans never
+        // received lesson updates.
         const existingPlan = await LearningPlanModel.findOne({
           studentId: planStudent._id,
           language: planLang,
-          status: 'active'
+          status: { $in: ['draft', 'active', 'mastery_mode', 'unframed', 'paused'] }
         });
 
         if (existingPlan) {

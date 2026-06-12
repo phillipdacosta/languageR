@@ -49,6 +49,9 @@ export class LessonSummaryComponent implements OnInit, OnDestroy {
   // Pre-computed template properties
   progressNoteVisible = false;
   progressColorClass = '';
+  // Recap-only: backend withheld the CEFR grade (too little genuine
+  // target-language speech). Hide the level badge, show recap copy.
+  recapOnly = false;
   progressIcon = 'trending-up';
   mainFocusText = '';
   hasPersistentChallenges = false;
@@ -160,6 +163,10 @@ export class LessonSummaryComponent implements OnInit, OnDestroy {
 
   private computeDerivedProperties() {
     if (!this.analysis) return;
+
+    // Recap-only when no level was assessed this lesson.
+    this.recapOnly = (this.analysis as any).proficiencyAssessed === false
+      || !this.analysis.overallAssessment?.proficiencyLevel;
 
     // Progress note
     const progressText = this.analysis.overallAssessment?.progressFromLastLesson || '';

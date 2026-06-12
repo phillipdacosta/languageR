@@ -228,12 +228,17 @@
                   <p class="pls-section-sub">{{ analysisUnavailableSub }}</p>
                 </div>
 
-                <div class="pls-analysis-ready" *ngIf="analysisReady && analysis">
+                <div class="pls-analysis-ready" *ngIf="analysisReady && analysis" [class.pls-recap-only]="recapOnly">
                   <div class="pls-analysis-header">
                     <div class="pls-check-badge">
                       <ion-icon name="checkmark"></ion-icon>
                     </div>
                     <h2 class="pls-section-title">{{ analysisReadyTitle }}</h2>
+                  </div>
+
+                  <div class="pls-recap-note" *ngIf="recapOnly">
+                    <ion-icon name="chatbubbles-outline"></ion-icon>
+                    <p>{{ recapMessage }}</p>
                   </div>
 
                   <div class="pls-quick-summary">

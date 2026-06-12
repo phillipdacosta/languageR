@@ -207,6 +207,12 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
     tone: 'neutral' | 'strong' | 'solid' | 'building' | 'needs_work';
   }> = [];
 
+  // Recap-only lessons: the student spoke too little of the target language to
+  // fairly assess a CEFR level, so we hide the level chip and show encouraging,
+  // honest copy instead of a fabricated grade. Precomputed (no template fns).
+  recapOnly = false;
+  recapMessage = '';
+
   private readonly destroy$ = new Subject<void>();
 
   toggleAnalysisDetails() {
@@ -238,29 +244,44 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
 
     const grammarQ = this.qualitativeFromScore(grammarScore);
 
-    this.quickSummaryChips = [
-      {
+    // Recap-only when the backend withheld the grade (too little genuine
+    // target-language speech). Show recap + encouragement, hide the level chip.
+    this.recapOnly = a.proficiencyAssessed === false || !a.overallAssessment?.proficiencyLevel;
+    if (this.recapOnly) {
+      const reason: string = a.gradeWithheldReason || 'insufficient_target_language';
+      this.recapMessage = reason === 'insufficient_student_speech'
+        ? this.t('POST_LESSON.STUDENT.RECAP_LITTLE_SPEECH')
+        : this.t('POST_LESSON.STUDENT.RECAP_MORE_TARGET_LANGUAGE');
+    } else {
+      this.recapMessage = '';
+    }
+
+    // Build the chips, omitting the level chip in recap-only mode.
+    const chips: typeof this.quickSummaryChips = [];
+    if (!this.recapOnly) {
+      chips.push({
         key: 'level',
         label: this.t('POST_LESSON.STUDENT.LEVEL'),
         qualitative: level,
         detail: level,
         tone: 'neutral'
-      },
-      {
-        key: 'vocabulary',
-        label: this.t('POST_LESSON.STUDENT.VOCABULARY'),
-        qualitative: `${vocabCount} word${vocabCount === 1 ? '' : 's'}`,
-        detail: `${vocabCount}`,
-        tone: 'neutral'
-      },
-      {
-        key: 'grammar',
-        label: this.t('POST_LESSON.STUDENT.GRAMMAR'),
-        qualitative: grammarQ.label,
-        detail: grammarScore === null ? '—' : `${Math.round(grammarScore)}%`,
-        tone: grammarQ.tone
-      }
-    ];
+      });
+    }
+    chips.push({
+      key: 'vocabulary',
+      label: this.t('POST_LESSON.STUDENT.VOCABULARY'),
+      qualitative: `${vocabCount} word${vocabCount === 1 ? '' : 's'}`,
+      detail: `${vocabCount}`,
+      tone: 'neutral'
+    });
+    chips.push({
+      key: 'grammar',
+      label: this.t('POST_LESSON.STUDENT.GRAMMAR'),
+      qualitative: grammarQ.label,
+      detail: grammarScore === null ? '—' : `${Math.round(grammarScore)}%`,
+      tone: grammarQ.tone
+    });
+    this.quickSummaryChips = chips;
   }
 
   // Plan-update card (Phase 3 of the better-than-toast UX). Surfaces

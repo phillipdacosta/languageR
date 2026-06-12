@@ -2816,9 +2816,110 @@ async function applyProposedEdits(studentId, language, proposedPhases, summary) 
   };
 }
 
+// ─────────────────────────────────────────────────────────────────
+//  Trial-lesson seeding.
+//
+//  Trial lessons capture no audio (cost decision), so there is never an
+//  AI LessonAnalysis to tune the plan with. Instead, the trial tutor's
+//  30-second mini-assessment (CEFR impression + "start with" focus areas)
+//  seeds the plan. Seed-only by design: we activate a draft plan, set the
+//  next-lesson focus and the tutor's focus lane, and let the CEFR
+//  estimator absorb the tutor-sourced analysis — but we do NOT push a
+//  lessonScore. A 25-minute first meeting is an unrepresentative sample
+//  and must not advance phases or trigger calibration on its own.
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * Seed the student's learning plan from a tutor's post-trial assessment.
+ *
+ * @param {Object} args
+ * @param {ObjectId|string} args.studentId  - student User._id
+ * @param {string} args.language            - plan language (e.g. 'German')
+ * @param {Object} args.tutorUser           - tutor User doc (for lane attribution)
+ * @param {string} args.cefrLevel           - tutor's CEFR impression ('A1'..'C2')
+ * @param {string[]} [args.focusAreas]      - "start with" suggestions
+ * @param {string} [args.note]              - optional free-text note
+ * @param {ObjectId|string|null} [args.lessonId]
+ * @returns {{ plan, created: boolean, seeded: boolean } | null}
+ */
+async function seedPlanFromTrialAssessment({ studentId, language, tutorUser, cefrLevel, focusAreas = [], note = '', lessonId = null }) {
+  let plan = await LearningPlan.findOne({
+    studentId,
+    language,
+    status: { $in: ['draft', 'active', 'mastery_mode', 'unframed', 'paused'] }
+  });
+
+  let created = false;
+  if (!plan) {
+    // No plan yet (onboarding goal may have been set without generating one).
+    // generateInitialPlan reads the just-saved tutor-sourced LessonAnalysis,
+    // so the new plan comes out 'active' and CEFR-informed. Returns null
+    // when the student never set a learning goal.
+    plan = await generateInitialPlan(studentId, language);
+    if (!plan) return null;
+    created = true;
+  }
+
+  const tutorName = [tutorUser?.firstName, tutorUser?.lastName].filter(Boolean).join(' ')
+    || tutorUser?.name || '';
+  const focusText = (focusAreas || []).map(f => String(f).trim()).filter(Boolean).join(', ');
+
+  // 1. Upsert this tutor's focus lane (latest setAt wins at resolution time).
+  //    Works for the different-next-tutor case too: focusResolverService
+  //    prefers the upcoming lesson's tutor lane, falls back to most recent.
+  if (focusText && tutorUser?._id) {
+    plan.tutorFocusByTutorId = (plan.tutorFocusByTutorId || []).filter(
+      e => String(e.tutorId) !== String(tutorUser._id)
+    );
+    plan.tutorFocusByTutorId.push({
+      tutorId: tutorUser._id,
+      tutorName,
+      focus: focusText,
+      note: (note || '').toString().slice(0, 500),
+      setAt: new Date()
+    });
+  }
+
+  // 2. Activate + focus-seed untuned (draft) plans. Plans already tuned by
+  //    real lessons keep their focus — the lane above is enough there.
+  let seeded = false;
+  if (!created && plan.status === 'draft') {
+    plan.status = 'active';
+    if (focusText) plan.nextLessonFocus = focusText;
+    seeded = true;
+  } else if (!created && focusText && !plan.nextLessonFocus) {
+    plan.nextLessonFocus = focusText;
+    seeded = true;
+  }
+
+  plan.history.push({
+    date: new Date(),
+    lessonId: lessonId || null,
+    changeDescription: `Trial assessment by ${tutorName || 'tutor'}: level ${cefrLevel || 'n/a'}${focusText ? ` · start with ${focusText.slice(0, 120)}` : ''}`,
+    phaseIndexBefore: plan.currentPhaseIndex,
+    phaseIndexAfter: plan.currentPhaseIndex,
+    reason: 'trial_assessment'
+  });
+  plan.lastUpdatedAt = new Date();
+
+  // 3. Let the CEFR estimator absorb the tutor-sourced analysis (it applies
+  //    per-tutor bias correction and its own reveal gates). Best-effort.
+  try {
+    const cefrEstimator = require('./cefrEstimatorService');
+    await cefrEstimator.refresh(plan);
+  } catch (err) {
+    console.warn('[LearningPlan] CEFR refresh after trial assessment failed (non-blocking):', err.message);
+  }
+
+  await plan.save();
+  console.log(`📋 [LearningPlan] Trial assessment seeded plan ${plan._id} (created=${created}, seeded=${seeded})`);
+  return { plan, created, seeded };
+}
+
 module.exports = {
   generateInitialPlan,
   updatePlanAfterLesson,
+  seedPlanFromTrialAssessment,
   regeneratePlan,
   regeneratePlanWithAi,
   getAiRegenerationStatus,

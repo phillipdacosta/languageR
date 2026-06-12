@@ -24,6 +24,16 @@ const transcriptSegmentSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  // The language Whisper actually detected for this chunk, normalized to an
+  // ISO-639-1 code (e.g. 'de', 'en'). `language` above is the lesson's TARGET
+  // language and is the same for every segment; `detectedLanguage` is what was
+  // really spoken, so grading can require genuine target-language speech and
+  // skip segments the student spoke in their native language. Null on legacy
+  // segments recorded before this field existed.
+  detectedLanguage: {
+    type: String,
+    default: null
+  },
   // Duration of this segment in seconds (from Whisper seg.end - seg.start)
   duration: {
     type: Number,
@@ -160,7 +170,12 @@ const lessonTranscriptSchema = new mongoose.Schema({
     rmsLevelDb: Number,
     silenceRatio: Number,
     processedAt: Date,
-    sizeBytes: Number
+    sizeBytes: Number,
+    // GCS path + mime of the tutor's clean remote-track audio. Stored at upload
+    // time so the (async, server-side) analysis step can transcribe it for
+    // dual-track diarization without blocking the client upload request.
+    gcsPath: { type: String, default: null },
+    mimeType: { type: String, default: null }
   },
 
   fullText: String  // Concatenated transcript text (used by analysis)

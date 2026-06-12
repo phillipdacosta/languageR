@@ -497,6 +497,11 @@
       "BADGE_DESC": "Consistent, quality feedback makes you stand out to students searching for tutors.",
       "LEAVE_NOTE": "Leave a note",
       "ASSESSMENT_REQUIRED": "Assessment required",
+      "TRIAL_FORM_TITLE": "How did the trial go?",
+      "TRIAL_BADGE": "Trial assessment",
+      "TRIAL_START_WITH": "Where should they start?",
+      "TRIAL_GUIDANCE_TITLE": "Help {{name}} get started",
+      "TRIAL_GUIDANCE_DESC": "Your level estimate and suggestions seed their learning plan — they'll see them before their next lesson.",
       "KEY_ERROR_AREAS": "Key error areas",
       "OPTIONAL": "(optional)",
       "YOUR_NOTE": "Your note",
@@ -590,7 +595,9 @@
       "TIP_FOOTNOTE": "100% goes to your tutor",
       "LEVEL": "Level",
       "VOCABULARY": "Vocabulary",
-      "GRAMMAR": "Grammar"
+      "GRAMMAR": "Grammar",
+      "RECAP_MORE_TARGET_LANGUAGE": "Here's a recap of what you practiced. We'll set your level once you've spoken a bit more in your target language — keep going, you're building it lesson by lesson!",
+      "RECAP_LITTLE_SPEECH": "Here's a quick recap of this lesson. There wasn't quite enough speaking to set a level yet — try speaking a little more next time and we'll track your progress."
     }
   },
   "HOME": {
@@ -1016,6 +1023,7 @@
     "REASON_ADMIN_INVESTIGATION": "Admin investigation: {{note}}",
     "TRANSFER_STRIPE": "In your Stripe account",
     "TRANSFER_PAYPAL": "In your PayPal account",
+    "TRANSFER_RECEIVED": "{{amount}} received",
     "TRANSFER_MANUAL": "Paid out",
     "TRANSFER_DEFAULT": "Successfully transferred",
     "FILTER_SELECTED": "Selected",
@@ -2153,7 +2161,7 @@
       "TRIAL_EYEBROW": "Trial lesson",
       "TRIAL_OBJECTIVE_TUTOR": "First lesson with {{name}} — get a feel for their level and comfort with the language. The plan tunes itself after this.",
       "TRIAL_OBJECTIVE_STUDENT": "This is your first lesson — your tutor will get to know your level. Just relax and chat; your plan adjusts afterward.",
-      "PLAN_STATE_DRAFT": "Draft plan · tunes after your first lesson",
+      "PLAN_STATE_DRAFT": "Draft plan · tunes after your first full lesson",
       "PLAN_STATE_DRAFT_TUTOR": "Draft plan · not yet tuned by lessons",
       "PLAN_GOAL_STUDENT": "Your goal: {{goal}}",
       "PLAN_GOAL_TUTOR": "Student goal: {{goal}}",

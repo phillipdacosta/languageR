@@ -49,14 +49,20 @@
           </button>
         </div>
 
+        <!-- Recap-only note (no level assessed this lesson) -->
+        <div class="recap-only-note" *ngIf="recapOnly">
+          <ion-icon name="chatbubbles-outline"></ion-icon>
+          <span>{{ 'POST_LESSON.STUDENT.RECAP_MORE_TARGET_LANGUAGE' | translate }}</span>
+        </div>
+
         <!-- CEFR Level Jump Banner -->
-        <div class="level-jump-banner" *ngIf="analysis.progressionMetrics?.previousProficiencyLevel && analysis.progressionMetrics?.previousProficiencyLevel !== analysis.overallAssessment.proficiencyLevel">
+        <div class="level-jump-banner" *ngIf="!recapOnly && analysis.progressionMetrics?.previousProficiencyLevel && analysis.progressionMetrics?.previousProficiencyLevel !== analysis.overallAssessment.proficiencyLevel">
           <ion-icon name="trophy"></ion-icon>
           <span>You've moved from <strong>{{ analysis.progressionMetrics?.previousProficiencyLevel }}</strong> to <strong>{{ analysis.overallAssessment.proficiencyLevel }}</strong> since your last session!</span>
         </div>
 
         <!-- Level badge -->
-        <div class="level-hero-row">
+        <div class="level-hero-row" *ngIf="!recapOnly">
           <div class="level-section">
             <div class="level-badge-large">
               <div class="level-text">

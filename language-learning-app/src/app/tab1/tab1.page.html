@@ -1074,15 +1074,25 @@
         <ng-container *ngIf="!isMobile && earningsColumnLoading">
           <div class="home-widget-skeleton-title skeleton-line"></div>
           <div class="earnings-card-widget-skeleton" *ngIf="isTutorUser" aria-hidden="true">
-            <div class="ecws-body">
-              <div class="skeleton-line ecws-label"></div>
-              <div class="skeleton-line ecws-balance"></div>
-            </div>
-            <div class="ecws-goal">
-              <div class="skeleton-line ecws-goal-label"></div>
-              <div class="skeleton-line ecws-goal-amount"></div>
-              <div class="skeleton-line ecws-goal-bar"></div>
-              <div class="skeleton-line ecws-goal-sub"></div>
+            <div class="ecws-main">
+              <div class="ecws-body">
+                <div class="skeleton-line ecws-label"></div>
+                <div class="ecws-balance-row">
+                  <div class="skeleton-line ecws-balance-icon"></div>
+                  <div class="skeleton-line ecws-balance-amount"></div>
+                </div>
+              </div>
+              <div class="ecws-goal">
+                <div class="ecws-goal-head">
+                  <div class="skeleton-line ecws-goal-label"></div>
+                  <div class="skeleton-line ecws-goal-edit"></div>
+                </div>
+                <div class="ecws-goal-body">
+                  <div class="skeleton-line ecws-goal-amount"></div>
+                  <div class="skeleton-line ecws-goal-bar"></div>
+                  <div class="skeleton-line ecws-goal-sub"></div>
+                </div>
+              </div>
             </div>
             <div class="skeleton-line ecws-withdraw"></div>
             <div class="skeleton-line ecws-details"></div>

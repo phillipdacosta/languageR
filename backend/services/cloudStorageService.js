@@ -114,6 +114,23 @@ async function getSignedUrl(gcsPath, expiresInMinutes = 60) {
 }
 
 /**
+ * Download an audio file from GCS into a Buffer.
+ * @param {string} gcsPath - GCS path (gs://bucket/path/to/file)
+ * @returns {Promise<Buffer>} - File contents
+ */
+async function downloadAudio(gcsPath) {
+  const match = gcsPath.match(/^gs:\/\/([^\/]+)\/(.+)$/);
+  if (!match) {
+    throw new Error(`Invalid GCS path: ${gcsPath}`);
+  }
+  const [, bucketName, filename] = match;
+  const bucket = getStorageClient().bucket(bucketName);
+  const file = bucket.file(filename);
+  const [buffer] = await file.download();
+  return buffer;
+}
+
+/**
  * Delete audio file from GCS
  * @param {string} gcsPath - GCS path (gs://bucket/path/to/file)
  */
@@ -160,6 +177,7 @@ async function deleteLessonAudio(lessonId) {
 
 module.exports = {
   uploadAudio,
+  downloadAudio,
   getSignedUrl,
   deleteAudio,
   deleteLessonAudio,

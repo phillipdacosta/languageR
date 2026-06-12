@@ -104,9 +104,58 @@ const withdrawalSchema = new mongoose.Schema({
   netAmount: {
     type: Number,
     required: true,
-    comment: 'Amount tutor actually receives after all fees'
+    comment: 'Amount tutor actually receives after all fees (in source/platform currency, USD)'
   },
-  
+
+  // ── Settlement (what actually landed in the tutor's account) ──
+  // The platform sends funds in USD. When a tutor's connected account settles
+  // in another currency (e.g. EUR), Stripe converts at transfer time and may
+  // deduct a conversion/cross-border fee. These fields record the real numbers
+  // returned by Stripe so the tutor sees exactly what they received.
+  sourceCurrency: {
+    type: String,
+    default: 'usd',
+    lowercase: true,
+    comment: 'Currency the platform sent the transfer in (always USD today)'
+  },
+
+  settledCurrency: {
+    type: String,
+    default: null,
+    lowercase: true,
+    comment: "Currency the funds actually settled in on the tutor's account (e.g. 'eur')"
+  },
+
+  settledAmount: {
+    type: Number,
+    default: null,
+    comment: 'Gross amount in the settled currency before Stripe conversion fees'
+  },
+
+  settledFee: {
+    type: Number,
+    default: 0,
+    comment: 'Stripe conversion / cross-border fee, in the settled currency'
+  },
+
+  settledNetAmount: {
+    type: Number,
+    default: null,
+    comment: 'Net amount the tutor actually received, in the settled currency'
+  },
+
+  exchangeRate: {
+    type: Number,
+    default: null,
+    comment: 'FX rate applied (settled per 1 source unit), if a conversion occurred'
+  },
+
+  settlementCapturedAt: {
+    type: Date,
+    default: null,
+    comment: 'When settlement details were captured from Stripe'
+  },
+
   // Timing
   requestedAt: {
     type: Date,
@@ -185,6 +234,11 @@ withdrawalSchema.virtual('feePercentage').get(function() {
 
 withdrawalSchema.virtual('totalPlatformCost').get(function() {
   return (this.paypalSenderFee || 0) + (this.stripeFee || 0);
+});
+
+// True when the payout settled in a currency other than what we sent.
+withdrawalSchema.virtual('wasConverted').get(function() {
+  return !!(this.settledCurrency && this.settledCurrency !== (this.sourceCurrency || 'usd'));
 });
 
 // Ensure virtuals are included in JSON output

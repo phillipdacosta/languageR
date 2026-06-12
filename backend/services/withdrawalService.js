@@ -4,6 +4,21 @@ const Payment = require('../models/Payment');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
 
+// Common currency symbols for human-readable payout messages.
+const CURRENCY_SYMBOLS = { usd: '$', eur: '€', gbp: '£', cad: 'CA$', aud: 'A$' };
+
+/**
+ * Format an amount with its currency symbol (falls back to the upper-cased code).
+ * @param {Number} amount
+ * @param {String} currency - ISO currency code (e.g. 'eur')
+ */
+function formatMoney(amount, currency) {
+  const code = (currency || 'usd').toLowerCase();
+  const value = Number(amount || 0).toFixed(2);
+  const symbol = CURRENCY_SYMBOLS[code];
+  return symbol ? `${symbol}${value}` : `${value} ${code.toUpperCase()}`;
+}
+
 // Lazy-load Stripe to ensure environment variables are loaded first
 let stripe;
 function getStripeClient() {
@@ -317,15 +332,27 @@ class WithdrawalService {
       // Create notification for tutor
       try {
         const methodName = withdrawal.method === 'stripe_connect' ? 'Stripe' : 'PayPal';
+
+        // When funds converted to another currency, show the tutor the real
+        // amount that landed in their account instead of the USD figure.
+        const converted = withdrawal.settledCurrency
+          && withdrawal.settledCurrency !== (withdrawal.sourceCurrency || 'usd');
+        const settledText = converted && withdrawal.settledNetAmount != null
+          ? `${formatMoney(withdrawal.settledNetAmount, withdrawal.settledCurrency)} `
+            + `(from $${withdrawal.netAmount.toFixed(2)})`
+          : `$${withdrawal.netAmount.toFixed(2)}`;
+
         const notification = new Notification({
           userId: withdrawal.tutorId,
           type: 'withdrawal_completed',
           title: 'Withdrawal Completed',
-          message: `Your withdrawal of $${withdrawal.netAmount.toFixed(2)} to ${methodName} has been processed successfully.`,
+          message: `Your withdrawal of ${settledText} to ${methodName} has been processed successfully.`,
           data: {
             withdrawalId: withdrawal._id.toString(),
             amount: withdrawal.amount,
             netAmount: withdrawal.netAmount,
+            settledCurrency: withdrawal.settledCurrency || null,
+            settledNetAmount: withdrawal.settledNetAmount,
             method: withdrawal.method
           },
           link: '/tabs/home/earnings'
@@ -397,15 +424,111 @@ class WithdrawalService {
       });
       
       withdrawal.stripeTransferId = transfer.id;
+      withdrawal.sourceCurrency = transfer.currency || 'usd';
       await withdrawal.save();
       
       console.log(`✅ [STRIPE] Transfer created: ${transfer.id}`);
       console.log(`💸 Transfer amount: $${(transfer.amount / 100).toFixed(2)}`);
+
+      // Capture what actually landed in the tutor's account (handles FX when the
+      // connected account settles in a non-USD currency). Best-effort: never let
+      // a settlement-lookup failure break an otherwise-successful transfer.
+      try {
+        await this.captureStripeSettlement(
+          withdrawal,
+          transfer,
+          withdrawal.tutorId.stripeConnectAccountId
+        );
+      } catch (settleErr) {
+        console.error(`⚠️ [STRIPE] Could not capture settlement details:`, settleErr.message);
+      }
       
     } catch (error) {
       console.error(`❌ [STRIPE] Transfer failed:`, error.message);
       throw new Error(`Stripe transfer failed: ${error.message}`);
     }
+  }
+
+  /**
+   * Capture the real settled amount/currency/FX for a Stripe transfer.
+   *
+   * When the platform sends USD to a connected account whose default currency
+   * differs (e.g. EUR), Stripe creates a destination payment on the connected
+   * account in that currency and may deduct a conversion/cross-border fee. The
+   * authoritative numbers live on the destination payment's balance transaction,
+   * which belongs to the connected account (so it must be read with the
+   * `stripeAccount` header).
+   *
+   * @param {Object} withdrawal - Withdrawal mongoose document (will be saved)
+   * @param {Object} transfer - Stripe transfer object from transfers.create
+   * @param {String} connectedAccountId - Tutor's Stripe connected account ID
+   */
+  async captureStripeSettlement(withdrawal, transfer, connectedAccountId) {
+    const stripe = getStripeClient();
+
+    // The transfer's destination payment may be returned as an ID or expanded.
+    let destinationPaymentId = transfer.destination_payment;
+    if (destinationPaymentId && typeof destinationPaymentId === 'object') {
+      destinationPaymentId = destinationPaymentId.id;
+    }
+
+    // Re-fetch the transfer with the destination payment + its balance
+    // transaction expanded if we don't already have it.
+    if (!destinationPaymentId) {
+      const fullTransfer = await stripe.transfers.retrieve(transfer.id, {
+        expand: ['destination_payment']
+      });
+      destinationPaymentId = typeof fullTransfer.destination_payment === 'object'
+        ? fullTransfer.destination_payment?.id
+        : fullTransfer.destination_payment;
+    }
+
+    if (!destinationPaymentId || !connectedAccountId) {
+      console.log(`ℹ️ [STRIPE] No destination payment to inspect for transfer ${transfer.id}`);
+      return;
+    }
+
+    // The destination payment + its balance transaction live on the connected
+    // account, so read them with the connected account context.
+    const destinationPayment = await stripe.charges.retrieve(
+      destinationPaymentId,
+      { expand: ['balance_transaction'] },
+      { stripeAccount: connectedAccountId }
+    );
+
+    const settledCurrency = (destinationPayment.currency || '').toLowerCase();
+    const grossSettled = (destinationPayment.amount || 0) / 100;
+
+    let settledFee = 0;
+    let settledNet = grossSettled;
+    let exchangeRate = null;
+
+    const bt = destinationPayment.balance_transaction;
+    if (bt && typeof bt === 'object') {
+      settledFee = (bt.fee || 0) / 100;
+      settledNet = (bt.net || destinationPayment.amount || 0) / 100;
+      exchangeRate = bt.exchange_rate || null;
+    }
+
+    // Derive FX rate from amounts when Stripe doesn't surface one directly.
+    if (!exchangeRate && withdrawal.netAmount > 0 && grossSettled > 0) {
+      exchangeRate = Math.round((grossSettled / withdrawal.netAmount) * 1e6) / 1e6;
+    }
+
+    withdrawal.settledCurrency = settledCurrency || null;
+    withdrawal.settledAmount = grossSettled || null;
+    withdrawal.settledFee = settledFee;
+    withdrawal.settledNetAmount = settledNet;
+    withdrawal.exchangeRate = exchangeRate;
+    withdrawal.settlementCapturedAt = new Date();
+    await withdrawal.save();
+
+    const converted = settledCurrency && settledCurrency !== (withdrawal.sourceCurrency || 'usd');
+    console.log(
+      `🧾 [STRIPE] Settlement captured: sent $${withdrawal.netAmount.toFixed(2)} ` +
+      `→ ${converted ? 'converted ' : ''}${grossSettled.toFixed(2)} ${settledCurrency.toUpperCase()} ` +
+      `(fee ${settledFee.toFixed(2)}, net ${settledNet.toFixed(2)}${exchangeRate ? `, rate ${exchangeRate}` : ''})`
+    );
   }
   
   /**

@@ -1543,10 +1543,16 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
 
   onLessonClick(pl: ProcessedLesson) {
     if (pl.lesson && pl.id && !pl.id.startsWith('__mock_')) {
-      this.lessonService.updateCachedLessonDetail(pl.id, {
-        lesson: pl.lesson,
-        isClass: !!pl.isClass,
-      });
+      // List rows only carry a thin participant populate (name/avatar). Never
+      // overwrite a detailReady cache entry — that drops onboardingData.languages
+      // / country and makes the sidebar meta pop in after paint (layout shift).
+      const cached = this.lessonService.getCachedLessonDetail(pl.id);
+      if (!cached?.detailReady) {
+        this.lessonService.updateCachedLessonDetail(pl.id, {
+          lesson: pl.lesson,
+          isClass: !!pl.isClass,
+        });
+      }
     }
     this.router.navigate(['/tabs/lessons', pl.id]);
   }

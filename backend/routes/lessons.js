@@ -3706,9 +3706,65 @@ router.post('/:id/tutor-note', verifyToken, async (req, res) => {
       }
     }
     
-    await analysis.save();
+    // Validate only the paths this request actually touched. Adding a plain
+    // tutor note to a recap-only or insufficient_data analysis must not fail on
+    // legitimately-empty grade fields (proficiencyLevel/summary/confidence/
+    // studentSummary) that belong to an unrelated part of the document.
+    await analysis.save({ validateModifiedOnly: true });
 
     console.log(`✅ Tutor note saved for lesson ${lessonId}`);
+
+    // ── Trial-lesson plan seeding ──────────────────────────────────────
+    // Trials capture no audio, so the tutor's mini-assessment is the ONLY
+    // signal that can move the student's plan forward before their first
+    // full lesson. Seed-only (no lessonScore): activates a draft plan, sets
+    // the next-lesson focus + this tutor's focus lane.
+    if (lesson.isTrialLesson && isTutorAssessment && cefrLevel) {
+      try {
+        const learningPlanService = require('../services/learningPlanService');
+        const planLang = (lesson.language || lesson.subject || '')
+          .replace(/\s*lesson$/i, '').trim();
+
+        if (planLang) {
+          const seedResult = await learningPlanService.seedPlanFromTrialAssessment({
+            studentId: lesson.studentId,
+            language: planLang,
+            tutorUser: user,
+            cefrLevel,
+            focusAreas: areasToImprove || [],
+            note: text || '',
+            lessonId: lesson._id
+          });
+
+          if (seedResult && (seedResult.created || seedResult.seeded)) {
+            const tutorDisplayNameForPlan = formatDisplayName(user);
+            const studentDocForPlan = await User.findById(lesson.studentId).select('auth0Id');
+            const planNotification = await Notification.create({
+              userId: lesson.studentId,
+              type: 'learning_plan_ready',
+              title: seedResult.created ? 'Your Learning Plan is Ready! 🎯' : 'Your Plan Was Tuned! 🎯',
+              message: `Based on your trial with ${tutorDisplayNameForPlan}, your <strong>${planLang}</strong> plan now reflects their suggestions for where to start.`,
+              data: {
+                language: planLang,
+                planId: seedResult.plan._id.toString(),
+                lessonId: lesson._id,
+                hasActionButton: true,
+                actionButtonText: 'View Plan',
+                actionRoute: '/tabs/progress'
+              },
+              read: false
+            });
+
+            if (req.io && studentDocForPlan?.auth0Id) {
+              req.io.to(`user:${studentDocForPlan.auth0Id}`).emit('new_notification', planNotification);
+            }
+            console.log(`📋 Trial assessment seeded learning plan for lesson ${lessonId} (created=${seedResult.created})`);
+          }
+        }
+      } catch (seedErr) {
+        console.error('⚠️ Trial plan seeding failed (non-critical):', seedErr.message);
+      }
+    }
 
     // Surface quick-impression chip to the student's messages (excellent/great/good only).
     if (quickImpression) {
@@ -3752,7 +3808,7 @@ router.post('/:id/tutor-note', verifyToken, async (req, res) => {
             ...(analysis.correctedExcerpts || []),
             ...cleanedExcerpts
           ];
-          await analysis.save();
+          await analysis.save({ validateModifiedOnly: true });
         }
 
         // 2. Push to the student's review deck.
@@ -4551,6 +4607,8 @@ router.post('/:id/tip', verifyToken, async (req, res) => {
     let paymentIntentId = null;
     let stripeFee = 0;
     let tutorReceives = amount; // Tips have NO platform fee — 100% goes to tutor
+    // Presentment (what the student is actually charged); USD by default (wallet)
+    let tipPresentment = { chargeCurrency: 'usd', chargeAmount: amount, fxRate: 1, fxBuffer: 0 };
 
     // 1. Check wallet balance
     const walletInfo = await walletService.getBalance(student._id);
@@ -4636,10 +4694,20 @@ router.post('/:id/tip', verifyToken, async (req, res) => {
 
       console.log(`💳 Card country: ${cardCountry || 'unknown'}, fee rate: ${(feeRate * 100).toFixed(1)}% + $0.30`);
 
+      // Charge in the student's local currency (USD anchor stays for the ledger)
+      const tipChargeSvc = require('../services/paymentService');
+      const tipCharge = await tipChargeSvc.resolveCharge(student, amount);
+      tipPresentment = {
+        chargeCurrency: tipCharge.chargeCurrency,
+        chargeAmount: tipCharge.chargeAmount,
+        fxRate: tipCharge.fxRate,
+        fxBuffer: tipCharge.fxBuffer
+      };
+
       // Charge the card — funds stay on the platform (NO transfer_data)
       const paymentIntent = await stripeService.stripe.paymentIntents.create({
-        amount: amountInCents,
-        currency: 'usd',
+        amount: Math.round(tipCharge.chargeAmount * 100),
+        currency: tipCharge.chargeCurrency,
         customer: student.stripeCustomerId,
         payment_method: stripePaymentMethodId,
         confirm: true,
@@ -4650,7 +4718,10 @@ router.post('/:id/tip', verifyToken, async (req, res) => {
           lessonId: lessonId,
           studentId: student._id.toString(),
           tutorId: tutor._id.toString(),
-          paymentMethod: 'card'
+          paymentMethod: 'card',
+          usdAmount: amount.toString(),
+          chargeCurrency: tipCharge.chargeCurrency,
+          fxRate: String(tipCharge.fxRate)
         }
       });
 
@@ -4685,6 +4756,10 @@ router.post('/:id/tip', verifyToken, async (req, res) => {
       lessonId: lesson._id,
       amount: amount,
       currency: 'USD',
+      chargeCurrency: tipPresentment.chargeCurrency,
+      chargeAmount: tipPresentment.chargeAmount,
+      fxRate: tipPresentment.fxRate,
+      fxBuffer: tipPresentment.fxBuffer,
       paymentMethod: paymentMethod === 'wallet' ? 'wallet' : 'card',
       status: 'succeeded',
       stripePaymentIntentId: paymentIntentId || undefined,
@@ -4944,161 +5019,6 @@ router.post('/:id/report-issue', verifyToken, async (req, res) => {
     res.status(500).json({ 
       success: false, 
       error: error.message || 'Failed to report issue' 
-    });
-  }
-});
-
-// POST /api/lessons/:id/tutor-note - Tutor adds a note to the lesson
-router.post('/:id/tutor-note', verifyToken, async (req, res) => {
-  try {
-    const { text, quickImpression, homework } = req.body;
-    const lessonId = req.params.id;
-    const tutorAuth0Id = req.user.sub;
-
-    console.log('📝 Tutor adding note:', { lessonId, tutorAuth0Id });
-
-    // Validate note text
-    if (!text || text.trim().length === 0) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Note text is required' 
-      });
-    }
-
-    // Get lesson
-    const lesson = await Lesson.findById(lessonId).populate('tutor student');
-    if (!lesson) {
-      return res.status(404).json({ success: false, error: 'Lesson not found' });
-    }
-
-    // Verify requester is the tutor
-    if (lesson.tutor.auth0Id !== tutorAuth0Id) {
-      return res.status(403).json({ success: false, error: 'Only the tutor can add notes' });
-    }
-
-    // Update or create the lesson analysis with tutor note
-    let analysis = await LessonAnalysis.findOne({ lessonId: lessonId });
-    
-    const tutorNote = {
-      text: text.trim(),
-      quickImpression: quickImpression || null,
-      homework: homework?.trim() || null,
-      addedAt: new Date()
-    };
-
-    if (analysis) {
-      // Update existing analysis
-      analysis.tutorNote = tutorNote;
-      await analysis.save();
-    } else {
-      // Create new analysis with just the tutor note (AI analysis can be added later)
-      analysis = new LessonAnalysis({
-        lessonId: lessonId,
-        studentId: lesson.student._id,
-        tutorId: lesson.tutor._id,
-        language: lesson.language || 'English',
-        status: 'pending',
-        tutorNote: tutorNote
-      });
-      await analysis.save();
-    }
-
-    // Create notification for student
-    const tutorDisplayName = formatDisplayName(lesson.tutor);
-    const notification = new Notification({
-      userId: lesson.student._id,
-      type: 'message',
-      title: `💬 Note from ${tutorDisplayName}`,
-      message: `Your tutor left feedback on your recent lesson`,
-      data: {
-        lessonId: lessonId,
-        tutorName: tutorDisplayName
-      },
-      read: false
-    });
-    await notification.save();
-
-    // Track feedback quality for coaching badge system
-    try {
-      const FeedbackQualityService = require('../services/feedbackQualityService');
-      const feedbackService = new FeedbackQualityService();
-      const qualityScore = feedbackService.calculateQualityScore(tutorNote);
-      
-      console.log(`📊 Feedback quality score: ${qualityScore}/100 for tutor ${lesson.tutor.name}`);
-      
-      // Update tutor's feedback metrics
-      const tutor = lesson.tutor;
-      
-      if (!tutor.stats) tutor.stats = {};
-      if (!tutor.stats.feedbackMetrics) tutor.stats.feedbackMetrics = {};
-      if (!tutor.stats.feedbackMetrics.recentFeedback) {
-        tutor.stats.feedbackMetrics.recentFeedback = [];
-      }
-      
-      // Add to recent feedback (keep last 30)
-      tutor.stats.feedbackMetrics.recentFeedback.unshift({
-        lessonId: lessonId,
-        providedAt: new Date(),
-        qualityScore: qualityScore,
-        wordCount: tutorNote.text.split(/\s+/).filter(w => w.length > 0).length,
-        hasHomework: !!tutorNote.homework,
-        hasQuickImpression: !!tutorNote.quickImpression
-      });
-      
-      // Keep only last 30
-      if (tutor.stats.feedbackMetrics.recentFeedback.length > 30) {
-        tutor.stats.feedbackMetrics.recentFeedback = 
-          tutor.stats.feedbackMetrics.recentFeedback.slice(0, 30);
-      }
-      
-      await tutor.save();
-      console.log(`✅ Tutor feedback metrics updated`);
-      
-    } catch (qualityError) {
-      console.error('⚠️  Failed to track feedback quality:', qualityError.message);
-      // Don't fail the request if quality tracking fails
-    }
-
-    // Send WebSocket notification to student
-    if (req.io && req.connectedUsers) {
-      const studentSocketId = req.connectedUsers.get(lesson.student.auth0Id);
-      if (studentSocketId) {
-        req.io.to(studentSocketId).emit('new_notification', {
-          notification: notification,
-          message: `${tutorDisplayName} left you feedback!`
-        });
-        req.io.to(studentSocketId).emit('tutor_note_added', {
-          lessonId: lessonId,
-          tutorName: tutorDisplayName
-        });
-      }
-    }
-
-    console.log('✅ Tutor note added successfully');
-
-    // ── Recalculate coaching metrics immediately ──────────────────
-    try {
-      const { evaluateTutorForBadge } = require('../jobs/evaluateCoachingBadges');
-      const tutorForEval = await User.findById(lesson.tutor._id);
-      if (tutorForEval) {
-        const evalResult = await evaluateTutorForBadge(tutorForEval);
-        console.log(`📊 Real-time coaching metrics updated for tutor ${lesson.tutor._id}:`, evalResult.metrics);
-      }
-    } catch (evalErr) {
-      console.error('⚠️ Error recalculating coaching metrics (non-critical):', evalErr.message);
-    }
-
-    res.json({ 
-      success: true,
-      tutorNote: tutorNote,
-      message: 'Note sent to student!'
-    });
-
-  } catch (error) {
-    console.error('❌ Error adding tutor note:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: error.message || 'Failed to add note' 
     });
   }
 });

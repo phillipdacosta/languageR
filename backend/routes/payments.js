@@ -18,6 +18,8 @@ const router = express.Router();
 const { verifyToken } = require('../middleware/videoUploadMiddleware');
 const paymentService = require('../services/paymentService');
 const stripeService = require('../services/stripeService');
+const fxService = require('../services/fxService');
+const { getChargeCurrency, SYMBOLS } = require('../utils/currency');
 const User = require('../models/User');
 const Lesson = require('../models/Lesson');
 const Notification = require('../models/Notification');
@@ -56,13 +58,20 @@ router.post('/create-payment-intent', verifyToken, async (req, res) => {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
+    // Charge in the student's local currency (USD anchor preserved in metadata).
+    const charge = await paymentService.resolveCharge(user, amount);
+
     const paymentIntent = await stripeService.createPaymentIntent({
-      amount,
+      amount: charge.chargeAmount,
+      currency: charge.chargeCurrency,
       metadata: {
         userId: user._id.toString(),
         lessonId: lessonId || '',
         userEmail: user.email,
-        type: 'lesson_booking'
+        type: 'lesson_booking',
+        usdAmount: amount.toString(),
+        chargeCurrency: charge.chargeCurrency,
+        fxRate: String(charge.fxRate)
       },
       customerId: user.stripeCustomerId || undefined
     });
@@ -70,10 +79,97 @@ router.post('/create-payment-intent', verifyToken, async (req, res) => {
     res.json({
       success: true,
       clientSecret: paymentIntent.client_secret,
-      paymentIntentId: paymentIntent.id
+      paymentIntentId: paymentIntent.id,
+      currency: charge.chargeCurrency,
+      chargeAmount: charge.chargeAmount,
+      usdAmount: amount,
+      fxRate: charge.fxRate
     });
   } catch (error) {
     console.error('❌ Error creating payment intent:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * GET /api/payments/fx-context
+ * Returns the current user's charge currency + buffered FX rate so the frontend
+ * can display approximate local prices for USD-anchored amounts.
+ */
+router.get('/fx-context', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const currency = getChargeCurrency(user);
+    const { rate, buffer } = await fxService.getBufferedRate(currency);
+
+    res.json({
+      success: true,
+      currency,
+      rate: rate || 1,
+      buffer: buffer || 0,
+      symbol: SYMBOLS[currency] || '$'
+    });
+  } catch (error) {
+    console.error('❌ Error getting fx-context:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * POST /api/payments/price-quote
+ * Authoritative quote for what a student will actually be charged for a lesson.
+ * Body: { tutorId, duration, isTrialLesson?, usdAmount? }
+ * Pricing stays anchored in USD; returns the local-currency charge amount.
+ */
+router.post('/price-quote', verifyToken, async (req, res) => {
+  try {
+    const { tutorId, duration, isTrialLesson = false } = req.body;
+
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // USD anchor price: prefer server-computed from tutor rate; allow explicit override.
+    let usdAmount = parseFloat(req.body.usdAmount);
+    if (!usdAmount || isNaN(usdAmount)) {
+      if (!tutorId || !duration) {
+        return res.status(400).json({
+          success: false,
+          message: 'Provide usdAmount, or tutorId and duration'
+        });
+      }
+      const tutor = await User.findById(tutorId);
+      if (!tutor) {
+        return res.status(404).json({ success: false, message: 'Tutor not found' });
+      }
+      const TRIAL_DISCOUNT_PERCENT = 30;
+      const STANDARD_LESSON_DURATION = 50;
+      const tutorHourlyRate = tutor.hourlyRate || tutor.onboardingData?.hourlyRate || 20;
+      const basePrice = Math.round((tutorHourlyRate * (duration / STANDARD_LESSON_DURATION)) * 100) / 100;
+      usdAmount = basePrice;
+      if (isTrialLesson) {
+        const discount = Math.round(basePrice * (TRIAL_DISCOUNT_PERCENT / 100) * 100) / 100;
+        usdAmount = Math.round((basePrice - discount) * 100) / 100;
+      }
+    }
+
+    const charge = await paymentService.resolveCharge(user, usdAmount);
+
+    res.json({
+      success: true,
+      usdAmount,
+      currency: charge.chargeCurrency,
+      amount: charge.chargeAmount,
+      fxRate: charge.fxRate,
+      symbol: SYMBOLS[charge.chargeCurrency] || '$'
+    });
+  } catch (error) {
+    console.error('❌ Error generating price quote:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });

@@ -21,6 +21,7 @@ export class BookingSuccessPage implements OnInit, AfterViewInit {
   tutorAvatar: string = '';
   formattedDate: string = '';
   formattedTime: string = '';
+  priceDisplay: string = '';
   revealed = false;
 
   @ViewChild('lottiePlayer', { read: ElementRef }) lottiePlayerRef?: ElementRef;
@@ -92,6 +93,14 @@ export class BookingSuccessPage implements OnInit, AfterViewInit {
         year: undefined
       });
       this.formattedTime = formatTimeInTz(startDate, this.userTz);
+    }
+
+    // Prefer the actual charged amount/currency passed from checkout; fall back
+    // to the USD lesson price for older navigations / dev preview.
+    if (this.lessonDetails.chargeDisplay) {
+      this.priceDisplay = this.lessonDetails.chargeDisplay;
+    } else {
+      this.priceDisplay = `$${this.formatPrice(this.lessonDetails.price)}`;
     }
   }
 

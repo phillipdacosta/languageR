@@ -978,7 +978,11 @@ async function analyzeLessonTranscript({
   studentNativeLanguage = 'en',  // NEW: Language for feedback
   studentSegments,
   tutorSegments,
-  previousAnalyses = []
+  previousAnalyses = [],
+  // 'full' = assert a CEFR level; 'recap_only' = too little genuine
+  // target-language speech to grade, so produce an encouraging recap and
+  // explicitly do NOT assign a proficiency level (the caller enforces null too).
+  gradeMode = 'full'
 }) {
   try {
     // 🧪 TEST MODE: Simulate GPT-4 downtime
@@ -1540,8 +1544,18 @@ IMPORTANT INSTRUCTIONS:
     console.log(`🤖 Total tutor text length: ${tutorText.length} characters`);
     console.log(`🤖 ========================================`);
     
+    const recapDirective = gradeMode === 'recap_only' ? `
+**⚠️ RECAP-ONLY MODE — DO NOT ASSIGN A PROFICIENCY LEVEL:**
+The student produced too little genuine ${language} speech this lesson to fairly assess a CEFR level.
+- Set "proficiencyLevel" to null. Do NOT guess or default to any A1–C2 value.
+- Set "confidence" to 0.
+- Be encouraging and specific: summarize what the student actually practiced, and give 1–3 concrete, bite-sized tips for next time.
+- studentSummary MUST be warm and motivating — celebrate effort, never imply failure, and invite them to speak more ${language} next lesson.
+- Keep errorPatterns/topErrors limited to what is clearly supported; it's fine for them to be short or empty.
+` : '';
+
     const prompt = `You are an expert ${language} language teacher analyzing a student's lesson.
-${lessonContext.analysisInstructions}
+${recapDirective}${lessonContext.analysisInstructions}
 
 STUDENT'S TRANSCRIPT:
 ${studentText}
@@ -1671,9 +1685,21 @@ The VERIFIED_ERROR_COUNT above represents ONLY real grammatical errors (severity
 ❌ VERIFIED_ERROR_COUNT=1 → accuracyScore=75, proficiencyLevel=B2 (TOO HARSH!)
 ❌ VERIFIED_ERROR_COUNT=5 → accuracyScore=95, proficiencyLevel=C2 (CONTRADICTORY!)
 
+**⚠️ EVIDENCE REQUIREMENT FOR HIGH LEVELS (C1/C2) — READ CAREFULLY:**
+A low error count ONLY justifies B2+ when the student actually PRODUCED substantial,
+linguistically COMPLEX target-language speech: varied tenses, subordinate/relative
+clauses, connectives, rich/precise vocabulary, and spontaneous elaboration beyond
+short answers. The mere ABSENCE of errors is NOT evidence of high proficiency.
+- If the student's transcript is SHORT, SIMPLE, repetitive, or made up of brief
+  answers/single words, the correct level is A1–B1 REGARDLESS of error count.
+- "Zero errors" in a few simple sentences = A1 or A2, NOT C2. A beginner who says
+  little, correctly, is still a beginner.
+- Only award C1/C2 when complexity AND fluency AND range clearly demonstrate it.
+❌ A handful of short, simple, error-free sentences → C2 (WRONG: not enough evidence)
+
 14. **PROFICIENCY LEVEL ASSESSMENT - RATE WHAT YOU SEE, NOT WHAT YOU EXPECT**: 
     - **CRITICAL**: Assess proficiency based on ACTUAL performance in THIS lesson ONLY
-    - **ZERO ERRORS + NATURAL SPEECH = C2** - Do not downgrade perfect speech because of previous ratings
+    - **ZERO ERRORS + GENUINELY COMPLEX, FLUENT, WIDE-RANGING SPEECH = C2** - but only when the speech is substantial and complex (see EVIDENCE REQUIREMENT above). Zero errors in short/simple speech is NOT C2.
     - **Colloquial expressions ARE markers of high proficiency** - "ni puta gracia", "tía", "Bua" = NATIVE LEVEL
     - **Perfect grammar + natural discourse markers = C2**, regardless of previous level
     
@@ -2054,8 +2080,8 @@ You MUST include errorPatterns and correctedExcerpts arrays with actual quotes f
       };
     }
     
-    console.log(`✅ Analysis completed: ${analysis.overallAssessment.proficiencyLevel} level detected`);
-    console.log(`✅ Student summary: ${analysis.studentSummary.substring(0, 100)}...`);
+    console.log(`✅ Analysis completed: ${analysis.overallAssessment?.proficiencyLevel || '(recap-only, no level)'} ${gradeMode === 'recap_only' ? '[recap mode]' : 'level detected'}`);
+    console.log(`✅ Student summary: ${(analysis.studentSummary || '').substring(0, 100)}...`);
     console.log(`🤖 ========================================`);
     
     return analysis;
