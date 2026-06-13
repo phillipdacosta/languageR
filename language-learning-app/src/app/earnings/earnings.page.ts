@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy, Input, Output, EventEmitter, ViewChild, ElementRef, AfterViewInit, CUSTOM_ELEMENTS_SCHEMA, ChangeDetectorRef } from '@angular/core';
 import '@dotlottie/player-component';
 import { CommonModule, Location } from '@angular/common';
-import { IonicModule, AlertController, ToastController, ModalController, NavController, ViewWillEnter, ViewDidEnter, InfiniteScrollCustomEvent, IonContent } from '@ionic/angular';
+import { IonicModule, AlertController, ModalController, NavController, ViewWillEnter, ViewDidEnter, InfiniteScrollCustomEvent, IonContent } from '@ionic/angular';
 import { Router, RouterModule, ActivatedRoute } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { UserService } from '../services/user.service';
@@ -13,6 +13,7 @@ import { FormsModule } from '@angular/forms';
 import { Chart, ChartConfiguration, registerables } from 'chart.js';
 import { TranslateService, TranslateModule } from '@ngx-translate/core';
 import { formatDateInTz, formatTimeInTz } from '../shared/timezone.utils';
+import { ToastService } from '../services/toast.service';
 import { isStripeSupportedCountry } from '../data/stripe-supported-countries';
 
 // Register Chart.js components
@@ -237,7 +238,7 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
     private location: Location,
     private websocketService: WebSocketService,
     private alertController: AlertController,
-    private toastController: ToastController,
+    private toastService: ToastService,
     private modalController: ModalController,
     private navCtrl: NavController,
     private translateService: TranslateService,
@@ -1543,12 +1544,7 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
     await this.loadBalance();
 
     if (this.withdrawalAmount > this.balance.available) {
-      const toast = await this.toastController.create({
-        message: this.translateService.instant('EARNINGS.WITHDRAW_INSUFFICIENT'),
-        duration: 3000,
-        color: 'danger'
-      });
-      await toast.present();
+      void this.toastService.showError(this.translateService.instant('EARNINGS.WITHDRAW_INSUFFICIENT'));
       return;
     }
 
@@ -1578,24 +1574,16 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
     // Stripe has no minimum withdrawal amount, PayPal requires $10
     const minAmount = method === 'stripe_connect' ? 0.01 : 10;
     if (amount < minAmount) {
-      const toast = await this.toastController.create({
-        message: method === 'stripe_connect'
+      void this.toastService.showError(
+        method === 'stripe_connect'
           ? this.translateService.instant('EARNINGS.WITHDRAW_MIN_STRIPE_ERROR')
           : this.translateService.instant('EARNINGS.WITHDRAW_MIN_PAYPAL_ERROR'),
-        duration: 3000,
-        color: 'danger'
-      });
-      await toast.present();
+      );
       return;
     }
 
     if (amount > this.balance.available) {
-      const toast = await this.toastController.create({
-        message: this.translateService.instant('EARNINGS.WITHDRAW_INSUFFICIENT'),
-        duration: 3000,
-        color: 'danger'
-      });
-      await toast.present();
+      void this.toastService.showError(this.translateService.instant('EARNINGS.WITHDRAW_INSUFFICIENT'));
       return;
     }
 
@@ -1631,12 +1619,9 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
     } catch (error: any) {
       console.error('❌ Error requesting withdrawal:', error);
       
-      const toast = await this.toastController.create({
-        message: error.error?.message || this.translateService.instant('EARNINGS.WITHDRAW_ERROR'),
-        duration: 4000,
-        color: 'danger'
-      });
-      await toast.present();
+      void this.toastService.showError(
+        error.error?.message || this.translateService.instant('EARNINGS.WITHDRAW_ERROR'),
+      );
     } finally {
       this.withdrawing = false;
     }

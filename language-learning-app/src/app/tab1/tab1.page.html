@@ -382,7 +382,16 @@
           <ion-skeleton-text animated style="width: 200px; height: 15px; display: inline-block; border-radius: 4px;"></ion-skeleton-text>
         </p>
         <p class="welcome-subtitle welcome-mobile-tutor-sub" *ngIf="!isLoadingLessons && nextLesson && nextLessonTimeLabel && !hasProfileCriticalInsights && (isTutorUser || activeInvitationsCount === 0)">
-          {{ 'HOME.WELCOME_NEXT_LESSON' | translate:{ time: nextLessonTimeLabel } }}
+          <span class="growth-ticker-mobile-fade-wrap growth-ticker-mobile-fade-wrap--static">
+            <img
+              class="growth-ticker-icon growth-ticker-icon--img"
+              [src]="hourglassIconSrc"
+              alt=""
+              aria-hidden="true" />
+            <span class="growth-ticker-text-mobile">
+              <span class="growth-ticker-msg">{{ 'HOME.WELCOME_NEXT_LESSON' | translate:{ time: nextLessonTimeLabel } }}</span>
+            </span>
+          </span>
         </p>
         <p class="welcome-subtitle welcome-mobile-tutor-sub" *ngIf="isStudentUser && !isLoadingLessons && activeInvitationsCount > 0 && !nextLesson">
           {{ (activeInvitationsCount === 1 ? 'HOME.WELCOME_INVITATION_ONE' : 'HOME.WELCOME_INVITATION_MANY') | translate:{ count: activeInvitationsCount } }}
@@ -540,7 +549,16 @@
 
             <ng-template #tutorWelcomeMainLine>
               <ng-container *ngIf="nextLesson && nextLessonTimeLabel && !hasProfileCriticalInsights; else tutorWelcomeGrowthOrDefault">
-                {{ 'HOME.WELCOME_NEXT_LESSON' | translate:{ time: nextLessonTimeLabel } }}
+                <span class="growth-ticker growth-ticker--static">
+                  <span class="growth-ticker-text">
+                    <img
+                      class="growth-ticker-icon growth-ticker-icon--img"
+                      [src]="hourglassIconSrc"
+                      alt=""
+                      aria-hidden="true" />
+                    <span class="growth-ticker-msg">{{ 'HOME.WELCOME_NEXT_LESSON' | translate:{ time: nextLessonTimeLabel } }}</span>
+                  </span>
+                </span>
               </ng-container>
             </ng-template>
 
@@ -793,24 +811,16 @@
 
         <div class="m-upnext-tagline-row" *ngIf="upNextTagline">
           <p class="m-card-empty-subtitle m-upnext-tagline">{{ upNextTagline }}</p>
-          <button
-            type="button"
-            class="m-upnext-translate-btn"
-            *ngIf="upNextShowTranslateButton"
-            [disabled]="upNextTaglineTranslating"
-            (click)="toggleUpNextTaglineTranslation(); $event.stopPropagation()">
-            <ion-icon name="language-outline" aria-hidden="true"></ion-icon>
-            <span *ngIf="upNextTaglineTranslating">{{ 'COMMON.TRANSLATING' | translate }}</span>
-            <span *ngIf="!upNextTaglineTranslating && !upNextTaglineIsTranslated">{{ 'COMMON.TRANSLATE' | translate }}</span>
-            <span *ngIf="!upNextTaglineTranslating && upNextTaglineIsTranslated">{{ 'COMMON.SHOW_ORIGINAL' | translate }}</span>
-          </button>
         </div>
 
         <div class="home-m-upnext-date">
-          <div class="tw-date-badge" [class.tw-date-badge--today]="nextClass.isToday">
-            <span class="tw-date-badge__month">{{ nextClass.dateBadgeMonth }}</span>
-            <span class="tw-date-badge__day">{{ nextClass.dateBadgeDay }}</span>
-            <span class="tw-date-badge__weekday">{{ nextClass.dateBadgeWeekday }}</span>
+          <div class="tw-date-badge" [class.tw-date-badge--today]="nextClass.isToday" [class.tw-date-badge--today-word]="nextClass.isToday">
+            <span class="tw-date-badge__today-label" *ngIf="nextClass.isToday">{{ 'HOME.TODAY' | translate }}</span>
+            <ng-container *ngIf="!nextClass.isToday">
+              <span class="tw-date-badge__month">{{ nextClass.dateBadgeMonth }}</span>
+              <span class="tw-date-badge__day">{{ nextClass.dateBadgeDay }}</span>
+              <span class="tw-date-badge__weekday">{{ nextClass.dateBadgeWeekday }}</span>
+            </ng-container>
           </div>
           <span class="tw-date-badge__time upnext-date-time">{{ nextClass.detailTimeRange }}</span>
         </div>
@@ -911,6 +921,11 @@
             <ion-icon name="alert-circle"></ion-icon> {{ 'HOME.STATUS_RESCHEDULE_REQUEST' | translate }}
           </span>
         </div>
+        <div class="upnext-filled-layout">
+          <div class="upnext-filled-art" aria-hidden="true">
+            <img class="upnext-filled-art-img" src="assets/up-next-empty-light.png" alt="" />
+          </div>
+          <div class="upnext-filled-main">
         <div class="upnext-filled-class-cover" *ngIf="nextClass.lesson?.isClass">
           <img *ngIf="nextClass.lesson?.classData?.thumbnail" class="upnext-filled-class-cover-img" [src]="nextClass.lesson.classData.thumbnail" [alt]="nextClass.lesson.className || 'Class'" referrerpolicy="no-referrer" />
           <div class="upnext-filled-class-cover-placeholder" *ngIf="!nextClass.lesson?.classData?.thumbnail">
@@ -946,51 +961,41 @@
                 {{ 'HOME.VIEW_MORE' | translate }}
               </button>
             </div>
-            <button
-              type="button"
-              class="upnext-filled-translate-btn"
-              *ngIf="upNextShowTranslateButton"
-              [disabled]="upNextTaglineTranslating"
-              (click)="toggleUpNextTaglineTranslation(); $event.stopPropagation()">
-              <ion-icon name="language-outline" aria-hidden="true"></ion-icon>
-              <span *ngIf="upNextTaglineTranslating">{{ 'COMMON.TRANSLATING' | translate }}</span>
-              <span *ngIf="!upNextTaglineTranslating && !upNextTaglineIsTranslated">{{ 'COMMON.TRANSLATE' | translate }}</span>
-              <span *ngIf="!upNextTaglineTranslating && upNextTaglineIsTranslated">{{ 'COMMON.SHOW_ORIGINAL' | translate }}</span>
-            </button>
           </div>
         </div>
 
         <div class="upnext-filled-schedule">
           <div class="upnext-filled-schedule-col upnext-filled-schedule-col--date">
-            <div class="tw-date-badge" [class.tw-date-badge--today]="nextClass.isToday">
-              <span class="tw-date-badge__month">{{ nextClass.dateBadgeMonth }}</span>
-              <span class="tw-date-badge__day">{{ nextClass.dateBadgeDay }}</span>
-              <span class="tw-date-badge__weekday">{{ nextClass.dateBadgeWeekday }}</span>
+            <div class="tw-date-badge" [class.tw-date-badge--today]="nextClass.isToday" [class.tw-date-badge--today-word]="nextClass.isToday">
+              <span class="tw-date-badge__today-label" *ngIf="nextClass.isToday">{{ 'HOME.TODAY' | translate }}</span>
+              <ng-container *ngIf="!nextClass.isToday">
+                <span class="tw-date-badge__month">{{ nextClass.dateBadgeMonth }}</span>
+                <span class="tw-date-badge__day">{{ nextClass.dateBadgeDay }}</span>
+                <span class="tw-date-badge__weekday">{{ nextClass.dateBadgeWeekday }}</span>
+              </ng-container>
             </div>
           </div>
           <span class="upnext-filled-schedule-divider" aria-hidden="true"></span>
-          <div class="upnext-filled-schedule-col upnext-filled-schedule-col--time">
+          <div class="upnext-filled-schedule-primary-line">
             <img
               class="upnext-filled-schedule-icon"
               src="assets/upnext-schedule-clock.png"
               alt=""
               aria-hidden="true" />
             <span class="upnext-filled-schedule-time">{{ nextClass.detailTimeRange }}</span>
-            <span class="upnext-filled-schedule-duration">{{ nextClass.durationLabel }}</span>
           </div>
+          <span class="upnext-filled-schedule-duration">{{ nextClass.durationLabel }}</span>
           <ng-container *ngIf="upNextStatusLabel">
             <span class="upnext-filled-schedule-divider" aria-hidden="true"></span>
-            <div class="upnext-filled-schedule-col upnext-filled-schedule-col--status">
-              <span
-                class="upnext-filled-status-chip"
-                [class.upnext-filled-status-chip--ready]="upNextStatusVariant === 'ready'"
-                [class.upnext-filled-status-chip--live]="upNextStatusVariant === 'live'"
-                [class.upnext-filled-status-chip--soon]="upNextStatusVariant === 'soon'">
-                <span class="upnext-filled-status-dot" *ngIf="upNextStatusVariant !== 'later'"></span>
-                <span>{{ upNextStatusLabel }}</span>
-              </span>
-              <span class="upnext-filled-status-hint" *ngIf="upNextStatusHint">{{ upNextStatusHint }}</span>
-            </div>
+            <span
+              class="upnext-filled-status-chip"
+              [class.upnext-filled-status-chip--ready]="upNextStatusVariant === 'ready'"
+              [class.upnext-filled-status-chip--live]="upNextStatusVariant === 'live'"
+              [class.upnext-filled-status-chip--soon]="upNextStatusVariant === 'soon'">
+              <span class="upnext-filled-status-dot" *ngIf="upNextStatusVariant !== 'later'"></span>
+              <span>{{ upNextStatusLabel }}</span>
+            </span>
+            <span class="upnext-filled-status-hint" *ngIf="upNextStatusHint">{{ upNextStatusHint }}</span>
           </ng-container>
         </div>
 
@@ -1018,6 +1023,8 @@
         <div class="participant-in-call" *ngIf="nextLessonOtherJoined && nextClass.lesson?.status !== 'cancelled'">
           <span class="in-call-dot"></span>
           <span class="in-call-text">{{ 'HOME.PARTICIPANT_IN_CALL' | translate:{ name: nextLessonOtherName } }}</span>
+        </div>
+          </div>
         </div>
         <ion-button *ngIf="!nextClass.isInProgress && nextClass.lesson?.status !== 'cancelled'" [id]="'exp-next-class-menu-' + nextClass.lesson._id" fill="clear" class="upnext-filled-menu" (click)="$event.stopPropagation()">
           <ion-icon slot="icon-only" name="ellipsis-horizontal"></ion-icon>
@@ -1301,107 +1308,119 @@
             <h2 class="desktop-tutor-section-title">{{ thisWeekHomeTitleKey | translate }}</h2>
           </div>
 
-          <!-- Empty state when no other lessons this week -->
-          <div class="this-week-empty" *ngIf="timelineEvents.length === 0">
-            <div class="this-week-empty__icon-wrap this-week-empty__icon-wrap--art" aria-hidden="true">
-              <img class="this-week-empty__art" src="assets/this-week-empty-calendar.png" alt="" />
+          <div class="this-week-panel">
+            <div class="this-week-panel__calendar" aria-hidden="true">
+              <div class="this-week-empty__icon-wrap this-week-empty__icon-wrap--art">
+                <img class="this-week-empty__art" src="assets/this-week-empty-calendar.png" alt="" />
+              </div>
             </div>
-            <div class="this-week-empty__content">
-              <h3 class="this-week-empty__title">{{ 'HOME.THIS_WEEK_EMPTY_TITLE' | translate }}</h3>
-              <p class="this-week-empty__sub">{{ 'HOME.THIS_WEEK_EMPTY_SUB' | translate }}</p>
-              <a *ngIf="isTutorUser" class="this-week-empty__cta" routerLink="/tabs/tutor-calendar">{{ 'HOME.THIS_WEEK_EMPTY_CTA_TUTOR' | translate }}</a>
-              <button *ngIf="isStudentUser" type="button" class="this-week-empty__cta" (click)="openSearchTutors()">{{ 'HOME.THIS_WEEK_EMPTY_CTA_STUDENT' | translate }}</button>
-            </div>
-          </div>
-          <div class="timeline-section timeline-section--week-strip" *ngIf="timelineEvents.length > 0">
-            <div class="tw-week-scroll">
-              <div class="tw-week-scroll-inner" [class.tw-week-scroll-inner--single]="thisWeekStripSingleEvent">
-                <div
-                  *ngFor="let group of timelineDayGroups; trackBy: trackByTimelineDayGroup; let gi = index"
-                  class="tw-day-group"
-                  [class.tw-day-group--single]="group.events.length === 1"
-                  (click)="group.events.length === 1 ? navigateToLesson(group.events[0].lesson) : null">
-                  <div class="tw-day-group__date">
-                    <div class="tw-date-badge" [class.tw-date-badge--today]="group.isToday">
-                      <span class="tw-date-badge__month">{{ group.dateBadgeMonth }}</span>
-                      <span class="tw-date-badge__day">{{ group.dateBadgeDay }}</span>
-                      <span class="tw-date-badge__weekday">{{ group.dateBadgeWeekday }}</span>
-                    </div>
-                    <ng-container *ngIf="group.events.length === 1">
-                      <span class="tw-date-badge__time">{{ group.events[0].detailTimeRange }}</span>
-                      <span class="tw-date-badge__duration">{{ group.events[0].duration }} {{ 'HOME.MINS' | translate }}</span>
-                    </ng-container>
-                    <div *ngIf="group.events.length > 1" class="tw-day-group__sessions">
-                      {{ 'HOME.WEEK_SAME_DAY_SESSIONS' | translate: { count: group.events.length } }}
-                    </div>
-                  </div>
-                  <div class="tw-day-group__events" *ngIf="group.events[0] as ev">
+            <div class="this-week-panel__body">
+              <div class="this-week-empty__content" *ngIf="timelineEvents.length === 0">
+                <h3 class="this-week-empty__title">{{ 'HOME.THIS_WEEK_EMPTY_TITLE' | translate }}</h3>
+                <p class="this-week-empty__sub">{{ 'HOME.THIS_WEEK_EMPTY_SUB' | translate }}</p>
+                <a *ngIf="isTutorUser" class="this-week-empty__cta" routerLink="/tabs/tutor-calendar">{{ 'HOME.THIS_WEEK_EMPTY_CTA_TUTOR' | translate }}</a>
+                <button *ngIf="isStudentUser" type="button" class="this-week-empty__cta" (click)="openSearchTutors()">{{ 'HOME.THIS_WEEK_EMPTY_CTA_STUDENT' | translate }}</button>
+              </div>
+              <div class="this-week-panel__content-row" *ngIf="timelineEvents.length > 0">
+                <div class="timeline-section timeline-section--week-strip">
+                  <div class="tw-week-scroll">
+                    <div class="tw-week-scroll-inner" [class.tw-week-scroll-inner--single]="thisWeekStripSingleEvent">
                     <div
-                      class="tw-day-event-cell"
-                      [class.tw-day-event-cell--class]="ev.isClass"
-                      (click)="group.events.length > 1 ? navigateToLesson(ev.lesson) : $event.stopPropagation()">
-                      <div class="tw-day-event-cell__icon-col">
-                        <div class="cu-avatar tw-day-event-avatar" [class.tw-day-event-avatar--class]="ev.isClass">
-                          <img *ngIf="ev.avatar" [src]="ev.avatar" [alt]="ev.name" referrerpolicy="no-referrer">
-                          <ion-icon *ngIf="!ev.avatar" name="person"></ion-icon>
+                      *ngFor="let group of timelineDayGroups; trackBy: trackByTimelineDayGroup; let gi = index"
+                      class="tw-day-group tw-day-group--single"
+                      (click)="navigateToLesson(group.events[0].lesson)">
+                      <div class="tw-day-group__events" *ngIf="group.events[0] as ev">
+                        <div
+                          class="tw-day-event-cell tw-day-event-cell--unified"
+                          [class.tw-day-event-cell--class]="ev.isClass">
+                          <div class="tw-day-event-cell__person">
+                            <div class="tw-day-event-cell__icon-col">
+                              <div class="cu-avatar tw-day-event-avatar" [class.tw-day-event-avatar--class]="ev.isClass">
+                                <img *ngIf="ev.avatar" [src]="ev.avatar" [alt]="ev.name" referrerpolicy="no-referrer">
+                                <ion-icon *ngIf="!ev.avatar" name="person"></ion-icon>
+                              </div>
+                            </div>
+                            <div class="tw-day-event-cell__body">
+                              <span class="cu-name">{{ ev.name }}</span>
+                              <span class="tw-day-event-sub">{{ ev.subject }}</span>
+                              <span
+                                class="badge-inline badge-trial tw-week-trial-pill"
+                                *ngIf="ev.isTrialLesson && ev.lesson?.status !== 'cancelled'">
+                                <ion-icon name="star"></ion-icon>
+                                <span>{{ 'HOME.TRIAL_LESSON' | translate }}</span>
+                              </span>
+                              <app-class-attendees
+                                class="tw-week-class-attendees"
+                                *ngIf="ev.isClass && ev.lesson?.attendees?.length"
+                                [attendees]="ev.lesson.attendees"
+                                [capacity]="ev.lesson.capacity"
+                                [maxDisplay]="3"
+                                [showLabel]="false"
+                                [showCapacity]="false">
+                              </app-class-attendees>
+                            </div>
+                          </div>
+                          <div class="tw-day-event-cell__schedule">
+                            <div class="tw-day-event-cell__schedule-date">
+                              <div class="tw-date-badge tw-date-badge--strip" [class.tw-date-badge--today]="group.isToday">
+                                <span class="tw-date-badge__month">{{ group.dateBadgeMonth }}</span>
+                                <span class="tw-date-badge__day">{{ group.dateBadgeDay }}</span>
+                                <span class="tw-date-badge__weekday">{{ group.dateBadgeWeekday }}</span>
+                              </div>
+                            </div>
+                            <div class="tw-day-event-cell__schedule-meta">
+                              <span class="tw-day-event-cell__time">{{ ev.detailTimeRange }}</span>
+                              <span class="tw-day-event-cell__duration">{{ ev.duration }} {{ 'HOME.MINS' | translate }}</span>
+                            </div>
+                          </div>
+                          <ion-button
+                            *ngIf="ev.lesson?.status !== 'cancelled' && ev.lesson?.status !== 'completed'"
+                            [id]="'tw-event-menu-' + ev.lesson?._id"
+                            fill="clear"
+                            size="small"
+                            class="tw-event-menu-btn"
+                            (click)="$event.stopPropagation()">
+                            <ion-icon slot="icon-only" name="ellipsis-horizontal"></ion-icon>
+                          </ion-button>
+                          <ion-popover
+                            *ngIf="ev.lesson?.status !== 'cancelled' && ev.lesson?.status !== 'completed'"
+                            [trigger]="'tw-event-menu-' + ev.lesson?._id"
+                            triggerAction="click"
+                            side="bottom"
+                            alignment="end"
+                            [dismissOnSelect]="true">
+                            <ng-template>
+                              <ion-content class="ion-padding">
+                                <ion-list>
+                                  <ion-item *ngIf="isTutorUser && ev.lesson?.isClass" [button]="true" (click)="inviteStudentToClass(ev.lesson._id)" [detail]="false">
+                                    <ion-icon name="person-add-outline" slot="start"></ion-icon>
+                                    <ion-label>{{ 'HOME.INVITE_STUDENT' | translate }}</ion-label>
+                                  </ion-item>
+                                  <ion-item [button]="true" (click)="ev.lesson?.isClass ? rescheduleClass(ev.lesson._id, ev.lesson) : rescheduleLesson(ev.lesson._id, ev.lesson)" [detail]="false">
+                                    <ion-icon name="calendar-outline" slot="start"></ion-icon>
+                                    <ion-label>{{ 'HOME.RESCHEDULE' | translate }}</ion-label>
+                                  </ion-item>
+                                  <ion-item [button]="true" (click)="ev.lesson?.isClass ? cancelClass(ev.lesson._id, ev.lesson) : cancelLesson(ev.lesson._id, ev.lesson)" class="ion-text-danger" [detail]="false">
+                                    <ion-icon name="close-circle-outline" slot="start"></ion-icon>
+                                    <ion-label>{{ 'HOME.CANCEL_LESSON' | translate }}</ion-label>
+                                  </ion-item>
+                                </ion-list>
+                              </ion-content>
+                            </ng-template>
+                          </ion-popover>
                         </div>
-                        <span *ngIf="group.events.length > 1" class="tw-day-event-under">{{ ev.duration }} {{ 'HOME.MINS' | translate }}</span>
                       </div>
-                      <div class="tw-day-event-cell__body">
-                        <span *ngIf="group.events.length > 1" class="tw-day-event-time">{{ ev.time }}</span>
-                        <span class="cu-name">{{ ev.name }}</span>
-                        <span class="tw-day-event-sub">{{ ev.subject }}</span>
-                        <app-class-attendees
-                          *ngIf="ev.lesson?.isClass && ev.lesson?.attendees"
-                          [attendees]="ev.lesson.attendees"
-                          [capacity]="ev.lesson.capacity"
-                          [maxDisplay]="3">
-                        </app-class-attendees>
-                      </div>
-                      <ion-button
-                        *ngIf="ev.lesson?.status !== 'cancelled' && ev.lesson?.status !== 'completed'"
-                        [id]="'tw-event-menu-' + ev.lesson?._id"
-                        fill="clear"
-                        size="small"
-                        class="tw-event-menu-btn"
-                        (click)="$event.stopPropagation()">
-                        <ion-icon slot="icon-only" name="ellipsis-horizontal"></ion-icon>
-                      </ion-button>
-                      <ion-popover
-                        *ngIf="ev.lesson?.status !== 'cancelled' && ev.lesson?.status !== 'completed'"
-                        [trigger]="'tw-event-menu-' + ev.lesson?._id"
-                        triggerAction="click"
-                        side="bottom"
-                        alignment="end"
-                        [dismissOnSelect]="true">
-                        <ng-template>
-                          <ion-content class="ion-padding">
-                            <ion-list>
-                              <ion-item *ngIf="isTutorUser && ev.lesson?.isClass" [button]="true" (click)="inviteStudentToClass(ev.lesson._id)" [detail]="false">
-                                <ion-icon name="person-add-outline" slot="start"></ion-icon>
-                                <ion-label>{{ 'HOME.INVITE_STUDENT' | translate }}</ion-label>
-                              </ion-item>
-                              <ion-item [button]="true" (click)="ev.lesson?.isClass ? rescheduleClass(ev.lesson._id, ev.lesson) : rescheduleLesson(ev.lesson._id, ev.lesson)" [detail]="false">
-                                <ion-icon name="calendar-outline" slot="start"></ion-icon>
-                                <ion-label>{{ 'HOME.RESCHEDULE' | translate }}</ion-label>
-                              </ion-item>
-                              <ion-item [button]="true" (click)="ev.lesson?.isClass ? cancelClass(ev.lesson._id, ev.lesson) : cancelLesson(ev.lesson._id, ev.lesson)" class="ion-text-danger" [detail]="false">
-                                <ion-icon name="close-circle-outline" slot="start"></ion-icon>
-                                <ion-label>{{ 'HOME.CANCEL_LESSON' | translate }}</ion-label>
-                              </ion-item>
-                            </ion-list>
-                          </ion-content>
-                        </ng-template>
-                      </ion-popover>
-                      <button
-                        type="button"
-                        class="cu-extra-badge"
-                        *ngIf="group.extraCount > 0"
-                        (click)="openDayLessonsModal(group); $event.stopPropagation()">
-                        {{ 'HOME.PLUS_MORE' | translate }}
-                      </button>
                     </div>
                   </div>
+                </div>
+                </div>
+                <div class="this-week-panel__see-more-slot" *ngIf="thisWeekSeeMoreVisible">
+                  <button
+                    type="button"
+                    class="this-week-see-more"
+                    (click)="navigateToThisWeekCalendar()">
+                    {{ 'HOME.THIS_WEEK_SEE_MORE' | translate }}
+                  </button>
                 </div>
               </div>
             </div>

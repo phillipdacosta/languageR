@@ -1,6 +1,5 @@
-import { Component, OnInit, OnDestroy, ViewChild, ViewChildren, QueryList, ElementRef, AfterViewChecked, ChangeDetectorRef, HostBinding } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ViewChildren, QueryList, ElementRef, AfterViewInit, AfterViewChecked, ChangeDetectorRef, HostBinding } from '@angular/core';
 import { Router } from '@angular/router';
-import '@dotlottie/player-component';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { AuthService, User } from '../services/auth.service';
 import { UserService, TutorOnboardingData } from '../services/user.service';
@@ -28,7 +27,7 @@ export type TutorOnboardingNativeLangChip = { code: string; native: string; inte
   styleUrls: ['./tutor-onboarding.page.scss'],
   standalone: false,
 })
-export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
+export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewInit, AfterViewChecked {
   @HostBinding('class.onboarding-page--wizard-main')
   get onboardingPageWizardMainActive(): boolean {
     return !this.showWelcome && this.preStepPhase === 'done';
@@ -48,6 +47,7 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
   preStepPhase: 'language' | 'welcome' | 'done' = 'language';
   private preLanguageReturn: { phase: 'welcome' | 'done'; showPreview: boolean } = { phase: 'welcome', showPreview: false };
   welcomeRevealed: boolean = false;
+  private welcomeCelebrationFallbackTimer: ReturnType<typeof setTimeout> | null = null;
   availableInterfaceLanguages: LanguageOption[] = [];
   selectedInterfaceLanguage: SupportedLanguage = 'en';
   selectedLanguageFlag = '🇬🇧';
@@ -289,6 +289,7 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
   } | null = null;
 
   // ViewChild references for autofocus
+  @ViewChild('welcomeCelebrationVideo') welcomeCelebrationVideo?: ElementRef<HTMLVideoElement>;
   @ViewChild('firstNameInput') firstNameInput?: ElementRef<HTMLInputElement>;
   @ViewChild('summaryInput') summaryInput?: ElementRef<HTMLTextAreaElement>;
   @ViewChild('countryOriginButton') countryOriginButton?: ElementRef<HTMLButtonElement>;
@@ -394,6 +395,7 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
   }
 
   ngOnDestroy() {
+    this.clearWelcomeCelebrationFallback();
     this.clearLanguageApplyDebounce();
     this.localeUiSub?.unsubscribe();
     this.localeUiSub = null;
@@ -401,6 +403,12 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
     this.headingRotationLoadSub = null;
     this.cancelHeadingRotationSchedule();
     this.stopHeadingRotation();
+  }
+
+  ngAfterViewInit() {
+    if (this.preStepPhase === 'welcome') {
+      this.playWelcomeCelebration();
+    }
   }
 
   private clearLanguageApplyDebounce(): void {
@@ -534,7 +542,6 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
     if (skipInterfaceLanguageStep) {
       this.preStepPhase = 'welcome';
       this.welcomeRevealed = false;
-      setTimeout(() => this.revealWelcome(), 3800);
     } else {
       this.scheduleHeadingRotationAfterLoad();
     }
@@ -740,7 +747,7 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
     } else {
       this.preStepPhase = 'welcome';
       this.welcomeRevealed = false;
-      setTimeout(() => this.revealWelcome(), 3800);
+      setTimeout(() => this.playWelcomeCelebration(), 0);
     }
   }
 
@@ -756,16 +763,64 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
     this.scheduleHeadingRotationAfterLoad();
   }
 
+  onWelcomeCelebrationEnded(): void {
+    this.clearWelcomeCelebrationFallback();
+    if (!this.welcomeRevealed) {
+      this.revealWelcome();
+    }
+  }
+
+  onWelcomeCelebrationError(): void {
+    this.clearWelcomeCelebrationFallback();
+    if (!this.welcomeRevealed) {
+      this.revealWelcome();
+    }
+  }
+
+  private clearWelcomeCelebrationFallback(): void {
+    if (this.welcomeCelebrationFallbackTimer) {
+      clearTimeout(this.welcomeCelebrationFallbackTimer);
+      this.welcomeCelebrationFallbackTimer = null;
+    }
+  }
+
+  private playWelcomeCelebration(): void {
+    this.clearWelcomeCelebrationFallback();
+
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      this.revealWelcome();
+      return;
+    }
+
+    const video = this.welcomeCelebrationVideo?.nativeElement;
+    if (!video) {
+      this.welcomeCelebrationFallbackTimer = setTimeout(() => this.revealWelcome(), 6500);
+      return;
+    }
+
+    const fallbackMs = Number.isFinite(video.duration) && video.duration > 0
+      ? video.duration * 1000 + 400
+      : 6500;
+    this.welcomeCelebrationFallbackTimer = setTimeout(() => {
+      if (!this.welcomeRevealed) {
+        this.revealWelcome();
+      }
+    }, fallbackMs);
+
+    video.currentTime = 0;
+    void video.play().catch(() => {
+      if (!this.welcomeRevealed) {
+        this.revealWelcome();
+      }
+    });
+  }
+
   private revealWelcome(): void {
+    if (this.welcomeRevealed) {
+      return;
+    }
     this.welcomeRevealed = true;
     this.cdr.detectChanges();
-    // The CSS transition shrinks the lottie from 220px to 72px over 0.6s.
-    // The dotlottie-player's ResizeObserver stops playback during that resize,
-    // so we re-trigger play once the transition has settled.
-    setTimeout(() => {
-      const player = document.querySelector('.welcome-celebration-lottie') as any;
-      player?.play?.();
-    }, 750);
   }
 
   startOnboarding() {
@@ -785,6 +840,9 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
   prevStep() {
     if (this.currentStep === 1) {
       this.preStepPhase = 'welcome';
+      this.welcomeRevealed = false;
+      this.cdr.detectChanges();
+      setTimeout(() => this.playWelcomeCelebration(), 0);
     } else {
       this.currentStep--;
       // Skip CEFR level step going back if no spoken languages were selected

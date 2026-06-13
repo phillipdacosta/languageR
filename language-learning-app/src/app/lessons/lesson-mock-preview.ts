@@ -64,8 +64,12 @@ export function buildMockLessonEntity(
   id: string,
   currentUser: { _id?: string; id?: string; userType?: string } | null,
 ): Lesson | null {
+  if (!currentUser) return null;
+
   const spec = LESSON_MOCK_SPECS.find(s => s.id === id);
-  if (!spec || !currentUser) return null;
+  if (!spec) {
+    return null;
+  }
 
   const uid = String(currentUser._id || currentUser.id || '');
   const accountIsTutor = currentUser.userType === 'tutor';

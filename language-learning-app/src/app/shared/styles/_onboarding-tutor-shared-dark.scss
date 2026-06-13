@@ -71,6 +71,12 @@
     box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
   }
 
+  // Pexo exports a near-white matte (~#EBEBEB), not true white. Multiply knocks it
+  // out on light UI but hides the bird on black; darken preserves the mascot.
+  .welcome-celebration-video {
+    mix-blend-mode: darken;
+  }
+
   .pre-step-lang-card {
     background: $d-surface-2;
     border-color: $d-border;

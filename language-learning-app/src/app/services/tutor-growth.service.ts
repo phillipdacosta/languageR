@@ -59,6 +59,8 @@ export interface GrowthContext {
 
   lessonsThisWeek: number;
   lessonsToday: number;
+  /** Non-trial lessons still ahead today — used for "review your notes" morning prep. */
+  lessonsTodayWithNotes: number;
   completedToday: number;
   totalStudents: number;
   freeHoursThisWeek: number;
@@ -400,12 +402,10 @@ export class TutorGrowthService {
 
     // ── Self-resolving: Unread messages ──
     if (ctx.unreadMessages > 0) {
-      const n = ctx.unreadMessages;
       raw.push({
         id: 'unread_messages',
         iconSrc: GROWTH_TICKER_ICONS.message,
-        messageKey: n === 1 ? 'HOME.GROWTH.INSIGHT_UNREAD_ONE' : 'HOME.GROWTH.INSIGHT_UNREAD_MANY',
-        messageParams: n === 1 ? undefined : { count: n },
+        messageKey: 'HOME.GROWTH.INSIGHT_UNREAD_MESSAGES',
         route: '/tabs/messages',
         priority: 90,
       });
@@ -540,9 +540,14 @@ export class TutorGrowthService {
       }
     }
 
-    // ── Day-scoped: Morning prep ──
-    if (hour >= 5 && hour < 12 && ctx.lessonsToday > 0 && this._state.morningPrepDay !== today) {
-      const n = ctx.lessonsToday;
+    // ── Day-scoped: Morning prep (skip trial-only days — no prior notes to review) ──
+    if (
+      hour >= 5 &&
+      hour < 12 &&
+      ctx.lessonsTodayWithNotes > 0 &&
+      this._state.morningPrepDay !== today
+    ) {
+      const n = ctx.lessonsTodayWithNotes;
       raw.push({
         id: 'morning_prep',
         iconSrc: GROWTH_TICKER_ICONS.sun,
@@ -597,8 +602,10 @@ export class TutorGrowthService {
       .sort((a, b) => b.priority - a.priority)
       .slice(0, 3);
 
+    const prevActiveId = this.insights[this._activeIndex]?.id;
     this.insights = filtered;
-    this._activeIndex = 0;
+    const preservedIdx = prevActiveId ? filtered.findIndex((i) => i.id === prevActiveId) : -1;
+    this._activeIndex = preservedIdx >= 0 ? preservedIdx : 0;
     this.hasProfileCritical = filtered.some((i) => profileInsightIds.has(i.id));
     this.applyPendingUpdatesInsight();
     this.startRotation();
