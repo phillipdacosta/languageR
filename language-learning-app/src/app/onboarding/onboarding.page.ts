@@ -1,5 +1,4 @@
-import { Component, OnInit, OnDestroy, ViewChild, ViewChildren, QueryList, ElementRef, AfterViewChecked, ChangeDetectorRef, HostBinding } from '@angular/core';
-import '@dotlottie/player-component';
+import { Component, OnInit, OnDestroy, ViewChild, ViewChildren, QueryList, ElementRef, AfterViewInit, AfterViewChecked, ChangeDetectorRef, HostBinding } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 import { UserService, OnboardingData, TutorOnboardingData, User } from '../services/user.service';
@@ -40,7 +39,7 @@ export type StudentTimelineCardOption = { value: string; labelKey: string; icon:
   styleUrls: ['./onboarding.page.scss'],
   standalone: false,
 })
-export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
+export class OnboardingPage implements OnInit, OnDestroy, AfterViewInit, AfterViewChecked {
   @HostBinding('class.onboarding-page--wizard-main')
   get onboardingPageWizardMainActive(): boolean {
     return !this.showWelcome && this.preStepPhase === 'done';
@@ -60,6 +59,7 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
   // Welcome then student wizard (first-time interface language is `/signup-language`).
   preStepPhase: 'welcome' | 'done' = 'welcome';
   welcomeRevealed: boolean = false;
+  private welcomeCelebrationFallbackTimer: ReturnType<typeof setTimeout> | null = null;
   selectedInterfaceLanguage: SupportedLanguage = 'en';
   selectedLanguageFlag = '🇬🇧';
   selectedLanguageEnglishName = 'English';
@@ -77,6 +77,7 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
   previewProfileInitials = '';
 
   // ViewChild references for autofocus
+  @ViewChild('welcomeCelebrationVideo') welcomeCelebrationVideo?: ElementRef<HTMLVideoElement>;
   @ViewChild('firstNameInput') firstNameInput?: ElementRef<HTMLInputElement>;
   @ViewChild('customGoalPanel') customGoalPanel?: ElementRef<HTMLElement>;
   @ViewChild('customGoalTextarea') customGoalTextarea?: ElementRef<HTMLTextAreaElement>;
@@ -406,12 +407,79 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   ngOnDestroy() {
+    this.clearWelcomeCelebrationFallback();
     this.localeUiSub?.unsubscribe();
     this.localeUiSub = null;
     this.pacingSuggestionI18nSub?.unsubscribe();
     this.pacingSuggestionI18nSub = null;
     this.translateLangSub?.unsubscribe();
     this.translateLangSub = null;
+  }
+
+  ngAfterViewInit(): void {
+    if (this.preStepPhase === 'welcome' && !this.showPreview && !this.showWelcome) {
+      this.playWelcomeCelebration();
+    }
+  }
+
+  onWelcomeCelebrationEnded(): void {
+    this.clearWelcomeCelebrationFallback();
+    if (!this.welcomeRevealed) {
+      this.revealWelcome();
+    }
+  }
+
+  onWelcomeCelebrationError(): void {
+    this.clearWelcomeCelebrationFallback();
+    if (!this.welcomeRevealed) {
+      this.revealWelcome();
+    }
+  }
+
+  private clearWelcomeCelebrationFallback(): void {
+    if (this.welcomeCelebrationFallbackTimer) {
+      clearTimeout(this.welcomeCelebrationFallbackTimer);
+      this.welcomeCelebrationFallbackTimer = null;
+    }
+  }
+
+  private playWelcomeCelebration(): void {
+    this.clearWelcomeCelebrationFallback();
+
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      this.revealWelcome();
+      return;
+    }
+
+    const video = this.welcomeCelebrationVideo?.nativeElement;
+    if (!video) {
+      this.welcomeCelebrationFallbackTimer = setTimeout(() => this.revealWelcome(), 6500);
+      return;
+    }
+
+    const fallbackMs = Number.isFinite(video.duration) && video.duration > 0
+      ? video.duration * 1000 + 400
+      : 6500;
+    this.welcomeCelebrationFallbackTimer = setTimeout(() => {
+      if (!this.welcomeRevealed) {
+        this.revealWelcome();
+      }
+    }, fallbackMs);
+
+    video.currentTime = 0;
+    void video.play().catch(() => {
+      if (!this.welcomeRevealed) {
+        this.revealWelcome();
+      }
+    });
+  }
+
+  private revealWelcome(): void {
+    if (this.welcomeRevealed) {
+      return;
+    }
+    this.welcomeRevealed = true;
+    this.cdr.detectChanges();
   }
 
   private persistSignupLanguageReturn(): void {
@@ -461,13 +529,9 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
       }
     }
 
-    // Whenever we land on the welcome phase (fresh visit, reload, or signup-language
-    // restore), schedule the reveal animation so the title/body fade in and the
-    // lottie shrinks into place. Without this, a hard reload leaves the page stuck
-    // in its pre-reveal hidden state.
+    // Welcome reveal is driven by the celebration video's `ended` event (see playWelcomeCelebration).
     if (this.preStepPhase === 'welcome' && !this.showPreview && !this.showWelcome) {
       this.welcomeRevealed = false;
-      setTimeout(() => this.revealWelcome(), 3800);
     }
 
     this.localeUiSub = this.languageService.currentLanguage$.subscribe(() => {
@@ -674,18 +738,6 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
     el?.focus();
   }
 
-  private revealWelcome(): void {
-    this.welcomeRevealed = true;
-    this.cdr.detectChanges();
-    // The CSS transition shrinks the lottie from 220px to 72px over 0.6s.
-    // The dotlottie-player's ResizeObserver stops playback during that resize,
-    // so we re-trigger play once the transition has settled.
-    setTimeout(() => {
-      const player = document.querySelector('.welcome-celebration-lottie') as any;
-      player?.play?.();
-    }, 750);
-  }
-
   startOnboarding() {
     const srcTitle = document.querySelector('.welcome-title') as HTMLElement;
     const srcRect = srcTitle?.getBoundingClientRect();
@@ -837,6 +889,9 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
   previousStep() {
     if (this.currentStep === 1) {
       this.preStepPhase = 'welcome';
+      this.welcomeRevealed = false;
+      this.cdr.detectChanges();
+      setTimeout(() => this.playWelcomeCelebration(), 0);
     } else {
       this.currentStep--;
       // Skip CEFR level step going back if no spoken languages were selected

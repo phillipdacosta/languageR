@@ -3,9 +3,10 @@ import { CommonModule, Location } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
 import { Router, RouterModule } from '@angular/router';
-import { AlertController, LoadingController, ToastController, ModalController } from '@ionic/angular';
+import { AlertController, LoadingController, ModalController } from '@ionic/angular';
 import { WalletService, WalletBalance, WalletTransaction, PaymentHistory } from '../services/wallet.service';
 import { UserService } from '../services/user.service';
+import { ToastService } from '../services/toast.service';
 import { environment } from '../../environments/environment';
 import { Subject, firstValueFrom } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
@@ -54,7 +55,7 @@ export class WalletPage implements OnInit, OnDestroy {
     private location: Location,
     private alertController: AlertController,
     private loadingController: LoadingController,
-    private toastController: ToastController,
+    private toastService: ToastService,
     private modalController: ModalController,
     private http: HttpClient
   ) {}
@@ -552,14 +553,8 @@ export class WalletPage implements OnInit, OnDestroy {
     return null;
   }
 
-  async showToast(message: string, color: string = 'primary') {
-    const toast = await this.toastController.create({
-      message,
-      duration: 3000,
-      color,
-      position: 'top'
-    });
-    await toast.present();
+  showToast(message: string, color: string = 'primary') {
+    void this.toastService.showLegacy(message, color);
   }
 
   switchTab(tab: 'wallet' | 'payments') {

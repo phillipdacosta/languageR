@@ -1,7 +1,8 @@
 import { Component, OnInit, OnDestroy, AfterViewInit, ViewChild, ElementRef, ChangeDetectorRef } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { IonTextarea, ModalController, AlertController, ToastController, PopoverController } from '@ionic/angular';
+import { IonTextarea, ModalController, AlertController, PopoverController } from '@ionic/angular';
 import { PlatformService } from '../services/platform.service';
+import { ToastService } from '../services/toast.service';
 import { MessagingService, Conversation, Message } from '../services/messaging.service';
 import { WebSocketService } from '../services/websocket.service';
 import { AuthService } from '../services/auth.service';
@@ -272,7 +273,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     private router: Router,
     private modalController: ModalController,
     private alertController: AlertController,
-    private toastController: ToastController,
+    private toastService: ToastService,
     private popoverController: PopoverController,
     private messagePreviewService: MessagePreviewService,
     private cdr: ChangeDetectorRef,
@@ -1160,12 +1161,10 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
 
             obs.subscribe({
               next: () => {
-                this.toastController.create({
-                  message: isUnarchive ? 'Conversation moved to inbox' : 'Conversation archived',
-                  duration: 2000,
-                  position: 'bottom',
-                  color: 'dark'
-                }).then((t: HTMLIonToastElement) => t.present());
+                void this.toastService.showInfo(
+                  isUnarchive ? 'Conversation moved to inbox' : 'Conversation archived',
+                  2000,
+                );
               },
               error: (err) => {
                 console.error('[MessagesPage] archive/unarchive failed:', err);
@@ -1210,12 +1209,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
             }
             this.messagingService.deleteConversation(conversationId).subscribe({
               next: () => {
-                this.toastController.create({
-                  message: 'Conversation deleted',
-                  duration: 2000,
-                  position: 'bottom',
-                  color: 'dark'
-                }).then((t: HTMLIonToastElement) => t.present());
+                void this.toastService.showInfo('Conversation deleted', 2000);
               },
               error: (err) => {
                 console.error('[MessagesPage] delete failed:', err);
@@ -4215,27 +4209,12 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  private async showCopySuccessToast() {
-    const toast = await this.toastController.create({
-      message: '✓ Message copied',
-      duration: 1500,
-      position: 'top',
-      cssClass: 'copy-success-toast',
-      mode: 'ios'
-    });
-    await toast.present();
+  private showCopySuccessToast() {
+    void this.toastService.showSuccess('Message copied', 1500);
   }
 
-  private async showCopyFailureToast() {
-    const toast = await this.toastController.create({
-      message: 'Failed to copy message',
-      duration: 2500,
-      position: 'top',
-      cssClass: 'copy-error-toast',
-      buttons: ['OK'],
-      mode: 'ios'
-    });
-    await toast.present();
+  private showCopyFailureToast() {
+    void this.toastService.showError('Failed to copy message', 2500, [{ text: 'OK', role: 'cancel' }]);
   }
 
   addReactionToMessage(message: Message, emoji: string) {

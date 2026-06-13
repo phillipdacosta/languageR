@@ -20,7 +20,8 @@ import {
 } from '../services/learning-plan.service';
 import { UserService } from '../services/user.service';
 import { FormsModule } from '@angular/forms';
-import { AlertController, ToastController, ModalController } from '@ionic/angular';
+import { AlertController, ModalController } from '@ionic/angular';
+import { ToastService } from '../services/toast.service';
 import { JourneyIntroComponent } from './journey-intro.component';
 import { ChapterCompleteModalComponent } from './chapter-complete-modal/chapter-complete-modal.component';
 import { PastMapsModalComponent } from './past-maps/past-maps-modal.component';
@@ -229,7 +230,7 @@ export class JourneyPage implements OnInit, OnDestroy {
     private translate: TranslateService,
     private cdr: ChangeDetectorRef,
     private alertCtrl: AlertController,
-    private toastCtrl: ToastController,
+    private toastService: ToastService,
     private modalCtrl: ModalController
   ) {}
 
@@ -768,15 +769,11 @@ export class JourneyPage implements OnInit, OnDestroy {
     this.subs.push(sub);
   }
 
-  private async presentToast(message: string, color: string = 'medium', duration = 4000) {
-    const toast = await this.toastCtrl.create({
-      message,
-      duration,
-      color,
+  private presentToast(message: string, color: string = 'medium', duration = 4000) {
+    void this.toastService.showLegacy(message, color, duration, {
       position: 'top',
-      buttons: [{ text: 'OK', role: 'cancel' }]
+      buttons: [{ text: 'OK', role: 'cancel' }],
     });
-    await toast.present();
   }
 
   // ── Past Maps + Plan History (Batch 6) ───────────────────────────
@@ -1645,14 +1642,8 @@ export class JourneyPage implements OnInit, OnDestroy {
     this.subs.push(sub);
   }
 
-  private async showToast(message: string, color: 'success' | 'warning' | 'danger') {
-    const t = await this.toastCtrl.create({
-      message,
-      duration: 2400,
-      position: 'bottom',
-      color
-    });
-    await t.present();
+  private showToast(message: string, color: 'success' | 'warning' | 'danger') {
+    void this.toastService.showLegacy(message, color);
   }
 
   private loadComingUp() {

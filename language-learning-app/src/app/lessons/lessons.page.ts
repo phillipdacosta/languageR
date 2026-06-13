@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { IonicModule, LoadingController, ToastController, AlertController, ViewWillEnter, NavController } from '@ionic/angular';
+import { IonicModule, LoadingController, AlertController, ViewWillEnter, NavController } from '@ionic/angular';
 import { Router, ActivatedRoute } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { TranslateService, TranslateModule } from '@ngx-translate/core';
@@ -11,6 +11,7 @@ import { UserService } from '../services/user.service';
 import { AgoraService } from '../services/agora.service';
 import { TutorFeedbackService } from '../services/tutor-feedback.service';
 import { FlipTransitionService } from '../services/flip-transition.service';
+import { ToastService } from '../services/toast.service';
 import { Subject, firstValueFrom } from 'rxjs';
 import { takeUntil, filter, take } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
@@ -177,7 +178,7 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
     private route: ActivatedRoute,
     private navCtrl: NavController,
     private loadingController: LoadingController,
-    private toastController: ToastController,
+    private toastService: ToastService,
     private alertController: AlertController,
     private http: HttpClient,
     private cdr: ChangeDetectorRef,
@@ -274,12 +275,7 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
     } catch (error) {
       console.error('Error loading lessons:', error);
       if (!silent) {
-        const toast = await this.toastController.create({
-          message: this.translate.instant('LESSONS_PAGE.TOAST_LOAD_FAILED'),
-          duration: 3000,
-          color: 'danger'
-        });
-        await toast.present();
+        void this.toastService.showError(this.translate.instant('LESSONS_PAGE.TOAST_LOAD_FAILED'));
       }
     } finally {
       this.isLoading = false;
@@ -1718,13 +1714,7 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
     return pl.id;
   }
 
-  private async showToast(message: string, color: 'success' | 'danger' | 'warning' = 'success') {
-    const toast = await this.toastController.create({
-      message,
-      duration: 3000,
-      color,
-      position: 'bottom'
-    });
-    await toast.present();
+  private showToast(message: string, color: 'success' | 'danger' | 'warning' = 'success') {
+    void this.toastService.showLegacy(message, color);
   }
 }

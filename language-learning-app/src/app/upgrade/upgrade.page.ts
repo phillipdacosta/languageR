@@ -1,11 +1,12 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { IonicModule, ToastController } from '@ionic/angular';
+import { IonicModule } from '@ionic/angular';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { Router, ActivatedRoute } from '@angular/router';
 import { take } from 'rxjs/operators';
 import { SubscriptionService, SubscriptionSummary } from '../services/subscription.service';
 import { UserService } from '../services/user.service';
+import { ToastService } from '../services/toast.service';
 
 /**
  * Premium upgrade / management page.
@@ -43,7 +44,7 @@ export class UpgradePage implements OnInit {
     private translate: TranslateService,
     private router: Router,
     private route: ActivatedRoute,
-    private toastCtrl: ToastController,
+    private toastService: ToastService,
     private cdr: ChangeDetectorRef
   ) {}
 
@@ -171,13 +172,7 @@ export class UpgradePage implements OnInit {
     this.router.navigate(['/tabs/home']);
   }
 
-  private async presentToast(message: string) {
-    const t = await this.toastCtrl.create({
-      message,
-      duration: 2400,
-      position: 'bottom',
-      cssClass: 'mono-toast'
-    });
-    await t.present();
+  private presentToast(message: string) {
+    void this.toastService.showSuccess(message);
   }
 }

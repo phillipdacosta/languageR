@@ -1,0 +1,100 @@
+// App toast design system — Airbnb-style pills/cards for transient feedback.
+
+ion-toast.app-toast {
+  --border-radius: 14px;
+  --box-shadow: 0 8px 28px rgba(0, 0, 0, 0.12);
+  --min-height: 48px;
+  --width: fit-content;
+  --max-width: min(420px, calc(100vw - 32px));
+  --start: 16px;
+  --end: 16px;
+  --bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: -0.01em;
+
+  &::part(container) {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  &::part(message) {
+    padding: 12px 16px;
+    line-height: 1.35;
+  }
+
+  &::part(icon) {
+    font-size: 20px;
+    margin-inline-end: 6px;
+  }
+
+  &::part(button) {
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: -0.01em;
+  }
+}
+
+ion-toast.app-toast.app-toast--above-tab-bar {
+  --bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+}
+
+ion-toast.app-toast--success {
+  --background: #ffffff;
+  --color: #222222;
+  --box-shadow: 0 8px 28px rgba(0, 0, 0, 0.12);
+
+  &::part(icon) {
+    color: #34c759;
+  }
+}
+
+ion-toast.app-toast--error {
+  --background: #ffffff;
+  --color: #222222;
+  --box-shadow: 0 8px 28px rgba(0, 0, 0, 0.12);
+
+  &::part(icon) {
+    color: #ff3b30;
+  }
+}
+
+ion-toast.app-toast--warning {
+  --background: #ffffff;
+  --color: #222222;
+  --box-shadow: 0 8px 28px rgba(0, 0, 0, 0.12);
+
+  &::part(icon) {
+    color: #ff9500;
+  }
+}
+
+ion-toast.app-toast--info {
+  --background: rgba(34, 34, 34, 0.92);
+  --color: #ffffff;
+  --box-shadow: 0 8px 28px rgba(0, 0, 0, 0.24);
+
+  &::part(icon) {
+    color: rgba(255, 255, 255, 0.88);
+  }
+
+  &::part(button) {
+    color: #ffffff;
+  }
+}
+
+html.ion-palette-dark {
+  ion-toast.app-toast--success,
+  ion-toast.app-toast--error,
+  ion-toast.app-toast--warning {
+    --background: #2a2a2a;
+    --color: rgba(255, 255, 255, 0.92);
+    --box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+  }
+
+  ion-toast.app-toast--info {
+    --background: rgba(42, 42, 42, 0.96);
+    --color: rgba(255, 255, 255, 0.92);
+    --box-shadow: 0 8px 28px rgba(0, 0, 0, 0.4);
+  }
+}

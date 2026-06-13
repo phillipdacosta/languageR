@@ -105,7 +105,16 @@
 
     <div class="welcome-hero">
       <div class="welcome-hero-cluster">
-        <dotlottie-player src="/assets/Celebration.lottie" autoplay speed="1" class="welcome-celebration-lottie"></dotlottie-player>
+        <video
+          #welcomeCelebrationVideo
+          class="welcome-celebration-video"
+          src="assets/welcome-bird-dance.mp4"
+          playsinline
+          muted
+          preload="auto"
+          aria-hidden="true"
+          (ended)="onWelcomeCelebrationEnded()"
+          (error)="onWelcomeCelebrationError()"></video>
         <h1 class="welcome-title">{{ 'ONBOARDING.WELCOME_SCREEN.TUTOR_GREETING' | translate }}</h1>
       </div>
     </div>
