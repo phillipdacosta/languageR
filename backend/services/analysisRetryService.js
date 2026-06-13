@@ -1,7 +1,26 @@
 const LessonAnalysis = require('../models/LessonAnalysis');
 const LessonTranscript = require('../models/LessonTranscript');
-const Lesson = require('../models/Lesson');
-const { analyzeLessonTranscript } = require('./aiService');
+
+/**
+ * Re-run the FULL analysis pipeline for a transcript.
+ *
+ * We deliberately go through routes/transcription.analyzeLesson (not
+ * aiService.analyzeLessonTranscript directly) so retries get the complete
+ * production pipeline: tutor-track download + transcription, text-dedup
+ * mic-bleed removal, the grading gate / recap mode, and per-segment language
+ * isolation. Calling the low-level analyzer directly would bypass all of that
+ * and regenerate a low-quality (over-graded) result.
+ *
+ * Lazy-required to avoid a circular dependency (routes/transcription pulls in
+ * aiService, which is fine, but the route module also wires Express).
+ */
+function runFullAnalysis(transcriptId) {
+  const transcriptionRoutes = require('../routes/transcription');
+  if (typeof transcriptionRoutes.analyzeLesson !== 'function') {
+    throw new Error('analyzeLesson pipeline is unavailable');
+  }
+  return transcriptionRoutes.analyzeLesson(transcriptId);
+}
 
 /**
  * Retry failed GPT-4 analyses
@@ -18,7 +37,7 @@ async function retryFailedAnalyses(maxAttempts = 3) {
       status: 'failed',
       canRetry: true,
       retryAttempts: { $lt: maxAttempts }
-    }).populate('transcriptId');
+    });
     
     console.log(`Found ${failedAnalyses.length} failed analyses to retry`);
     
@@ -27,109 +46,48 @@ async function retryFailedAnalyses(maxAttempts = 3) {
     let failed = 0;
     
     for (const analysis of failedAnalyses) {
-      console.log(`🔄 Retrying analysis for lesson ${analysis.lessonId}`);
+      // The transcript must still have segments to analyze.
+      const transcript = await LessonTranscript.findById(analysis.transcriptId).select('_id segments');
+      if (!transcript || !transcript.segments || transcript.segments.length === 0) {
+        console.error(`❌ No transcript segments for analysis ${analysis._id} — marking non-retryable`);
+        await LessonAnalysis.updateOne(
+          { _id: analysis._id },
+          { canRetry: false, error: 'No transcript segments available for retry' }
+        );
+        failed++;
+        continue;
+      }
+      
+      const priorAttempts = analysis.retryAttempts || 0;
       retried++;
+      console.log(`🔄 Retrying analysis for lesson ${analysis.lessonId} (attempt ${priorAttempts + 1}/${maxAttempts})`);
       
       try {
-        // Get the transcript
-        const transcript = await LessonTranscript.findById(analysis.transcriptId);
-        if (!transcript) {
-          console.error(`❌ Transcript not found for analysis ${analysis._id}`);
-          analysis.canRetry = false;
-          analysis.error = 'Transcript not found';
-          await analysis.save();
-          failed++;
-          continue;
-        }
-        
-        // Check if transcript has segments
-        if (!transcript.segments || transcript.segments.length === 0) {
-          console.error(`❌ Transcript has no segments for analysis ${analysis._id}`);
-          analysis.canRetry = false;
-          analysis.error = 'No transcript segments available';
-          await analysis.save();
-          failed++;
-          continue;
-        }
-        
-        // Get lesson for context
-        const lesson = await Lesson.findById(analysis.lessonId)
-          .populate('studentId')
-          .populate('tutorId');
-        
-        if (!lesson) {
-          console.error(`❌ Lesson not found for analysis ${analysis._id}`);
-          analysis.canRetry = false;
-          analysis.error = 'Lesson not found';
-          await analysis.save();
-          failed++;
-          continue;
-        }
-        
-        // Update status to processing
-        analysis.status = 'processing';
-        analysis.retryAttempts++;
-        analysis.lastRetryAttempt = new Date();
-        await analysis.save();
-        
-        console.log(`📊 Analyzing transcript with ${transcript.segments.length} segments...`);
-        
-        // Attempt analysis
-        const analysisResult = await analyzeLessonTranscript(
-          transcript.segments,
-          transcript.language,
-          analysis.studentId
-        );
-        
-        // Success! Update the analysis record with new data
-        analysis.overallAssessment = analysisResult.overallAssessment;
-        analysis.progressionMetrics = analysisResult.progressionMetrics;
-        analysis.strengths = analysisResult.strengths;
-        analysis.areasForImprovement = analysisResult.areasForImprovement;
-        analysis.errorPatterns = analysisResult.errorPatterns;
-        analysis.topErrors = analysisResult.topErrors;
-        analysis.correctedExcerpts = analysisResult.correctedExcerpts;
-        analysis.grammarAnalysis = analysisResult.grammarAnalysis;
-        analysis.vocabularyAnalysis = analysisResult.vocabularyAnalysis;
-        analysis.fluencyAnalysis = analysisResult.fluencyAnalysis;
-        analysis.topicsDiscussed = analysisResult.topicsDiscussed;
-        analysis.conversationQuality = analysisResult.conversationQuality;
-        analysis.recommendedFocus = analysisResult.recommendedFocus;
-        analysis.suggestedExercises = analysisResult.suggestedExercises;
-        analysis.homeworkSuggestions = analysisResult.homeworkSuggestions;
-        analysis.studentSummary = analysisResult.studentSummary;
-        
-        analysis.status = 'completed';
-        analysis.error = null;
-        analysis.processingTime = Date.now() - new Date(analysis.lastRetryAttempt).getTime();
-        
-        await analysis.save();
-        
+        // Run the FULL pipeline. analyzeLesson owns the LessonAnalysis record:
+        // on success it overwrites it (status completed/insufficient_data and
+        // clears retry metadata); we only correct bookkeeping on failure below.
+        await runFullAnalysis(transcript._id);
         succeeded++;
-        console.log(`✅ Successfully analyzed lesson ${analysis.lessonId} (attempt ${analysis.retryAttempts})`);
-        
-        // Update lesson status if needed
-        if (lesson.status !== 'completed') {
-          lesson.status = 'completed';
-          await lesson.save();
-        }
-        
+        console.log(`✅ Successfully re-analyzed lesson ${analysis.lessonId}`);
       } catch (error) {
-        // Increment attempt count and save error
-        analysis.retryAttempts++;
-        analysis.lastRetryAttempt = new Date();
-        analysis.error = error.message;
-        
-        // If max attempts reached, mark as cannot retry
-        if (analysis.retryAttempts >= maxAttempts) {
-          analysis.canRetry = false;
-          console.error(`❌ Max retry attempts reached for analysis ${analysis._id}`);
+        // analyzeLesson resets retryAttempts:0/canRetry:true on its own failure
+        // path; overwrite that so attempts actually accumulate toward the cap.
+        const attempts = priorAttempts + 1;
+        await LessonAnalysis.updateOne(
+          { transcriptId: transcript._id },
+          {
+            status: 'failed',
+            error: error.message,
+            retryAttempts: attempts,
+            canRetry: attempts < maxAttempts,
+            lastRetryAttempt: new Date()
+          }
+        );
+        if (attempts >= maxAttempts) {
+          console.error(`❌ Max retry attempts reached for lesson ${analysis.lessonId}`);
         }
-        
-        await analysis.save();
-        
         failed++;
-        console.error(`❌ Retry failed for analysis ${analysis._id}:`, error.message);
+        console.error(`❌ Retry failed for lesson ${analysis.lessonId} (attempt ${attempts}/${maxAttempts}):`, error.message);
       }
     }
     
@@ -250,81 +208,37 @@ async function getAnalysisRetryStats() {
  * @returns {Promise<{success: boolean, message: string}>}
  */
 async function retryAnalysis(analysisId) {
+  const analysis = await LessonAnalysis.findById(analysisId);
+  if (!analysis) {
+    throw new Error('Analysis not found');
+  }
+  if (analysis.status === 'completed') {
+    return { success: false, message: 'Analysis already completed' };
+  }
+
+  const transcript = await LessonTranscript.findById(analysis.transcriptId).select('_id segments');
+  if (!transcript || !transcript.segments || transcript.segments.length === 0) {
+    throw new Error('No transcript segments available');
+  }
+
+  const priorAttempts = analysis.retryAttempts || 0;
   try {
-    const analysis = await LessonAnalysis.findById(analysisId).populate('transcriptId');
-    if (!analysis) {
-      throw new Error('Analysis not found');
-    }
-    
-    if (analysis.status === 'completed') {
-      return { success: false, message: 'Analysis already completed' };
-    }
-    
-    const transcript = await LessonTranscript.findById(analysis.transcriptId);
-    if (!transcript || !transcript.segments || transcript.segments.length === 0) {
-      throw new Error('No transcript segments available');
-    }
-    
-    const lesson = await Lesson.findById(analysis.lessonId)
-      .populate('studentId')
-      .populate('tutorId');
-    
-    if (!lesson) {
-      throw new Error('Lesson not found');
-    }
-    
-    // Update status
-    analysis.status = 'processing';
-    analysis.retryAttempts++;
-    analysis.lastRetryAttempt = new Date();
-    await analysis.save();
-    
-    // Attempt analysis
-    const analysisResult = await analyzeLessonTranscript(
-      transcript.segments,
-      transcript.language,
-      analysis.studentId
-    );
-    
-    // Update with results
-    analysis.overallAssessment = analysisResult.overallAssessment;
-    analysis.progressionMetrics = analysisResult.progressionMetrics;
-    analysis.strengths = analysisResult.strengths;
-    analysis.areasForImprovement = analysisResult.areasForImprovement;
-    analysis.errorPatterns = analysisResult.errorPatterns;
-    analysis.topErrors = analysisResult.topErrors;
-    analysis.correctedExcerpts = analysisResult.correctedExcerpts;
-    analysis.grammarAnalysis = analysisResult.grammarAnalysis;
-    analysis.vocabularyAnalysis = analysisResult.vocabularyAnalysis;
-    analysis.fluencyAnalysis = analysisResult.fluencyAnalysis;
-    analysis.topicsDiscussed = analysisResult.topicsDiscussed;
-    analysis.conversationQuality = analysisResult.conversationQuality;
-    analysis.recommendedFocus = analysisResult.recommendedFocus;
-    analysis.suggestedExercises = analysisResult.suggestedExercises;
-    analysis.homeworkSuggestions = analysisResult.homeworkSuggestions;
-    analysis.studentSummary = analysisResult.studentSummary;
-    
-    analysis.status = 'completed';
-    analysis.error = null;
-    analysis.processingTime = Date.now() - new Date(analysis.lastRetryAttempt).getTime();
-    
-    await analysis.save();
-    
+    // Full pipeline (diarization, dedup, grading gate, language isolation).
+    await runFullAnalysis(transcript._id);
     return { success: true, message: 'Analysis completed successfully' };
-    
   } catch (error) {
     console.error('❌ Error retrying analysis:', error);
-    
-    // Update analysis with error
-    const analysis = await LessonAnalysis.findById(analysisId);
-    if (analysis) {
-      analysis.retryAttempts++;
-      analysis.lastRetryAttempt = new Date();
-      analysis.error = error.message;
-      analysis.status = 'failed';
-      await analysis.save();
-    }
-    
+    const attempts = priorAttempts + 1;
+    await LessonAnalysis.updateOne(
+      { transcriptId: transcript._id },
+      {
+        status: 'failed',
+        error: error.message,
+        retryAttempts: attempts,
+        canRetry: attempts < 3,
+        lastRetryAttempt: new Date()
+      }
+    );
     throw error;
   }
 }

@@ -196,6 +196,7 @@ export interface Tutor {
   picture?: string;
   languages: string[];
   hourlyRate: number;
+  rateDisplay?: string; // Precomputed local-currency rate string (display only)
   experience: string;
   schedule: string;
   summary?: string;

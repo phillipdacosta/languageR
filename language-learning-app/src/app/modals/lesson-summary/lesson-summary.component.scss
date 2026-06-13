@@ -826,6 +826,27 @@ $apple-gray: #f5f5f7;
    ============================================= */
 
 /* CEFR Level Jump Banner */
+.recap-only-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px 20px;
+  border-radius: 16px;
+  margin-bottom: 24px;
+  background: #f0f7ff;
+  border: 1px solid #d6e7fb;
+  color: #334155;
+  font-size: 15px;
+  line-height: 1.45;
+
+  ion-icon {
+    font-size: 24px;
+    color: #2563eb;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+}
+
 .level-jump-banner {
   background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
   color: white;

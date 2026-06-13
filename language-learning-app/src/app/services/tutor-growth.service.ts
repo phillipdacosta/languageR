@@ -14,6 +14,7 @@ export const GROWTH_TICKER_ICONS = {
   availability: 'assets/icons/growth/more.png',
   share: 'assets/icons/growth/link.png',
   stats: 'assets/icons/growth/stats.png',
+  calendarOpen: 'assets/icons/growth/calendar-open.png',
 } as const;
 
 /** Unique growth ticker icon paths — warm via ImagePreloadService so icons paint instantly. */

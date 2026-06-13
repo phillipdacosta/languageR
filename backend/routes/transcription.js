@@ -9,7 +9,8 @@ const LessonAnalysis = require('../models/LessonAnalysis');
 const Lesson = require('../models/Lesson');
 const User = require('../models/User');
 const { transcribeAudio, analyzeLessonTranscript, generateProgressReport, translateAnalysisFields } = require('../services/aiService');
-const { uploadAudio, getSignedUrl } = require('../services/cloudStorageService');
+const franc = require('franc'); // text-based per-segment language detection (handles code-switching)
+const { uploadAudio, downloadAudio, getSignedUrl } = require('../services/cloudStorageService');
 const { assessPronunciationScore, intelligentSampleSegments } = require('../services/gpt4PronunciationService');
 const { assessSegmentPronunciation } = require('../services/pronunciationService');
 const { getWordAudio } = require('../services/audioSlicingService');
@@ -334,6 +335,94 @@ function segmentOverlapsTutor(segStart, segEnd, tutorIntervals, toleranceSec = 0
     }
   }
   return false;
+}
+
+// ISO-639-1 ↔ ISO-639-3 for the languages we support. franc speaks 639-3
+// (and uses 'cmn' for Mandarin, 'arb' for Standard Arabic, 'nob' for Norwegian).
+const ISO1_TO_ISO3 = {
+  en: 'eng', es: 'spa', fr: 'fra', de: 'deu', it: 'ita', pt: 'por', nl: 'nld',
+  pl: 'pol', ru: 'rus', ja: 'jpn', zh: 'cmn', ko: 'kor', ar: 'arb', tr: 'tur',
+  sv: 'swe', da: 'dan', no: 'nob', fi: 'fin', cs: 'ces', hr: 'hrv', hu: 'hun',
+  ro: 'ron', vi: 'vie', id: 'ind', el: 'ell', he: 'heb', hi: 'hin', uk: 'ukr'
+};
+const ISO3_TO_ISO1 = Object.fromEntries(
+  Object.entries(ISO1_TO_ISO3).map(([one, three]) => [three, one])
+);
+
+/**
+ * Detect the language actually spoken in a single transcript segment from its
+ * TEXT, restricted to the plausible languages for the lesson (target + the
+ * student's native + English). Restricting the candidate set is what makes
+ * franc reliable on short conversational utterances — unconstrained, it happily
+ * guesses obscure languages.
+ *
+ * Returns an ISO-639-1 code, or null when the text is too short / ambiguous to
+ * trust (caller decides how to treat "undetermined").
+ *
+ * This solves within-chunk code-switching: Whisper only labels a whole audio
+ * blob with one language, but in real lessons a student mixes their native
+ * language and the target language inside the same blob.
+ */
+function detectSegmentLangIso(text, whitelist3) {
+  const cleaned = (text || '').trim();
+  if (cleaned.length < 12) return null; // too short to classify reliably
+  try {
+    const opts = whitelist3 && whitelist3.length ? { only: whitelist3 } : {};
+    const code3 = franc(cleaned, opts);
+    if (!code3 || code3 === 'und') return null;
+    return ISO3_TO_ISO1[code3] || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * Token-set (Jaccard) similarity between two transcript snippets, 0..1.
+ * Used to detect mic-bleed: a student segment that is really the tutor's voice
+ * re-recorded through the student's speakers will closely match a tutor segment
+ * spoken at the same moment. Case/punctuation-insensitive.
+ */
+function textSimilarity(a, b) {
+  const norm = (s) => (s || '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
+  const ta = norm(a);
+  const tb = norm(b);
+  if (ta.length === 0 || tb.length === 0) return 0;
+  const setA = new Set(ta);
+  const setB = new Set(tb);
+  let intersection = 0;
+  for (const tok of setA) { if (setB.has(tok)) intersection++; }
+  const union = setA.size + setB.size - intersection;
+  return union === 0 ? 0 : intersection / union;
+}
+
+/**
+ * Normalize a language identifier to an ISO-639-1 code.
+ * Accepts either Whisper's full-name output ("german", "english") or an ISO
+ * code already ("de", "en"). Returns lowercased input unchanged when unknown
+ * so callers can still compare consistently. Used to tag segments with the
+ * language actually spoken and to gate grading on genuine target-language use.
+ */
+function normalizeLangToIso(lang) {
+  if (!lang || typeof lang !== 'string') return null;
+  const key = lang.trim().toLowerCase();
+  const map = {
+    english: 'en', spanish: 'es', french: 'fr', german: 'de', italian: 'it',
+    portuguese: 'pt', dutch: 'nl', polish: 'pl', russian: 'ru', japanese: 'ja',
+    chinese: 'zh', mandarin: 'zh', korean: 'ko', arabic: 'ar', turkish: 'tr',
+    swedish: 'sv', danish: 'da', norwegian: 'no', finnish: 'fi', czech: 'cs',
+    croatian: 'hr', hungarian: 'hu', romanian: 'ro', vietnamese: 'vi',
+    indonesian: 'id', greek: 'el', hebrew: 'he', hindi: 'hi', ukrainian: 'uk',
+    // Pass-through for codes already normalized
+    en: 'en', es: 'es', fr: 'fr', de: 'de', it: 'it', pt: 'pt', nl: 'nl',
+    pl: 'pl', ru: 'ru', ja: 'ja', zh: 'zh', ko: 'ko', ar: 'ar', tr: 'tr',
+    sv: 'sv', da: 'da', no: 'no', fi: 'fi', cs: 'cs', hr: 'hr', hu: 'hu',
+    ro: 'ro', vi: 'vi', id: 'id', el: 'el', he: 'he', hi: 'hi', uk: 'uk'
+  };
+  return map[key] || key;
 }
 
 /**
@@ -954,6 +1043,12 @@ router.post('/:transcriptId/audio', verifyToken, upload.single('audio'), async (
       willStoreAudio: isStudentInTargetLanguage
     });
     
+    // What Whisper actually detected for this chunk (full name like "german"),
+    // normalized to an ISO code. Whisper returns one language per chunk, so all
+    // segments from this upload share it. Falls back to the target language so
+    // grading never under-counts when detection is unavailable.
+    const chunkDetectedIso = normalizeLangToIso(result.detectedLanguage) || normalizedLanguage;
+
     const segments = result.segments
       .filter(seg => seg.text && seg.text.trim().length > 0)
       .map(seg => {
@@ -963,6 +1058,7 @@ router.post('/:transcriptId/audio', verifyToken, upload.single('audio'), async (
         text: seg.text,
         confidence: seg.confidence || 1,
         language: transcript.language,
+        detectedLanguage: chunkDetectedIso,
         duration: (seg.end != null && seg.start != null) ? (seg.end - seg.start) : 0,
         noSpeechProb: seg.no_speech_prob != null ? seg.no_speech_prob : null
       };
@@ -1073,12 +1169,32 @@ router.post('/:transcriptId/tutor-reference', verifyToken, upload.single('audio'
     const vadResult = await extractSpeechIntervals(req.file.buffer, req.file.mimetype);
 
     transcript.tutorSpeechIntervals = vadResult.intervals;
+
+    // DUAL-TRACK DIARIZATION (Phase 3): persist the tutor's clean audio to GCS so
+    // the async, server-side analysis step can transcribe it for text-dedup
+    // (mic-bleed removal) WITHOUT making the client wait through Whisper here.
+    // VAD stays in-request (fast, ~free); transcription is deferred to analysis.
+    let tutorGcsPath = null;
+    try {
+      tutorGcsPath = await uploadAudio(
+        req.file.buffer,
+        transcript.lessonId.toString(),
+        'tutor-reference',
+        req.file.mimetype
+      );
+      console.log(`☁️ Tutor reference audio stored for analysis: ${tutorGcsPath}`);
+    } catch (gcsErr) {
+      console.warn('⚠️ Failed to store tutor reference audio to GCS (text-dedup disabled for this lesson):', gcsErr.message);
+    }
+
     transcript.tutorReferenceMeta = {
       durationSeconds: vadResult.durationSeconds,
       rmsLevelDb: vadResult.rmsLevelDb,
       silenceRatio: vadResult.silenceRatio,
       processedAt: new Date(),
-      sizeBytes: req.file.size
+      sizeBytes: req.file.size,
+      gcsPath: tutorGcsPath,
+      mimeType: req.file.mimetype
     };
 
     await transcript.save();
@@ -1880,17 +1996,69 @@ async function analyzeLesson(transcriptId) {
     const studentNativeLanguage = student?.nativeLanguage || 'en';
     console.log(`🌐 Student's native language: ${studentNativeLanguage} (feedback will be provided in this language)`);
     
-    // Get previous analyses for context (only completed analyses)
+    // Get previous analyses for context (only completed, ACTUALLY-GRADED ones).
+    // Recap-only lessons have a null proficiencyLevel and would otherwise feed
+    // "null" into progression comparisons, so we require a real level here.
     const previousAnalyses = await LessonAnalysis.find({
       studentId: transcript.studentId,
       tutorId: transcript.tutorId,
       lessonDate: { $lt: transcript.startTime },
-      status: 'completed'
+      status: 'completed',
+      'overallAssessment.proficiencyLevel': { $ne: null }
     })
     .sort({ lessonDate: -1 })
     .limit(3);
     
     console.log(`📊 Found ${previousAnalyses.length} previous completed analyses for progression tracking`);
+
+    // ========================================================================
+    // DUAL-TRACK TUTOR TRANSCRIPTION (Phase 3) — transcribe the tutor's clean
+    // remote-track audio (stored to GCS at upload time) into tutor segments.
+    // Runs here, in the async analysis step, so the client upload never waits on
+    // Whisper. Tutor segments enable (a) correct lesson-type detection and
+    // (b) text-dedup mic-bleed removal below. Non-blocking: any failure leaves
+    // the pipeline in its prior VAD-only behavior.
+    //
+    // Timing convention matches the student pipeline: clock time is
+    // transcript.startTime + (whisperSegment.start * 1000), so both tracks share
+    // one timeline.
+    // ========================================================================
+    const hasTutorSegmentsAlready = transcript.segments.some(s => s.speaker === 'tutor');
+    const tutorRefGcsPath = transcript.tutorReferenceMeta?.gcsPath;
+    if (!hasTutorSegmentsAlready && tutorRefGcsPath) {
+      try {
+        console.log(`🎯 Transcribing tutor reference track from GCS: ${tutorRefGcsPath}`);
+        const tutorBuffer = await downloadAudio(tutorRefGcsPath);
+        const tutorTargetIso = normalizeLangToIso(transcript.language) || 'en';
+        const tutorResult = await transcribeAudio(tutorBuffer, tutorTargetIso, 'tutor');
+        const tutorDetectedIso = normalizeLangToIso(tutorResult.detectedLanguage) || tutorTargetIso;
+
+        const newTutorSegments = (tutorResult.segments || [])
+          .filter(seg => seg.text && seg.text.trim().length > 0)
+          .map(seg => ({
+            timestamp: new Date(transcript.startTime.getTime() + ((seg.start || 0) * 1000)),
+            speaker: 'tutor',
+            text: seg.text,
+            confidence: seg.confidence || 1,
+            language: transcript.language,
+            detectedLanguage: tutorDetectedIso,
+            duration: (seg.end != null && seg.start != null) ? (seg.end - seg.start) : 0,
+            noSpeechProb: seg.no_speech_prob != null ? seg.no_speech_prob : null
+          }));
+
+        if (newTutorSegments.length > 0) {
+          transcript.segments.push(...newTutorSegments);
+          await transcript.save();
+        }
+        console.log(`🎯 Tutor track transcribed: ${newTutorSegments.length} tutor segments added`);
+      } catch (tutorTxErr) {
+        console.warn('⚠️ Tutor track transcription failed (non-critical, keeping VAD-only):', tutorTxErr.message);
+      }
+    } else if (hasTutorSegmentsAlready) {
+      console.log('ℹ️ Tutor segments already present — skipping tutor transcription');
+    } else {
+      console.log('ℹ️ No tutor reference audio stored — skipping tutor transcription (text-dedup unavailable)');
+    }
 
     // ========================================================================
     // MIC BLEED FILTER — Drop student-tagged segments that overlap tutor speech
@@ -1912,8 +2080,22 @@ async function analyzeLesson(transcriptId) {
       endSec: iv.endSec
     }));
 
+    // Energy guard (Phase 2): only trust VAD intervals when the tutor reference
+    // track actually carried speech-level energy. A near-silent track yields
+    // spurious "speech" intervals from background noise, which would wrongly
+    // exclude genuine student segments. RMS above ~-50dB with the track not
+    // almost-entirely silent is our floor for "the tutor really spoke".
+    const tutorMeta = transcript.tutorReferenceMeta || {};
+    const tutorTrackRms = typeof tutorMeta.rmsLevelDb === 'number' ? tutorMeta.rmsLevelDb : null;
+    const tutorTrackSilence = typeof tutorMeta.silenceRatio === 'number' ? tutorMeta.silenceRatio : null;
+    const tutorTrackHasSpeechEnergy =
+      tutorTrackRms === null /* legacy: no meta, don't block */
+      || (tutorTrackRms > -50 && (tutorTrackSilence === null || tutorTrackSilence < 0.97));
+
     let excludedCount = 0;
-    if (tutorIntervals.length > 0) {
+    if (tutorIntervals.length > 0 && !tutorTrackHasSpeechEnergy) {
+      console.log(`ℹ️ Mic-bleed filter: tutor track energy too low (RMS=${tutorTrackRms}dB, silence=${tutorTrackSilence}) — skipping VAD exclusion to avoid false positives`);
+    } else if (tutorIntervals.length > 0) {
       const transcriptStartMs = transcript.startTime ? transcript.startTime.getTime() : 0;
       transcript.segments.forEach(seg => {
         if (seg.speaker !== 'student') return;
@@ -1942,6 +2124,85 @@ async function analyzeLesson(transcriptId) {
       }
     } else {
       console.log('ℹ️ Mic-bleed filter: no tutor reference intervals available — skipping (likely a legacy lesson or tutor reference upload failed)');
+    }
+
+    // ========================================================================
+    // DUAL-TRACK TEXT DEDUP (Phase 3) — the robust bleed remover.
+    //
+    // The VAD overlap filter above is a blunt instrument: it drops ANY student
+    // segment that overlaps tutor speech (losing legitimate talk-over) and does
+    // nothing when the bleed is fluent target-language speech with no clean VAD
+    // boundary. Here we compare each remaining student segment against tutor
+    // segments spoken at the SAME moment; a high text-similarity match means the
+    // "student" text is really the tutor's voice echoing through the student's
+    // speakers, so we exclude it.
+    //
+    // We gate on a TIGHT time window (DEDUP_TIME_TOLERANCE) so that legitimate
+    // repetition drills — where the student repeats the tutor a few seconds
+    // LATER — are NOT mistaken for bleed. Bleed is near-simultaneous; a drill is
+    // sequential.
+    // ========================================================================
+    // Two matching rules, because cross-track timing can drift by MINUTES when
+    // student audio arrives in several independently-transcribed chunks (each
+    // chunk anchors its Whisper offsets to transcript.startTime), which makes a
+    // tight time window unreliable:
+    //   1. ALIGNMENT-INDEPENDENT: a near-duplicate of a substantive tutor
+    //      sentence (high similarity, tutor segment >= 4 words) is bleed no
+    //      matter when it appears. Full-sentence coincidence between two
+    //      speakers is vanishingly rare; the only real risk is a student
+    //      repeating a long tutor sentence verbatim (uncommon, and erring
+    //      toward removal protects grade integrity — the gate handles the rest).
+    //   2. TIME-GATED (looser similarity): when the two segments DO line up in
+    //      time, a lower similarity bar still counts as bleed.
+    const DEDUP_STRONG_SIMILARITY = 0.7;   // alignment-independent, near-duplicate
+    const DEDUP_TIMED_SIMILARITY = 0.55;   // requires time overlap
+    const DEDUP_TIME_TOLERANCE = 2.0;      // seconds
+    const DEDUP_MIN_TUTOR_WORDS = 4;       // ignore tiny tutor utterances
+    const transcriptStartMsForDedup = transcript.startTime ? transcript.startTime.getTime() : 0;
+    const wordCountOf = (t) => (t ? t.trim().split(/\s+/).filter(Boolean).length : 0);
+    const tutorBoundsForDedup = transcript.segments
+      .filter(s => s.speaker === 'tutor' && s.text && wordCountOf(s.text) >= DEDUP_MIN_TUTOR_WORDS)
+      .map(t => {
+        const start = t.timestamp ? (t.timestamp.getTime() - transcriptStartMsForDedup) / 1000 : null;
+        return { start, end: start != null ? start + (t.duration || 0) : null, text: t.text };
+      });
+
+    let dedupExcludedCount = 0;
+    if (tutorBoundsForDedup.length > 0) {
+      transcript.segments.forEach(seg => {
+        if (seg.speaker !== 'student' || seg.excludedByTutorOverlap) return;
+        const segStart = seg.timestamp ? (seg.timestamp.getTime() - transcriptStartMsForDedup) / 1000 : null;
+        const segEnd = segStart != null ? segStart + (seg.duration || 0) : null;
+        for (const tb of tutorBoundsForDedup) {
+          const sim = textSimilarity(seg.text, tb.text);
+          if (sim >= DEDUP_STRONG_SIMILARITY) {
+            seg.excludedByTutorOverlap = true;
+            dedupExcludedCount++;
+            break;
+          }
+          const timed = segStart != null && tb.start != null
+            && tb.end >= segStart - DEDUP_TIME_TOLERANCE
+            && tb.start <= segEnd + DEDUP_TIME_TOLERANCE;
+          if (timed && sim >= DEDUP_TIMED_SIMILARITY) {
+            seg.excludedByTutorOverlap = true;
+            dedupExcludedCount++;
+            break;
+          }
+        }
+      });
+
+      if (dedupExcludedCount > 0) {
+        console.log(`🚫 Text-dedup: excluded ${dedupExcludedCount} student segments matching tutor speech (mic bleed)`);
+        try {
+          await transcript.save();
+        } catch (saveErr) {
+          console.warn('⚠️ Failed to persist dedup exclusion flags (non-critical):', saveErr.message);
+        }
+      } else {
+        console.log(`✅ Text-dedup: no student segments matched tutor speech (${tutorBoundsForDedup.length} tutor segments checked)`);
+      }
+    } else {
+      console.log('ℹ️ Text-dedup: no tutor segments available — skipping (tutor track not transcribed for this lesson)');
     }
 
     // Separate student and tutor segments
@@ -1991,10 +2252,69 @@ async function analyzeLesson(transcriptId) {
     });
     
     // Calculate total words spoken
-    const totalStudentWords = studentSegments.reduce((sum, seg) => sum + seg.text.split(' ').length, 0);
-    const totalTutorWords = tutorSegments.reduce((sum, seg) => sum + seg.text.split(' ').length, 0);
+    const countWords = (txt) => (txt ? txt.trim().split(/\s+/).filter(Boolean).length : 0);
+    const totalStudentWords = studentSegments.reduce((sum, seg) => sum + countWords(seg.text), 0);
+    const totalTutorWords = tutorSegments.reduce((sum, seg) => sum + countWords(seg.text), 0);
     console.log(`   Student words: ${totalStudentWords}`);
     console.log(`   Tutor words: ${totalTutorWords}`);
+
+    // ========================================================================
+    // GRADING EVIDENCE + LANGUAGE ISOLATION — How much GENUINE target-language
+    // speech did the student produce, and which utterances should be graded?
+    //
+    // Real lessons are multilingual: an English student learning Spanish (with a
+    // tutor who often speaks English) mixes English questions and Spanish
+    // practice — sometimes within the SAME audio blob. Whisper only labels a
+    // whole blob with one language, so we re-detect language PER SEGMENT from its
+    // text, constrained to the lesson's plausible languages (target + the
+    // student's native + English) for reliability.
+    //
+    // Per segment we resolve a language as:
+    //   • a confident text detection, else
+    //   • the chunk-level Whisper language, else
+    //   • assume target (lenient — so a beginner's short target phrases still
+    //     count rather than being thrown away).
+    //
+    // We then (a) count only target-language words toward the grading floor and
+    // (b) grade ONLY the target-language student segments, so English/native
+    // asides never get scored as the target language.
+    // ========================================================================
+    const targetLangIso = normalizeLangToIso(transcript.language);
+    const nativeIso = normalizeLangToIso(studentNativeLanguage) || 'en';
+    const langWhitelist3 = [...new Set([
+      ISO1_TO_ISO3[targetLangIso], ISO1_TO_ISO3[nativeIso], 'eng'
+    ].filter(Boolean))];
+
+    const segLangCache = new Map();
+    const resolveSegLang = (seg) => {
+      if (segLangCache.has(seg)) return segLangCache.get(seg);
+      const confident = detectSegmentLangIso(seg.text, langWhitelist3);
+      let lang;
+      if (confident) lang = confident;
+      else if (seg.detectedLanguage) lang = normalizeLangToIso(seg.detectedLanguage);
+      else lang = targetLangIso; // undetermined + no chunk hint → assume target
+      segLangCache.set(seg, lang);
+      return lang;
+    };
+
+    const targetStudentSegments = studentSegments.filter(seg => resolveSegLang(seg) === targetLangIso);
+    const targetLanguageStudentWords = targetStudentSegments.reduce((sum, seg) => sum + countWords(seg.text), 0);
+    // Grade target-language speech only; fall back to all student segments if the
+    // language split left nothing (keeps the recap non-empty — grade is withheld
+    // anyway when the word floor isn't met).
+    const gradingStudentSegments = targetStudentSegments.length > 0 ? targetStudentSegments : studentSegments;
+
+    // Floor for asserting a CEFR level. Deliberately lenient so a genuine A1
+    // effort still gets graded; tune via GRADE_MIN_TARGET_WORDS.
+    const GRADE_MIN_TARGET_WORDS = 25;
+    const canAssessProficiency = targetLanguageStudentWords >= GRADE_MIN_TARGET_WORDS;
+    const gradeMode = canAssessProficiency ? 'full' : 'recap_only';
+    const gradeWithheldReason = canAssessProficiency
+      ? null
+      : (targetLanguageStudentWords > 0 ? 'insufficient_target_language' : 'insufficient_student_speech');
+
+    console.log(`   Target-language (${targetLangIso}) student words: ${targetLanguageStudentWords} across ${targetStudentSegments.length}/${studentSegments.length} segments`);
+    console.log(`   Grading mode: ${gradeMode}${gradeWithheldReason ? ` (withheld: ${gradeWithheldReason})` : ''}`);
     
     // ========================================================================
     // TRANSCRIPT QUALITY GATE — Prevent GPT-4 from analyzing garbage/hallucinated data
@@ -2153,11 +2473,41 @@ async function analyzeLesson(transcriptId) {
       transcript: transcript.segments,
       language: transcript.language,
       studentNativeLanguage: studentNativeLanguage,  // NEW: For multilingual feedback
-      studentSegments,
+      // Grade target-language speech only (English/native asides excluded above),
+      // so a Spanish lesson is never scored on the student's English.
+      studentSegments: gradingStudentSegments,
       tutorSegments,
-      previousAnalyses
+      previousAnalyses,
+      gradeMode  // 'full' (assert a CEFR level) or 'recap_only' (encouraging recap, no level)
     });
     console.log(`🤖 GPT-4 analysis completed`);
+
+    // ========================================================================
+    // GRADING GATE — enforce honesty regardless of what GPT returned.
+    // In recap_only mode we never let a CEFR level through, and we record why.
+    // In full mode we confirm a level came back; if GPT omitted it, downgrade
+    // to recap-only rather than inventing one.
+    // ========================================================================
+    analysisResult.overallAssessment = analysisResult.overallAssessment || {};
+    if (gradeMode === 'recap_only') {
+      analysisResult.overallAssessment.proficiencyLevel = null;
+      analysisResult.overallAssessment.confidence = analysisResult.overallAssessment.confidence ?? 0;
+      analysisResult.proficiencyAssessed = false;
+      analysisResult.gradeWithheldReason = gradeWithheldReason;
+    } else if (!analysisResult.overallAssessment.proficiencyLevel) {
+      console.warn('⚠️ Full grade requested but GPT returned no level — downgrading to recap-only');
+      analysisResult.overallAssessment.proficiencyLevel = null;
+      analysisResult.proficiencyAssessed = false;
+      analysisResult.gradeWithheldReason = 'insufficient_target_language';
+    } else {
+      analysisResult.proficiencyAssessed = true;
+      analysisResult.gradeWithheldReason = null;
+    }
+    analysisResult.gradingEvidence = {
+      studentTotalWords: totalStudentWords,
+      studentTargetLanguageWords: targetLanguageStudentWords,
+      targetLanguage: targetLangIso
+    };
     
     // ========== GPT-4 REALTIME PRONUNCIATION ASSESSMENT ==========
     // This runs AFTER the lesson ends, not during!
@@ -2513,49 +2863,47 @@ async function analyzeLesson(transcriptId) {
     try {
       const LearningPlanModel = require('../models/LearningPlan');
       const learningPlanService = require('../services/learningPlanService');
-      const Lesson = require('../models/Lesson');
 
+      // Match ANY live plan status — not just 'active'. A student fresh out of
+      // onboarding has a 'draft' plan, and updatePlanAfterLesson is what flips
+      // draft → active on the first analyzed lesson. Filtering on 'active' here
+      // meant draft plans never received lesson updates (nextLessonFocus stayed
+      // frozen at the onboarding boilerplate forever). The service itself routes
+      // by status: 'completed' → no-op, 'unframed'/'paused' → side effects only.
       const existingPlan = await LearningPlanModel.findOne({
         studentId: transcript.studentId,
         language: transcript.language,
-        status: 'active'
+        status: { $in: ['draft', 'active', 'mastery_mode', 'unframed', 'paused'] }
       });
 
       if (existingPlan) {
         await learningPlanService.updatePlanAfterLesson(existingPlan._id, analysis);
-      } else if (analysis.lessonId) {
-        const lessonForPlan = await Lesson.findById(analysis.lessonId);
-        if (lessonForPlan?.isTrialLesson) {
-          const studentUser = await User.findById(transcript.studentId);
-          if (studentUser?.onboardingData?.learningGoal?.type) {
-            const newPlan = await learningPlanService.generateInitialPlan(transcript.studentId, transcript.language);
+      } else {
+        // No plan at all (onboarding skipped or plan deleted). Create one from
+        // the goal + this analysis; generateInitialPlan returns null without a
+        // goal. (Trial lessons never reach analyzeLesson — they skip capture —
+        // so this fallback is for regular lessons.)
+        const studentUser = await User.findById(transcript.studentId);
+        if (studentUser?.onboardingData?.learningGoal?.type) {
+          const newPlan = await learningPlanService.generateInitialPlan(transcript.studentId, transcript.language);
 
-            if (newPlan) {
-              const Notification = require('../models/Notification');
-              const goalLabel = learningPlanService.GOAL_TYPE_LABELS[studentUser.onboardingData.learningGoal.type] || 'reach your goal';
-              await Notification.create({
-                userId: transcript.studentId,
-                type: 'learning_plan_ready',
-                title: 'Your Learning Plan is Ready! 🎯',
-                message: `Based on your first lesson, we've created a personalized path to help you ${goalLabel.toLowerCase()} in <strong>${transcript.language}</strong>.`,
-                data: {
-                  language: transcript.language,
-                  planId: newPlan._id.toString(),
-                  hasActionButton: true,
-                  actionButtonText: 'View Plan',
-                  actionRoute: '/tabs/progress'
-                },
-                read: false
-              });
-
-              const io = req.app.get('io');
-              if (io && studentUser.auth0Id) {
-                io.to(`user:${studentUser.auth0Id}`).emit('learning_plan_ready', {
-                  language: transcript.language,
-                  planId: newPlan._id.toString()
-                });
-              }
-            }
+          if (newPlan) {
+            const Notification = require('../models/Notification');
+            const goalLabel = learningPlanService.GOAL_TYPE_LABELS[studentUser.onboardingData.learningGoal.type] || 'reach your goal';
+            await Notification.create({
+              userId: transcript.studentId,
+              type: 'learning_plan_ready',
+              title: 'Your Learning Plan is Ready! 🎯',
+              message: `Based on your first lesson, we've created a personalized path to help you ${goalLabel.toLowerCase()} in <strong>${transcript.language}</strong>.`,
+              data: {
+                language: transcript.language,
+                planId: newPlan._id.toString(),
+                hasActionButton: true,
+                actionButtonText: 'View Plan',
+                actionRoute: '/tabs/progress'
+              },
+              read: false
+            });
           }
         }
       }

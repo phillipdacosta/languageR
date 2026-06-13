@@ -21,7 +21,7 @@
             <div class="meta">
               <div class="name">{{ tutorDisplayName }}</div>
               <div class="tutor-rate" *ngIf="tutor?.hourlyRate || tutor?.onboardingData?.hourlyRate">
-                <div class="rate-amount">${{ tutor?.hourlyRate || tutor?.onboardingData?.hourlyRate }}</div>
+                <div class="rate-amount">{{ rateAmountDisplay }}</div>
                 <div class="rate-label">per 50-min lesson</div>
               </div>
             </div>
@@ -74,7 +74,7 @@
             </div>
             <div class="breakdown-item">
               <span class="breakdown-label">Base rate (50 min)</span>
-              <span class="breakdown-value">${{ tutor?.hourlyRate || tutor?.onboardingData?.hourlyRate || 0 }}</span>
+              <span class="breakdown-value">{{ basePriceDisplay }}</span>
             </div>
             <div class="breakdown-item calculation">
               <span class="breakdown-label">Lesson duration: <strong>{{ lessonMinutes }} minutes</strong></span>
@@ -89,15 +89,18 @@
                 <ion-icon name="gift-outline"></ion-icon>
                 Trial discount ({{ discountPercentage }}%)
               </span>
-              <span class="breakdown-value discount-value">-${{ discount | number:'1.2-2' }}</span>
+              <span class="breakdown-value discount-value">-{{ discountDisplay }}</span>
             </div>
             <div class="breakdown-item">
               <span class="breakdown-label">Processing fee</span>
-              <span class="breakdown-value">${{ processingFee | number:'1.2-2' }}</span>
+              <span class="breakdown-value">{{ processingFeeDisplay }}</span>
             </div>
             <div class="breakdown-item total">
               <span class="breakdown-label">Total</span>
-              <span class="breakdown-value">${{ total | number:'1.2-2' }}</span>
+              <span class="breakdown-value">{{ totalDisplay }}</span>
+            </div>
+            <div class="breakdown-item charge-note" *ngIf="isLocalCharge">
+              <span class="breakdown-label">Billed in {{ chargeCurrencyLabel }}</span>
             </div>
 
             <!-- Payment Breakdown (if hybrid payment) -->
@@ -386,7 +389,7 @@
           <div class="meta">
             <div class="name">{{ tutorDisplayName }}</div>
             <div class="tutor-rate" *ngIf="tutor?.hourlyRate || tutor?.onboardingData?.hourlyRate">
-              <div class="rate-amount">${{ tutor?.hourlyRate || tutor?.onboardingData?.hourlyRate }}</div>
+              <div class="rate-amount">{{ rateAmountDisplay }}</div>
               <div class="rate-label">per 50-min lesson</div>
             </div>
           </div>
@@ -441,7 +444,7 @@
             </div>
             <div class="breakdown-item">
               <span class="breakdown-label">Base rate (50 min)</span>
-              <span class="breakdown-value">${{ tutor?.hourlyRate || tutor?.onboardingData?.hourlyRate || 0 }}</span>
+              <span class="breakdown-value">{{ basePriceDisplay }}</span>
             </div>
             <div class="breakdown-item calculation">
               <span class="breakdown-label">Lesson duration: <strong>{{ lessonMinutes }} minutes</strong></span>
@@ -456,17 +459,20 @@
                 <ion-icon name="gift-outline"></ion-icon>
                 Trial discount ({{ discountPercentage }}%)
               </span>
-              <span class="breakdown-value discount-value">-${{ discount | number:'1.2-2' }}</span>
+              <span class="breakdown-value discount-value">-{{ discountDisplay }}</span>
             </div>
           </div>
           
           <div class="detail-row">
             <div class="label">Processing fee</div>
-            <div class="value">${{ processingFee | number:'1.2-2' }}</div>
+            <div class="value">{{ processingFeeDisplay }}</div>
           </div>
           <div class="total-row">
             <div class="label">Total</div>
-            <div class="value total">${{ total | number:'1.2-2' }}</div>
+            <div class="value total">{{ totalDisplay }}</div>
+          </div>
+          <div class="detail-row charge-note" *ngIf="isLocalCharge">
+            <div class="label">Billed in {{ chargeCurrencyLabel }}</div>
           </div>
 
           <!-- Payment Breakdown (if hybrid payment) -->

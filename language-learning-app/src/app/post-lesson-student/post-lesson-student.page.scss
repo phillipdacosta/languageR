@@ -828,11 +828,44 @@ $pls-viewport-height: calc(100dvh - #{$pls-chrome-height});
   ion-icon { font-size: 24px; color: #fff; }
 }
 
+.pls-recap-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  background: #f0f7ff;
+  border: 1px solid #d6e7fb;
+  border-radius: 14px;
+
+  ion-icon {
+    font-size: 20px;
+    color: #2563eb;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  p {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.45;
+    color: #334155;
+  }
+}
+
 .pls-quick-summary {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 10px;
   margin-bottom: 16px;
+
+  @media (max-width: 520px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pls-recap-only .pls-quick-summary {
+  grid-template-columns: repeat(2, 1fr);
 
   @media (max-width: 520px) {
     grid-template-columns: 1fr;
@@ -1528,6 +1561,13 @@ $pls-viewport-height: calc(100dvh - #{$pls-chrome-height});
   .plan-update-card {
     background: $d-surface-2;
     border-color: $d-border;
+  }
+
+  .pls-recap-note {
+    background: rgba(37, 99, 235, 0.12);
+    border-color: rgba(96, 165, 250, 0.28);
+    ion-icon { color: #60a5fa; }
+    p { color: $d-text; }
   }
 
   .pls-vocab-card,

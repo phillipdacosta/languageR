@@ -598,11 +598,15 @@ router.post('/:classId/accept', verifyToken, async (req, res) => {
         const PLATFORM_FEE_PERCENTAGE = 20;
         const platformFee = cls.price * (PLATFORM_FEE_PERCENTAGE / 100);
         
+        // Charge in the student's local currency (USD anchor preserved in `cls.price`)
+        const paymentService = require('../services/paymentService');
+        const classCharge = await paymentService.resolveCharge(student, cls.price);
+
         // NEW ARCHITECTURE: Create PaymentIntent with manual capture (authorization only)
         // Collect full amount to platform - tutor payout handled separately via withdrawal system
         const paymentIntent = await stripe.paymentIntents.create({
-          amount: Math.round(cls.price * 100), // Convert to cents
-          currency: 'usd',
+          amount: Math.round(classCharge.chargeAmount * 100), // charge currency cents
+          currency: classCharge.chargeCurrency,
           customer: student.stripeCustomerId,
           payment_method: paymentMethodToUse,
           capture_method: 'manual', // HOLD funds, don't capture yet
@@ -617,7 +621,10 @@ router.post('/:classId/accept', verifyToken, async (req, res) => {
             paymentType: 'class_booking',
             className: cls.name,
             platformFee: platformFee.toFixed(2),
-            tutorPayout: (cls.price - platformFee).toFixed(2)
+            tutorPayout: (cls.price - platformFee).toFixed(2),
+            usdAmount: cls.price.toString(),
+            chargeCurrency: classCharge.chargeCurrency,
+            fxRate: String(classCharge.fxRate)
           }
         });
         
@@ -634,6 +641,10 @@ router.post('/:classId/accept', verifyToken, async (req, res) => {
           classId: cls._id,
           amount: cls.price,
           currency: 'USD',
+          chargeCurrency: classCharge.chargeCurrency,
+          chargeAmount: classCharge.chargeAmount,
+          fxRate: classCharge.fxRate,
+          fxBuffer: classCharge.fxBuffer,
           paymentMethod: 'saved-card',
           paymentType: 'class_booking',
           status: 'authorized',

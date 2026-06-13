@@ -1510,8 +1510,29 @@ ion-content {
       font: inherit;
       color: inherit;
       font-size: 18px;
+      vertical-align: middle;
     }
 
+    .growth-ticker,
+    .growth-ticker-text,
+    .welcome-outstanding-msg {
+      vertical-align: middle;
+    }
+
+    .growth-ticker-msg {
+      font-size: 18px;
+      line-height: 1.35;
+    }
+
+    .growth-ticker-icon--img {
+      width: 20px;
+      height: 20px;
+    }
+
+    .growth-ticker-icon--calendar-open {
+      width: 36px;
+      height: 36px;
+    }
   }
 
   // Desktop tutor: one fixed-height subtitle row (line + padding) so cards below never shift.
@@ -1594,6 +1615,19 @@ ion-content {
         }
       }
     }
+
+    &--static {
+      display: inline-flex;
+      align-items: center;
+      vertical-align: middle;
+      padding-right: 0;
+      cursor: default;
+      gap: 0;
+
+      .growth-ticker-text {
+        animation: none;
+      }
+    }
   }
 
   .growth-ticker-text {
@@ -1621,9 +1655,14 @@ ion-content {
       height: 22px;
       object-fit: contain;
       display: block;
-      background: none;
+      background: transparent;
       border: 0;
       box-shadow: none;
+    }
+
+    &--calendar-open {
+      width: 32px;
+      height: 32px;
     }
   }
 
@@ -1838,6 +1877,15 @@ ion-content {
     }
   }
 
+  // Mobile static welcome line (open schedule, etc.)
+  .welcome-mobile-tutor-sub {
+    .growth-ticker-mobile-fade-wrap--static {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+  }
+
   // Mobile growth ticker
   .growth-ticker-mobile-wrap {
     display: flex;
@@ -1853,6 +1901,11 @@ ion-content {
       flex: 1;
       flex-wrap: wrap;
       animation: growthInsightSoftFade 1.05s cubic-bezier(0.22, 1, 0.36, 1) both;
+
+      &--static {
+        align-items: center;
+        animation: none;
+      }
     }
 
     .growth-ticker-icon {
@@ -1864,9 +1917,14 @@ ion-content {
         height: 20px;
         object-fit: contain;
         display: block;
-        background: none;
+        background: transparent;
         border: 0;
         box-shadow: none;
+      }
+
+      &--calendar-open {
+        width: 28px;
+        height: 28px;
       }
     }
 
@@ -9448,60 +9506,129 @@ img.m-card-empty-link-arrow-img {
 }
 
 .earnings-card-widget-skeleton {
+  overflow: hidden;
+  position: relative;
+
+  .ecws-main {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
   .ecws-body {
     margin-bottom: 12px;
+    flex: 0 0 auto;
+    text-align: center;
   }
 
   .ecws-label {
     width: 88px;
     height: 14px;
-    margin-bottom: 8px;
+    margin: 0 auto 4px;
   }
 
-  .ecws-balance {
-    width: 128px;
-    height: 40px;
+  .ecws-balance-row {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding-top: 4px;
+    min-height: 48px;
+  }
+
+  .ecws-balance-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .ecws-balance-amount {
+    width: 76px;
+    height: 36px;
     border-radius: 8px;
   }
 
   .ecws-goal {
-    padding-top: 10px;
+    margin: 0 0 12px;
+    padding: 10px 0 0;
     border-top: 1px solid #f3f4f6;
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    margin-bottom: 12px;
+    gap: 4px;
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .ecws-goal-head {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 26px;
   }
 
   .ecws-goal-label {
-    width: 96px;
+    width: 84px;
     height: 13px;
+    margin: 0 auto;
+  }
+
+  .ecws-goal-edit {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+  }
+
+  .ecws-goal-body {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(32px, auto) 28px 16px;
+    gap: 4px;
+    align-items: center;
+    width: 100%;
   }
 
   .ecws-goal-amount {
     width: 168px;
     height: 16px;
+    margin: 0 auto;
+    justify-self: center;
   }
 
   .ecws-goal-bar {
-    width: 100%;
+    width: calc(100% - 112px);
     height: 8px;
     border-radius: 999px;
+    margin: 0 auto;
+    justify-self: center;
   }
 
   .ecws-goal-sub {
-    width: 210px;
+    width: 120px;
     height: 12px;
+    margin: 0 auto;
+    justify-self: center;
   }
 
   .ecws-withdraw {
+    flex-shrink: 0;
     width: 100%;
     height: 48px;
     border-radius: 12px;
-    margin-bottom: 12px;
+    margin: 0 0 12px;
   }
 
   .ecws-details {
+    flex-shrink: 0;
     width: 108px;
     height: 14px;
     margin: 0 auto;
@@ -10240,6 +10367,7 @@ img.m-card-empty-link-arrow-img {
       color: #6b7280;
       margin-bottom: 4px;
       font-weight: 500;
+      text-align: center;
     }
     
     .earnings-balance {
@@ -10251,6 +10379,7 @@ img.m-card-empty-link-arrow-img {
       margin-bottom: 8px;
       line-height: 1.1;
       box-sizing: content-box;
+      text-align: center;
       /* Air under “Total Balance” — scaled coin still reads tight to the label without this */
       padding-top: 4px;
       padding-left: 3px;
@@ -10320,10 +10449,11 @@ img.m-card-empty-link-arrow-img {
     .earnings-goal__head {
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      justify-content: center;
       gap: 8px;
       flex-shrink: 0;
       min-height: 26px;
+      position: relative;
     }
 
     // Fixed rows: amount/edit share row 1, bar row 2, sub row 3 — same geometry in
@@ -10350,7 +10480,7 @@ img.m-card-empty-link-arrow-img {
     .earnings-goal__amount {
       display: flex;
       flex-direction: column;
-      align-items: flex-start;
+      align-items: center;
       margin-top: 0;
       min-height: 32px;
       min-width: 0;
@@ -10360,6 +10490,7 @@ img.m-card-empty-link-arrow-img {
     .earnings-goal__amount-line {
       display: flex;
       align-items: center;
+      justify-content: center;
       min-width: 0;
       width: 100%;
       white-space: nowrap;
@@ -10374,6 +10505,7 @@ img.m-card-empty-link-arrow-img {
       line-height: 1.2;
       margin-top: 2px;
       font-variant-numeric: tabular-nums;
+      text-align: center;
     }
 
     .earnings-goal__pane--hidden {
@@ -10393,8 +10525,8 @@ img.m-card-empty-link-arrow-img {
       align-items: center;
       min-width: 0;
       height: 28px;
-      // Always reserve badge space so empty and reached bars are the same length.
-      padding-right: 56px;
+      // Symmetric inset keeps the bar centered; right slot holds the reached badge.
+      padding: 0 56px;
     }
 
     .earnings-goal__bar {
@@ -10452,6 +10584,7 @@ img.m-card-empty-link-arrow-img {
       color: #6b7280;
       letter-spacing: 0;
       text-transform: none;
+      text-align: center;
     }
 
     .earnings-goal__edit-btn {
@@ -10468,7 +10601,11 @@ img.m-card-empty-link-arrow-img {
       cursor: pointer;
       transition: background 0.15s ease, color 0.15s ease;
       padding: 0;
-      margin-right: -4px; // optical alignment to card edge
+      position: absolute;
+      right: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      margin-right: -4px;
 
       ion-icon { font-size: 15px; }
 
@@ -10554,6 +10691,7 @@ img.m-card-empty-link-arrow-img {
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
+      text-align: center;
     }
 
     .earnings-goal__sub-masked {

@@ -1399,7 +1399,10 @@ router.post('/:id/purchase', verifyToken, async (req, res) => {
     }
 
     const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-    const amount = Math.round(material.price * 100);
+    // Charge in the buyer's local currency; ledger stays USD (material.price)
+    const paymentService = require('../services/paymentService');
+    const materialCharge = await paymentService.resolveCharge(user, material.price);
+    const amount = Math.round(materialCharge.chargeAmount * 100); // charge currency cents
 
     let customerId = user.stripeCustomerId;
     if (!customerId) {
@@ -1414,7 +1417,7 @@ router.post('/:id/purchase', verifyToken, async (req, res) => {
 
     const paymentIntentParams = {
       amount,
-      currency: 'usd',
+      currency: materialCharge.chargeCurrency,
       customer: customerId,
       payment_method: stripePaymentMethodId,
       confirm: true,
@@ -1426,7 +1429,10 @@ router.post('/:id/purchase', verifyToken, async (req, res) => {
         type: 'material_purchase',
         materialId: material._id.toString(),
         studentId: user._id.toString(),
-        tutorId: material.tutorId._id.toString()
+        tutorId: material.tutorId._id.toString(),
+        usdAmount: material.price.toString(),
+        chargeCurrency: materialCharge.chargeCurrency,
+        fxRate: String(materialCharge.fxRate)
       }
     };
 
@@ -1452,8 +1458,10 @@ router.post('/:id/purchase', verifyToken, async (req, res) => {
         status: 'completed'
       });
 
-      const platformFee = Math.round(amount * 0.20);
-      const tutorPayout = (amount - platformFee) / 100;
+      // Ledger amounts in USD (anchor); Stripe application fee above is in the
+      // charge currency, but our records track USD.
+      const platformFeeUsd = Math.round(material.price * 0.20 * 100) / 100;
+      const tutorPayout = Math.round((material.price - platformFeeUsd) * 100) / 100;
 
       await Payment.create({
         userId: user._id,
@@ -1462,10 +1470,14 @@ router.post('/:id/purchase', verifyToken, async (req, res) => {
         materialId: material._id,
         amount: material.price,
         currency: 'USD',
+        chargeCurrency: materialCharge.chargeCurrency,
+        chargeAmount: materialCharge.chargeAmount,
+        fxRate: materialCharge.fxRate,
+        fxBuffer: materialCharge.fxBuffer,
         paymentMethod: 'card',
         status: 'succeeded',
         stripePaymentIntentId: paymentIntent.id,
-        platformFee: platformFee / 100,
+        platformFee: platformFeeUsd,
         platformFeePercentage: 20,
         tutorPayout,
         paymentType: 'material_purchase',

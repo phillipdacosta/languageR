@@ -10,6 +10,7 @@ import { TutorAvailabilityViewerComponent } from '../components/tutor-availabili
 import { MessagingService } from '../services/messaging.service';
 import { LessonService } from '../services/lesson.service';
 import { ClassService } from '../services/class.service';
+import { CurrencyService } from '../services/currency.service';
 import { firstValueFrom } from 'rxjs';
 import { fromZonedTime } from 'date-fns-tz';
 import { VideoPlayerModalComponent } from './video-player-modal.component';
@@ -306,10 +307,26 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
     private cdr: ChangeDetectorRef,
     private alertController: AlertController,
     private lessonService: LessonService,
-    private classService: ClassService
+    private classService: ClassService,
+    private currencyService: CurrencyService
   ) {}
 
+  /** Precomputed local-currency rate string for a tutor card (display only). */
+  private buildRateDisplay(rate: number): string {
+    const ctx = this.currencyService.context;
+    const approx = ctx.currency !== 'usd' ? '≈ ' : '';
+    const value = Math.round((rate || 0) * (ctx.rate || 1));
+    return `${approx}${ctx.symbol || '$'}${value}`;
+  }
+
+  /** Attach rateDisplay to each loaded tutor. */
+  private decorateTutorRates(): void {
+    this.tutors.forEach((t) => { t.rateDisplay = this.buildRateDisplay(t.hourlyRate); });
+  }
+
   ngOnInit() {
+    // Preload FX context so tutor cards can show local-currency rates
+    this.currencyService.getFxContext().then(() => this.decorateTutorRates());
     // Load view mode from localStorage
     const savedViewMode = localStorage.getItem('tutorSearchViewMode');
     if (savedViewMode) {
@@ -735,6 +752,7 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
             // Smooth transition: fade out old, fade in new
             setTimeout(() => {
               this.tutors = response.tutors;
+              this.decorateTutorRates();
               this.isLoading = false;
               setTimeout(() => {
                 this.isTransitioning = false;
@@ -743,6 +761,7 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
           } else {
             // Direct update for first load
             this.tutors = response.tutors;
+            this.decorateTutorRates();
             console.log('🔍 Tutors loaded:', this.tutors);
             this.isLoading = false;
             

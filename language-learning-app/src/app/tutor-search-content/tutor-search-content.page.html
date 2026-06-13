@@ -127,7 +127,7 @@
               </div>
               
               <div class="price-badge-compact">
-                <div class="price-amount">${{ tutor.hourlyRate }}</div>
+                <div class="price-amount">{{ tutor.rateDisplay || ('$' + tutor.hourlyRate) }}</div>
                 <div class="price-label">per hour</div>
               </div>
             </div>

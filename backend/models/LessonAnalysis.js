@@ -45,22 +45,54 @@ const lessonAnalysisSchema = new mongoose.Schema({
   
   // Overall Assessment
   overallAssessment: {
+    // Nullable: a CEFR level is only asserted when the lesson had enough
+    // genuine target-language student speech to justify one (see the grading
+    // gate in routes/transcription.js -> analyzeLesson). Recap-only lessons
+    // store null here, which the CEFR estimator already excludes from accrual.
     proficiencyLevel: {
       type: String,
-      enum: ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'],
-      required: true
+      enum: ['A1', 'A2', 'B1', 'B2', 'C1', 'C2', null],
+      default: null
     },
     confidence: {
       type: Number,
       min: 0,
-      max: 100,
-      required: true
+      max: 100
     },
     summary: {
-      type: String,
-      required: true
+      type: String
     },
     progressFromLastLesson: String // e.g., "Improved from A2 to B1"
+  },
+
+  // Whether a CEFR proficiency level was actually assessed this lesson. False
+  // for recap-only lessons (too little genuine target-language speech to grade
+  // honestly). Drives the post-lesson UI: a recap is always shown, a level is
+  // only shown when proficiencyAssessed === true.
+  proficiencyAssessed: {
+    type: Boolean,
+    default: true
+  },
+
+  // Why a grade was withheld, when proficiencyAssessed === false. Telemetry +
+  // lets the UI show an honest, specific message.
+  gradeWithheldReason: {
+    type: String,
+    enum: [
+      'insufficient_target_language', // spoke too few words in the target language
+      'insufficient_student_speech',  // barely spoke at all
+      'no_capture',                   // audio capture failed / unavailable
+      null
+    ],
+    default: null
+  },
+
+  // Evidence the grading gate was based on. Stored for transparency/debugging
+  // and so thresholds can be retuned without re-deriving from raw transcripts.
+  gradingEvidence: {
+    studentTotalWords: { type: Number, default: null },
+    studentTargetLanguageWords: { type: Number, default: null },
+    targetLanguage: { type: String, default: null }
   },
   
   // Progression Metrics (NEW - for tracking improvement over time)
@@ -213,10 +245,10 @@ const lessonAnalysisSchema = new mongoose.Schema({
   suggestedExercises: [String],
   homeworkSuggestions: [String],
   
-  // Student Feedback (shown at end of lesson)
+  // Student Feedback (shown at end of lesson). Always present — even recap-only
+  // lessons produce an encouraging summary of what was practiced.
   studentSummary: {
-    type: String,
-    required: true
+    type: String
   },
   
   // Tutor Notes
@@ -248,6 +280,10 @@ const lessonAnalysisSchema = new mongoose.Schema({
     default: 'gpt-4o-mini'
   },
   processingTime: Number, // milliseconds
+  // 'completed' covers both fully-graded lessons and recap-only lessons; the
+  // difference is proficiencyAssessed + a null overallAssessment.proficiencyLevel.
+  // Keeping recap-only as 'completed' means the post-lesson screen still shows
+  // the recap (the state machine treats 'completed' as "ready").
   status: {
     type: String,
     enum: ['pending', 'processing', 'completed', 'failed', 'insufficient_data'],

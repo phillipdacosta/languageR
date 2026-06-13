@@ -79,6 +79,11 @@ export class PostLessonTutorPage implements OnInit, OnDestroy {
   
   // AI-enabled flag for this student
   studentAiEnabled: boolean = true;
+
+  // Trial mode: trials capture no audio, so the tutor's quick assessment
+  // (CEFR + "start with" chips + optional note) is the only signal that
+  // seeds the student's learning plan. Trimmed form, always skippable.
+  isTrialMode: boolean = false;
   
   // Computed display properties (avoid function calls in template)
   studentDisplayName: string = '';
@@ -193,6 +198,10 @@ export class PostLessonTutorPage implements OnInit, OnDestroy {
   /** Disable submit button when form is incomplete */
   get isSubmitDisabled(): boolean {
     if (this.submittingNote) return true;
+    if (this.isTrialMode) {
+      // Trial assessment: level + at least one "start with" chip; note optional.
+      return !(this.cefrLevel && this.selectedAreasToImprove.length > 0);
+    }
     if (!this.noteText.trim()) return true;
     if (!this.studentAiEnabled) {
       return !(this.cefrLevel && this.grammarRating > 0 && this.fluencyRating > 0 &&
@@ -220,6 +229,7 @@ export class PostLessonTutorPage implements OnInit, OnDestroy {
     this.lessonId = this.route.snapshot.paramMap.get('id') || '';
     this.feedbackId = this.route.snapshot.queryParamMap.get('feedbackId') || '';
     this.isPostCall = this.route.snapshot.queryParamMap.get('fromPostCall') === 'true';
+    this.isTrialMode = this.route.snapshot.queryParamMap.get('trial') === 'true';
     this.buildLocalizedStrings();
     this.translate.onLangChange.pipe(takeUntil(this.destroy$)).subscribe(() => {
       this.buildLocalizedStrings();
@@ -308,6 +318,7 @@ export class PostLessonTutorPage implements OnInit, OnDestroy {
         this.student = response.lesson.studentId || response.lesson.student;
         
         const isTrial = !!(response.lesson.isTrialLesson || response.lesson.isTrial);
+        if (isTrial) this.isTrialMode = true;
 
         // Use the lesson's snapshot of the AI setting (immutable at lesson completion).
         // Fall back to live student profile for legacy lessons without the snapshot.
@@ -503,7 +514,19 @@ export class PostLessonTutorPage implements OnInit, OnDestroy {
   }
 
   async submitNote() {
-    if (!this.noteText.trim()) {
+    // Trial mode: note is optional — only level + focus chips are required
+    // (enforced by isSubmitDisabled, double-checked here).
+    if (this.isTrialMode) {
+      if (!this.cefrLevel || this.selectedAreasToImprove.length === 0) {
+        const alert = await this.alertCtrl.create({
+          header: this.t('ALERTS.POST_LESSON.ASSESSMENT_REQUIRED_HEADER'),
+          message: this.t('ALERTS.POST_LESSON.ASSESSMENT_REQUIRED_MSG'),
+          buttons: [this.t('COMMON.OK')]
+        });
+        await alert.present();
+        return;
+      }
+    } else if (!this.noteText.trim()) {
       const alert = await this.alertCtrl.create({
         header: this.t('ALERTS.POST_LESSON.NOTE_REQUIRED_HEADER'),
         message: this.t('ALERTS.POST_LESSON.NOTE_REQUIRED_MSG'),
@@ -514,7 +537,7 @@ export class PostLessonTutorPage implements OnInit, OnDestroy {
     }
 
     // Validate enhanced form when AI is off
-    if (!this.studentAiEnabled && !(this.cefrLevel && this.grammarRating > 0 && this.fluencyRating > 0 &&
+    if (!this.isTrialMode && !this.studentAiEnabled && !(this.cefrLevel && this.grammarRating > 0 && this.fluencyRating > 0 &&
         this.selectedStrengths.length > 0 && this.selectedAreasToImprove.length > 0)) {
       const alert = await this.alertCtrl.create({
         header: this.t('ALERTS.POST_LESSON.ASSESSMENT_REQUIRED_HEADER'),
@@ -542,7 +565,14 @@ export class PostLessonTutorPage implements OnInit, OnDestroy {
         payload.capturedCorrections = validCorrections;
       }
 
-      if (!this.studentAiEnabled) {
+      if (this.isTrialMode) {
+        // Trial mini-assessment: level + "start with" focus areas. Backend
+        // creates a tutor-sourced analysis and seeds the learning plan
+        // (seed-only — trials never push mastery scores).
+        payload.cefrLevel = this.cefrLevel;
+        payload.areasToImprove = [...this.selectedAreasToImprove];
+        payload.isTutorAssessment = true;
+      } else if (!this.studentAiEnabled) {
         payload.cefrLevel = this.cefrLevel;
         payload.grammarRating = this.grammarRating;
         payload.fluencyRating = this.fluencyRating;

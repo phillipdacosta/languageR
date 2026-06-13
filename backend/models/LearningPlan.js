@@ -77,6 +77,10 @@ const historyEntrySchema = new mongoose.Schema({
     enum: [
       'mastery_met', 'max_lessons_safety', 'tutor_advance', 'tutor_skip',
       'ai_advance', 'goal_change', 'created',
+      // Trial lessons capture no audio; the tutor's post-trial mini-assessment
+      // seeds the plan instead (activates draft, sets focus). Seed-only: no
+      // lessonScore is pushed for trials.
+      'trial_assessment',
       // Chapter system (Batch 1+)
       'chapter_graduated', 'chapter_demoted', 'calibration_promoted', 'calibration_demoted',
       'decay_warning', 'chapter_regenerated', 'tutor_vote_advance', 'tutor_vote_hold',

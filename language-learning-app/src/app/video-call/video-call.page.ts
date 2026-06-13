@@ -6291,7 +6291,13 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
             queryParams: { fromPostCall: 'true' },
             replaceUrl: true
           });
-        } else if (isTrialLesson || tutorHasInCallFeedback) {
+        } else if (isTrialLesson) {
+          // Trials capture no audio — the tutor's quick assessment is the only
+          // signal that seeds the student's learning plan. Skippable in one tap.
+          await this.router.navigate(['/post-lesson-tutor', lessonId], {
+            queryParams: { fromPostCall: 'true', trial: 'true' }
+          });
+        } else if (tutorHasInCallFeedback) {
           await this.router.navigate(['/tabs/lessons']);
         } else {
           await this.router.navigate(['/post-lesson-tutor', lessonId], {
@@ -6306,7 +6312,11 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
             queryParams: { fromPostCall: 'true' },
             replaceUrl: true
           });
-        } else if (isTrialLesson || tutorHasInCallFeedback) {
+        } else if (isTrialLesson) {
+          await this.router.navigate(['/post-lesson-tutor', lessonId], {
+            queryParams: { fromPostCall: 'true', trial: 'true' }
+          });
+        } else if (tutorHasInCallFeedback) {
           await this.router.navigate(['/tabs/lessons']);
         } else {
           await this.router.navigate(['/post-lesson-tutor', lessonId], {

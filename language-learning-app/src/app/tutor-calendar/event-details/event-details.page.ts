@@ -185,6 +185,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   edSidebarHasExtraDetails = false;
   formattedTimeRange = '';
   formattedDuration = '';
+  lessonBookingTypeLabel = '';
   formattedPrice = '';
   formattedActualPrice = '';
   formattedActualDuration = '';
@@ -198,6 +199,10 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   /** Localized sidebar role label (student vs tutor). */
   participantRoleDisplay = '';
   participantCountry = '';
+  /** Precomputed sidebar meta line (languages + role + country). */
+  participantMetaLine = '';
+  /** True while a background revalidate may still fill participantMetaLine. */
+  participantMetaPending = false;
   tutorId: string | null = null; // For navigation to tutor profile (students only)
 
   // Sidebar info
@@ -308,9 +313,6 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   mcLastSessionEmptyKey = 'EVENT_DETAILS.LESSON_SCREEN.EMPTY_LAST_SESSION_STUDENT';
   showMcTutorBriefing = false;
   mcTutorBriefingEmpty = false;
-  showMcFeedbackStatus = false;
-  mcFeedbackStatusEmpty = false;
-  mcFeedbackStatusEmptyKey = 'EVENT_DETAILS.LESSON_SCREEN.EMPTY_FEEDBACK_STATUS_STUDENT';
   showMcAnalysis = false;
   mcAnalysisEmpty = false;
   mcAnalysisEmptyKey = 'EVENT_DETAILS.LESSON_SCREEN.EMPTY_ANALYSIS_STUDENT';
@@ -321,6 +323,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   mcTutorFeedbackEmpty = false;
   /** Tutor view: own note + structured feedback they left */
   showMcYourFeedback = false;
+  showYourFeedbackCollapsible = false;
   mcYourFeedbackEmpty = false;
   showMcPayment = false;
   mcPaymentEmpty = false;
@@ -548,8 +551,6 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   /** True while a background cache-revalidation is running — suppresses loading flips. */
   private isRevalidating = false;
   /** Skip background revalidate when cache was written recently (avoids flicker). */
-  private static readonly REVALIDATE_MIN_AGE_MS = 20_000;
-
   private get userTz(): string | undefined {
     return this.currentUser?.profile?.timezone || undefined;
   }
@@ -955,10 +956,9 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     const cached = this.lessonService.getCachedLessonDetail(this.eventId);
     if (cached?.detailReady && (cached.lesson || cached.classData)) {
       this.hydrateFromCache(cached);
-      const cacheAge = Date.now() - (cached.cachedAt || 0);
-      if (cacheAge > EventDetailsPage.REVALIDATE_MIN_AGE_MS) {
-        this.revalidateFromServer();
-      }
+      // Always silently refresh lesson detail so participant sidebar fields
+      // (languages, country) stay in sync with the full GET /lessons/:id populate.
+      this.revalidateFromServer();
       return;
     }
 
@@ -970,6 +970,10 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   private revalidateFromServer() {
     if (!this.eventId || this.isRevalidating) return;
     this.isRevalidating = true;
+    // Reserve meta row height while the full lesson populate may still arrive.
+    if (this.participantId && !this.participantMetaLine) {
+      this.participantMetaPending = true;
+    }
     if (this.isClass) {
       this.loadClassDetails(true);
     } else {
@@ -1451,6 +1455,9 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       this.markDetailCacheReady();
       this.capturePageOriginals();
       this.isRevalidating = false;
+      if (!this.participantMetaLine) {
+        this.participantMetaPending = false;
+      }
       this.cdr.detectChanges();
       return;
     }
@@ -1552,8 +1559,6 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     this.mcLastSessionEmpty = false;
     this.showMcTutorBriefing = false;
     this.mcTutorBriefingEmpty = false;
-    this.showMcFeedbackStatus = false;
-    this.mcFeedbackStatusEmpty = false;
     this.showMcAnalysis = false;
     this.mcAnalysisEmpty = false;
     this.showMcPracticeAreas = false;
@@ -1561,6 +1566,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     this.showMcTutorFeedback = false;
     this.mcTutorFeedbackEmpty = false;
     this.showMcYourFeedback = false;
+    this.showYourFeedbackCollapsible = false;
     this.mcYourFeedbackEmpty = false;
     this.showMcPayment = false;
     this.mcPaymentEmpty = false;
@@ -1588,9 +1594,6 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     this.mcLastSessionEmptyKey = this.isTutorUser
       ? 'EVENT_DETAILS.LESSON_SCREEN.EMPTY_LAST_SESSION_TUTOR'
       : 'EVENT_DETAILS.LESSON_SCREEN.EMPTY_LAST_SESSION_STUDENT';
-    this.mcFeedbackStatusEmptyKey = this.isTutorUser
-      ? 'EVENT_DETAILS.LESSON_SCREEN.EMPTY_FEEDBACK_STATUS_TUTOR'
-      : 'EVENT_DETAILS.LESSON_SCREEN.EMPTY_FEEDBACK_STATUS_STUDENT';
     this.mcAnalysisEmptyKey = this.isTutorUser
       ? 'EVENT_DETAILS.LESSON_SCREEN.EMPTY_ANALYSIS_TUTOR'
       : 'EVENT_DETAILS.LESSON_SCREEN.EMPTY_ANALYSIS_STUDENT';
@@ -1610,11 +1613,6 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     this.showMcTutorBriefing = upcoming && this.isTutorUser;
     this.mcTutorBriefingEmpty = !this.edPrepHasContent;
 
-    // Students only need the status when feedback is still pending — once it's provided
-    // the actual Tutor Feedback section shows the content, so the banner is redundant.
-    this.showMcFeedbackStatus = completed && (this.isTutorUser || this.feedbackPending);
-    this.mcFeedbackStatusEmpty = !this.feedbackPending && !this.feedbackProvided;
-
     // AI analysis is intentionally disabled for trial lessons.
     this.showMcAnalysis = completed && !trial;
     this.mcAnalysisEmpty =
@@ -1632,9 +1630,10 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     this.showMcTutorFeedback = completed && this.isStudentUser;
     this.mcTutorFeedbackEmpty = !this.hasTutorFeedback && !this.hasTutorNote;
 
-    // Tutor: their own note + structured feedback they left
+    // Tutor: status banner + own note / structured feedback
     this.showMcYourFeedback = completed && this.isTutorUser;
     this.mcYourFeedbackEmpty = !this.hasTutorNote && !this.hasTutorFeedback;
+    this.showYourFeedbackCollapsible = this.feedbackProvided && !this.mcYourFeedbackEmpty;
 
     // Payment: trials are free so no payment section
     this.showMcPayment = completed && !trial;
@@ -1768,6 +1767,15 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       this.formattedDuration = m === 0 ? `${h} hour${h > 1 ? 's' : ''}` : `${h}h ${m}m`;
     }
 
+    const bookingType = this.lesson.bookingType;
+    if (bookingType && bookingType !== 'scheduled') {
+      this.lessonBookingTypeLabel = bookingType === 'office_hours'
+        ? this.translate.instant('EVENT_DETAILS.LESSON_SCREEN.OFFICE_HOURS')
+        : this.translate.instant('EVENT_DETAILS.LESSON_SCREEN.INSTANT_BOOKING');
+    } else {
+      this.lessonBookingTypeLabel = '';
+    }
+
     // Price
     this.formattedPrice = this.lesson.price != null ? `$${this.lesson.price.toFixed(2)}` : '';
     this.refreshSplitLayoutLabels();
@@ -1836,6 +1844,11 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       }
     }
 
+    this.participantMetaLine = this.buildParticipantMetaLine();
+    if (this.participantMetaLine) {
+      this.participantMetaPending = false;
+    }
+
     // Tutor-specific sidebar data (available to both roles)
     const tutorData = this.lesson.tutorId as any;
     if (tutorData) {
@@ -1857,6 +1870,18 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     if (this.isTutorUser) {
       this.materialsSectionExpanded = false;
     }
+  }
+
+  /** "English, Spanish · Student · United States" for the guidance sidebar. */
+  private buildParticipantMetaLine(): string {
+    let line = '';
+    if (this.participantLanguages.length) {
+      line = `${this.participantLanguages.join(', ')} ${this.participantRoleDisplay}`.trim();
+    }
+    if (this.participantCountry) {
+      line = line ? `${line} · ${this.participantCountry}` : this.participantCountry;
+    }
+    return line.trim();
   }
 
   private loadTutorMaterials() {

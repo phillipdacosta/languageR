@@ -6,6 +6,7 @@ import { ActivatedRoute, Router, RouterModule, NavigationEnd } from '@angular/ro
 import { trigger, transition, style, animate, query, stagger } from '@angular/animations';
 import { UserService } from '../services/user.service';
 import { LanguageService } from '../services/language.service';
+import { CurrencyService } from '../services/currency.service';
 import { TutorAvailabilityViewerComponent } from '../components/tutor-availability-viewer/tutor-availability-viewer.component';
 import { TutorSearchPage } from '../tutor-search/tutor-search.page';
 import { MessagingService, Message } from '../services/messaging.service';
@@ -133,8 +134,32 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
     private alertController: AlertController,
     private animationCtrl: AnimationController,
     private lessonService: LessonService,
-    private materialService: MaterialService
+    private materialService: MaterialService,
+    private currencyService: CurrencyService
   ) {}
+
+  // ── Local-currency rate display (approximate; checkout shows exact charge) ──
+  rateDisplay = '';            // standard per-50-min rate
+  trialOriginalWhole = '';     // struck-through preview (0 dp)
+  trialDiscountedWhole = '';   // discounted preview (0 dp)
+  trialOriginal2dp = '';       // struck-through (2 dp)
+  trialDiscounted2dp = '';     // discounted (2 dp)
+
+  private async computeRateDisplays(): Promise<void> {
+    const ctx = await this.currencyService.getFxContext();
+    const fx = ctx.rate || 1;
+    const sym = ctx.symbol || '$';
+    const approx = ctx.currency !== 'usd' ? '≈ ' : '';
+    const base = this.tutor?.hourlyRate || 25;
+    const f0 = (n: number) => `${sym}${Math.round(n * fx)}`;
+    const f2 = (n: number) => this.currencyService.formatMoney(Math.round(n * fx * 100) / 100, ctx.currency);
+
+    this.rateDisplay = approx + f0(base);
+    this.trialOriginalWhole = f0(base * 0.5);
+    this.trialDiscountedWhole = approx + f0(base * 0.5 * 0.7);
+    this.trialOriginal2dp = f2(base * 0.5);
+    this.trialDiscounted2dp = approx + f2(base * 0.5 * 0.7);
+  }
 
   ngOnInit() {
     const pageLoadStart = performance.now();
@@ -197,6 +222,7 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
         
         this.checkPreviousLessonsWithTutor();
         this.loadTutorMaterials();
+        this.computeRateDisplays();
       },
       error: (err) => {
         const duration = performance.now() - startTime;

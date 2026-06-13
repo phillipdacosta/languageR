@@ -13,6 +13,8 @@ const express = require('express');
 const router = express.Router();
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const Payment = require('../models/Payment');
+const Withdrawal = require('../models/Withdrawal');
+const withdrawalService = require('../services/withdrawalService');
 const Notification = require('../models/Notification');
 const paypalService = require('../services/paypalService');
 const Lesson = require('../models/Lesson');
@@ -558,8 +560,31 @@ async function handleTransferCreated(transfer) {
     } else {
       console.warn(`⚠️  [WEBHOOK] No payment found for transfer ${transfer.id}`);
     }
+
+    // Tutor withdrawals: capture the real settled amount/currency/FX so the
+    // tutor's records match what actually landed in their account.
+    await captureWithdrawalSettlement(transfer);
   } catch (error) {
     console.error(`❌ Error handling transfer.created:`, error);
+  }
+}
+
+/**
+ * Find the Withdrawal tied to a Stripe transfer and capture its settlement
+ * details (settled currency/amount/FX). Best-effort and idempotent.
+ */
+async function captureWithdrawalSettlement(transfer) {
+  try {
+    const withdrawal = await Withdrawal.findOne({ stripeTransferId: transfer.id })
+      .populate('tutorId', 'stripeConnectAccountId');
+
+    if (!withdrawal) return;
+    if (withdrawal.settlementCapturedAt) return; // already captured
+
+    const accountId = withdrawal.tutorId?.stripeConnectAccountId || transfer.destination;
+    await withdrawalService.captureStripeSettlement(withdrawal, transfer, accountId);
+  } catch (err) {
+    console.error(`⚠️  [WEBHOOK] Failed to capture withdrawal settlement for ${transfer.id}:`, err.message);
   }
 }
 
@@ -595,6 +620,9 @@ async function handleTransferUpdated(transfer) {
     } else {
       console.warn(`⚠️  [WEBHOOK] No payment found for transfer ${transfer.id}`);
     }
+
+    // Backfill settlement details if they weren't captured at creation time.
+    await captureWithdrawalSettlement(transfer);
   } catch (error) {
     console.error(`❌ Error handling transfer.updated:`, error);
   }

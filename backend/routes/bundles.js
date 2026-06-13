@@ -426,7 +426,10 @@ router.post('/:id/purchase', verifyToken, async (req, res) => {
     }
 
     const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-    const amount = Math.round(bundle.price * 100);
+    // Charge in the buyer's local currency; ledger stays USD (bundle.price)
+    const paymentService = require('../services/paymentService');
+    const bundleCharge = await paymentService.resolveCharge(user, bundle.price);
+    const amount = Math.round(bundleCharge.chargeAmount * 100); // charge currency cents
 
     let customerId = user.stripeCustomerId;
     if (!customerId) {
@@ -441,7 +444,7 @@ router.post('/:id/purchase', verifyToken, async (req, res) => {
 
     const paymentIntentParams = {
       amount,
-      currency: 'usd',
+      currency: bundleCharge.chargeCurrency,
       customer: customerId,
       payment_method: stripePaymentMethodId,
       confirm: true,
@@ -450,7 +453,10 @@ router.post('/:id/purchase', verifyToken, async (req, res) => {
         type: 'bundle_purchase',
         bundleId: bundle._id.toString(),
         studentId: user._id.toString(),
-        tutorId: bundle.tutorId._id.toString()
+        tutorId: bundle.tutorId._id.toString(),
+        usdAmount: bundle.price.toString(),
+        chargeCurrency: bundleCharge.chargeCurrency,
+        fxRate: String(bundleCharge.fxRate)
       }
     };
 
@@ -474,8 +480,10 @@ router.post('/:id/purchase', verifyToken, async (req, res) => {
         status: 'completed'
       });
 
-      const platformFee = Math.round(amount * 0.20);
-      const tutorPayout = (amount - platformFee) / 100;
+      // Ledger amounts in USD (anchor); the Stripe application fee above is in
+      // the charge currency, but our records track USD.
+      const platformFeeUsd = Math.round(bundle.price * 0.20 * 100) / 100;
+      const tutorPayout = Math.round((bundle.price - platformFeeUsd) * 100) / 100;
 
       await Payment.create({
         userId: user._id,
@@ -483,10 +491,14 @@ router.post('/:id/purchase', verifyToken, async (req, res) => {
         tutorId: bundle.tutorId._id,
         amount: bundle.price,
         currency: 'USD',
+        chargeCurrency: bundleCharge.chargeCurrency,
+        chargeAmount: bundleCharge.chargeAmount,
+        fxRate: bundleCharge.fxRate,
+        fxBuffer: bundleCharge.fxBuffer,
         paymentMethod: 'card',
         status: 'succeeded',
         stripePaymentIntentId: paymentIntent.id,
-        platformFee: platformFee / 100,
+        platformFee: platformFeeUsd,
         platformFeePercentage: 20,
         tutorPayout,
         paymentType: 'bundle_purchase',

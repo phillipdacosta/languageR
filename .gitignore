@@ -220,3 +220,6 @@ test-video.mp4
 # Temporary files
 *.tmp
 *.temp
+
+# Runtime FX rate cache
+backend/data/fx-rates.json

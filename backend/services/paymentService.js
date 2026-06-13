@@ -15,11 +15,46 @@ const User = require('../models/User');
 const Notification = require('../models/Notification'); // NEW
 const walletService = require('./walletService');
 const stripeService = require('./stripeService');
+const fxService = require('./fxService');
+const { getChargeCurrency } = require('../utils/currency');
 const { formatNameWithInitial } = require('../utils/nameFormatter');
 
 class PaymentService {
   // Platform fee: 20% of lesson price
   PLATFORM_FEE_PERCENTAGE = 20;
+
+  /**
+   * Resolve how a USD amount should be charged for a given student.
+   * Returns the presentment currency/amount plus the FX rate used. Always falls
+   * back to USD (1:1) when the student is USD-based or no rate is available, so
+   * the caller can safely use the result for any Stripe charge.
+   *
+   * @param {Object} student - student User document (residenceCountry/country)
+   * @param {Number} usdAmount - USD anchor amount to charge
+   * @returns {Promise<{chargeCurrency, chargeAmount, fxRate, fxBuffer}>}
+   */
+  async resolveCharge(student, usdAmount) {
+    const usd = Math.round((Number(usdAmount) + Number.EPSILON) * 100) / 100;
+    const fallback = { chargeCurrency: 'usd', chargeAmount: usd, fxRate: 1, fxBuffer: 0 };
+
+    try {
+      const currency = getChargeCurrency(student);
+      if (currency === 'usd') return fallback;
+
+      const converted = await fxService.convert(usd, currency);
+      if (!converted) return fallback; // no rate -> charge USD
+
+      return {
+        chargeCurrency: converted.currency,
+        chargeAmount: converted.amount,
+        fxRate: converted.bufferedRate,
+        fxBuffer: converted.buffer
+      };
+    } catch (err) {
+      console.error('⚠️ [PAYMENT] resolveCharge failed, charging USD:', err.message);
+      return fallback;
+    }
+  }
 
   /**
    * Book a lesson with wallet or card payment, or hybrid (wallet + card)
@@ -154,9 +189,12 @@ class PaymentService {
           paymentMethodAmount
         });
 
+        // Resolve local-currency charge for the card portion (USD anchor stays)
+        const hybridCharge = await this.resolveCharge(lesson.studentId, paymentMethodAmount);
+
         const paymentIntentParams = {
-          amount: Math.round(paymentMethodAmount * 100),
-          currency: 'usd',
+          amount: Math.round(hybridCharge.chargeAmount * 100),
+          currency: hybridCharge.chargeCurrency,
           customer: customerIdToUse,
           payment_method: stripePaymentMethodId,
           capture_method: 'manual', // Hold funds, capture when lesson starts
@@ -168,7 +206,10 @@ class PaymentService {
             tutorId: tutor._id.toString(),
             paymentType: 'lesson_booking',
             isHybridPayment: true,
-            tutorPayoutProvider: tutor.payoutProvider || 'none'
+            tutorPayoutProvider: tutor.payoutProvider || 'none',
+            usdAmount: paymentMethodAmount.toString(),
+            chargeCurrency: hybridCharge.chargeCurrency,
+            fxRate: String(hybridCharge.fxRate)
           }
         };
 
@@ -189,6 +230,10 @@ class PaymentService {
           tutorId: tutor._id,
           lessonId,
           amount: paymentMethodAmount,
+          chargeCurrency: hybridCharge.chargeCurrency,
+          chargeAmount: hybridCharge.chargeAmount,
+          fxRate: hybridCharge.fxRate,
+          fxBuffer: hybridCharge.fxBuffer,
           paymentMethod: 'saved-card',
           paymentType: 'lesson_booking',
           status: 'authorized',
@@ -293,9 +338,12 @@ class PaymentService {
         hasManual
       });
 
+      // Resolve local-currency charge (USD anchor stays in `amount`)
+      const savedCardCharge = await this.resolveCharge(lesson.studentId, amount);
+
       const paymentIntentParams = {
-        amount: Math.round(amount * 100), // Convert to cents
-        currency: 'usd',
+        amount: Math.round(savedCardCharge.chargeAmount * 100), // charge currency cents
+        currency: savedCardCharge.chargeCurrency,
         customer: customerIdToUse,
         payment_method: stripePaymentMethodId,
         capture_method: 'manual', // Hold funds, capture when lesson starts
@@ -306,7 +354,10 @@ class PaymentService {
           studentId: lesson.studentId._id.toString(),
           tutorId: tutor._id.toString(),
           paymentType: 'lesson_booking',
-          tutorPayoutProvider: tutor.payoutProvider || 'none'
+          tutorPayoutProvider: tutor.payoutProvider || 'none',
+          usdAmount: amount.toString(),
+          chargeCurrency: savedCardCharge.chargeCurrency,
+          fxRate: String(savedCardCharge.fxRate)
         }
       };
 
@@ -329,6 +380,10 @@ class PaymentService {
         tutorId: tutor._id,
         lessonId,
         amount,
+        chargeCurrency: savedCardCharge.chargeCurrency,
+        chargeAmount: savedCardCharge.chargeAmount,
+        fxRate: savedCardCharge.fxRate,
+        fxBuffer: savedCardCharge.fxBuffer,
         paymentMethod: 'saved-card',
         paymentType: 'lesson_booking',
         status: 'authorized', // Will be marked 'succeeded' when lesson completes
@@ -365,6 +420,12 @@ class PaymentService {
       const stripeFee = 0; // Stripe doesn't calculate fees until capture - will be updated in deductLessonFunds()
       const stripeNetAmount = paymentIntent.amount_received / 100;
 
+      // The PI was created (client-side via /create-payment-intent) already in the
+      // student's local currency; read the real charge currency/amount from it.
+      const piCurrency = (paymentIntent.currency || 'usd').toLowerCase();
+      const piChargeAmount = (paymentIntent.amount || 0) / 100;
+      const piFxRate = parseFloat(paymentIntent.metadata?.fxRate) || (piCurrency === 'usd' ? 1 : null);
+
       // Create payment record
       payment = await Payment.create({
         userId,
@@ -372,6 +433,10 @@ class PaymentService {
         tutorId: lesson.tutorId._id,
         lessonId,
         amount,
+        chargeCurrency: piCurrency,
+        chargeAmount: piChargeAmount || null,
+        fxRate: piFxRate,
+        fxBuffer: piCurrency === 'usd' ? 0 : fxService.FX_BUFFER,
         paymentMethod,
         paymentType: 'lesson_booking',
         status: 'authorized', // Funds reserved, will be captured when lesson starts
@@ -1042,21 +1107,32 @@ class PaymentService {
 
       console.log(`💰 Refunded $${amountToRefund} to wallet for lesson ${lessonId}`);
     } else if (finalRefundMethod === 'card' && payment.stripePaymentIntentId) {
-      // Card refund via Stripe (fees are NOT refunded)
+      // Card refund via Stripe (fees are NOT refunded).
+      // The PaymentIntent settled in the student's charge currency, so the
+      // Stripe refund must be issued in that currency. The USD ledger figure
+      // (`refundAmount`) is what we reverse internally.
+      const charged = payment.chargeCurrency && payment.chargeCurrency !== 'usd' && payment.chargeAmount;
+      let stripeRefundAmount = amountToRefund; // USD by default
+      if (charged && payment.amount > 0) {
+        const proportion = Math.min(1, amountToRefund / payment.amount);
+        stripeRefundAmount = Math.round(payment.chargeAmount * proportion * 100) / 100; // in chargeCurrency
+      }
+
       const refund = await stripeService.createRefund({
         paymentIntentId: payment.stripePaymentIntentId,
-        amount: amountToRefund,
+        amount: stripeRefundAmount,
         reason: 'requested_by_customer'
       });
 
       payment.status = 'refunded';
-      payment.refundAmount = amountToRefund;
+      payment.refundAmount = amountToRefund; // USD ledger reversal
       payment.refundedAt = new Date();
       payment.refundReason = reason;
       payment.refundMethod = 'card';
       payment.stripeRefundId = refund.id;
 
-      console.log(`💳 Refunded $${amountToRefund} to card for lesson ${lessonId} (Stripe fees NOT refunded)`);
+      const refundCcy = (charged ? payment.chargeCurrency : 'usd').toUpperCase();
+      console.log(`💳 Refunded ${stripeRefundAmount} ${refundCcy} to card for lesson ${lessonId} ($${amountToRefund} USD ledger; Stripe fees NOT refunded)`);
     } else {
       throw new Error('Cannot process refund: invalid refund method or missing payment details');
     }

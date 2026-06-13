@@ -12,6 +12,7 @@ const express = require('express');
 const router = express.Router();
 const { verifyToken } = require('../middleware/videoUploadMiddleware');
 const walletService = require('../services/walletService');
+const paymentService = require('../services/paymentService');
 const User = require('../models/User');
 
 /**
@@ -387,10 +388,13 @@ router.post('/top-up-with-saved-card', verifyToken, async (req, res) => {
     // Charge the exact amount based on card country
     const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
     const Payment = require('../models/Payment');
-    
+
+    // Charge in the user's local currency; wallet is credited in USD (walletCredit)
+    const topUpCharge = await paymentService.resolveCharge(user, totalCharge);
+
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(totalCharge * 100), // Convert to cents - charge exact amount including fee
-      currency: 'usd',
+      amount: Math.round(topUpCharge.chargeAmount * 100), // charge currency cents
+      currency: topUpCharge.chargeCurrency,
       customer: user.stripeCustomerId,
       payment_method: paymentMethodId,
       off_session: true,
@@ -400,7 +404,10 @@ router.post('/top-up-with-saved-card', verifyToken, async (req, res) => {
         userId: user._id.toString(),
         type: 'wallet_top_up',
         walletCredit: walletCredit.toString(),
-        expectedStripeFee: expectedStripeFee.toString()
+        expectedStripeFee: expectedStripeFee.toString(),
+        usdAmount: totalCharge.toString(),
+        chargeCurrency: topUpCharge.chargeCurrency,
+        fxRate: String(topUpCharge.fxRate)
       }
     });
 

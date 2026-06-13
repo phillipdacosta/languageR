@@ -24,10 +24,13 @@
             <aside class="ed-details approval-split-guidance ed-skeleton-sidebar">
               <div class="ed-skeleton-heading">
                 <div class="skeleton-avatar ed-skeleton-heading-avatar"></div>
-                <div class="skeleton-text ed-skeleton-title-line"></div>
+                <div class="ed-skeleton-heading-body">
+                  <div class="skeleton-text ed-skeleton-title-line"></div>
+                  <div class="skeleton-text ed-skeleton-meta-line"></div>
+                  <div class="skeleton-badge ed-skeleton-status"></div>
+                </div>
               </div>
-              <div class="ed-skeleton-lesson">
-                <div class="skeleton-badge ed-skeleton-status"></div>
+              <div class="ed-skeleton-schedule">
                 <div class="ed-skeleton-detail-row">
                   <div class="skeleton-icon"></div>
                   <div class="skeleton-text-group">
@@ -81,60 +84,58 @@
             <!-- ═══ LEFT: participant context (post-lesson-tutor style) ═══ -->
             <aside class="ed-details approval-split-guidance">
               <div
-                class="approval-split-guidance__heading"
-                [class.approval-split-guidance__heading--clickable]="isStudentUser && tutorId"
+                class="ed-sidebar-head"
+                [class.ed-sidebar-head--clickable]="isStudentUser && tutorId"
                 (click)="isStudentUser && tutorId ? openTutorProfile() : null">
-                <img *ngIf="participantPicture" class="approval-split-guidance__avatar" [src]="participantPicture" [alt]="participantName" referrerpolicy="no-referrer">
-                <span *ngIf="!participantPicture" class="approval-split-guidance__avatar approval-split-guidance__avatar--initial">{{ participantInitial }}</span>
-                <h3 class="approval-split-guidance__title">{{ edSidebarTitle }}</h3>
-              </div>
-              <div class="approval-split-guidance__lesson">
-                <div class="approval-split-guidance__lesson-badges">
-                  <span class="ed-status" [ngClass]="statusClass">{{ statusLabel }}</span>
-                  <span class="ed-trial-badge" *ngIf="lesson?.isTrialLesson && !(edHasPlan && edPlanIsTrial)">
-                    <ion-icon name="star" aria-hidden="true"></ion-icon>
-                    {{ 'HOME.STATUS_TRIAL' | translate }}
-                  </span>
-                </div>
-
-                <div class="ed-pc-details-grid approval-split-guidance__lesson-grid">
-                  <div class="ed-pc-detail">
-                    <ion-icon name="calendar-outline"></ion-icon>
-                    <div>
-                      <span class="ed-pc-detail-primary">{{ formattedDate }}</span>
-                      <span class="ed-pc-detail-secondary">{{ formattedTimeRange }}</span>
-                    </div>
-                  </div>
-
-                  <div class="ed-pc-detail">
-                    <ion-icon name="time-outline"></ion-icon>
-                    <div>
-                      <span class="ed-pc-detail-primary">{{ formattedDuration }}</span>
-                      <span class="ed-pc-detail-secondary" *ngIf="lesson?.bookingType && lesson?.bookingType !== 'scheduled'">{{ lesson?.bookingType === 'office_hours' ? ('EVENT_DETAILS.LESSON_SCREEN.OFFICE_HOURS' | translate) : ('EVENT_DETAILS.LESSON_SCREEN.INSTANT_BOOKING' | translate) }}</span>
-                    </div>
+                <img *ngIf="participantPicture" class="ed-sidebar-head__avatar" [src]="participantPicture" [alt]="participantName" referrerpolicy="no-referrer">
+                <span *ngIf="!participantPicture" class="ed-sidebar-head__avatar ed-sidebar-head__avatar--initial">{{ participantInitial }}</span>
+                <div class="ed-sidebar-head__body">
+                  <h3 class="ed-sidebar-head__name">{{ edSidebarTitle }}</h3>
+                  <p
+                    class="ed-sidebar-head__meta"
+                    *ngIf="participantMetaLine || participantMetaPending"
+                    [class.ed-sidebar-head__meta--pending]="participantMetaPending && !participantMetaLine">
+                    {{ participantMetaLine }}
+                  </p>
+                  <div class="ed-sidebar-head__badges">
+                    <span class="ed-status" [ngClass]="statusClass">{{ statusLabel }}</span>
+                    <span class="ed-trial-badge" *ngIf="lesson?.isTrialLesson && !(edHasPlan && edPlanIsTrial)">
+                      <ion-icon name="star" aria-hidden="true"></ion-icon>
+                      {{ 'HOME.STATUS_TRIAL' | translate }}
+                    </span>
                   </div>
                 </div>
               </div>
 
-              <p class="approval-split-guidance__meta" *ngIf="participantLanguages.length || participantCountry">
-                <ng-container *ngIf="participantLanguages.length">
-                  <ng-container *ngFor="let lang of participantLanguages; let last = last">{{ lang }}{{ !last ? ', ' : '' }}</ng-container>
-                  {{ participantRoleDisplay }}
-                </ng-container>
-                <ng-container *ngIf="participantCountry"> · {{ participantCountry }}</ng-container>
-              </p>
+              <div class="ed-sidebar-schedule">
+                <div class="ed-sidebar-schedule__row">
+                  <ion-icon name="calendar-outline" aria-hidden="true"></ion-icon>
+                  <div class="ed-sidebar-schedule__text">
+                    <span class="ed-sidebar-schedule__primary">{{ formattedDate }}</span>
+                    <span class="ed-sidebar-schedule__secondary">{{ formattedTimeRange }}</span>
+                  </div>
+                </div>
+                <div class="ed-sidebar-schedule__divider" aria-hidden="true"></div>
+                <div class="ed-sidebar-schedule__row">
+                  <ion-icon name="time-outline" aria-hidden="true"></ion-icon>
+                  <div class="ed-sidebar-schedule__text">
+                    <span class="ed-sidebar-schedule__primary">{{ formattedDuration }}</span>
+                    <span class="ed-sidebar-schedule__secondary" *ngIf="lessonBookingTypeLabel">{{ lessonBookingTypeLabel }}</span>
+                  </div>
+                </div>
+              </div>
 
               <p class="ed-sidebar-bio" *ngIf="participantBio">{{ participantBio }}</p>
 
             <!-- Quick actions (consolidated: join/rebook/message in one row) -->
-            <div class="ed-pc-actions" [class.ed-pc-actions--row]="showJoinButton || (isCancelled && isStudentUser && tutorId)">
+            <div class="ed-sidebar-actions ed-pc-actions" [class.ed-pc-actions--row]="showJoinButton || (isCancelled && isStudentUser && tutorId)">
               <button class="ed-pc-btn ed-pc-btn--primary" *ngIf="showJoinButton" [disabled]="!canJoinLesson" (click)="joinLesson()">
                 {{ joinLabel }}
               </button>
               <button class="ed-pc-btn ed-pc-btn--primary" *ngIf="!showJoinButton && isCancelled && isStudentUser && tutorId" (click)="bookLesson()">
                 {{ 'EVENT_DETAILS.LESSON_SCREEN.REBOOK' | translate }}
               </button>
-              <button class="ed-pc-btn" [ngClass]="(showJoinButton || isCancelled) ? 'ed-pc-btn--outline' : 'ed-pc-btn--primary'" *ngIf="participantId" (click)="messageParticipant()">
+              <button class="ed-pc-btn ed-pc-btn--outline" *ngIf="participantId" (click)="messageParticipant()">
                 {{ 'EVENT_DETAILS.LESSON_SCREEN.MESSAGE' | translate }}
               </button>
             </div>
@@ -407,84 +408,6 @@
       </section>
     </ng-container>
 
-    <!-- ── Feedback Status Banner ────────────────────────────── -->
-    <ng-container *ngIf="showMcFeedbackStatus">
-      <div class="ed-divider"></div>
-      <section class="ed-row">
-        <h2 class="ed-section-label">{{ 'EVENT_DETAILS.LESSON_SCREEN.FEEDBACK_STATUS' | translate }}</h2>
-
-        <div class="ed-inline-loader" *ngIf="feedbackLoading || analysisLoading">
-          <ion-spinner name="crescent"></ion-spinner>
-          <span>{{ 'EVENT_DETAILS.LESSON_SCREEN.LOADING_FEEDBACK' | translate }}</span>
-        </div>
-
-        <ng-container *ngIf="!feedbackLoading && !analysisLoading && !mcFeedbackStatusEmpty">
-
-        <!-- Tutor: Feedback pending -->
-        <div class="ed-feedback-status pending" *ngIf="isTutorUser && feedbackPending">
-          <div class="ed-fb-status-content">
-            <div class="ed-fb-status-icon pending">
-              <ion-icon name="warning-outline"></ion-icon>
-            </div>
-            <div class="ed-fb-status-text">
-              <span class="ed-fb-status-title">{{ 'EVENT_DETAILS.LESSON_SCREEN.FB_TUTOR_PENDING_TITLE' | translate }}</span>
-              <span class="ed-fb-status-sub">{{ 'EVENT_DETAILS.LESSON_SCREEN.FB_TUTOR_PENDING_SUB' | translate }}</span>
-            </div>
-          </div>
-          <button class="ed-fb-action-btn primary" (click)="leaveFeedback()">
-            {{ 'LESSONS_PAGE.LEAVE_FEEDBACK' | translate }}
-          </button>
-        </div>
-
-        <!-- Tutor: Feedback provided -->
-        <div class="ed-feedback-status provided" *ngIf="isTutorUser && feedbackProvided">
-          <div class="ed-fb-status-content">
-            <div class="ed-fb-status-icon provided">
-              <ion-icon name="checkmark-circle"></ion-icon>
-            </div>
-            <div class="ed-fb-status-text">
-              <span class="ed-fb-status-title">{{ 'EVENT_DETAILS.LESSON_SCREEN.FB_TUTOR_DONE_TITLE' | translate }}</span>
-              <span class="ed-fb-status-sub" *ngIf="feedbackDate">{{ 'EVENT_DETAILS.LESSON_SCREEN.FB_TUTOR_DONE_SUB' | translate: { date: feedbackDate } }}</span>
-            </div>
-          </div>
-
-        </div>
-
-        <!-- Student: Feedback provided by tutor -->
-        <div class="ed-feedback-status provided" *ngIf="isStudentUser && feedbackProvided">
-          <div class="ed-fb-status-content">
-            <div class="ed-fb-status-icon provided">
-              <ion-icon name="checkmark-circle"></ion-icon>
-            </div>
-            <div class="ed-fb-status-text">
-              <span class="ed-fb-status-title">{{ 'EVENT_DETAILS.LESSON_SCREEN.FB_STUDENT_DONE_TITLE' | translate: { name: tutorDisplayName } }}</span>
-              <span class="ed-fb-status-sub" *ngIf="feedbackDate">{{ feedbackDate }}</span>
-            </div>
-          </div>
-          <!-- <button class="ed-fb-action-btn subtle" (click)="viewFeedback()">
-            View
-          </button> -->
-        </div>
-
-        <!-- Student: Awaiting tutor feedback -->
-        <div class="ed-feedback-status awaiting" *ngIf="isStudentUser && feedbackPending">
-          <div class="ed-fb-status-content">
-            <div class="ed-fb-status-icon awaiting">
-              <ion-icon name="time-outline"></ion-icon>
-            </div>
-            <div class="ed-fb-status-text">
-              <span class="ed-fb-status-title">{{ 'EVENT_DETAILS.LESSON_SCREEN.FB_AWAITING_TITLE' | translate: { name: tutorDisplayName } }}</span>
-              <span class="ed-fb-status-sub">{{ 'EVENT_DETAILS.LESSON_SCREEN.FB_AWAITING_SUB' | translate }}</span>
-            </div>
-          </div>
-        </div>
-
-        </ng-container>
-        <p class="ed-section-empty" *ngIf="!feedbackLoading && !analysisLoading && mcFeedbackStatusEmpty">{{ mcFeedbackStatusEmptyKey | translate }}</p>
-
-      </section>
-    </ng-container>
-
     <!-- ── Tutor Feedback (Student view: unified note + structured feedback — shown before analysis) ── -->
     <ng-container *ngIf="showMcTutorFeedback">
       <div class="ed-divider"></div>
@@ -495,6 +418,24 @@
             <span class="ed-cefr-sm" *ngIf="feedbackCefrLevel">{{ feedbackCefrLevel }}</span>
           </div>
         </div>
+
+        <div class="ed-inline-loader" *ngIf="feedbackLoading || analysisLoading">
+          <ion-spinner name="crescent"></ion-spinner>
+          <span>{{ 'EVENT_DETAILS.LESSON_SCREEN.LOADING_FEEDBACK' | translate }}</span>
+        </div>
+
+        <ng-container *ngIf="!feedbackLoading && !analysisLoading">
+          <div class="ed-feedback-status awaiting" *ngIf="feedbackPending">
+            <div class="ed-fb-status-content">
+              <div class="ed-fb-status-icon awaiting">
+                <ion-icon name="time-outline"></ion-icon>
+              </div>
+              <div class="ed-fb-status-text">
+                <span class="ed-fb-status-title">{{ 'EVENT_DETAILS.LESSON_SCREEN.FB_AWAITING_TITLE' | translate: { name: tutorDisplayName } }}</span>
+                <span class="ed-fb-status-sub">{{ 'EVENT_DETAILS.LESSON_SCREEN.FB_AWAITING_SUB' | translate }}</span>
+              </div>
+            </div>
+          </div>
 
         <ng-container *ngIf="!mcTutorFeedbackEmpty">
           <!-- Tutor's personal note (free-text) -->
@@ -535,7 +476,8 @@
           </div>
           <span class="ed-meta" *ngIf="feedbackDate">{{ 'EVENT_DETAILS.LESSON_SCREEN.PROVIDED_META' | translate: { date: feedbackDate } }}</span>
         </ng-container>
-        <p class="ed-section-empty" *ngIf="mcTutorFeedbackEmpty">{{ 'EVENT_DETAILS.LESSON_SCREEN.EMPTY_TUTOR_FEEDBACK_STUDENT' | translate }}</p>
+        <p class="ed-section-empty" *ngIf="mcTutorFeedbackEmpty && !feedbackPending">{{ 'EVENT_DETAILS.LESSON_SCREEN.EMPTY_TUTOR_FEEDBACK_STUDENT' | translate }}</p>
+        </ng-container>
       </section>
     </ng-container>
 
@@ -656,22 +598,46 @@
       </section>
     </ng-container>
 
-    <!-- ── Your Feedback (Tutor view: collapsible with note + structured feedback) ── -->
+    <!-- ── Your Feedback (Tutor view: status + collapsible note / structured feedback) ── -->
     <ng-container *ngIf="showMcYourFeedback">
       <div class="ed-divider"></div>
       <section class="ed-row" id="your-feedback-section">
-        <div class="ed-feedback-header collapsible" (click)="toggleFeedbackSection()">
+        <div
+          class="ed-feedback-header"
+          [class.collapsible]="showYourFeedbackCollapsible"
+          (click)="showYourFeedbackCollapsible ? toggleFeedbackSection() : null">
           <h2 class="ed-section-label">{{ 'EVENT_DETAILS.LESSON_SCREEN.YOUR_FEEDBACK' | translate }}</h2>
-          <div class="ed-feedback-header-right">
+          <div class="ed-feedback-header-right" *ngIf="showYourFeedbackCollapsible">
             <span class="ed-cefr-sm" *ngIf="feedbackCefrLevel">{{ feedbackCefrLevel }}</span>
-            <ion-icon 
+            <ion-icon
               [name]="feedbackSectionExpanded ? 'chevron-up-outline' : 'chevron-down-outline'"
               class="ed-feedback-toggle-icon">
             </ion-icon>
           </div>
         </div>
 
-        <div class="ed-feedback-content" [class.collapsed]="!feedbackSectionExpanded">
+        <div class="ed-inline-loader" *ngIf="feedbackLoading || analysisLoading">
+          <ion-spinner name="crescent"></ion-spinner>
+          <span>{{ 'EVENT_DETAILS.LESSON_SCREEN.LOADING_FEEDBACK' | translate }}</span>
+        </div>
+
+        <ng-container *ngIf="!feedbackLoading && !analysisLoading">
+          <div class="ed-feedback-status pending" *ngIf="feedbackPending">
+            <div class="ed-fb-status-content">
+              <div class="ed-fb-status-icon pending">
+                <ion-icon name="warning-outline"></ion-icon>
+              </div>
+              <div class="ed-fb-status-text">
+                <span class="ed-fb-status-title">{{ 'EVENT_DETAILS.LESSON_SCREEN.FB_TUTOR_PENDING_TITLE' | translate }}</span>
+                <span class="ed-fb-status-sub">{{ 'EVENT_DETAILS.LESSON_SCREEN.FB_TUTOR_PENDING_SUB' | translate }}</span>
+              </div>
+            </div>
+            <button class="ed-fb-action-btn primary" (click)="leaveFeedback()">
+              {{ 'LESSONS_PAGE.LEAVE_FEEDBACK' | translate }}
+            </button>
+          </div>
+
+        <div class="ed-feedback-content" *ngIf="!feedbackPending" [class.collapsed]="showYourFeedbackCollapsible && !feedbackSectionExpanded">
           <ng-container *ngIf="!mcYourFeedbackEmpty">
           <!-- Tutor Note (inside collapsible for tutor view) -->
           <ng-container *ngIf="hasTutorNote">
@@ -714,8 +680,9 @@
 
           <span class="ed-meta" *ngIf="feedbackDate">{{ 'EVENT_DETAILS.LESSON_SCREEN.PROVIDED_META' | translate: { date: feedbackDate } }}</span>
           </ng-container>
-          <p class="ed-section-empty" *ngIf="mcYourFeedbackEmpty">{{ 'EVENT_DETAILS.LESSON_SCREEN.EMPTY_YOUR_FEEDBACK_TUTOR' | translate }}</p>
+          <p class="ed-section-empty" *ngIf="mcYourFeedbackEmpty && !feedbackProvided">{{ 'EVENT_DETAILS.LESSON_SCREEN.EMPTY_YOUR_FEEDBACK_TUTOR' | translate }}</p>
         </div>
+        </ng-container>
       </section>
     </ng-container>
 

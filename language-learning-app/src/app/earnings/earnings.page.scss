@@ -676,18 +676,37 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 .go-back-link {
-  background: none;
-  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 10px;
   color: #222222;
   font-size: 14px;
   font-weight: 600;
-  text-decoration: underline;
+  text-decoration: none;
   cursor: pointer;
   white-space: nowrap;
-  padding: 8px 0;
+  padding: 10px 16px;
   flex-shrink: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
-  &:hover { opacity: 0.7; }
+  transition: border-color 0.15s ease, transform 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+
+  ion-icon {
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+
+  &:hover {
+    border-color: #b0b0b0;
+  }
+
+  &:active {
+    transform: scale(0.98);
+  }
 }
 
 .balance-strip {
@@ -728,22 +747,44 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
     color: $text-primary;
     letter-spacing: -0.5px;
     font-variant-numeric: tabular-nums;
-    &.masked { color: $text-tertiary; letter-spacing: 1px; }
+    &.masked {
+      color: $text-tertiary;
+      letter-spacing: 1px;
+      transition: opacity 0.2s;
+    }
     @media (max-width: 600px) { font-size: 16px; }
   }
 
+  .stat-value-slot {
+    position: relative;
+    min-height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+
+    @media (max-width: 600px) { min-height: 20px; }
+
+    .stat-value.masked,
+    .stat-value-hover {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      white-space: nowrap;
+    }
+  }
+
   .stat-value-hover {
-    position: absolute;
-    left: 24px;
-    top: 38px;
     opacity: 0;
     pointer-events: none;
-    font-size: 22px;
+    font-size: 28px;
     font-weight: 600;
     color: $text-primary;
     letter-spacing: -0.5px;
+    font-variant-numeric: tabular-nums;
     transition: opacity 0.2s;
-    @media (max-width: 600px) { left: 12px; top: 30px; font-size: 16px; }
+    @media (max-width: 600px) { font-size: 16px; }
   }
 
   .stat-sub {
@@ -755,8 +796,8 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
 
   &.wallet-hidden {
     @media (hover: hover) {
-      &:hover .stat-value.masked { opacity: 0; }
-      &:hover .stat-value-hover { opacity: 1; }
+      &:hover .stat-value-slot .stat-value.masked { opacity: 0; }
+      &:hover .stat-value-slot .stat-value-hover { opacity: 1; }
     }
   }
 }
@@ -1002,6 +1043,13 @@ $surface-border: 1px solid rgba(0, 0, 0, 0.06);
     font-size: 15px;
     font-weight: 600;
     color: $text-primary;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .transfer-settled {
+    font-size: 12px;
+    font-weight: 500;
+    color: $text-secondary;
     font-variant-numeric: tabular-nums;
   }
 
@@ -3904,9 +3952,11 @@ html.ion-palette-dark .withdrawal-modal {
   }
 
   .go-back-link {
-    color: #d1d1d6 !important;
+    background: #2c2c2e !important;
+    border-color: #3a3a3c !important;
+    color: #f5f5f7 !important;
     &:hover {
-      opacity: 0.88 !important;
+      border-color: #636366 !important;
     }
   }
 
@@ -4035,6 +4085,7 @@ html.ion-palette-dark .withdrawal-modal {
     .transfer-date { color: #aeaeb2 !important; }
   }
   .transfer-right .transfer-amount { color: #f5f5f7 !important; }
+  .transfer-right .transfer-settled { color: #aeaeb2 !important; }
 
   .earnings-chart-card {
     background: #1c1c1e !important;

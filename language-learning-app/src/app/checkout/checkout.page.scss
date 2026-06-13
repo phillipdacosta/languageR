@@ -592,6 +592,18 @@ h2 {
   padding-top: 8px;
 }
 
+.charge-note {
+  border-bottom: none;
+  padding-top: 4px;
+
+  .breakdown-label,
+  .label {
+    font-size: 11px;
+    color: #8e8e93;
+    font-weight: 500;
+  }
+}
+
 .total { 
   font-size: 20px;
   font-weight: 800;

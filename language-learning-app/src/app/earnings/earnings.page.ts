@@ -78,6 +78,16 @@ interface WithdrawalHistory {
   };
   requestedAt: Date;
   completedAt?: Date;
+  // Settlement (what actually landed in the tutor's account after any FX)
+  sourceCurrency?: string;
+  settledCurrency?: string | null;
+  settledAmount?: number | null;
+  settledNetAmount?: number | null;
+  settledFee?: number;
+  exchangeRate?: number | null;
+  // Precomputed display strings (template must not call functions)
+  settledDisplay?: string | null;
+  amountDisplay?: string;
 }
 
 @Component({
@@ -1221,12 +1231,46 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
       );
 
       if (response.success) {
-        this.withdrawalHistory = response.withdrawals || [];
+        this.withdrawalHistory = (response.withdrawals || []).map((w: WithdrawalHistory) =>
+          this.decorateWithdrawal(w)
+        );
         console.log(`📜 Loaded ${this.withdrawalHistory.length} withdrawals`);
       }
     } catch (error: any) {
       console.error('❌ Error loading withdrawal history:', error);
     }
+  }
+
+  /** Common payout currency symbols; falls back to the upper-cased code. */
+  private static readonly CURRENCY_SYMBOLS: { [code: string]: string } = {
+    usd: '$', eur: '€', gbp: '£', cad: 'CA$', aud: 'A$'
+  };
+
+  private formatMoney(amount: number, currency?: string | null): string {
+    const code = (currency || 'usd').toLowerCase();
+    const value = Number(amount || 0).toFixed(2);
+    const symbol = EarningsPage.CURRENCY_SYMBOLS[code];
+    return symbol ? `${symbol}${value}` : `${value} ${code.toUpperCase()}`;
+  }
+
+  /**
+   * Precompute display strings so the template stays function-free.
+   * Shows the real settled amount (e.g. €4.30) when funds converted from USD.
+   */
+  private decorateWithdrawal(w: WithdrawalHistory): WithdrawalHistory {
+    w.amountDisplay = `$${Number(w.amount || 0).toFixed(2)}`;
+
+    const source = (w.sourceCurrency || 'usd').toLowerCase();
+    const settled = (w.settledCurrency || '').toLowerCase();
+    const converted = !!settled && settled !== source && w.settledNetAmount != null;
+
+    w.settledDisplay = converted
+      ? this.translateService.instant('EARNINGS.TRANSFER_RECEIVED', {
+          amount: this.formatMoney(w.settledNetAmount as number, settled)
+        })
+      : null;
+
+    return w;
   }
 
   async requestWithdrawal() {

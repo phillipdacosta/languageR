@@ -423,7 +423,7 @@
 
             <!-- Price Badge (Mobile) -->
             <div class="price-badge mobile-only" *ngIf="!tutor.introductionVideo">
-              <span class="price">${{ tutor.hourlyRate || 25 }}</span>
+              <span class="price">{{ rateDisplay }}</span>
               <span class="label">/hr</span>
             </div>
           </div>
@@ -569,13 +569,13 @@
             <div class="price-display">
               <ng-container *ngIf="!studentHadPreviousLesson">
                 <!-- Trial is 25 min, so base price is half of 50 min rate -->
-                <span class="price-original">${{ ((tutor.hourlyRate || 25) * 0.5) | number:'1.2-2' }}</span>
-                <span class="price discounted">${{ ((tutor.hourlyRate || 25) * 0.5 * 0.7) | number:'1.2-2' }}</span>
+                <span class="price-original">{{ trialOriginal2dp }}</span>
+                <span class="price discounted">{{ trialDiscounted2dp }}</span>
                 <span class="discount-badge">-30%</span>
                 <span class="period">/25 min trial</span>
               </ng-container>
               <ng-container *ngIf="studentHadPreviousLesson">
-                <span class="price">${{ tutor.hourlyRate || 25 }}</span>
+                <span class="price">{{ rateDisplay }}</span>
                 <span class="period">/50 min lesson</span>
               </ng-container>
             </div>
