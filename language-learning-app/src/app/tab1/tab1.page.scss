@@ -3662,6 +3662,13 @@ ion-content {
   z-index: 2;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
 
+  &.badge-trial {
+    box-shadow: none;
+    padding: 5px 12px;
+    border-radius: 999px;
+    border: none;
+  }
+
   &.badge-trial:not(.pop-float) {
     opacity: 0;
     pointer-events: none;
@@ -3830,6 +3837,10 @@ ion-content {
   .tw-date-badge {
     width: 52px;
     height: 56px;
+  }
+
+  .tw-date-badge__today-label {
+    color: #6f792d;
   }
 }
 
@@ -4099,10 +4110,10 @@ img.m-card-empty-link-arrow-img {
 // =============================================
 .upnext-filled {
   position: relative;
-  // Center content with compact gaps — card stays 360px.
-  justify-content: center;
-  padding: 12px 24px 12px !important;
-  gap: 8px;
+  align-items: stretch;
+  justify-content: flex-start;
+  padding: 12px 20px 12px 14px !important;
+  gap: 0;
 
   // Reschedule status badges only — Trial moved next to the name.
   // Absolutely positioned so it doesn't steal vertical room from the card.
@@ -4119,6 +4130,47 @@ img.m-card-empty-link-arrow-img {
       display: none;
     }
   }
+}
+
+.upnext-filled-layout {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+}
+
+.upnext-filled-art {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  width: 72px;
+  height: 68px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+
+.upnext-filled-art-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  pointer-events: none;
+  user-select: none;
+}
+
+.upnext-filled-main {
+  flex: 1 1 auto;
+  align-self: stretch;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 26px;
 }
 
 // Title block: centered name, trial pill on its own row (so the name stays
@@ -4162,22 +4214,21 @@ img.m-card-empty-link-arrow-img {
   }
 }
 
-// Inline "Trial lesson" chip — orange Airbnb-style pill sitting next to the
-// name, replacing the avatar-corner badge approach. Overrides the global
-// `.badge-inline.badge-trial` defaults (uppercase tracking, top margin).
+// Inline "Trial lesson" label — orange text beside the name (no pill background).
 .upnext-filled-trial-pill.badge-inline.badge-trial {
   margin-top: 0;
-  padding: 3px 8px;
-  gap: 4px;
+  padding: 5px 12px;
+  gap: 5px;
   border-radius: 999px;
-  background: linear-gradient(135deg, #ff9b4a 0%, #ff7a2e 100%);
-  color: #ffffff;
+  border: none;
+  background: transparent;
+  color: #ff9500;
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0;
   text-transform: none;
   line-height: 1;
-  box-shadow: 0 1px 4px rgba(255, 140, 66, 0.22);
+  box-shadow: none;
 
   &:not(.pop-float) {
     opacity: 0;
@@ -4190,7 +4241,7 @@ img.m-card-empty-link-arrow-img {
 
   ion-icon {
     font-size: 10px;
-    color: #ffffff;
+    color: #ff9500;
   }
 }
 
@@ -4426,21 +4477,16 @@ img.m-card-empty-link-arrow-img {
   }
 }
 
-// Schedule tray — soft 3-column surface: date · time/duration · status.
-// Vertical dividers separate sections; status column shows a countdown chip
-// and a small hint, mirroring the design reference. Keeps fixed height.
+// Schedule tray — 2-row grid so Today · time · status share row 1; duration/hint on row 2.
 .upnext-filled-schedule {
   display: grid;
-  // auto=date | 1px=divider | 1fr=time | 1px=divider | auto=status
-  // We make date and status equal by using a symmetric layout:
-  // date and status each shrink to content; time takes the rest.
-  // True horizontal centering of time achieved by making left and right
-  // sides visually balanced — we balance with equal padding inside the
-  // outer columns rather than forcing equal column widths.
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 2fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 2fr) auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
   align-items: center;
-  gap: 0;
-  padding: 5px 0;
+  justify-items: center;
+  row-gap: 2px;
+  column-gap: 0;
+  padding: 8px 0 6px;
   border-radius: 12px;
   margin: 0 auto;
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.05);
@@ -4468,6 +4514,34 @@ img.m-card-empty-link-arrow-img {
   .tw-date-badge__weekday {
     font-size: 8px;
   }
+
+  .tw-date-badge--today-word {
+    width: auto;
+    height: auto;
+    min-width: 0;
+    background: transparent;
+    box-shadow: none;
+    border-radius: 0;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .tw-date-badge__today-label {
+    font-size: 14px;
+    font-weight: 700;
+    color: #6f792d;
+    letter-spacing: -0.2px;
+    line-height: 1.15;
+    white-space: nowrap;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+
+    @media (max-width: 600px) {
+      font-size: 13px;
+    }
+  }
 }
 
 .upnext-filled-schedule-col {
@@ -4481,36 +4555,30 @@ img.m-card-empty-link-arrow-img {
 
   &--date {
     grid-column: 1;
+    grid-row: 1 / 3;
+    align-self: center;
     justify-content: center;
     padding: 0 4px 0 10px;
-  }
 
-  &--time {
-    grid-column: 3;
-    display: grid;
-    grid-template-columns: auto auto;
-    grid-template-rows: auto auto;
-    align-items: center;
-    justify-content: center;
-    column-gap: 16px;
-    row-gap: 2px;
-    padding: 0 8px;
-    min-width: 0;
-    box-sizing: border-box;
+    &:has(.tw-date-badge--today-word) {
+      grid-row: 1;
+      align-self: center;
+    }
   }
+}
 
-  &--status {
-    grid-column: 5;
-    min-width: 0;
-    flex-direction: column;
-    align-items: center;
-    justify-content: flex-start;
-    align-self: flex-start;
-    gap: 2px;
-    padding: 6px 10px 0 4px;
-    text-align: center;
-    white-space: nowrap;
-  }
+.upnext-filled-schedule-primary-line {
+  grid-column: 3;
+  grid-row: 1;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+  width: 100%;
+  padding: 0 8px;
+  box-sizing: border-box;
 }
 
 .upnext-filled-schedule-divider {
@@ -4518,8 +4586,8 @@ img.m-card-empty-link-arrow-img {
   background: rgba(0, 0, 0, 0.08);
   align-self: stretch;
   margin: 2px 0;
+  grid-row: 1 / -1;
 
-  // First divider sits in grid col 2, second in col 4
   &:first-of-type {
     grid-column: 2;
   }
@@ -4530,24 +4598,15 @@ img.m-card-empty-link-arrow-img {
 }
 
 .upnext-filled-schedule-icon {
-  grid-row: 1 / -1;
-  grid-column: 1;
-  align-self: center;
-  justify-self: center;
   width: 26px;
   height: 26px;
   object-fit: contain;
   flex-shrink: 0;
   display: block;
-  padding-inline-end: 4px;
-  box-sizing: content-box;
   pointer-events: none;
 }
 
 .upnext-filled-schedule-time {
-  grid-column: 2;
-  grid-row: 1;
-  justify-self: center;
   font-size: 14px;
   font-weight: 700;
   color: #1d1d1f;
@@ -4562,7 +4621,7 @@ img.m-card-empty-link-arrow-img {
 }
 
 .upnext-filled-schedule-duration {
-  grid-column: 2;
+  grid-column: 3;
   grid-row: 2;
   justify-self: center;
   font-size: 9px;
@@ -4574,25 +4633,34 @@ img.m-card-empty-link-arrow-img {
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
 }
 
-// Status label — plain text at top of status column (no pill).
+// Status label — row 1 of schedule grid (aligned with Today + time).
 .upnext-filled-status-chip {
+  grid-column: 5;
+  grid-row: 1;
+  justify-self: center;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 4px;
-  padding: 0;
+  padding: 0 10px 0 4px;
   margin: 0;
   border: none;
   border-radius: 0;
   background: transparent;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: -0.1px;
-  line-height: 1.2;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  line-height: 1.15;
   text-align: center;
   white-space: nowrap;
   flex-shrink: 0;
-  color: #3c3c43;
+  color: #1d1d1f;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+  box-sizing: border-box;
+
+  @media (max-width: 600px) {
+    font-size: 13px;
+  }
 
   &--ready,
   &--live {
@@ -4619,7 +4687,12 @@ img.m-card-empty-link-arrow-img {
 }
 
 .upnext-filled-status-hint {
+  grid-column: 5;
+  grid-row: 2;
+  justify-self: center;
   width: 100%;
+  padding: 0 10px 0 4px;
+  box-sizing: border-box;
   font-size: 9px;
   font-weight: 500;
   color: #8e8e93;
@@ -5736,7 +5809,7 @@ img.m-card-empty-link-arrow-img {
   display: flex;
   flex-direction: row;
   align-items: stretch;
-  gap: 0;
+  gap: 14px;
   width: max-content;
   min-width: 100%;
   padding: 4px 16px 6px;
@@ -5745,17 +5818,17 @@ img.m-card-empty-link-arrow-img {
 
   &--single {
     .tw-day-group {
-      flex: 1 1 auto;
+      flex: 0 0 auto;
       min-width: 0;
     }
 
     .tw-day-group__events {
-      flex: 1 1 auto;
+      flex: 0 0 auto;
       min-width: 0;
     }
 
     .tw-day-event-cell {
-      flex: 1 1 auto;
+      flex: 0 0 auto;
       min-width: 0;
       max-width: none;
     }
@@ -5774,13 +5847,49 @@ img.m-card-empty-link-arrow-img {
 
   &--single {
     cursor: pointer;
+    position: relative;
+    box-sizing: border-box;
+    width: 340px;
+    flex: 0 0 340px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 14px;
+    padding: 10px 12px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+    .tw-day-group__events {
+      flex: 1 1 auto;
+      min-width: 0;
+      width: 100%;
+    }
+
+    .tw-day-event-cell--unified {
+      width: 100%;
+      min-width: 0;
+      max-width: none;
+      position: static;
+    }
+
+    .tw-event-menu-btn {
+      right: 4px;
+      bottom: 4px;
+      top: auto;
+      transform: none;
+    }
 
     &:hover {
-      background: #f7f7f7;
+      background: transparent;
+      border-color: rgba(0, 0, 0, 0.16);
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
     }
 
     &:active {
-      background: #f0f0f0;
+      background: transparent;
+    }
+
+    &:not(:last-child) {
+      border-right: none;
+      padding-right: 12px;
+      margin-right: 0;
     }
   }
 
@@ -5858,6 +5967,23 @@ img.m-card-empty-link-arrow-img {
   letter-spacing: 0.04em;
   line-height: 1.3;
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+}
+
+.tw-date-badge__today-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #1d1d1f;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  text-align: center;
+  padding: 0 4px;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+}
+
+.tw-date-badge--today-word {
+  width: auto;
+  min-width: 52px;
+  padding: 0 4px;
 }
 
 .tw-date-badge__time {
@@ -5944,9 +6070,150 @@ img.m-card-empty-link-arrow-img {
   }
 }
 
-// Same strip: time in the body column stays one line when multiple sessions share a day.
+// Same strip: unified row — person left, schedule right, grouped as one unit.
 .timeline-section--week-strip .tw-day-event-cell {
   min-width: 252px;
+  justify-content: flex-start;
+  gap: 0;
+
+  &--unified {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0;
+    width: 100%;
+    padding: 0;
+    min-width: 0;
+    max-width: none;
+    background: transparent;
+    border-radius: 0;
+    position: relative;
+    box-sizing: border-box;
+
+    .tw-day-event-cell__person {
+      flex: 0 1 auto;
+      min-width: 96px;
+      overflow: visible;
+    }
+
+    .tw-day-event-cell__schedule {
+      flex: 0 0 auto;
+      margin-left: 6px;
+      padding-left: 6px;
+    }
+  }
+}
+
+.tw-day-event-cell__person {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.tw-day-event-cell__schedule {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+  margin-left: 10px;
+  padding-left: 10px;
+  border-left: 1px solid rgba(0, 0, 0, 0.06);
+
+  .tw-date-badge--strip {
+    width: 40px;
+    height: 44px;
+    border-radius: 9px;
+    background: #fafafa;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
+    flex-shrink: 0;
+  }
+}
+
+.tw-day-event-cell__schedule-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 3px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.timeline-section--week-strip .tw-day-group--single .tw-day-event-cell__body {
+  min-height: 52px;
+}
+
+.tw-week-trial-pill.badge-inline.badge-trial {
+  margin-top: 2px;
+  padding: 0;
+  gap: 4px;
+  border-radius: 0;
+  border: none;
+  background: transparent;
+  color: #ff9500;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  line-height: 1.2;
+  box-shadow: none;
+  display: inline-flex;
+  align-self: flex-start;
+  flex-shrink: 0;
+
+  ion-icon {
+    font-size: 9px;
+    color: #ff9500;
+  }
+}
+
+.timeline-section--week-strip .tw-day-event-cell--unified .tw-day-event-cell__schedule {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  margin-left: 6px;
+  padding-left: 6px;
+}
+
+.timeline-section--week-strip .tw-date-badge--strip {
+  .tw-date-badge__month {
+    font-size: 8px;
+  }
+
+  .tw-date-badge__day {
+    font-size: 17px;
+  }
+
+  .tw-date-badge__weekday {
+    font-size: 8px;
+  }
+}
+
+.tw-day-event-cell__time {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1d1d1f;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 118px;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+}
+
+.tw-day-event-cell__duration {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: #8e8e93;
+  line-height: 1.2;
+  white-space: nowrap;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
 }
 
 .tw-day-event-cell__icon-col {
@@ -5955,6 +6222,12 @@ img.m-card-empty-link-arrow-img {
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
+}
+
+.timeline-section--week-strip .tw-day-event-cell--unified .tw-day-event-cell__icon-col {
+  flex-direction: row;
+  align-items: center;
+  gap: 0;
 }
 
 // Week strip avatars: split by type so class thumbnails show full image, 1-on-1 shows squircle
@@ -6034,6 +6307,72 @@ img.m-card-empty-link-arrow-img {
   padding-right: 32px;
 }
 
+.timeline-section--week-strip .tw-day-event-cell--unified .tw-day-event-cell__body {
+  flex: 0 1 auto;
+  gap: 2px;
+  padding-right: 0;
+}
+
+.timeline-section--week-strip .tw-day-event-cell--class.tw-day-event-cell--unified {
+  .tw-day-event-cell__person {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .cu-avatar.tw-day-event-avatar {
+    width: 44px;
+    height: 44px;
+    max-width: 44px;
+    min-width: 44px;
+    border-radius: 10px;
+    background: #f5f5f7;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06);
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+  }
+
+  .tw-day-event-sub {
+    display: none;
+  }
+
+  .tw-day-event-cell__body {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .tw-week-class-attendees {
+    display: block;
+    margin-top: 2px;
+
+    ::ng-deep .class-attendees {
+      gap: 0;
+      margin-top: 0;
+      min-height: 20px;
+    }
+
+    ::ng-deep .avatars-stack {
+      margin-left: 0;
+    }
+
+    ::ng-deep .avatar-stacked {
+      width: 20px;
+      height: 20px;
+      margin-left: -6px;
+      border-width: 1.5px;
+
+      &:first-child {
+        margin-left: 0;
+      }
+    }
+  }
+}
+
 .tw-day-event-cell:has(.cu-extra-badge) {
   padding-right: 4px;
 
@@ -6094,16 +6433,27 @@ img.m-card-empty-link-arrow-img {
     opacity: 1;
     right: 2px;
     top: 6px;
+
+    .tw-day-group--single & {
+      top: auto;
+      bottom: 2px;
+    }
   }
 }
 
 .tw-day-event-cell__body .cu-name {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
+}
+
+.timeline-section--week-strip .tw-day-event-cell--unified .tw-day-event-cell__body {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: visible;
 }
 
 // "+ more" — outline pill (matches withdraw-btn / View Calendar)
@@ -9396,8 +9746,9 @@ img.m-card-empty-link-arrow-img {
     }
 
     &.upnext-filled {
-      justify-content: center;
-      gap: 20px;
+      justify-content: flex-start;
+      gap: 0;
+      padding: 12px 20px 12px 14px;
 
       @media (max-width: 600px) {
         flex: none;
@@ -9755,15 +10106,107 @@ img.m-card-empty-link-arrow-img {
     margin-bottom: 0;
   }
 
-  .this-week-empty {
+  .this-week-panel {
     display: flex;
-    align-items: center;
-    gap: 18px;
+    align-items: stretch;
+    gap: 0;
+    min-width: 0;
     padding: 20px 22px;
     background: #ffffff;
     border-radius: 16px;
     border: 1px solid rgba(0, 0, 0, 0.06);
     box-shadow: 0 6px 28px rgba(0, 0, 0, 0.12);
+
+    &__calendar {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      align-self: center;
+      padding-right: 0px;
+      margin-right: 18px;
+      border-right: 1px solid rgba(0, 0, 0, 0.08);
+    }
+
+    &__body {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+    }
+
+    &__content-row {
+      display: flex;
+      align-items: center;
+      flex: 1;
+      min-width: 0;
+      width: 100%;
+    }
+
+    &__see-more-slot {
+      flex: 1 1 auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      align-self: stretch;
+      min-width: 140px;
+      padding: 0 12px;
+    }
+
+    .timeline-section--week-strip {
+      flex: 0 0 auto;
+      min-width: 0;
+      width: auto;
+      max-width: none;
+      margin-bottom: 0;
+      padding: 0;
+      background: transparent;
+      border: none;
+      box-shadow: none;
+      border-radius: 0;
+      overflow: visible;
+      animation: none;
+    }
+
+    .tw-week-scroll {
+      padding: 0;
+      background: transparent;
+    }
+
+    .tw-week-scroll-inner {
+      padding: 0 4px 0 0;
+      background: transparent;
+      min-width: 0;
+      width: max-content;
+      gap: 14px;
+    }
+  }
+
+  .this-week-see-more {
+    flex-shrink: 0;
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+    font-size: 14px;
+    font-weight: 600;
+    color: #222222;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+    white-space: nowrap;
+    font-family: inherit;
+    letter-spacing: -0.01em;
+    transition: color 0.15s ease;
+
+    &:hover {
+      color: #000000;
+    }
+  }
+
+  .this-week-empty {
+    display: flex;
+    align-items: center;
+    gap: 18px;
 
     &__icon-wrap {
       flex-shrink: 0;
@@ -10484,7 +10927,7 @@ img.m-card-empty-link-arrow-img {
       margin-top: 0;
       min-height: 32px;
       min-width: 0;
-      overflow: hidden;
+      overflow: visible;
     }
 
     .earnings-goal__amount-line {
@@ -10936,12 +11379,15 @@ img.m-card-empty-link-arrow-img {
   }
   
   &.badge-trial {
-    background: linear-gradient(135deg, #ff9500 0%, #ff6b35 100%);
-    color: #ffffff;
+    background: transparent;
+    color: #ff9500;
     margin-top: 14px;
+    padding: 5px 12px;
+    border-radius: 999px;
+    border: none;
     ion-icon {
       font-size: 10px;
-      color: #ffffff;
+      color: #ff9500;
     }
   }
   
@@ -15551,6 +15997,22 @@ img.m-card-empty-link-arrow-img {
     color: #8e8e93 !important;
   }
 
+  .tw-date-badge__today-label {
+    color: #f5f5f7 !important;
+  }
+
+  .upnext-filled-schedule .tw-date-badge__today-label {
+    color: #d5adff !important;
+  }
+
+  .home-m-upnext-date .tw-date-badge__today-label {
+    color: #d5adff !important;
+  }
+
+  .upnext-filled-status-chip {
+    color: #ebebf0 !important;
+  }
+
   .tw-date-badge__time {
     color: #ebebf0 !important;
   }
@@ -15622,6 +16084,65 @@ img.m-card-empty-link-arrow-img {
 
   .tw-week-scroll::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.22) !important;
+  }
+
+  .this-week-panel {
+    background: #2a2a2a !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.24) !important;
+
+    &__calendar {
+      border-right-color: rgba(255, 255, 255, 0.08) !important;
+    }
+
+    .tw-day-event-cell__schedule {
+      border-left-color: rgba(255, 255, 255, 0.08) !important;
+    }
+
+    .tw-date-badge--strip {
+      background: rgba(255, 255, 255, 0.06) !important;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08) !important;
+    }
+
+    .timeline-section--week-strip,
+    .tw-week-scroll,
+    .tw-week-scroll-inner,
+    .tw-day-group,
+    .tw-day-group__date,
+    .tw-day-group__events,
+    .tw-day-event-cell:not(.tw-day-event-cell--unified) {
+      background: transparent !important;
+    }
+
+    .tw-day-group--single {
+      border-color: rgba(255, 255, 255, 0.12) !important;
+
+      &:hover {
+        background: transparent !important;
+        border-color: rgba(255, 255, 255, 0.2) !important;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2) !important;
+      }
+
+      &:active {
+        background: transparent !important;
+      }
+
+      &:not(:last-child) {
+        border-right: none !important;
+      }
+    }
+
+    .tw-day-group:not(:last-child) {
+      border-right-color: rgba(255, 255, 255, 0.08) !important;
+    }
+
+    .this-week-see-more {
+      color: rgba(255, 255, 255, 0.88) !important;
+
+      &:hover {
+        color: #ffffff !important;
+      }
+    }
   }
 
   .this-week-empty {

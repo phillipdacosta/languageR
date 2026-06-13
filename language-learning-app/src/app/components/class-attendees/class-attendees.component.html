@@ -4,7 +4,7 @@
   *ngIf="attendees && attendees.length > 0"
   (click)="openAttendeesModal($event)"
 >
-  <div class="attendees-label">Going</div>
+  <div class="attendees-label" *ngIf="showLabel">Going</div>
   <div class="avatars-stack">
     <!-- Display up to maxDisplay avatars -->
     <div 
@@ -33,7 +33,7 @@
       <div class="extra-count-text">+{{ getExtraCount() }}</div>
     </div>
   </div>
-  <div class="capacity-text" *ngIf="capacity">
+  <div class="capacity-text" *ngIf="showCapacity && capacity">
     {{ attendees?.length || 0 }}/{{ capacity }}
   </div>
 </div>

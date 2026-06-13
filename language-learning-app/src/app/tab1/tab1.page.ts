@@ -353,6 +353,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   thisWeekAvatars: { name: string; avatar: string | null; lessonCount: number }[] = [];
   thisWeekLessonCount = 0;
   thisWeekSingleLesson: any = null;
+  /** Desktop This Week strip: show link when more than 2 lessons/classes remain this week. */
+  thisWeekSeeMoreVisible = false;
 
   /** Mobile tutor: greeting line (same as desktop welcome title). */
   tutorMobileWelcomeTitle = '';
@@ -644,6 +646,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   hasProfileCriticalInsights = false;
   readonly outstandingWelcomeIconSrc = GROWTH_TICKER_ICONS.warning;
   readonly calendarOpenIconSrc = GROWTH_TICKER_ICONS.calendarOpen;
+  readonly hourglassIconSrc = GROWTH_TICKER_ICONS.hourglass;
   /** True when the active growth insight is a sticky, non-rotating item (e.g. pending lesson updates).
    *  When true, the ticker takes over the welcome line regardless of next-lesson state. */
   hasLockedGrowthInsight = false;
@@ -835,7 +838,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       takeUntil(this.destroy$)
     ).subscribe(count => {
       this.unreadMessages = count;
-      this.cdr.markForCheck();
+      this.refreshGrowthInsightsFromContext();
     });
 
     // Keep the journey widget in sync with plan lifecycle changes that
@@ -917,7 +920,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
           if (this.tutorFeedbackService.consumeReopenFlag() && this.pendingFeedbackCount > 0) {
             setTimeout(() => { this.isFeedbackModalOpen = true; this.cdr.markForCheck(); }, 400);
           }
-          this.cdr.markForCheck();
+          this.refreshGrowthInsightsFromContext();
         }
       });
   }
@@ -1389,6 +1392,9 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
           this.hadLessonsToday = this.hadLessonsEarlierToday();
           this.hadOnlyCancelledLessonsToday = this.checkHadOnlyCancelledLessonsToday();
           this.syncTutorMobileWelcomeAboveUpNext();
+          if (this.isTutorUser) {
+            this.refreshGrowthInsightsFromContext();
+          }
           this.refreshNextLessonTimeSensitiveFields();
           this.greetingText = this.getGreeting();
           this.countdownTick = now;
@@ -5235,6 +5241,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         tutorName: user?.firstName || '',
         lessonsThisWeek: this.lessonsThisWeek,
         lessonsToday: todayCounts.total,
+        lessonsTodayWithNotes: todayCounts.withNotes,
         completedToday: todayCounts.completed,
         totalStudents: this.totalStudents,
         hasEverHadBooking: this.tutorHasEverHadPastBooking,
@@ -5408,7 +5415,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   private refreshGrowthInsightsFromApprovalStatus(status: any): void {
     if (!this._growthContext || !status) return;
 
-    const ctx: GrowthContext = {
+    this._growthContext = {
       ...this._growthContext,
       hasCustomPhoto: status.photoComplete === true,
       hasVideo: status.videoComplete === true,
@@ -5425,9 +5432,45 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       tutorApproved: status.fullyApproved === true,
     };
 
-    this._growthContext = ctx;
-    this.tutorGrowthService.compute(ctx);
+    this.recomputeGrowthInsightsFromContext();
+  }
+
+  /** Lightweight ticker refresh when live home data changes (messages, feedback, lessons, etc.). */
+  private refreshGrowthInsightsFromContext(): void {
+    if (!this.isTutorUser || !this._growthContext) return;
+    const todayCounts = this.countTodayLessons();
+    this._growthContext = {
+      ...this._growthContext,
+      hasAvailability: this.hasAvailability,
+      hasUpcomingLessons: !!this.nextLesson,
+      lessonsThisWeek: this.lessonsThisWeek,
+      lessonsToday: todayCounts.total,
+      lessonsTodayWithNotes: todayCounts.withNotes,
+      completedToday: todayCounts.completed,
+      totalStudents: this.totalStudents,
+      freeHoursThisWeek: this.estimateFreeHoursThisWeek(),
+      nextGapHours: this.computeNextLessonGap(),
+      scheduleHash: this.computeScheduleHash(),
+      pendingFeedbackCount: this.pendingFeedbackCount,
+      unreadMessages: this.unreadMessages,
+      tutorRating: this.tutorRating,
+      hasEverHadBooking: this.tutorHasEverHadPastBooking,
+    };
+    this.recomputeGrowthInsightsFromContext();
+  }
+
+  private recomputeGrowthInsightsFromContext(): void {
+    if (!this._growthContext) return;
+    this.tutorGrowthService.compute(this._growthContext);
     this.syncGrowthInsightProperties();
+    this.syncWelcomeTickerCopy();
+    this.cdr.markForCheck();
+  }
+
+  private syncWelcomeTickerCopy(): void {
+    this.welcomeMessageText = this.getWelcomeMessage();
+    this.welcomeMessageIconSrc = this.getWelcomeMessageIconSrc();
+    this.syncTutorMobileWelcomeAboveUpNext();
   }
 
   private estimateFreeHoursThisWeek(): number {
@@ -5459,7 +5502,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     return Math.round(freeMs / 3600000);
   }
 
-  private countTodayLessons(): { total: number; completed: number } {
+  private countTodayLessons(): { total: number; completed: number; withNotes: number } {
     const now = new Date();
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const endOfDay = new Date(startOfDay);
@@ -5467,18 +5510,25 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
 
     let total = 0;
     let completed = 0;
+    let withNotes = 0;
     for (const l of this.lessons) {
       if (l.status === 'cancelled') continue;
       const start = new Date(l.startTime);
       if (start >= startOfDay && start < endOfDay) {
         total++;
         const end = new Date(l.endTime);
-        if (end < now || l.status === 'completed') {
+        const isDone = end < now || l.status === 'completed';
+        if (isDone) {
           completed++;
+        }
+        const lessonAny = l as any;
+        const isTrial = !!(lessonAny.isTrialLesson || lessonAny.isTrial);
+        if (!isTrial && !isDone) {
+          withNotes++;
         }
       }
     }
-    return { total, completed };
+    return { total, completed, withNotes };
   }
 
   onGrowthInsightDotClick(index: number): void {
@@ -5866,6 +5916,11 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return false;
 
     return startMs > nowMs || (startMs <= nowMs && nowMs < endMs);
+  }
+
+  /** Drop any legacy tutor-home preview mocks from the lesson list. */
+  private stripTutorHomeMockLessons(): void {
+    this.lessons = this.lessons.filter((lesson) => !String(lesson._id).startsWith('__mock_tutor_home_'));
   }
 
   // Get formatted info about the next lesson for empty state display
@@ -6860,9 +6915,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       }
 
       const existing = studentMap.get(key);
-      if (existing) {
-        existing.lessonCount++;
-      } else {
+      if (!existing) {
         studentMap.set(key, { name, avatar, lessonCount: 1 });
       }
     }
@@ -7386,8 +7439,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     return tutor.id;
   }
 
-  /** Max lessons shown in the desktop This Week horizontal strip (rest via Full schedule / modal). */
-  private readonly thisWeekHomeMaxLessons = 15;
+  /** Max lessons shown in the desktop This Week horizontal strip. */
+  private readonly thisWeekHomeMaxLessons = 2;
   thisWeekHomeTitleKey = 'HOME.THIS_WEEK';
 
   trackByTimelineEvent(_index: number, ev: { lesson?: { _id?: string; startTime?: string } }): string {
@@ -7435,44 +7488,31 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     return { lessons, titleKey: 'HOME.COMING_UP_DYNAMIC' };
   }
 
-  /** Calendar-day groups for the desktop This Week strip (one date column per day, events scroll horizontally). */
-  get timelineDayGroups(): Array<{ dayKey: string; dateLabel: string; dateBadgeMonth: string; dateBadgeDay: string; dateBadgeWeekday: string; isToday: boolean; events: any[]; extraCount: number }> {
+  /** One card per lesson in the desktop This Week strip (no same-day grouping). */
+  get timelineDayGroups(): Array<{ dayKey: string; dateLabel: string; dateBadgeMonth: string; dateBadgeDay: string; dateBadgeWeekday: string; isToday: boolean; events: any[] }> {
     const events = this.timelineEvents;
     if (!events.length) {
       return [];
     }
-    const groups: Array<{ dayKey: string; dateLabel: string; dateBadgeMonth: string; dateBadgeDay: string; dateBadgeWeekday: string; isToday: boolean; events: any[]; extraCount: number }> = [];
-    for (const ev of events) {
+    return events.map((ev) => {
       const st = ev?.lesson?.startTime;
       const d = st ? new Date(st) : new Date();
-      const dayKey = this.lessonDayKey(d);
-      const dateLabel = ev.date as string;
-      const last = groups[groups.length - 1];
-      if (last && last.dayKey === dayKey) {
-        last.events.push(ev);
-      } else {
-        groups.push({
-          dayKey,
-          dateLabel,
-          dateBadgeMonth: ev.dateBadgeMonth || '',
-          dateBadgeDay: ev.dateBadgeDay || '',
-          dateBadgeWeekday: ev.dateBadgeWeekday || '',
-          isToday: !!ev.isToday,
-          events: [ev],
-          extraCount: 0,
-        });
-      }
-    }
-    for (const g of groups) {
-      g.extraCount = Math.max(0, g.events.length - 1);
-    }
-    return groups;
+      const lessonId = ev?.lesson?._id ?? ev.time;
+      return {
+        dayKey: `${this.lessonDayKey(d)}:${lessonId}`,
+        dateLabel: ev.date as string,
+        dateBadgeMonth: ev.dateBadgeMonth || '',
+        dateBadgeDay: ev.dateBadgeDay || '',
+        dateBadgeWeekday: ev.dateBadgeWeekday || '',
+        isToday: !!ev.isToday,
+        events: [ev],
+      };
+    });
   }
 
-  /** Single lesson in a single day — stretch row inside the fixed-width card. */
+  /** Single lesson card in the strip — stretch row inside the fixed-width card. */
   get thisWeekStripSingleEvent(): boolean {
-    const g = this.timelineDayGroups;
-    return g.length === 1 && g[0].events.length === 1;
+    return this.timelineDayGroups.length === 1;
   }
 
   // Get timeline events for "Coming Up Next" section (cached for performance)
@@ -7497,6 +7537,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   
   // Internal method to compute timeline events (called by cached getter)
   private computeTimelineEvents(): any[] {
+    this.thisWeekSeeMoreVisible = false;
     // Show only active upcoming lessons (cancelled lessons excluded — they're not "coming up")
     const allLessonsForTimeline = [...this.lessons];
     const now = new Date();
@@ -7529,6 +7570,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     const scopedLessons = this.scopedThisWeekOrUpcomingLessons(withoutNext, now);
     this.thisWeekHomeTitleKey = scopedLessons.titleKey;
     const cap = this.thisWeekHomeMaxLessons;
+    this.thisWeekSeeMoreVisible =
+      scopedLessons.titleKey === 'HOME.THIS_WEEK' && scopedLessons.lessons.length > cap;
     const chosen = scopedLessons.lessons.slice(0, cap);
 
     return chosen.map((lesson) => {
@@ -7617,23 +7660,11 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   }
 
   hasMoreTimelineEvents(): boolean {
-    const allLessons = [...this.lessons, ...this.cancelledLessons];
-    const now = new Date();
-    const futureLessons = allLessons.filter(lesson => new Date(lesson.startTime) > now);
-    
-    // Get the next class being shown in the "Up Next" card (for both tutors and students)
-    const nextClassLesson = this.nextLesson;
-    const nextClassLessonId = nextClassLesson?.lessonId || 
-                              nextClassLesson?.lesson?._id || 
-                              (nextClassLesson?.lesson && String(nextClassLesson.lesson._id));
-    
-    // Filter out the next class from count
-    const timelineLessons = futureLessons.filter(lesson => {
-      if (nextClassLessonId && String(lesson._id) === String(nextClassLessonId)) return false;
-      return true;
-    });
-    
-    return timelineLessons.length > this.thisWeekHomeMaxLessons;
+    return this.thisWeekSeeMoreVisible;
+  }
+
+  navigateToThisWeekCalendar(): void {
+    this.router.navigate([this.isStudentUser ? '/tabs/lessons' : '/tabs/tutor-calendar']);
   }
 
   // Track if all lessons modal is open
@@ -8570,6 +8601,8 @@ navigateToLessons() {
           })
           .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
 
+        this.stripTutorHomeMockLessons();
+
         // Filter for past/completed lessons (for students to show past tutors)
         // Include lessons that have ended and are not cancelled
         this.pastLessons = [...resp.lessons]
@@ -8948,8 +8981,7 @@ navigateToLessons() {
           // If availability changed, force a fresh growth-ticker recompute so the
           // "Setup availability" insight disappears immediately without a full page reload.
           if (this.hasAvailability !== prevHasAvailability) {
-            this._growthInsightsLoaded = false;
-            this.computeGrowthInsights();
+            this.refreshGrowthInsightsFromContext();
           }
           this.cdr.markForCheck();
         },

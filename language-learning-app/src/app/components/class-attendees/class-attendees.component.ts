@@ -15,6 +15,8 @@ export class ClassAttendeesComponent {
   @Input() attendees?: any[];
   @Input() capacity?: number;
   @Input() maxDisplay: number = 3; // Max avatars to show before "+X"
+  @Input() showLabel = true;
+  @Input() showCapacity = true;
   /** Single recipient (student → tutor). */
   @Input() receiverId = '';
   /** Multiple recipients (tutor → all participants). */
