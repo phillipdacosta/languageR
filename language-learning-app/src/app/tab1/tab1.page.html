@@ -402,7 +402,18 @@
           <span>{{ 'HOME.WELCOME_OUTSTANDING_ITEMS' | translate }}</span>
         </p>
         <p class="welcome-subtitle welcome-mobile-tutor-sub" *ngIf="isTutorUser && !isLoadingLessons && (!nextLesson || !nextLessonTimeLabel) && !growthInsight && tutorMobileWelcomeSubtitle && !hasProfileCriticalInsights">
-          {{ tutorMobileWelcomeSubtitle }}
+          <span class="growth-ticker-mobile-fade-wrap growth-ticker-mobile-fade-wrap--static">
+            <img
+              *ngIf="welcomeMessageIconSrc"
+              class="growth-ticker-icon growth-ticker-icon--img"
+              [class.growth-ticker-icon--calendar-open]="welcomeMessageIconSrc === calendarOpenIconSrc"
+              [src]="welcomeMessageIconSrc"
+              alt=""
+              aria-hidden="true" />
+            <span class="growth-ticker-text-mobile">
+              <span class="growth-ticker-msg">{{ tutorMobileWelcomeSubtitle }}</span>
+            </span>
+          </span>
         </p>
         <p class="welcome-subtitle welcome-mobile-tutor-sub growth-ticker-mobile-wrap"
            [class.growth-ticker-mobile-wrap--locked]="hasLockedGrowthInsight"
@@ -571,7 +582,18 @@
 
             <ng-template #tutorWelcomeStatic>
               <ng-container *ngIf="welcomeMessageText; else tutorWelcomeFallback">
-                {{ welcomeMessageText }}
+                <span class="growth-ticker growth-ticker--static">
+                  <span class="growth-ticker-text">
+                    <img
+                      *ngIf="welcomeMessageIconSrc"
+                      class="growth-ticker-icon growth-ticker-icon--img"
+                      [class.growth-ticker-icon--calendar-open]="welcomeMessageIconSrc === calendarOpenIconSrc"
+                      [src]="welcomeMessageIconSrc"
+                      alt=""
+                      aria-hidden="true" />
+                    <span class="growth-ticker-msg">{{ welcomeMessageText }}</span>
+                  </span>
+                </span>
               </ng-container>
             </ng-template>
 

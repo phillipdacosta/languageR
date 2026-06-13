@@ -643,6 +643,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   /** True when the growth ticker contains profile-critical items (should override next lesson display). */
   hasProfileCriticalInsights = false;
   readonly outstandingWelcomeIconSrc = GROWTH_TICKER_ICONS.warning;
+  readonly calendarOpenIconSrc = GROWTH_TICKER_ICONS.calendarOpen;
   /** True when the active growth insight is a sticky, non-rotating item (e.g. pending lesson updates).
    *  When true, the ticker takes over the welcome line regardless of next-lesson state. */
   hasLockedGrowthInsight = false;
@@ -663,6 +664,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   // Pre-computed template values (avoid function calls in template)
   greetingText = '';
   welcomeMessageText = '';
+  welcomeMessageIconSrc = '';
 
   // Previous lesson notes for the Up Next tutor-student pair
   previousNotesData: any = null;
@@ -6464,6 +6466,25 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     return '';
   }
 
+  getWelcomeMessageIconSrc(): string {
+    if (!this.nextLesson && this.hasAvailability && !this.hadLessonsToday) {
+      return GROWTH_TICKER_ICONS.calendarOpen;
+    }
+    if (!this.nextLesson && this.hasAvailability && this.hadLessonsToday && !this.hadOnlyCancelledLessonsToday) {
+      return GROWTH_TICKER_ICONS.check;
+    }
+    if (!this.nextLesson && this.hasAvailability && this.hadLessonsToday && this.hadOnlyCancelledLessonsToday) {
+      return GROWTH_TICKER_ICONS.calendarOpen;
+    }
+    if (!this.nextLesson && !this.hasAvailability && this.pendingFeedbackCount === 0) {
+      return GROWTH_TICKER_ICONS.availability;
+    }
+    if (this.pendingFeedbackCount > 0) {
+      return GROWTH_TICKER_ICONS.feedback;
+    }
+    return '';
+  }
+
   /** Clears the Up Next cache so date/time strings recompute (e.g. after locale change). */
   private invalidateNextLessonCache(): void {
     this._cachedFirstLessonHash = '';
@@ -6712,6 +6733,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   private refreshPreComputedTemplateValues(): void {
     this.greetingText = this.getGreeting();
     this.welcomeMessageText = this.getWelcomeMessage();
+    this.welcomeMessageIconSrc = this.getWelcomeMessageIconSrc();
     this.buttonTextState = this.hasAvailability ? 'view' : 'add';
     const nl = this.nextLesson;
     this.nextLessonTutor = nl ? (nl.tutorId || nl.studentId) : null;
@@ -9640,6 +9662,191 @@ navigateToLessons() {
     });
   }
 
+  private readonly earningsGoBackMorphEase = 'cubic-bezier(0.32, 0.72, 0, 1)';
+
+  /** Wrapper + outgoing clone for View details ↔ Go back FLIP (matches journey pattern). */
+  private createEarningsGoBackFlipClone(
+    srcEl: HTMLElement,
+    srcRect: DOMRect
+  ): { wrapper: HTMLDivElement; outgoing: HTMLElement } {
+    const srcCS = getComputedStyle(srcEl);
+    const wrapper = document.createElement('div');
+    Object.assign(wrapper.style, {
+      position: 'fixed',
+      left: `${srcRect.left}px`,
+      top: `${srcRect.top}px`,
+      width: `${srcRect.width}px`,
+      height: `${srcRect.height}px`,
+      margin: '0',
+      padding: srcCS.padding,
+      backgroundColor: srcCS.backgroundColor,
+      border: srcCS.border,
+      borderRadius: srcCS.borderRadius,
+      zIndex: '10000',
+      pointerEvents: 'none',
+      transition: 'none',
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      boxSizing: 'border-box',
+      overflow: 'hidden',
+    } as Partial<CSSStyleDeclaration>);
+
+    const outgoing = srcEl.cloneNode(true) as HTMLElement;
+    Object.assign(outgoing.style, {
+      position: 'absolute',
+      inset: '0',
+      margin: '0',
+      padding: '0',
+      background: 'transparent',
+      border: 'none',
+      width: '100%',
+      height: '100%',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      boxSizing: 'border-box',
+      opacity: '1',
+      transition: 'opacity 0.1s ease',
+    } as Partial<CSSStyleDeclaration>);
+    wrapper.appendChild(outgoing);
+    document.body.appendChild(wrapper);
+    return { wrapper, outgoing };
+  }
+
+  private flyEarningsGoBackFlipClone(
+    wrapper: HTMLDivElement,
+    outgoing: HTMLElement,
+    dest: HTMLElement,
+    options: {
+      revealDelayMs?: number;
+      retainDestOpacity?: boolean;
+      fadeOutWrapper?: boolean;
+      softRevealDest?: boolean;
+    } = {}
+  ): void {
+    const {
+      revealDelayMs = 450,
+      retainDestOpacity = false,
+      fadeOutWrapper = false,
+      softRevealDest = false,
+    } = options;
+    const softRevealMs = 580;
+    const softRevealStaggerMs = 110;
+    const wrapperFadeMs = 500;
+    const morphDur = softRevealDest ? 0.48 : 0.42;
+
+    dest.style.transition = 'none';
+    dest.style.opacity = '0';
+    if (softRevealDest) {
+      dest.style.transform = 'translateY(4px)';
+    }
+
+    const destRect = dest.getBoundingClientRect();
+    const destCS = getComputedStyle(dest);
+    const morphEase = this.earningsGoBackMorphEase;
+    const softEase = 'cubic-bezier(0.22, 1, 0.36, 1)';
+
+    wrapper.style.transition = [
+      `left ${morphDur}s ${morphEase}`,
+      `top ${morphDur}s ${morphEase}`,
+      `width ${morphDur}s ${morphEase}`,
+      `height ${morphDur}s ${morphEase}`,
+      `border-radius ${morphDur}s ${morphEase}`,
+      `padding ${morphDur}s ${morphEase}`,
+      `background-color 0.36s ease 0.08s`,
+      `border-color 0.36s ease 0.08s`,
+      `border-width 0.36s ease 0.08s`,
+    ].join(', ');
+
+    requestAnimationFrame(() => {
+      outgoing.style.transition = softRevealDest ? 'opacity 0.24s ease' : 'opacity 0.1s ease';
+      outgoing.style.opacity = '0';
+      wrapper.style.left = `${destRect.left}px`;
+      wrapper.style.top = `${destRect.top}px`;
+      wrapper.style.width = `${destRect.width}px`;
+      wrapper.style.height = `${destRect.height}px`;
+      wrapper.style.padding = destCS.padding;
+      wrapper.style.backgroundColor = destCS.backgroundColor;
+      wrapper.style.border = destCS.border;
+      wrapper.style.borderRadius = destCS.borderRadius;
+    });
+
+    setTimeout(() => {
+      const finalRect = dest.getBoundingClientRect();
+      wrapper.style.transition = 'none';
+      wrapper.style.left = `${finalRect.left}px`;
+      wrapper.style.top = `${finalRect.top}px`;
+      wrapper.style.width = `${finalRect.width}px`;
+      wrapper.style.height = `${finalRect.height}px`;
+
+      // Double-rAF snap before handoff — avoids a 1-frame pop at landing.
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (softRevealDest) {
+            // skip-entry-animation is removed before we arrive here (~20ms earlier),
+            // so dest.style.transition is no longer blocked by transition:none !important.
+            dest.style.transition = [
+              `opacity ${softRevealMs}ms ${softEase} ${softRevealStaggerMs}ms`,
+              `transform ${softRevealMs}ms ${softEase} ${softRevealStaggerMs}ms`,
+            ].join(', ');
+            // Trigger in a fresh rAF so the browser registers the transition before value change.
+            requestAnimationFrame(() => {
+              dest.style.opacity = '1';
+              dest.style.transform = 'translateY(0)';
+            });
+
+            // Fade wrapper out alongside — helps mask the snap/handoff edge.
+            if (fadeOutWrapper) {
+              wrapper.style.transition = `opacity ${wrapperFadeMs}ms ${softEase} ${softRevealStaggerMs}ms`;
+              wrapper.style.opacity = '0';
+              setTimeout(() => {
+                if (wrapper.parentNode) wrapper.remove();
+              }, softRevealStaggerMs + wrapperFadeMs + 80);
+            } else if (wrapper.parentNode) {
+              wrapper.remove();
+            }
+          } else {
+            dest.style.opacity = '1';
+
+            if (fadeOutWrapper) {
+              wrapper.style.transition = 'opacity 0.18s ease';
+              wrapper.style.opacity = '0';
+              setTimeout(() => {
+                if (wrapper.parentNode) wrapper.remove();
+              }, 220);
+            } else if (wrapper.parentNode) {
+              wrapper.remove();
+            }
+          }
+
+          // Do not clear inline opacity while skip-entry-animation is still active
+          // (return path) — that briefly re-applies CSS opacity:0 and flashes.
+          if (!retainDestOpacity) {
+            setTimeout(() => {
+              dest.style.transition = '';
+              dest.style.opacity = '';
+              dest.style.transform = '';
+            }, 50);
+          }
+        });
+      });
+    }, revealDelayMs);
+  }
+
+  private fadeOutEarningsGoBackFlipClone(
+    flip: { wrapper: HTMLDivElement; outgoing: HTMLElement } | null,
+    durationMs = 420
+  ): void {
+    if (!flip) return;
+    flip.outgoing.style.opacity = '0';
+    flip.wrapper.style.transition = 'opacity 0.32s ease';
+    flip.wrapper.style.opacity = '0';
+    setTimeout(() => {
+      if (flip.wrapper.parentNode) flip.wrapper.remove();
+    }, durationMs);
+  }
+
   navigateToEarnings() {
     // === FLIP Animation: Home → Earnings ===
 
@@ -9659,7 +9866,9 @@ navigateToLessons() {
 
     // Step 2: Create styled clones at source positions
     const withdrawClone: HTMLElement | null = srcWithdrawRect ? document.createElement('div') : null;
-    const viewDetailsClone: HTMLElement | null = srcViewDetailsRect ? document.createElement('div') : null;
+    const viewDetailsFlip = (srcViewDetailsRect && srcViewDetails)
+      ? this.createEarningsGoBackFlipClone(srcViewDetails, srcViewDetailsRect)
+      : null;
 
     const isDark = document.documentElement.classList.contains('ion-palette-dark');
     const cloneFg = isDark ? '#f5f5f7' : '#222222';
@@ -9692,38 +9901,6 @@ navigateToLessons() {
       document.body.appendChild(withdrawClone);
     }
 
-    if (viewDetailsClone && srcViewDetailsRect) {
-      const viewDetailsText = this.translateService.instant('HOME.VIEW_DETAILS');
-      if (this.isMobile) {
-        viewDetailsClone.textContent = `${viewDetailsText} →`;
-      } else {
-        viewDetailsClone.innerHTML = `<span style="text-decoration:underline">${viewDetailsText}</span><span style="width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;font-size:16px;line-height:1">→</span>`;
-      }
-      Object.assign(viewDetailsClone.style, {
-        position: 'fixed',
-        left: `${srcViewDetailsRect.left}px`,
-        top: `${srcViewDetailsRect.top}px`,
-        width: `${srcViewDetailsRect.width}px`,
-        height: `${srcViewDetailsRect.height}px`,
-        zIndex: '10000',
-        pointerEvents: 'none',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: this.isMobile ? '3px' : '6px',
-        boxSizing: 'border-box',
-        fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif',
-        fontSize: this.isMobile ? '11px' : '14px',
-        fontWeight: '600',
-        color: this.isMobile ? (isDark ? '#60a5fa' : '#6b7280') : cloneFg,
-        backgroundColor: 'transparent',
-        border: 'none',
-        whiteSpace: 'nowrap',
-        transition: 'all 0.42s cubic-bezier(0.32, 0.72, 0, 1)',
-      });
-      document.body.appendChild(viewDetailsClone);
-    }
-
     // Step 3: Switch to earnings view & scroll to top so layout is stable.
     // We must reset scroll SYNCHRONOUSLY on the underlying scroll element BEFORE
     // measuring dest rects. ion-content.scrollToTop(0) returns a Promise and the
@@ -9744,33 +9921,10 @@ navigateToLessons() {
       requestAnimationFrame(() => {
         const destGoBack = document.querySelector('.earnings-inline-panel .go-back-link') as HTMLElement;
 
-        if (viewDetailsClone && destGoBack) {
-          destGoBack.style.transition = 'none';
-          destGoBack.style.opacity = '0';
-          const destRect = destGoBack.getBoundingClientRect();
-          const goBackLabel = this.translateService.instant('EARNINGS.GO_BACK');
-          viewDetailsClone.innerHTML = `<span style="text-decoration:underline">${goBackLabel}</span>`;
-          viewDetailsClone.style.whiteSpace = 'nowrap';
-          viewDetailsClone.style.left = `${destRect.left}px`;
-          viewDetailsClone.style.top = `${destRect.top}px`;
-          viewDetailsClone.style.width = `${destRect.width}px`;
-          viewDetailsClone.style.height = `${destRect.height}px`;
-          viewDetailsClone.style.fontSize = '14px';
-          viewDetailsClone.style.color = isDark ? '#8e8e93' : '#222222';
-
-          // On landing: snap dest visible (still no transition), then remove clone next frame
-          setTimeout(() => {
-            destGoBack.style.opacity = '1';
-            requestAnimationFrame(() => {
-              if (viewDetailsClone.parentNode) viewDetailsClone.remove();
-              // Restore default transition and clear inline opacity
-              setTimeout(() => { destGoBack.style.transition = ''; destGoBack.style.opacity = ''; }, 50);
-            });
-          }, 450);
-        } else if (viewDetailsClone) {
-          viewDetailsClone.style.opacity = '0';
-          viewDetailsClone.style.transform = 'translateY(-20px)';
-          setTimeout(() => { if (viewDetailsClone.parentNode) viewDetailsClone.remove(); }, 420);
+        if (viewDetailsFlip && destGoBack) {
+          this.flyEarningsGoBackFlipClone(viewDetailsFlip.wrapper, viewDetailsFlip.outgoing, destGoBack);
+        } else {
+          this.fadeOutEarningsGoBackFlipClone(viewDetailsFlip);
         }
       });
     });
@@ -9901,7 +10055,9 @@ navigateToLessons() {
 
     // Step 2: Create styled clones at earnings positions
     let withdrawClone: HTMLElement | null = null;
-    let goBackClone: HTMLElement | null = null;
+    const goBackFlip = (srcGoBackRect && srcGoBack)
+      ? this.createEarningsGoBackFlipClone(srcGoBack, srcGoBackRect)
+      : null;
 
     const isDark = document.documentElement.classList.contains('ion-palette-dark');
     const cloneFg = isDark ? '#f5f5f7' : '#222222';
@@ -9911,6 +10067,7 @@ navigateToLessons() {
     if (srcWithdrawRect) {
       withdrawClone = document.createElement('div');
       withdrawClone.textContent = this.translateService.instant('EARNINGS.WITHDRAW_FUNDS');
+      const morphEaseW = 'cubic-bezier(0.32, 0.72, 0, 1)';
       Object.assign(withdrawClone.style, {
         position: 'fixed',
         left: `${srcWithdrawRect.left}px`,
@@ -9930,38 +10087,19 @@ navigateToLessons() {
         backgroundColor: cloneSolidBg,
         border: `1px solid ${cloneSolidBg}`,
         borderRadius: '8px',
-        transition: 'left 0.46s cubic-bezier(0.32, 0.72, 0, 1), top 0.46s cubic-bezier(0.32, 0.72, 0, 1), width 0.46s cubic-bezier(0.32, 0.72, 0, 1), height 0.46s cubic-bezier(0.32, 0.72, 0, 1), border-radius 0.46s cubic-bezier(0.32, 0.72, 0, 1), font-size 0.36s ease 0.1s, background-color 0.36s ease 0.1s, color 0.36s ease 0.1s, border-color 0.36s ease 0.1s',
+        // font-size intentionally excluded — animating it causes text-relayout vibration.
+        transition: [
+          `left 0.46s ${morphEaseW}`,
+          `top 0.46s ${morphEaseW}`,
+          `width 0.46s ${morphEaseW}`,
+          `height 0.46s ${morphEaseW}`,
+          `border-radius 0.36s ${morphEaseW} 0.06s`,
+          `background-color 0.32s ease 0.08s`,
+          `color 0.32s ease 0.08s`,
+          `border-color 0.32s ease 0.08s`,
+        ].join(', '),
       });
       document.body.appendChild(withdrawClone);
-    }
-
-    if (srcGoBackRect) {
-      goBackClone = document.createElement('div');
-      const goBackText = this.translateService.instant('EARNINGS.GO_BACK');
-      goBackClone.innerHTML = `<span style="text-decoration:underline">${goBackText}</span>`;
-      Object.assign(goBackClone.style, {
-        position: 'fixed',
-        left: `${srcGoBackRect.left}px`,
-        top: `${srcGoBackRect.top}px`,
-        width: `${srcGoBackRect.width}px`,
-        height: `${srcGoBackRect.height}px`,
-        zIndex: '10000',
-        pointerEvents: 'none',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: '6px',
-        boxSizing: 'border-box',
-        fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif',
-        fontSize: '14px',
-        fontWeight: '600',
-        color: isDark ? '#8e8e93' : '#222222',
-        backgroundColor: 'transparent',
-        border: 'none',
-        whiteSpace: 'nowrap',
-        transition: 'all 0.42s cubic-bezier(0.32, 0.72, 0, 1)',
-      });
-      document.body.appendChild(goBackClone);
     }
 
     // Step 3: Suppress all entry animations on the home view so nothing flashes/drifts.
@@ -10001,9 +10139,11 @@ navigateToLessons() {
           cardWidget.style.opacity = '1';
         }
 
-        // Animate Withdraw Funds clone back to home card
+        // Animate Withdraw Funds clone back to home card.
         if (withdrawClone && destWithdraw) {
           const destRect = destWithdraw.getBoundingClientRect();
+          // Snap font-size to destination immediately — animating it causes text relayout vibration.
+          withdrawClone.style.fontSize = '15px';
           withdrawClone.style.left = `${destRect.left}px`;
           withdrawClone.style.top = `${destRect.top}px`;
           withdrawClone.style.width = `${destRect.width}px`;
@@ -10012,13 +10152,23 @@ navigateToLessons() {
           withdrawClone.style.color = cloneFg;
           withdrawClone.style.borderColor = cloneFg;
           withdrawClone.style.borderRadius = '12px';
-          withdrawClone.style.fontSize = '15px';
 
-          // On landing: snap dest visible (inline overrides CSS opacity:0), then remove clone
+          // On landing: crossfade real button in, clone out.
           setTimeout(() => {
-            destWithdraw.style.opacity = '1';
+            const finalRect = destWithdraw.getBoundingClientRect();
+            withdrawClone.style.transition = 'none';
+            withdrawClone.style.left = `${finalRect.left}px`;
+            withdrawClone.style.top = `${finalRect.top}px`;
+            withdrawClone.style.width = `${finalRect.width}px`;
+            withdrawClone.style.height = `${finalRect.height}px`;
             requestAnimationFrame(() => {
-              if (withdrawClone?.parentNode) withdrawClone.remove();
+              requestAnimationFrame(() => {
+                destWithdraw.style.transition = 'opacity 0.22s ease';
+                destWithdraw.style.opacity = '1';
+                withdrawClone.style.transition = 'opacity 0.22s ease';
+                withdrawClone.style.opacity = '0';
+                setTimeout(() => { if (withdrawClone?.parentNode) withdrawClone.remove(); }, 260);
+              });
             });
           }, 480);
         } else if (withdrawClone) {
@@ -10027,56 +10177,52 @@ navigateToLessons() {
         }
 
         // Animate Go back → View Details clone back to home card
-        if (goBackClone && destViewDetails) {
-          const destRect = destViewDetails.getBoundingClientRect();
-          const viewDetailsLabel = this.translateService.instant('HOME.VIEW_DETAILS');
-          if (this.isMobile) {
-            goBackClone.textContent = `${viewDetailsLabel} →`;
-          } else {
-            goBackClone.innerHTML = `<span style="text-decoration:underline">${viewDetailsLabel}</span><span style="width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;font-size:16px;line-height:1">→</span>`;
-          }
-          goBackClone.style.whiteSpace = 'nowrap';
-          goBackClone.style.left = `${destRect.left}px`;
-          goBackClone.style.top = `${destRect.top}px`;
-          goBackClone.style.width = `${destRect.width}px`;
-          goBackClone.style.height = `${destRect.height}px`;
-          goBackClone.style.fontSize = this.isMobile ? '11px' : '14px';
-          goBackClone.style.color = this.isMobile ? (isDark ? '#60a5fa' : '#6b7280') : (isDark ? '#8e8e93' : '#222222');
+        const viewDetailsSoftReveal = !!(goBackFlip && destViewDetails);
 
-          // On landing: snap dest visible (inline overrides CSS opacity:0), then remove clone
-          setTimeout(() => {
-            destViewDetails.style.opacity = '1';
-            requestAnimationFrame(() => {
-              if (goBackClone?.parentNode) goBackClone.remove();
-            });
-          }, 450);
-        } else if (goBackClone) {
-          goBackClone.style.opacity = '0';
-          setTimeout(() => { if (goBackClone?.parentNode) goBackClone.remove(); }, 420);
-        }
-
-        // Reset flag and clean inline styles.
-        // CRITICAL: Before removing .skip-entry-animation, lock animation:none as an
-        // inline style. Otherwise removing the class re-enables the CSS fadeInUp animation
-        // which starts from opacity:0 → causing the flash.
+        // CRITICAL: Remove skip-entry-animation BEFORE the reveal starts so that
+        // the CSS `transition: none !important` rule on .view-details-link is gone.
+        // Lock cardWidget animation inline first so removing the class doesn't re-fire
+        // the CSS fadeInUp. Fire this ~20ms before the 480ms revealDelayMs.
+        // Also pin withdraw-btn opacity inline so removing the class doesn't flash
+        // it visible while the withdraw clone is still mid-flight (clone removes at 480ms).
         setTimeout(() => {
-          // Lock inline animation:none BEFORE the class is removed
-          if (cardWidget) {
-            cardWidget.style.animation = 'none';
-          }
+          if (cardWidget) cardWidget.style.animation = 'none';
+          if (destWithdraw) destWithdraw.style.opacity = '0';
           this.returningFromEarnings = false;
           this.returningFromInline = false;
           this.cdr.detectChanges();
-          // Clean inline overrides (keep animation:none for now)
+        }, 460);
+
+        if (viewDetailsSoftReveal) {
+          this.flyEarningsGoBackFlipClone(goBackFlip!.wrapper, goBackFlip!.outgoing, destViewDetails!, {
+            revealDelayMs: 480,
+            retainDestOpacity: false,
+            fadeOutWrapper: false,
+            softRevealDest: true,
+          });
+        } else {
+          this.fadeOutEarningsGoBackFlipClone(goBackFlip);
+        }
+
+        // Clean up remaining inline styles after the soft reveal finishes.
+        // (~480ms morph + 580ms fade-in = ~1060ms total)
+        setTimeout(() => {
           requestAnimationFrame(() => {
-            if (destWithdraw) destWithdraw.style.opacity = '';
-            if (destViewDetails) destViewDetails.style.opacity = '';
+            if (destWithdraw) {
+              destWithdraw.style.transition = '';
+              destWithdraw.style.opacity = '';
+            }
+            if (destViewDetails) {
+              destViewDetails.style.transition = '';
+              destViewDetails.style.opacity = '';
+              destViewDetails.style.transform = '';
+            }
             if (cardWidget) {
               cardWidget.style.transition = '';
               cardWidget.style.opacity = '';
             }
           });
-        }, 550);
+        }, 1120);
       });
     });
 

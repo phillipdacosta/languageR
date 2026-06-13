@@ -1510,8 +1510,29 @@ ion-content {
       font: inherit;
       color: inherit;
       font-size: 18px;
+      vertical-align: middle;
     }
 
+    .growth-ticker,
+    .growth-ticker-text,
+    .welcome-outstanding-msg {
+      vertical-align: middle;
+    }
+
+    .growth-ticker-msg {
+      font-size: 18px;
+      line-height: 1.35;
+    }
+
+    .growth-ticker-icon--img {
+      width: 20px;
+      height: 20px;
+    }
+
+    .growth-ticker-icon--calendar-open {
+      width: 36px;
+      height: 36px;
+    }
   }
 
   // Desktop tutor: one fixed-height subtitle row (line + padding) so cards below never shift.
@@ -1594,6 +1615,19 @@ ion-content {
         }
       }
     }
+
+    &--static {
+      display: inline-flex;
+      align-items: center;
+      vertical-align: middle;
+      padding-right: 0;
+      cursor: default;
+      gap: 0;
+
+      .growth-ticker-text {
+        animation: none;
+      }
+    }
   }
 
   .growth-ticker-text {
@@ -1621,9 +1655,14 @@ ion-content {
       height: 22px;
       object-fit: contain;
       display: block;
-      background: none;
+      background: transparent;
       border: 0;
       box-shadow: none;
+    }
+
+    &--calendar-open {
+      width: 32px;
+      height: 32px;
     }
   }
 
@@ -1838,6 +1877,15 @@ ion-content {
     }
   }
 
+  // Mobile static welcome line (open schedule, etc.)
+  .welcome-mobile-tutor-sub {
+    .growth-ticker-mobile-fade-wrap--static {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+  }
+
   // Mobile growth ticker
   .growth-ticker-mobile-wrap {
     display: flex;
@@ -1853,6 +1901,11 @@ ion-content {
       flex: 1;
       flex-wrap: wrap;
       animation: growthInsightSoftFade 1.05s cubic-bezier(0.22, 1, 0.36, 1) both;
+
+      &--static {
+        align-items: center;
+        animation: none;
+      }
     }
 
     .growth-ticker-icon {
@@ -1864,9 +1917,14 @@ ion-content {
         height: 20px;
         object-fit: contain;
         display: block;
-        background: none;
+        background: transparent;
         border: 0;
         box-shadow: none;
+      }
+
+      &--calendar-open {
+        width: 28px;
+        height: 28px;
       }
     }
 

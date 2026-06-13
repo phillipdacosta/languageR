@@ -801,6 +801,7 @@
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
+    position: relative;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
     
@@ -1252,18 +1253,19 @@
       }
       
       .notification-empty {
-        flex: 1;
-        min-height: 0;
+        position: absolute;
+        inset: 0;
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 20px 4px;
+        padding: 24px 16px;
         text-align: center;
-        
+        pointer-events: none;
+
         p {
           margin: 0;
           font-size: 14px;
-          color: #6b7280;
+          color: #8e8e93;
         }
       }
     }
@@ -2307,7 +2309,9 @@ ion-tab-button {
         }
       }
 
-      .notification-empty p { color: #8e8e93 !important; }
+      .notification-empty {
+        p { color: #8e8e93 !important; }
+      }
     }
 
     .notification-dropdown-footer {
@@ -2623,7 +2627,7 @@ ion-tab-button {
         .notification-time { color: #636366 !important; }
         .notification-avatar { border-color: rgba(255, 255, 255, 0.12) !important; }
       }
-      .notification-empty p { color: #8e8e93 !important; }
+      .notification-empty { p { color: #8e8e93 !important; } }
     }
     .notification-dropdown-footer {
       border-top-color: rgba(255, 255, 255, 0.1) !important;

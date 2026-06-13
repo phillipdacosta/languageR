@@ -14,7 +14,10 @@
 <!-- Inline mode: Go back sits above the layout (right), same as before the split nav. -->
 <div class="earnings-inline-wrapper" *ngIf="inline">
   <div class="inline-earnings-header">
-    <button type="button" class="go-back-link" (click)="goBack()">{{ 'EARNINGS.GO_BACK' | translate }}</button>
+    <button type="button" class="go-back-link" (click)="goBack()">
+      <ion-icon name="chevron-back-outline" aria-hidden="true"></ion-icon>
+      <span>{{ 'EARNINGS.GO_BACK' | translate }}</span>
+    </button>
   </div>
   <ng-container *ngTemplateOutlet="earningsBody"></ng-container>
 </div>
@@ -131,7 +134,10 @@
           <span class="stat-sub">{{ 'EARNINGS.TOTAL_EARNED' | translate }}</span>
         </div>
       </div>
-      <button class="go-back-link" *ngIf="!inline" (click)="goBack()">{{ 'EARNINGS.GO_BACK' | translate }}</button>
+      <button type="button" class="go-back-link" *ngIf="!inline" (click)="goBack()">
+        <ion-icon name="chevron-back-outline" aria-hidden="true"></ion-icon>
+        <span>{{ 'EARNINGS.GO_BACK' | translate }}</span>
+      </button>
     </div>
 
     <!-- Desktop: Withdraw Button (hidden on mobile) — .withdraw-btn target for home → earnings FLIP -->
@@ -177,7 +183,10 @@
           <span class="stat-sub">{{ 'EARNINGS.TOTAL_EARNED' | translate }}</span>
         </div>
       </div>
-      <button class="go-back-link" *ngIf="!inline" (click)="goBack()">{{ 'EARNINGS.GO_BACK' | translate }}</button>
+      <button type="button" class="go-back-link" *ngIf="!inline" (click)="goBack()">
+        <ion-icon name="chevron-back-outline" aria-hidden="true"></ion-icon>
+        <span>{{ 'EARNINGS.GO_BACK' | translate }}</span>
+      </button>
     </div>
 
     </div>
