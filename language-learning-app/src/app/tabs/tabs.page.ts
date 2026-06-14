@@ -1024,7 +1024,8 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       'message': 'chatbubbles',
       'progress_milestone': 'trophy',
       'credential_approved': 'shield-checkmark',
-      'credential_rejected': 'shield'
+      'credential_rejected': 'shield',
+      'stripe_account_updated': 'card'
     };
     return iconMap[type] || 'notifications';
   }
@@ -1055,7 +1056,8 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       'tutor_video_rejected',
       'lesson_analysis_ready',
       'credential_approved',
-      'credential_rejected'
+      'credential_rejected',
+      'stripe_account_updated'
     ];
     return systemTypes.includes(type);
   }

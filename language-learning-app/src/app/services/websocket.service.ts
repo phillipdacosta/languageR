@@ -96,6 +96,16 @@ export class WebSocketService {
   private credentialRejectedSubject = new Subject<any>();
   public credentialRejected$ = this.credentialRejectedSubject.asObservable();
 
+  private stripeAccountUpdatedSubject = new Subject<{
+    stripeConnectOnboarded: boolean;
+    stripeIdentityVerified: boolean;
+    stripeAccountDisabled: boolean;
+    stripePayoutsEnabled: boolean;
+    tutorApproved: boolean;
+    timestamp: Date;
+  }>();
+  public stripeAccountUpdated$ = this.stripeAccountUpdatedSubject.asObservable();
+
   private reactionUpdatedSubject = new Subject<{ 
     messageId: string; 
     message: Message; 
@@ -196,6 +206,7 @@ export class WebSocketService {
     this.socket.off('tutor_credential_uploaded');
     this.socket.off('credential_approved');
     this.socket.off('credential_rejected');
+    this.socket.off('stripe_account_updated');
     this.socket.off('lesson_status_changed');
     this.socket.off('payment_status_changed');
     this.socket.off('class_state_changed');
@@ -362,6 +373,16 @@ export class WebSocketService {
       this.credentialRejectedSubject.next(data);
       // Refresh user data to update onboarding status
       this.userService.getCurrentUser(true).subscribe();
+    });
+
+    // Listen for Stripe Connect account updates (e.g. Stripe approves tutor after a delay)
+    this.socket.on('stripe_account_updated', (data: any) => {
+      console.log('🏦 Stripe account updated:', data);
+      this.stripeAccountUpdatedSubject.next(data);
+      // Refresh user data and approval status so the wizard/checklist update live
+      this.userService.getCurrentUser(true).subscribe(() => {
+        this.userService.refreshTutorApprovalStatus();
+      });
     });
 
     // Listen for lesson status changes

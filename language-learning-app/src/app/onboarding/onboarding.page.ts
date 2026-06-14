@@ -60,6 +60,58 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewInit, AfterVi
   preStepPhase: 'welcome' | 'done' = 'welcome';
   welcomeRevealed: boolean = false;
   private welcomeCelebrationFallbackTimer: ReturnType<typeof setTimeout> | null = null;
+
+  readonly studentWelcomeBenefits: readonly {
+    titleKey: string;
+    descKey: string;
+    icon: string;
+    slot: number;
+    tone: 'mint' | 'blue' | 'lavender' | 'peach' | 'rose' | 'sand';
+  }[] = [
+    {
+      titleKey: 'ONBOARDING.WELCOME_SCREEN.FEAT1_TITLE',
+      descKey: 'ONBOARDING.WELCOME_SCREEN.FEAT1_DESC',
+      icon: 'map-outline',
+      slot: 1,
+      tone: 'mint',
+    },
+    {
+      titleKey: 'ONBOARDING.WELCOME_SCREEN.FEAT2_TITLE',
+      descKey: 'ONBOARDING.WELCOME_SCREEN.FEAT2_DESC',
+      icon: 'videocam-outline',
+      slot: 2,
+      tone: 'blue',
+    },
+    {
+      titleKey: 'ONBOARDING.WELCOME_SCREEN.FEAT3_TITLE',
+      descKey: 'ONBOARDING.WELCOME_SCREEN.FEAT3_DESC',
+      icon: 'trending-up-outline',
+      slot: 3,
+      tone: 'lavender',
+    },
+    {
+      titleKey: 'ONBOARDING.WELCOME_SCREEN.STUDENT_BENEFIT_MATCH_TITLE',
+      descKey: 'ONBOARDING.WELCOME_SCREEN.STUDENT_BENEFIT_MATCH_DESC',
+      icon: 'people-outline',
+      slot: 4,
+      tone: 'rose',
+    },
+    {
+      titleKey: 'ONBOARDING.WELCOME_SCREEN.STUDENT_BENEFIT_BOOK_TITLE',
+      descKey: 'ONBOARDING.WELCOME_SCREEN.STUDENT_BENEFIT_BOOK_DESC',
+      icon: 'calendar-outline',
+      slot: 5,
+      tone: 'peach',
+    },
+    {
+      titleKey: 'ONBOARDING.WELCOME_SCREEN.STUDENT_BENEFIT_AI_TITLE',
+      descKey: 'ONBOARDING.WELCOME_SCREEN.STUDENT_BENEFIT_AI_DESC',
+      icon: 'sparkles-outline',
+      slot: 6,
+      tone: 'sand',
+    },
+  ];
+
   selectedInterfaceLanguage: SupportedLanguage = 'en';
   selectedLanguageFlag = '🇬🇧';
   selectedLanguageEnglishName = 'English';
@@ -645,7 +697,6 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewInit, AfterVi
     }
     if (this.currentStep !== this.lastFocusedStep) {
       this.lastFocusedStep = this.currentStep;
-      this.syncStudentWizardCopy();
       setTimeout(() => {
         this.focusFirstInput();
       }, 120);
@@ -883,6 +934,7 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewInit, AfterVi
       if (this.currentStep === 6 && this.skipGoalSetup) {
         this.currentStep++;
       }
+      this.syncStudentWizardCopy();
     }
   }
 
@@ -898,6 +950,7 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewInit, AfterVi
       if (this.currentStep === 5 && this.spokenLanguages.length === 0) {
         this.currentStep--;
       }
+      this.syncStudentWizardCopy();
     }
   }
 

@@ -2682,6 +2682,8 @@ ion-modal.video-player-modal {
 
 .profile-checklist-anim {
   margin: 0 16px 16px;
+  position: relative;
+  z-index: 2;
 }
 
 @supports (grid-template-rows: 0fr) {
@@ -2693,7 +2695,7 @@ ion-modal.video-player-modal {
 
   .profile-checklist-anim__inner {
     min-height: 0;
-    overflow: hidden;
+    overflow: visible;
     padding: 6px 4px 10px;
     box-sizing: border-box;
   }
@@ -2708,6 +2710,8 @@ ion-modal.video-player-modal {
   border: 1px solid rgb(171 197 230 / 43%);
   width: 100%;
   box-sizing: border-box;
+  position: relative;
+  z-index: 2;
 }
 
 .profile-checklist-header {
@@ -2789,8 +2793,18 @@ ion-modal.video-player-modal {
   text-align: left;
   appearance: none;
   -webkit-appearance: none;
+  position: relative;
+  z-index: 1;
+  touch-action: manipulation;
 
   &:hover { background: rgba(0, 0, 0, 0.03); }
+
+  .pcl-check,
+  .pcl-label,
+  .pcl-arrow,
+  ion-icon {
+    pointer-events: none;
+  }
 
   .pcl-check {
     font-size: 20px;

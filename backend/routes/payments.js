@@ -1959,6 +1959,11 @@ router.get('/stripe-connect/status', verifyToken, async (req, res) => {
       console.log(`🔄 Synced stripeAccountDisabled to ${accountDisabled} (${disabledReason || 'pastDue/charges'}) for ${user.email}`);
     }
     if (needsSave) {
+      if (onboarded) {
+        user.tutorOnboarding = user.tutorOnboarding || {};
+        user.tutorOnboarding.stripeConnected = true;
+      }
+      applyApprovalIfReady(user);
       await user.save();
     }
 

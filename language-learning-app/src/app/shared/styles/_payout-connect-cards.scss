@@ -673,7 +673,7 @@
   justify-content: center;
 
   @media (min-width: 768px) {
-    min-height: 320px;
+    min-height: 440px;
     padding: 52px 44px 48px;
   }
 
@@ -738,6 +738,24 @@
 
   .profile-payout-panel--wizard-connected {
     padding: 0;
+  }
+}
+
+// Tutor approval wizard — taller payout connect cards in the right column
+app-tutor-onboarding,
+.tutor-approval-wizard-page,
+.tutor-approval-wizard {
+  .stripe-step .profile-payout-panel {
+    .stripe-connect-card--compact:not(.stripe-connect-card--connected),
+    .paypal-connect-card--compact:not(.paypal-connect-card--connected) {
+      @media (min-width: 768px) and (min-height: 721px) {
+        min-height: clamp(480px, 58vh, 600px);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding: 40px 32px 36px;
+      }
+    }
   }
 }
 

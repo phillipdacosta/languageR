@@ -210,7 +210,7 @@
       </div>
 
       <!-- Setup: Stripe -->
-      <div class="profile-payout-provider" *ngIf="hasPayoutSetup === false && profileDeterminedPayoutMethod === 'stripe'">
+      <div id="profile-payout-connect-anchor" class="profile-payout-provider" *ngIf="hasPayoutSetup === false && profileDeterminedPayoutMethod === 'stripe'">
         <app-stripe-connect-card
           [loading]="isLoadingStripeConnect"
           (connectClick)="connectProfilePayout()">
@@ -218,7 +218,7 @@
       </div>
 
       <!-- Setup: PayPal -->
-      <div class="profile-payout-provider" *ngIf="hasPayoutSetup === false && profileDeterminedPayoutMethod === 'paypal'">
+      <div id="profile-payout-connect-anchor" class="profile-payout-provider" *ngIf="hasPayoutSetup === false && profileDeterminedPayoutMethod === 'paypal'">
         <app-paypal-connect-card
           [email]="profilePaypalEmail"
           [emailErrorKey]="profilePaypalEmailError"

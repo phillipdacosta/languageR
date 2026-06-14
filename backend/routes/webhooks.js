@@ -21,6 +21,7 @@ const Lesson = require('../models/Lesson');
 const User = require('../models/User');
 const alertService = require('../services/alertService');
 const subscriptionService = require('../services/subscriptionService');
+const { applyApprovalIfReady } = require('../utils/tutorApproval');
 
 // Webhook endpoint MUST use raw body, not JSON parsed body
 // This is handled in server.js with express.raw() for this specific route
@@ -182,7 +183,68 @@ async function handleConnectAccountUpdated(account) {
     }
 
     if (changed) {
+      const wasTutorApproved = user.tutorApproved === true;
+
+      if (onboarded) {
+        user.tutorOnboarding = user.tutorOnboarding || {};
+        user.tutorOnboarding.stripeConnected = true;
+      }
+
+      const approvalSnapshot = applyApprovalIfReady(user);
       await user.save();
+      const isFirstTimeApproval = !wasTutorApproved && user.tutorApproved === true;
+      const notificationTitle = isFirstTimeApproval
+        ? 'Your profile is live!'
+        : 'Stripe account updated';
+      const notificationMessage = isFirstTimeApproval
+        ? 'Stripe approved your account and all requirements are complete. Your tutor profile is now live.'
+        : 'Stripe updated your account status. Your profile checklist has been refreshed.';
+      const notificationData = {
+        stripeConnectOnboarded: user.stripeConnectOnboarded,
+        stripeIdentityVerified: user.stripeIdentityVerified,
+        stripeAccountDisabled: user.stripeAccountDisabled,
+        stripePayoutsEnabled: user.stripePayoutsEnabled,
+        tutorApproved: user.tutorApproved,
+        approvalSnapshot,
+        isFirstTimeApproval
+      };
+
+      if (isFirstTimeApproval) {
+        try {
+          await Notification.create({
+            userId: user._id,
+            type: 'stripe_account_updated',
+            title: notificationTitle,
+            message: notificationMessage,
+            data: notificationData,
+            read: false
+          });
+        } catch (notifError) {
+          console.error('⚠️ [WEBHOOK] Failed to create Stripe account notification:', notifError.message);
+        }
+      }
+
+      // Notify the tutor in real time so the approval wizard / checklist
+      // refreshes without requiring a page reload.
+      if (global.io) {
+        const payload = {
+          ...notificationData,
+          timestamp: new Date()
+        };
+        global.io.to(`user:${user.auth0Id}`).emit('stripe_account_updated', payload);
+        global.io.to(`mongo:${user._id.toString()}`).emit('stripe_account_updated', payload);
+        if (isFirstTimeApproval) {
+          global.io.to(`user:${user.auth0Id}`).emit('new_notification', {
+            type: 'stripe_account_updated',
+            title: notificationTitle,
+            message: notificationMessage,
+            timestamp: new Date(),
+            urgent: false,
+            data: notificationData
+          });
+        }
+        console.log(`📡 [WEBHOOK] Emitted stripe_account_updated to tutor ${user.email}`);
+      }
     }
   } catch (err) {
     console.error('❌ [WEBHOOK] handleConnectAccountUpdated failed:', err);
