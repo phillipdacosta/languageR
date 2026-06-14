@@ -28,6 +28,10 @@ $ob-text-secondary: #717171;
 }
 
 .approval-split-guidance__greeting {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  align-items: baseline;
+  gap: 0.12em;
   margin: 0 0 24px;
   padding-bottom: 16px;
   border-bottom: 1px solid rgba(0, 0, 0, 0.08);
@@ -35,8 +39,25 @@ $ob-text-secondary: #717171;
   font-weight: 700;
   color: $ob-text-primary;
   letter-spacing: -0.4px;
-  line-height: 1.25;
+  line-height: 1;
   flex-shrink: 0;
+
+  &__prefix {
+    display: inline-block;
+    white-space: nowrap;
+  }
+
+  &__wordmark {
+    height: 1em;
+    width: auto;
+    max-width: none;
+    object-fit: contain;
+    object-position: left bottom;
+    flex: 0 0 auto;
+    transform: translateY(0.06em);
+    position: relative;
+    top: 2px;
+  }
 }
 
 .approval-split-guidance__title {

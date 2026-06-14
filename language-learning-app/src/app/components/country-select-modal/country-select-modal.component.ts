@@ -26,11 +26,14 @@ export class CountrySelectModalComponent implements OnInit, OnDestroy, AfterView
 
   searchTerm = '';
   /** Rows with localized labels for the list UI. */
-  countryRows: { name: string; flag: string; displayLabel: string }[] = [];
-  filteredRows: { name: string; flag: string; displayLabel: string }[] = [];
+  countryRows: { name: string; flag: string; displayLabel: string; flagPath: string | null }[] = [];
+  filteredRows: { name: string; flag: string; displayLabel: string; flagPath: string | null }[] = [];
+  /** Defer flag image requests until the modal shell has painted (reduces open jank on Windows). */
+  showFlagImages = false;
 
   private langSub: Subscription | null = null;
   private searchFocusTimer: ReturnType<typeof setTimeout> | null = null;
+  private flagRevealTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     private modalController: ModalController,
@@ -72,10 +75,15 @@ export class CountrySelectModalComponent implements OnInit, OnDestroy, AfterView
       clearTimeout(this.searchFocusTimer);
       this.searchFocusTimer = null;
     }
+    if (this.flagRevealTimer != null) {
+      clearTimeout(this.flagRevealTimer);
+      this.flagRevealTimer = null;
+    }
   }
 
   ngAfterViewInit(): void {
     this.scheduleSearchFocus();
+    this.scheduleFlagReveal();
   }
 
   ionViewWillEnter() {
@@ -84,6 +92,18 @@ export class CountrySelectModalComponent implements OnInit, OnDestroy, AfterView
       this.filteredRows = [...this.countryRows];
     }
     this.scheduleSearchFocus();
+    this.scheduleFlagReveal();
+  }
+
+  private scheduleFlagReveal(): void {
+    if (this.flagRevealTimer != null) {
+      clearTimeout(this.flagRevealTimer);
+    }
+    this.showFlagImages = false;
+    this.flagRevealTimer = setTimeout(() => {
+      this.flagRevealTimer = null;
+      this.showFlagImages = true;
+    }, 80);
   }
 
   /** Delay so the modal overlay finishes animating before focusing (iOS/Safari). */
@@ -114,7 +134,8 @@ export class CountrySelectModalComponent implements OnInit, OnDestroy, AfterView
     this.countryRows = (this.countries || []).map((c) => {
       const code = this.flagService.getCountryCodeFromCountryName(c.name);
       const displayLabel = this.localeDisplay.localizedCountryRow(c.name, ui, code, other);
-      return { name: c.name, flag: c.flag, displayLabel };
+      const flagPath = code ? `/assets/flags/${code}.svg` : null;
+      return { name: c.name, flag: c.flag, displayLabel, flagPath };
     });
     if (!this.searchTerm?.trim()) {
       this.filteredRows = [...this.countryRows];

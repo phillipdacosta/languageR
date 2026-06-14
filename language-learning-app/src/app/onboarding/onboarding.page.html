@@ -24,18 +24,35 @@
     </ion-buttons>
   </ion-toolbar>
 </ion-header>
-<div class="pre-step-container welcome-phase" [class.welcome-revealed]="welcomeRevealed" *ngIf="preStepPhase === 'welcome'">
-  <div class="pre-step-inner welcome-inner">
-    <!-- <div class="pre-step-logo">
-      <img src="assets/mascot-toolbar.png" alt="Barnabi" class="pre-step-app-icon welcome-icon barnabi-mascot-for-light-ui" width="80" height="80" decoding="sync">
-      <img src="assets/mascot-toolbar-dark.png" alt="" class="pre-step-app-icon welcome-icon barnabi-mascot-for-dark-ui" width="80" height="80" decoding="sync" aria-hidden="true">
-    </div> -->
+<div class="pre-step-container welcome-phase tutor-welcome-hub" [class.welcome-revealed]="welcomeRevealed" *ngIf="preStepPhase === 'welcome'">
+  <div class="tutor-welcome-hub-inner">
+    <header class="tutor-welcome-hub__hero">
+      <h1 class="tutor-welcome-hub__title">
+        <span class="tutor-welcome-hub__title__prefix">{{ 'ONBOARDING.WELCOME_SCREEN.GREETING' | translate }}</span>
+        <img src="assets/barnabi-logo.png" alt="Barnabi" class="tutor-welcome-hub__title__wordmark barnabi-wordmark-for-light-ui" />
+        <img src="assets/barnabi-logo-wordmark-white.png" alt="" class="tutor-welcome-hub__title__wordmark barnabi-wordmark-for-dark-ui" aria-hidden="true" />
+      </h1>
 
-    <div class="welcome-hero">
-      <div class="welcome-hero-cluster">
+      <p class="tutor-welcome-hub__subtitle">{{ 'ONBOARDING.WELCOME_SCREEN.SUBTITLE' | translate }}</p>
+
+      <button type="button" class="tutor-welcome-hub__cta" (click)="startOnboarding()">
+        <span>{{ 'ONBOARDING.WELCOME_SCREEN.CTA' | translate }}</span>
+        <ion-icon name="arrow-forward" aria-hidden="true"></ion-icon>
+      </button>
+
+      <p class="tutor-welcome-hub__role-line">
+        <span>{{ 'ONBOARDING.WELCOME_SCREEN.TUTOR_CHANGE_ROLE_PROMPT' | translate }}</span>
+        <button type="button" class="tutor-welcome-hub__role-btn" (click)="changeRole()">
+          {{ 'ONBOARDING.WELCOME_SCREEN.CHANGE_ROLE' | translate }}
+        </button>
+      </p>
+    </header>
+
+    <div class="tutor-welcome-hub__stage">
+      <div class="tutor-welcome-hub__center">
         <video
           #welcomeCelebrationVideo
-          class="welcome-celebration-video"
+          class="tutor-welcome-hub__video"
           src="assets/welcome-bird-dance.mp4"
           playsinline
           muted
@@ -43,86 +60,21 @@
           aria-hidden="true"
           (ended)="onWelcomeCelebrationEnded()"
           (error)="onWelcomeCelebrationError()"></video>
-        <h1 class="welcome-title">{{ 'ONBOARDING.WELCOME_SCREEN.GREETING' | translate }}</h1>
-      </div>
-    </div>
-
-    <div class="welcome-body">
-      <p class="welcome-subtitle">{{ 'ONBOARDING.WELCOME_SCREEN.SUBTITLE' | translate }}</p>
-
-      <div class="welcome-features">
-        <div class="welcome-feature-card">
-          <div class="feature-icon">
-            <img src="assets/onboarding-icon-roadmap.png" alt="" class="feature-icon-img" role="presentation" />
-          </div>
-          <div class="feature-text">
-            <span class="feature-title">{{ 'ONBOARDING.WELCOME_SCREEN.FEAT1_TITLE' | translate }}</span>
-            <span class="feature-desc">{{ 'ONBOARDING.WELCOME_SCREEN.FEAT1_DESC' | translate }}</span>
-          </div>
-        </div>
-        <div class="welcome-feature-card">
-          <div class="feature-icon">
-            <img src="assets/onboarding-icon-video.png" alt="" class="feature-icon-img" role="presentation" />
-          </div>
-          <div class="feature-text">
-            <span class="feature-title">{{ 'ONBOARDING.WELCOME_SCREEN.FEAT2_TITLE' | translate }}</span>
-            <span class="feature-desc">{{ 'ONBOARDING.WELCOME_SCREEN.FEAT2_DESC' | translate }}</span>
-          </div>
-        </div>
-        <div class="welcome-feature-card">
-          <div class="feature-icon">
-            <img src="assets/onboarding-icon-books.png" alt="" class="feature-icon-img" role="presentation" />
-          </div>
-          <div class="feature-text">
-            <span class="feature-title">{{ 'ONBOARDING.WELCOME_SCREEN.FEAT3_TITLE' | translate }}</span>
-            <span class="feature-desc">{{ 'ONBOARDING.WELCOME_SCREEN.FEAT3_DESC' | translate }}</span>
-          </div>
-        </div>
       </div>
 
-      <div class="welcome-how-it-works">
-        <p class="how-label">{{ 'ONBOARDING.WELCOME_SCREEN.HOW_LABEL' | translate }}</p>
-        <div class="how-steps">
-          <div class="how-step">
-            <span class="how-num">1</span>
-            <span class="how-text">{{ 'ONBOARDING.WELCOME_SCREEN.HOW_STEP1' | translate }}</span>
+      <div class="tutor-welcome-hub__chips">
+        <div
+          *ngFor="let benefit of studentWelcomeBenefits"
+          class="tutor-welcome-benefit-chip"
+          [ngClass]="[
+            'tutor-welcome-benefit-chip--' + benefit.slot,
+            'tutor-welcome-benefit-chip--' + benefit.tone
+          ]">
+          <ion-icon [name]="benefit.icon" aria-hidden="true"></ion-icon>
+          <div class="tutor-welcome-benefit-chip__body">
+            <span class="tutor-welcome-benefit-chip__title">{{ benefit.titleKey | translate }}</span>
+            <span class="tutor-welcome-benefit-chip__desc">{{ benefit.descKey | translate }}</span>
           </div>
-          <div class="how-connector"></div>
-          <div class="how-step">
-            <span class="how-num">2</span>
-            <span class="how-text">{{ 'ONBOARDING.WELCOME_SCREEN.HOW_STEP2' | translate }}</span>
-          </div>
-          <div class="how-connector"></div>
-          <div class="how-step">
-            <span class="how-num">3</span>
-            <span class="how-text">{{ 'ONBOARDING.WELCOME_SCREEN.HOW_STEP3' | translate }}</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="welcome-cta-row">
-        <button type="button" class="welcome-back-btn" (click)="changeRole()">
-          <ion-icon name="chevron-back" aria-hidden="true"></ion-icon>
-          <span>{{ 'ONBOARDING.WELCOME_SCREEN.CHANGE_ROLE' | translate }}</span>
-        </button>
-        <button class="pre-step-cta welcome-primary-cta" (click)="startOnboarding()">
-          {{ 'ONBOARDING.WELCOME_SCREEN.CTA' | translate }}
-          <ion-icon name="arrow-forward"></ion-icon>
-        </button>
-      </div>
-
-      <div class="welcome-trust">
-        <div class="trust-item">
-          <ion-icon name="shield-checkmark-outline"></ion-icon>
-          <span>{{ 'ONBOARDING.WELCOME_SCREEN.TRUST_SECURE' | translate }}</span>
-        </div>
-        <div class="trust-item">
-          <ion-icon name="time-outline"></ion-icon>
-          <span>{{ 'ONBOARDING.WELCOME_SCREEN.TRUST_TIME' | translate }}</span>
-        </div>
-        <div class="trust-item">
-          <ion-icon name="card-outline"></ion-icon>
-          <span>{{ 'ONBOARDING.WELCOME_SCREEN.TRUST_FREE' | translate }}</span>
         </div>
       </div>
     </div>

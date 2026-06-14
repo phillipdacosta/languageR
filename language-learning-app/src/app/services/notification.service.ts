@@ -18,7 +18,7 @@ export interface Notification {
     | 'investigation_resolved' | 'dispute_submitted'
     | 'feedback_required' | 'tip_sent' | 'tip_received' | 'withdrawal_initiated'
     | 'lesson_completed' | 'feedback_reminder' | 'feedback_received'
-    | 'progress_milestone' | 'credential_approved' | 'credential_rejected' | 'tutor_note_saved' | 'payout_paused'
+    | 'progress_milestone' | 'credential_approved' | 'credential_rejected' | 'stripe_account_updated' | 'tutor_note_saved' | 'payout_paused'
     | 'material_approved' | 'material_rejected' | 'material_shared' | 'learning_plan_ready';
   title: string;
   message: string;

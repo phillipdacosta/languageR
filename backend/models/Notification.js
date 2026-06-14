@@ -48,6 +48,7 @@ const NotificationSchema = new mongoose.Schema({
       'progress_milestone',
       'credential_approved',
       'credential_rejected',
+      'stripe_account_updated',
       'tutor_note_saved',
       'material_approved',
       'material_rejected',

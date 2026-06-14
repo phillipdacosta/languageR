@@ -86,17 +86,6 @@
                     <span>{{ requirementKey | translate }}</span>
                   </li>
                 </ul>
-
-                <div class="approval-split-guidance-mascot-wrap" aria-hidden="true">
-                  <img
-                    src="assets/mascot-photo-upload.png"
-                    alt=""
-                    class="approval-split-guidance-mascot"
-                    width="80"
-                    height="80"
-                    loading="eager"
-                    decoding="sync" />
-                </div>
               </div>
 
               <div class="photo-step-upload approval-split-main">
@@ -194,17 +183,6 @@
                     <span>{{ requirementKey | translate }}</span>
                   </li>
                 </ul>
-
-                <div class="approval-split-guidance-mascot-wrap" aria-hidden="true">
-                  <img
-                    src="assets/mascot-video-upload.png"
-                    alt=""
-                    class="approval-split-guidance-mascot"
-                    width="80"
-                    height="80"
-                    loading="eager"
-                    decoding="sync" />
-                </div>
               </div>
 
               <div class="video-step-upload approval-split-main">
@@ -315,17 +293,6 @@
                       <p>{{ 'TUTOR_APPROVAL.GOV_ID_GUIDE_MATCH_DESC' | translate }}</p>
                     </div>
                   </div>
-                </div>
-
-                <div class="approval-split-guidance-mascot-wrap" aria-hidden="true">
-                  <img
-                    src="assets/mascot-identity.png"
-                    alt=""
-                    class="approval-split-guidance-mascot"
-                    width="80"
-                    height="80"
-                    loading="eager"
-                    decoding="sync" />
                 </div>
               </div>
 
@@ -476,17 +443,6 @@
                       <p>{{ 'TUTOR_APPROVAL.CRED_ADDITIONAL_SUBTITLE' | translate }}</p>
                     </div>
                   </div>
-                </div>
-
-                <div class="approval-split-guidance-mascot-wrap" aria-hidden="true">
-                  <img
-                    src="assets/mascot-qualifications.png"
-                    alt=""
-                    class="approval-split-guidance-mascot"
-                    width="80"
-                    height="80"
-                    loading="eager"
-                    decoding="sync" />
                 </div>
               </div>
 
@@ -849,17 +805,6 @@
                     </div>
                   </ng-container>
                 </div>
-
-                <div *ngIf="approvalStatus?.stripeComplete" class="approval-split-guidance-mascot-wrap" aria-hidden="true">
-                  <img
-                    src="assets/mascot-payout-connected.png"
-                    alt=""
-                    class="approval-split-guidance-mascot"
-                    width="80"
-                    height="80"
-                    loading="eager"
-                    decoding="sync" />
-                </div>
               </div>
 
               <div
@@ -869,7 +814,7 @@
                 <div class="approval-split-main-inner">
             <!-- Already completed state -->
             <ng-container *ngIf="approvalStatus?.stripeComplete">
-              <div class="profile-payout-panel profile-payout-panel--wizard-connected">
+              <div id="tutor-approval-payout-connect-anchor" class="profile-payout-panel profile-payout-panel--wizard-connected">
               <div *ngIf="currentUser?.payoutProvider === 'stripe'" class="profile-payout-provider tutor-approval-step-pane--sub">
                 <app-stripe-connect-card
                   [connected]="true"
@@ -1017,7 +962,7 @@
             </div>
 
             <!-- STEP 3: Payment Method Setup — shared connect cards (matches Profile › Payments) -->
-            <div *ngIf="!approvalStatus?.stripeComplete && paymentSetupStep === 'setup-method'" class="profile-payout-panel tutor-approval-step-pane tutor-approval-step-pane--sub">
+            <div *ngIf="!approvalStatus?.stripeComplete && paymentSetupStep === 'setup-method'" id="tutor-approval-payout-connect-anchor" class="profile-payout-panel tutor-approval-step-pane tutor-approval-step-pane--sub">
               <div *ngIf="determinedPayoutMethod === 'stripe'" class="profile-payout-provider">
                 <app-stripe-connect-card
                   [compactLayout]="true"
@@ -1099,17 +1044,6 @@
                       <p>{{ 'TUTOR_APPROVAL.TOS_GUIDE_READ_DESC' | translate }}</p>
                     </div>
                   </div>
-                </div>
-
-                <div class="approval-split-guidance-mascot-wrap" aria-hidden="true">
-                  <img
-                    src="assets/mascot-tos.png"
-                    alt=""
-                    class="approval-split-guidance-mascot"
-                    width="80"
-                    height="80"
-                    loading="eager"
-                    decoding="sync" />
                 </div>
               </div>
 

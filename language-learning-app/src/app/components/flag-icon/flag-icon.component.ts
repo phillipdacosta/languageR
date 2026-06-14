@@ -11,6 +11,8 @@ import { FlagService } from '../../services/flag.service';
       [class]="cssClass"
       [style.width.px]="size"
       [style.height.px]="flagHeight"
+      loading="lazy"
+      decoding="async"
       (error)="onImageError()"
       class="flag-icon"
       [class.flag-icon-error]="hasError">

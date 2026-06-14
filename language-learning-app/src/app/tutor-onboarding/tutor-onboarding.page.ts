@@ -48,6 +48,58 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewInit, Af
   private preLanguageReturn: { phase: 'welcome' | 'done'; showPreview: boolean } = { phase: 'welcome', showPreview: false };
   welcomeRevealed: boolean = false;
   private welcomeCelebrationFallbackTimer: ReturnType<typeof setTimeout> | null = null;
+
+  readonly tutorWelcomeBenefits: readonly {
+    titleKey: string;
+    descKey: string;
+    icon: string;
+    slot: number;
+    tone: 'mint' | 'blue' | 'lavender' | 'peach' | 'rose' | 'sand';
+  }[] = [
+    {
+      titleKey: 'ONBOARDING.WELCOME_SCREEN.TUTOR_FEAT1_TITLE',
+      descKey: 'ONBOARDING.WELCOME_SCREEN.TUTOR_FEAT1_DESC',
+      icon: 'map-outline',
+      slot: 1,
+      tone: 'mint',
+    },
+    {
+      titleKey: 'ONBOARDING.WELCOME_SCREEN.TUTOR_FEAT2_TITLE',
+      descKey: 'ONBOARDING.WELCOME_SCREEN.TUTOR_FEAT2_DESC',
+      icon: 'videocam-outline',
+      slot: 2,
+      tone: 'blue',
+    },
+    {
+      titleKey: 'ONBOARDING.WELCOME_SCREEN.TUTOR_FEAT3_TITLE',
+      descKey: 'ONBOARDING.WELCOME_SCREEN.TUTOR_FEAT3_DESC',
+      icon: 'trending-up-outline',
+      slot: 3,
+      tone: 'lavender',
+    },
+    {
+      titleKey: 'ONBOARDING.WELCOME_SCREEN.TUTOR_BENEFIT_TIPS_TITLE',
+      descKey: 'ONBOARDING.WELCOME_SCREEN.TUTOR_BENEFIT_TIPS_DESC',
+      icon: 'heart-outline',
+      slot: 4,
+      tone: 'rose',
+    },
+    {
+      titleKey: 'ONBOARDING.WELCOME_SCREEN.TUTOR_BENEFIT_PAYOUT_TITLE',
+      descKey: 'ONBOARDING.WELCOME_SCREEN.TUTOR_BENEFIT_PAYOUT_DESC',
+      icon: 'wallet-outline',
+      slot: 5,
+      tone: 'peach',
+    },
+    {
+      titleKey: 'ONBOARDING.WELCOME_SCREEN.TUTOR_BENEFIT_AI_TITLE',
+      descKey: 'ONBOARDING.WELCOME_SCREEN.TUTOR_BENEFIT_AI_DESC',
+      icon: 'sparkles-outline',
+      slot: 6,
+      tone: 'sand',
+    },
+  ];
+
   availableInterfaceLanguages: LanguageOption[] = [];
   selectedInterfaceLanguage: SupportedLanguage = 'en';
   selectedLanguageFlag = '🇬🇧';
@@ -592,7 +644,6 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewInit, Af
       const enteredStep = this.currentStep;
       const leftStep = this.previousStep;
       this.previousStep = this.currentStep;
-      this.syncTutorWizardCopy();
       this.resetWizardViewportScroll();
       if (leftStep === 11 && enteredStep !== 11) {
         this.tutorRateRangeReady = false;
@@ -834,6 +885,7 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewInit, Af
       if (this.currentStep === 6 && this.spokenLanguages.length === 0) {
         this.currentStep++;
       }
+      this.syncTutorWizardCopy();
     }
   }
 
@@ -849,6 +901,7 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewInit, Af
       if (this.currentStep === 6 && this.spokenLanguages.length === 0) {
         this.currentStep--;
       }
+      this.syncTutorWizardCopy();
     }
   }
 
@@ -996,6 +1049,8 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewInit, Af
   previewSelectedLanguages: string = '';
   previewSpokenLanguages: { name: string; level: string }[] = [];
   previewProfileInitials = '';
+  previewProfilePicture = '';
+  previewProfilePictureFailed = false;
   previewTimezoneLabel = '';
 
   readonly tutorPreviewFlowSteps: ReadonlyArray<{ labelKey: string; done: boolean; current: boolean }> = [
@@ -1025,6 +1080,12 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewInit, Af
     const firstInitial = (this.firstName?.trim().charAt(0) || '').toUpperCase();
     const lastInitial = (this.lastName?.trim().charAt(0) || '').toUpperCase();
     this.previewProfileInitials = (firstInitial + lastInitial) || '?';
+    this.previewProfilePictureFailed = false;
+    this.previewProfilePicture = '';
+    this.authService.getUserProfile().pipe(take(1)).subscribe(user => {
+      this.previewProfilePicture = user?.picture || '';
+      this.cdr.markForCheck();
+    });
     try {
       this.previewTimezoneLabel = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
     } catch {
@@ -1051,6 +1112,10 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewInit, Af
       this.previousStep = 0;
     }
     this.syncTutorWizardCopy();
+  }
+
+  onPreviewAvatarError(): void {
+    this.previewProfilePictureFailed = true;
   }
 
   getNativeLanguageName(): string {

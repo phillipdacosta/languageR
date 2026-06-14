@@ -1505,6 +1505,9 @@ ion-content {
     width: 100%;
     padding-top: 14px;
     min-width: 0;
+    position: relative;
+    z-index: 3;
+    pointer-events: auto;
   }
 
   &.has-toolbar-banner .toolbar-primary {
@@ -3674,6 +3677,8 @@ ion-app.dark {
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
   border: 1px solid rgb(171 197 230 / 43%);
   width: 100%;
+  position: relative;
+  z-index: 1;
 }
 
 .profile-checklist-header {
@@ -3755,8 +3760,18 @@ ion-app.dark {
   text-align: left;
   appearance: none;
   -webkit-appearance: none;
+  position: relative;
+  z-index: 1;
+  touch-action: manipulation;
 
   &:hover { background: rgba(0, 0, 0, 0.03); }
+
+  .pcl-check,
+  .pcl-label,
+  .pcl-arrow,
+  ion-icon {
+    pointer-events: none;
+  }
 
   .pcl-check {
     font-size: 20px;

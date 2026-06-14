@@ -1889,72 +1889,6 @@ $ob-wizard-cta-uniform-width: min(22.5rem, calc(100% - 16px));
     }
   }
 
-  .photo-step-layout .photo-step-guidance.approval-split-guidance,
-  .video-step-layout .video-step-guidance.approval-split-guidance {
-    .approval-split-guidance-mascot-wrap {
-      margin-top: auto;
-      display: flex;
-      justify-content: center;
-      align-items: flex-end;
-      flex-shrink: 0;
-      padding-top: 12px;
-      background: transparent;
-    }
-
-    .approval-split-guidance-mascot {
-      display: block;
-      width: auto;
-      height: 80px;
-      object-fit: contain;
-      object-position: center;
-      image-rendering: -webkit-optimize-contrast;
-      -webkit-backface-visibility: hidden;
-      backface-visibility: hidden;
-      transform: translateZ(0);
-      pointer-events: none;
-      background: transparent;
-    }
-  }
-
-  // Pin mascot to the column bottom; absolute centering avoids scrollbar gutter shift.
-  .video-step-layout .video-step-guidance.approval-split-guidance,
-  .stripe-step-layout .approval-split-guidance.stripe-step-guidance--connected,
-  .qualifications-step-layout .qualifications-step-guidance.approval-split-guidance,
-  .tos-step-layout .tos-step-guidance.approval-split-guidance,
-  .identity-step-layout .identity-step-guidance.approval-split-guidance {
-    position: relative;
-    padding-bottom: 94px;
-
-    .approval-split-guidance-mascot-wrap {
-      position: absolute;
-      left: 0;
-      right: 0;
-      bottom: 14px;
-      margin-top: 0;
-      padding-top: 0;
-      transform: none;
-      display: flex;
-      justify-content: center;
-      align-items: flex-end;
-      pointer-events: none;
-      background: transparent;
-    }
-
-    .approval-split-guidance-mascot {
-      display: block;
-      width: auto;
-      height: 80px;
-      object-fit: contain;
-      object-position: center;
-      image-rendering: -webkit-optimize-contrast;
-      -webkit-backface-visibility: hidden;
-      backface-visibility: hidden;
-      transform: translateZ(0);
-      pointer-events: none;
-      background: transparent;
-    }
-  }
-
   .photo-needs__examples {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -3307,9 +3241,14 @@ $ob-wizard-cta-uniform-width: min(22.5rem, calc(100% - 16px));
     width: 100%;
     flex: 1 1 auto;
     min-height: 0;
-    max-width: min(520px, 100%);
+    max-width: min(680px, 100%);
     margin-inline: auto;
     padding-top: 4px;
+    box-sizing: border-box;
+
+    @media (min-width: 768px) {
+      padding: 0 16px 0 0;
+    }
   }
 
   .tos-success-card {
@@ -5635,8 +5574,7 @@ ion-button.credential-cta {
     }
   }
 
-  .identity-step-upload.approval-split-main,
-  .tos-step-upload.approval-split-main {
+  .identity-step-upload.approval-split-main {
     @media (min-width: 768px) {
       display: flex;
       flex-direction: column;
@@ -5645,7 +5583,8 @@ ion-button.credential-cta {
     }
   }
 
-  .qualifications-step-upload.approval-split-main {
+  .qualifications-step-upload.approval-split-main,
+  .tos-step-upload.approval-split-main {
     @media (min-width: 768px) {
       display: flex;
       flex-direction: column;
@@ -5655,7 +5594,8 @@ ion-button.credential-cta {
     }
   }
 
-  .qualifications-step-upload-inner {
+  .qualifications-step-upload-inner,
+  .tos-step-upload-inner {
     display: flex;
     flex-direction: column;
     align-items: stretch;
@@ -5721,7 +5661,7 @@ ion-button.credential-cta {
       place-items: center;
       width: 100%;
       height: 100%;
-      max-width: min(640px, 100%);
+      max-width: min(680px, 100%);
       margin-inline: auto;
       flex: none;
       overflow: visible;

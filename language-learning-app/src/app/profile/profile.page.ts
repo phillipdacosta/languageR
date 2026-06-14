@@ -1280,19 +1280,34 @@ export class ProfilePage implements OnInit, ViewWillEnter {
     if (allowed.has(raw)) {
       this.profileActiveSection = raw as typeof this.profileActiveSection;
       this.applyProfilePanelTitles();
+      if (raw === 'payments') {
+        this.scheduleScrollProfilePayoutIntoView();
+      }
     }
   }
 
   private openProfilePayoutSection(): void {
     this.profileActiveSection = 'payments';
     this.applyProfilePanelTitles();
+    this.scheduleScrollProfilePayoutIntoView();
+  }
+
+  private scheduleScrollProfilePayoutIntoView(): void {
     this.cdr.markForCheck();
-    setTimeout(() => {
-      document.getElementById('profile-payout-section')?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center',
-      });
-    }, 400);
+    setTimeout(() => this.scrollProfilePayoutIntoView(0), 400);
+  }
+
+  private scrollProfilePayoutIntoView(attempt: number): void {
+    const anchor =
+      document.getElementById('profile-payout-connect-anchor') ??
+      document.getElementById('profile-payout-section');
+    if (anchor && this.profileActiveSection === 'payments') {
+      anchor.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
+      return;
+    }
+    if (attempt < 8) {
+      setTimeout(() => this.scrollProfilePayoutIntoView(attempt + 1), 200);
+    }
   }
 
   onProfileSegmentChange(ev: CustomEvent): void {

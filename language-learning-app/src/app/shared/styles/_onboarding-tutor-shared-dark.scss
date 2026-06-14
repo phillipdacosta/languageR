@@ -131,6 +131,72 @@
     color: $d-text-2;
   }
 
+  .pre-step-container.welcome-phase.tutor-welcome-hub {
+    background: $ob-dark-canvas;
+  }
+
+  .tutor-welcome-hub__title {
+    color: $d-text;
+  }
+
+  .tutor-welcome-hub__subtitle {
+    color: $d-text-2;
+  }
+
+  .tutor-welcome-hub__role-line {
+    color: $d-text-3;
+  }
+
+  .tutor-welcome-hub__role-btn {
+    color: $d-blue;
+  }
+
+  .tutor-welcome-hub__video {
+    mix-blend-mode: darken;
+  }
+
+  .tutor-welcome-benefit-chip {
+    box-shadow:
+      0 10px 28px rgba(0, 0, 0, 0.35),
+      0 2px 6px rgba(0, 0, 0, 0.2);
+
+    ion-icon {
+      color: $d-text-2;
+    }
+
+    &__title {
+      color: $d-text;
+    }
+
+    &__desc {
+      color: $d-text-2;
+    }
+
+    &--mint {
+      background: rgba(72, 199, 116, 0.14);
+    }
+
+    &--blue {
+      background: rgba(100, 181, 255, 0.14);
+    }
+
+    &--lavender {
+      background: rgba(167, 139, 250, 0.14);
+    }
+
+    &--peach {
+      background: rgba(251, 146, 60, 0.14);
+    }
+
+    &--rose {
+      background: rgba(244, 114, 182, 0.14);
+    }
+
+    &--sand {
+      background: rgba(255, 255, 255, 0.08);
+    }
+  }
+
   .welcome-features .welcome-feature-card {
     background: $d-surface-2;
     border-color: $d-border;

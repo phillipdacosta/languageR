@@ -1,0 +1,483 @@
+// Tutor welcome — hub layout (headline + CTA top, benefit chips orbit center mascot).
+
+$hub-ink: #0f1d3a;
+$hub-ink-soft: #5b6478;
+$hub-ink-muted: #8a93a6;
+$hub-divider: #ebebeb;
+
+.pre-step-container.welcome-phase.tutor-welcome-hub {
+  height: calc(100dvh - 56px);
+  height: calc(100svh - 56px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  background: #ffffff;
+  padding: 0;
+
+  @media (min-width: 721px) {
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+.tutor-welcome-hub-inner {
+  width: 100%;
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: clamp(4px, 1vh, 10px) clamp(20px, 4vw, 40px) clamp(8px, 1.5vh, 16px);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: min(100%, calc(100dvh - 56px));
+
+  @media (min-width: 721px) {
+    flex: 1;
+    min-height: 0;
+    max-height: 100%;
+    overflow: hidden;
+  }
+}
+
+.tutor-welcome-hub__hero {
+  width: 100%;
+  max-width: 720px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.tutor-welcome-hub__title {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.12em;
+  margin: 0 0 clamp(8px, 1.5vh, 14px);
+  font-size: clamp(38px, 5vw, 52px);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -1.2px;
+  color: $hub-ink;
+
+  &__prefix {
+    display: inline-block;
+    white-space: nowrap;
+  }
+
+  &__wordmark {
+    height: 1em;
+    width: auto;
+    max-width: none;
+    object-fit: contain;
+    object-position: left bottom;
+    flex: 0 0 auto;
+    transform: translateY(0.06em);
+    position: relative;
+    top: 3px;
+  }
+}
+
+.tutor-welcome-hub__subtitle {
+  margin: 0 0 clamp(12px, 2vh, 18px);
+  max-width: 520px;
+  font-size: clamp(15px, 1.9vw, 17px);
+  line-height: 1.45;
+  color: $hub-ink-soft;
+  opacity: 0;
+  transform: translateY(10px);
+  pointer-events: none;
+  transition: opacity 0.45s ease 0.05s, transform 0.45s ease 0.05s;
+
+  .welcome-revealed & {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+}
+
+.tutor-welcome-hub__cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 200px;
+  height: 52px;
+  padding: 0 32px;
+  border: none;
+  border-radius: 999px;
+  background: #000000;
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.1px;
+  cursor: pointer;
+  box-shadow: 0 11px 26px rgb(65 217 255 / 29%);
+  opacity: 0;
+  transform: translateY(10px);
+  pointer-events: none;
+  transition:
+    opacity 0.45s ease 0.1s,
+    transform 0.45s ease 0.1s,
+    background 0.15s ease,
+    box-shadow 0.2s ease;
+
+  ion-icon {
+    font-size: 18px;
+  }
+
+  .welcome-revealed & {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+
+  &:hover {
+    background: #4e90ca;
+  }
+
+  &:active {
+    transform: scale(0.99);
+  }
+}
+
+.tutor-welcome-hub__role-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 25px 0 0;
+  font-size: 14px;
+  color: $hub-ink-muted;
+  opacity: 0;
+  transform: translateY(8px);
+  pointer-events: none;
+  transition: opacity 0.45s ease 0.15s, transform 0.45s ease 0.15s;
+
+  .welcome-revealed & {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+}
+
+.tutor-welcome-hub__role-btn {
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #3a7afe;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color 0.15s ease;
+
+  &:hover {
+    color: #2d68ed;
+  }
+}
+
+.tutor-welcome-hub__stage {
+  position: relative;
+  width: min(100%, 940px);
+  min-height: 0;
+  margin-top: 0;
+  flex: 1 1 auto;
+
+  @media (min-width: 721px) {
+    max-height: none;
+    min-height: min(420px, 44vh);
+  }
+}
+
+.tutor-welcome-hub__center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: min(260px, 44vw);
+  height: min(260px, 44vw);
+}
+
+.tutor-welcome-hub__video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  mix-blend-mode: multiply;
+  background: transparent;
+}
+
+.tutor-welcome-benefit-chip {
+  position: absolute;
+  z-index: 3;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  max-width: min(210px, 42vw);
+  padding: 12px 14px;
+  border-radius: 14px;
+  box-shadow:
+    0 10px 28px rgba(15, 29, 58, 0.08),
+    0 2px 6px rgba(15, 29, 58, 0.04);
+  opacity: 0;
+  transform: translateY(12px) scale(0.96);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+
+  .welcome-revealed & {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  ion-icon {
+    flex-shrink: 0;
+    font-size: 20px;
+    margin-top: 1px;
+    color: $hub-ink-soft;
+  }
+
+  &__body {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+  }
+
+  &__title {
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.25;
+    color: $hub-ink;
+  }
+
+  &__desc {
+    font-size: 11px;
+    line-height: 1.35;
+    color: $hub-ink-soft;
+  }
+
+  &--mint {
+    background: #e8f8ef;
+  }
+
+  &--blue {
+    background: #e8f1ff;
+  }
+
+  &--lavender {
+    background: #f0ebff;
+  }
+
+  &--peach {
+    background: #fff0e8;
+  }
+
+  &--rose {
+    background: #ffeef3;
+  }
+
+  &--sand {
+    background: #faf6ef;
+  }
+
+  &--1 {
+    transition-delay: 0.12s;
+  }
+
+  &--2 {
+    transition-delay: 0.18s;
+  }
+
+  &--3 {
+    transition-delay: 0.24s;
+  }
+
+  &--4 {
+    transition-delay: 0.2s;
+  }
+
+  &--5 {
+    transition-delay: 0.26s;
+  }
+
+  &--6 {
+    transition-delay: 0.32s;
+  }
+}
+
+.tutor-welcome-hub__chips {
+  @media (min-width: 721px) {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(200px, 280px) minmax(0, 1fr);
+    grid-template-rows: repeat(3, auto);
+    row-gap: 16px;
+    column-gap: 12px;
+    align-content: center;
+    align-items: start;
+    pointer-events: none;
+
+    .tutor-welcome-benefit-chip {
+      position: relative;
+      top: auto;
+      left: auto;
+      right: auto;
+      bottom: auto;
+      pointer-events: auto;
+      max-width: min(210px, 100%);
+      transform: translateY(12px) scale(0.96);
+
+      .welcome-revealed & {
+        transform: translateY(0) scale(1);
+      }
+
+      &--1 {
+        grid-column: 1;
+        grid-row: 1;
+        justify-self: start;
+        margin-left: 4%;
+      }
+
+      &--2 {
+        grid-column: 1;
+        grid-row: 2;
+        justify-self: start;
+      }
+
+      &--3 {
+        grid-column: 1;
+        grid-row: 3;
+        justify-self: start;
+        margin-left: 10%;
+      }
+
+      &--4 {
+        grid-column: 3;
+        grid-row: 1;
+        justify-self: end;
+        margin-right: 3%;
+      }
+
+      &--5 {
+        grid-column: 3;
+        grid-row: 2;
+        justify-self: end;
+      }
+
+      &--6 {
+        grid-column: 3;
+        grid-row: 3;
+        justify-self: end;
+        margin-right: 4%;
+      }
+    }
+  }
+}
+
+@media (max-width: 720px) {
+  .tutor-welcome-hub__stage {
+    min-height: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding-bottom: 8px;
+  }
+
+  .tutor-welcome-hub__center {
+    position: relative;
+    top: auto;
+    left: auto;
+    transform: none;
+    width: min(220px, 55vw);
+    height: min(220px, 55vw);
+    margin: 0 auto 4px;
+  }
+
+  .tutor-welcome-benefit-chip {
+    position: relative;
+    top: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    left: auto !important;
+    max-width: 100%;
+    width: 100%;
+    box-sizing: border-box;
+    transform: none;
+
+    .welcome-revealed & {
+      transform: none;
+    }
+  }
+
+  .tutor-welcome-hub__chips {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+}
+
+@media (max-width: 520px) {
+  .tutor-welcome-hub__title {
+    font-size: clamp(36px, 9vw, 44px);
+    letter-spacing: -0.8px;
+  }
+}
+
+@media (max-height: 720px) and (min-width: 721px) {
+  .tutor-welcome-hub__title {
+    font-size: clamp(34px, 4.5vw, 44px);
+    margin-bottom: 8px;
+  }
+
+  .tutor-welcome-hub__subtitle {
+    margin-bottom: 10px;
+    font-size: 14px;
+  }
+
+  .tutor-welcome-hub__cta {
+    height: 46px;
+    min-width: 180px;
+  }
+
+  .tutor-welcome-hub__role-line {
+    margin-top: 8px;
+  }
+
+  .tutor-welcome-hub__stage {
+    min-height: min(400px, 42vh);
+  }
+
+  .tutor-welcome-hub__chips {
+    row-gap: 12px;
+  }
+
+  .tutor-welcome-hub__center {
+    width: 210px;
+    height: 210px;
+    top: 50%;
+  }
+
+  .tutor-welcome-benefit-chip {
+    padding: 9px 11px;
+    max-width: 176px;
+
+    &__title {
+      font-size: 12px;
+    }
+
+    &__desc {
+      font-size: 10px;
+    }
+  }
+}

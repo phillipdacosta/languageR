@@ -37,15 +37,24 @@
     <!-- Country List -->
     <div class="country-list">
       <div
-        *ngFor="let country of filteredRows; let i = index"
+        *ngFor="let country of filteredRows; trackBy: trackByCountry"
         class="country-item"
         [class.selected]="selectedCountry === country.name"
         (click)="selectCountry(country.name)">
         <div class="country-flag">
-          <app-flag-icon 
-            [country]="country.name" 
-            [size]="28">
-          </app-flag-icon>
+          <img
+            *ngIf="showFlagImages && country.flagPath"
+            [src]="country.flagPath"
+            [alt]="country.displayLabel"
+            class="country-flag-img"
+            width="28"
+            height="19"
+            loading="lazy"
+            decoding="async" />
+          <span
+            *ngIf="!showFlagImages || !country.flagPath"
+            class="country-flag-placeholder"
+            aria-hidden="true"></span>
         </div>
         <span class="country-name">{{ country.displayLabel }}</span>
         <ion-icon 

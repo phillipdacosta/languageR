@@ -296,6 +296,7 @@ export class NotificationsPage implements OnDestroy {
       'tutor_video_rejected': 'close-circle',
       'credential_approved': 'shield-checkmark',
       'credential_rejected': 'shield',
+      'stripe_account_updated': 'card',
       'material_approved': 'checkmark-circle',
       'material_rejected': 'close-circle',
       'material_shared': 'document-text'
@@ -324,6 +325,7 @@ export class NotificationsPage implements OnDestroy {
       'lesson_analysis_ready',
       'credential_approved',
       'credential_rejected',
+      'stripe_account_updated',
       'material_approved',
       'material_rejected'
     ];

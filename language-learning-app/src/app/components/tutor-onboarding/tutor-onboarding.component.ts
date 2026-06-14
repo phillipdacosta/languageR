@@ -91,16 +91,6 @@ export class TutorOnboardingComponent implements OnInit {
     'assets/tutor-approval/photo-example-4.png',
   ];
 
-  /** Barnabi step mascots — warm cache so they paint instantly when a step mounts. */
-  private static readonly APPROVAL_WIZARD_MASCOT_URLS: readonly string[] = [
-    'assets/mascot-photo-upload.png',
-    'assets/mascot-video-upload.png',
-    'assets/mascot-identity.png',
-    'assets/mascot-qualifications.png',
-    'assets/mascot-payout-connected.png',
-    'assets/mascot-tos.png',
-  ];
-
   readonly photoRequirementKeys = [
     'TUTOR_APPROVAL.PHOTO_NEED_3',
     'TUTOR_APPROVAL.PHOTO_NEED_2',
@@ -285,7 +275,6 @@ export class TutorOnboardingComponent implements OnInit {
   async ngOnInit() {
     this.imagePreloadService.preloadWhenIdle([
       ...this.photoExampleAvatars,
-      ...TutorOnboardingComponent.APPROVAL_WIZARD_MASCOT_URLS,
     ]);
 
     // Initialize the visible-step cache so the wizard renders cleanly before
@@ -681,6 +670,36 @@ export class TutorOnboardingComponent implements OnInit {
     const prevVisible = visibleIdx > 0 ? visible[visibleIdx - 1] : null;
     this.approvalWizardPreviousStepTitleKey = prevVisible?.titleKey ?? '';
     this.syncPayoutGuidanceUsesPayPal();
+    if (this.approvalStepId === 'stripe' && this.shouldScrollPayoutConnectIntoView()) {
+      this.scheduleScrollPayoutConnectIntoView();
+    }
+  }
+
+  private shouldScrollPayoutConnectIntoView(): boolean {
+    return !!this.approvalStatus?.stripeComplete || this.paymentSetupStep === 'setup-method';
+  }
+
+  private scheduleScrollPayoutConnectIntoView(): void {
+    this.cdr.detectChanges();
+    const modalDelayMs = this.presentAsModal ? 400 : 0;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setTimeout(() => this.scrollPayoutConnectIntoView(0), modalDelayMs);
+      });
+    });
+  }
+
+  private scrollPayoutConnectIntoView(attempt: number): void {
+    const anchor = this.elRef.nativeElement.querySelector(
+      '#tutor-approval-payout-connect-anchor'
+    ) as HTMLElement | null;
+    if (anchor) {
+      anchor.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
+      return;
+    }
+    if (attempt < 8) {
+      setTimeout(() => this.scrollPayoutConnectIntoView(attempt + 1), 150);
+    }
   }
 
   private syncPayoutGuidanceUsesPayPal(): void {
@@ -789,6 +808,9 @@ export class TutorOnboardingComponent implements OnInit {
       this.paymentSetupStep = 'setup-method';
     }
     this.syncWizardPaymentConnectUi();
+    if (this.paymentSetupStep === 'setup-method') {
+      this.scheduleScrollPayoutConnectIntoView();
+    }
   }
 
   previousPaymentStep() {

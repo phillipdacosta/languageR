@@ -157,6 +157,8 @@ ion-content::part(scroll) {
   transition: all 0.2s ease;
   text-align: left;
   visibility: visible !important; // Force visibility
+  content-visibility: auto;
+  contain-intrinsic-size: 56px;
   
   &:last-child {
     margin-bottom: 0;
@@ -192,6 +194,25 @@ ion-content::part(scroll) {
     background: #f7f7f7;
     border-radius: 8px;
     overflow: hidden;
+  }
+
+  .country-flag-img {
+    display: block;
+    width: 28px;
+    height: 19px;
+    object-fit: cover;
+    border-radius: 2px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  }
+
+  .country-flag-placeholder {
+    display: block;
+    width: 28px;
+    height: 19px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, #ececec 0%, #f5f5f5 50%, #ececec 100%);
+    background-size: 200% 100%;
+    animation: countryFlagShimmer 1.2s ease-in-out infinite;
   }
   
   &.selected .country-flag {
@@ -271,6 +292,15 @@ ion-content::part(scroll) {
 }
 
 // Dark mode — align with global `ion-modal.modern-modal` sheet (#242426)
+@keyframes countryFlagShimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
 :host-context(html.ion-palette-dark) {
   ion-content {
     --background: #242426;

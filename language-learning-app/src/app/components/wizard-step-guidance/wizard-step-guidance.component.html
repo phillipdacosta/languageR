@@ -1,5 +1,9 @@
 <div class="approval-split-guidance ob-wizard-split-guidance" [@guidanceSlideUp]="stepNumber">
-  <h1 *ngIf="greetingKey" class="approval-split-guidance__greeting">{{ greetingKey | translate }}</h1>
+  <h1 *ngIf="greetingKey" class="approval-split-guidance__greeting">
+    <span class="approval-split-guidance__greeting__prefix">{{ greetingKey | translate }}</span>
+    <img src="assets/barnabi-logo.png" alt="Barnabi" class="approval-split-guidance__greeting__wordmark barnabi-wordmark-for-light-ui" />
+    <img src="assets/barnabi-logo-wordmark-white.png" alt="" class="approval-split-guidance__greeting__wordmark barnabi-wordmark-for-dark-ui" aria-hidden="true" />
+  </h1>
   <h3 class="approval-split-guidance__title">{{ titleKey | translate }}</h3>
   <p class="approval-split-guidance__desc">{{ descKey | translate }}</p>
 
