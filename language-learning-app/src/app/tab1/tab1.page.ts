@@ -1782,6 +1782,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       this.skipTabEntryAnimations = true;
     }
     this.refreshPrevNotesTranslationState();
+    this.eagerLoadJourneyIntroIfNeeded();
 
     // Refresh the Practice badge so returning from the review deck
     // reflects newly mastered cards immediately.
@@ -2689,6 +2690,11 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   
   loadLearningPlan(language: string) {
     this.journeyLanguageLabel = language || '';
+    if (this.shouldEagerLoadJourneyIntroPlan()) {
+      this.loadLearningPlanForIntro(language);
+      return;
+    }
+
     this.learningPlanService.getPlan(language).pipe(take(1)).subscribe({
       next: (res: any) => {
         if (res.success && res.plan) {
@@ -2797,10 +2803,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     // Show the "Your roadmap is ready" intro only when the student just finished
     // onboarding in this browser session (flag set by onboarding.page.ts) and
     // the plan has never been formally introduced before.
-    const justOnboarded = (() => { try { return sessionStorage.getItem('showJourneyIntro') === 'true'; } catch (_) { return false; } })();
-    if (justOnboarded && !plan.journeyIntroSeenAt && (plan.phases || []).length) {
-      setTimeout(() => this.openJourneyIntroModal(plan, this.journeyLanguageLabel), 400);
-    }
+    this.maybeShowJourneyIntroForNewUser(plan);
 
     // Chapter transition celebration (Batch 4). When a student lands on
     // home with a pending chapter transition flag, surface the same
@@ -3147,17 +3150,118 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     this.cdr.markForCheck();
   }
 
+  private journeyIntroRetryCount = 0;
+  private journeyIntroRetryTimer: ReturnType<typeof setTimeout> | null = null;
+
+  private shouldEagerLoadJourneyIntroPlan(): boolean {
+    if (this.learningPlanService.introModalShownThisSession) {
+      return false;
+    }
+    try {
+      return sessionStorage.getItem('showJourneyIntro') === 'true';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  private eagerLoadJourneyIntroIfNeeded() {
+    if (!this.shouldEagerLoadJourneyIntroPlan()) {
+      return;
+    }
+
+    const language = this.currentUser?.onboardingData?.languages?.[0];
+    if (!language) {
+      return;
+    }
+
+    const cached = this.learningPlanService.getCachedPlan(language);
+    if (cached?.plan && this.shouldShowJourneyIntroForNewUser(cached.plan)) {
+      void this.openJourneyIntroModal(cached.plan, language);
+      return;
+    }
+
+    if (this.journeyLanguageLabel !== language || !cached?.plan) {
+      this.loadLearningPlan(language);
+    }
+  }
+
+  private loadLearningPlanForIntro(language: string) {
+    this.journeyWidgetState = 'loading';
+    this.cdr.detectChanges();
+
+    this.learningPlanService.createInitialPlan(language).pipe(take(1)).subscribe({
+      next: (res: any) => {
+        if (res?.success && res.plan) {
+          this.applyLearningPlan(res.plan, res.entitlements || null);
+          return;
+        }
+        this.fetchLearningPlanFallback(language);
+      },
+      error: () => this.fetchLearningPlanFallback(language)
+    });
+  }
+
+  private fetchLearningPlanFallback(language: string) {
+    this.learningPlanService.getPlan(language).pipe(take(1)).subscribe({
+      next: (res: any) => {
+        if (res.success && res.plan) {
+          this.applyLearningPlan(res.plan, res.entitlements || null);
+        } else {
+          this.applyLearningPlanMissing();
+        }
+      },
+      error: (err) => {
+        if (err?.status === 404) {
+          this.applyLearningPlanMissing();
+        } else {
+          const hasGoal = !!this.currentUser?.onboardingData?.learningGoal?.type;
+          this.journeyWidgetState = hasGoal ? 'loading' : 'empty-goal';
+          this.cdr.detectChanges();
+        }
+      }
+    });
+  }
+
+  private shouldShowJourneyIntroForNewUser(plan: any): boolean {
+    const justOnboarded = (() => {
+      try { return sessionStorage.getItem('showJourneyIntro') === 'true'; } catch (_) { return false; }
+    })();
+    return !!(justOnboarded && !plan?.journeyIntroSeenAt && !this.learningPlanService.introModalShownThisSession);
+  }
+
+  private maybeShowJourneyIntroForNewUser(plan: any) {
+    if (!this.shouldShowJourneyIntroForNewUser(plan)) {
+      return;
+    }
+
+    if ((plan.phases || []).length) {
+      this.journeyIntroRetryCount = 0;
+      if (this.journeyIntroRetryTimer) {
+        clearTimeout(this.journeyIntroRetryTimer);
+        this.journeyIntroRetryTimer = null;
+      }
+      void this.openJourneyIntroModal(plan, this.journeyLanguageLabel);
+      return;
+    }
+
+    // Plan may still be generating after onboarding — poll briefly.
+    if (this.journeyIntroRetryCount >= 15 || !this.journeyLanguageLabel) {
+      return;
+    }
+    this.journeyIntroRetryCount++;
+    if (this.journeyIntroRetryTimer) {
+      clearTimeout(this.journeyIntroRetryTimer);
+    }
+    this.journeyIntroRetryTimer = setTimeout(() => {
+      this.loadLearningPlan(this.journeyLanguageLabel);
+    }, 400);
+  }
+
   private async openJourneyIntroModal(plan: any, language: string) {
-    // Prevent duplicate modals within the same session.
     if (this.learningPlanService.introModalShownThisSession) return;
 
-    // Belt-and-suspenders: if a journey-intro modal is already on screen, bail out.
     const existing = await this.modalCtrl.getTop();
     if (existing?.classList.contains('journey-intro-modal')) return;
-
-    // Consume the sessionStorage flag so subsequent tab visits don't re-open.
-    try { sessionStorage.removeItem('showJourneyIntro'); } catch (_) {}
-    this.learningPlanService.introModalShownThisSession = true;
 
     const { JourneyIntroComponent } = await import('../journey/journey-intro.component');
     const modal = await this.modalCtrl.create({
@@ -3166,13 +3270,25 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         phaseLabels: (plan.phases || []).map((p: any) => p.title || ''),
         plan,
         language,
-        calledFromHome: true
+        calledFromHome: true,
+        requireConfirmation: true
       },
-      cssClass: 'journey-intro-modal'
+      cssClass: 'journey-intro-modal',
+      backdropDismiss: false,
+      canDismiss: async (data, role) => role === 'confirm' || data?.reason === 'done'
     });
     await modal.present();
+    this.learningPlanService.introModalShownThisSession = true;
+
     const { data } = await modal.onDidDismiss();
-    if (data?.reason === 'done' || data?.reason === 'skip') {
+    try { sessionStorage.removeItem('showJourneyIntro'); } catch (_) {}
+    this.journeyIntroRetryCount = 0;
+    if (this.journeyIntroRetryTimer) {
+      clearTimeout(this.journeyIntroRetryTimer);
+      this.journeyIntroRetryTimer = null;
+    }
+
+    if (data?.reason === 'done') {
       this.learningPlanService.markIntroSeen(language).pipe(take(1)).subscribe();
     }
   }

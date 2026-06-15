@@ -3144,17 +3144,31 @@ html.ion-palette-dark {
 
   /* Blurred dimming (opaque #000 above hides the blur on these modals) */
   ion-modal.reschedule-lesson-modal::part(backdrop),
-  ion-modal.invite-student-modal::part(backdrop) {
-    background: rgba(0, 0, 0, 0.55) !important;
-    backdrop-filter: blur(12px) saturate(1.2) !important;
-    -webkit-backdrop-filter: blur(12px) saturate(1.2) !important;
+  ion-modal.invite-student-modal::part(backdrop),
+  ion-modal.journey-intro-modal::part(backdrop) {
+    background: rgba(0, 0, 0, 0.32) !important;
+    backdrop-filter: blur(6px) !important;
+    -webkit-backdrop-filter: blur(6px) !important;
+  }
+
+  ion-modal.journey-intro-modal.journey-intro-expanded::part(backdrop) {
+    background: rgba(0, 0, 0, 0.72) !important;
+    backdrop-filter: blur(16px) !important;
+    -webkit-backdrop-filter: blur(16px) !important;
   }
 
   ion-modal.reschedule-lesson-modal ion-backdrop,
-  ion-modal.invite-student-modal ion-backdrop {
-    background: rgba(0, 0, 0, 0.55) !important;
-    backdrop-filter: blur(12px) saturate(1.2) !important;
-    -webkit-backdrop-filter: blur(12px) saturate(1.2) !important;
+  ion-modal.invite-student-modal ion-backdrop,
+  ion-modal.journey-intro-modal ion-backdrop {
+    background: rgba(0, 0, 0, 0.32) !important;
+    backdrop-filter: blur(6px) !important;
+    -webkit-backdrop-filter: blur(6px) !important;
+  }
+
+  ion-modal.journey-intro-modal.journey-intro-expanded ion-backdrop {
+    background: rgba(0, 0, 0, 0.72) !important;
+    backdrop-filter: blur(16px) !important;
+    -webkit-backdrop-filter: blur(16px) !important;
   }
 
   // Event details modal needs transparent backgrounds — it draws its own overlay
@@ -4866,18 +4880,31 @@ ion-modal.set-goal-modal {
   }
 }
 
-// ── Journey intro modal — same pattern as cancel-reason-modal but narrower.
+// ── Journey intro modal — centered sheet with blurred backdrop (matches Create Material).
 ion-modal.journey-intro-modal {
-  --width: 92%;
-  --max-width: 560px;
-  --height: 72%;
-  --max-height: 640px;
+  --width: 94%;
+  --max-width: 720px;
+  --height: 86%;
+  --max-height: 820px;
   --border-radius: 24px;
   --box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+  --backdrop-opacity: 1;
+
+  &::part(backdrop) {
+    background: rgba(0, 0, 0, 0.32);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+
+  ion-backdrop {
+    background: rgba(0, 0, 0, 0.32);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
 
   @media (max-width: 480px) {
     --width: 96%;
-    --height: 78%;
+    --height: 88%;
   }
 }
 
@@ -4941,17 +4968,39 @@ ion-modal.journey-intro-expanding::part(content) {
     border-radius 0.45s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
-// Expanded state — full-screen edit wizard dimensions.
-ion-modal.journey-intro-expanded {
-  --width: 92%;
-  --max-width: 860px;
-  --height: 92%;
-  --max-height: 900px;
+ion-modal.journey-intro-expanding::part(backdrop),
+ion-modal.journey-intro-expanding ion-backdrop {
+  transition:
+    background 0.45s cubic-bezier(0.32, 0.72, 0, 1),
+    backdrop-filter 0.45s cubic-bezier(0.32, 0.72, 0, 1),
+    -webkit-backdrop-filter 0.45s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+// Expanded wizard — match Create Material near-full viewport shell.
+ion-modal.journey-intro-modal.journey-intro-expanded {
+  --width: calc(100vw - 120px);
+  --max-width: calc(100vw - 120px);
+  --height: calc(100vh - 48px);
+  --max-height: calc(100vh - 48px);
   --border-radius: 20px;
 
+  &::part(backdrop) {
+    background: rgba(0, 0, 0, 0.72);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  ion-backdrop {
+    background: rgba(0, 0, 0, 0.72);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
   @media (max-width: 768px) {
-    --width: 96%;
-    --height: 96%;
+    --width: calc(100vw - 32px);
+    --max-width: calc(100vw - 32px);
+    --height: calc(100vh - 32px);
+    --max-height: calc(100vh - 32px);
     --border-radius: 16px;
   }
 }

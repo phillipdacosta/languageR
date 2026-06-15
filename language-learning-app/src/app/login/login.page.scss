@@ -81,8 +81,8 @@ $radius-card:       20px;
   min-width: 0;
 
   .brand-icon {
-    width: 44px;
-    height: 44px;
+    width: 52px;
+    height: 52px;
     object-fit: contain;
     flex: 0 0 auto;
   }
@@ -412,10 +412,15 @@ $radius-card:       20px;
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background-image: url('/assets/login-hero.jpg');
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
+  overflow: hidden;
+}
+
+.hero-art-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
 }
 
 .hero-canvas {

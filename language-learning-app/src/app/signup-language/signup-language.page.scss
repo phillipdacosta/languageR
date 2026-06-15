@@ -33,14 +33,15 @@ $ob-accent: #222222;
 }
 
 .pre-step-logo {
-  margin-bottom: 32px;
+  margin-bottom: 24px;
   flex-shrink: 0;
 
-  .pre-step-app-icon {
-    width: 72px;
-    height: 72px;
-    border-radius: 18px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  .pre-step-hero-mascot {
+    display: block;
+    width: min(200px, 56vw);
+    height: auto;
+    max-height: 140px;
+    object-fit: contain;
   }
 }
 
@@ -249,11 +250,5 @@ ion-header {
   }
 }
 
-:host-context(html.ion-palette-dark) {
-  display: block;
-  min-height: 100vh;
-  background: #000000;
-}
-
 @import '../shared/styles/onboarding-language-picker';
-@import '../shared/styles/onboarding-tutor-shared-dark';
+@import '../shared/styles/onboarding-force-light';

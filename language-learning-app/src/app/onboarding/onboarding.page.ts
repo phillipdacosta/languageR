@@ -40,6 +40,9 @@ export type StudentTimelineCardOption = { value: string; labelKey: string; icon:
   standalone: false,
 })
 export class OnboardingPage implements OnInit, OnDestroy, AfterViewInit, AfterViewChecked {
+  @HostBinding('class.ob-force-light')
+  readonly obForceLight = true;
+
   @HostBinding('class.onboarding-page--wizard-main')
   get onboardingPageWizardMainActive(): boolean {
     return !this.showWelcome && this.preStepPhase === 'done';
@@ -127,8 +130,11 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewInit, AfterVi
   isSubmitting = false;
   hasReachedPreview = false;
   previewProfileInitials = '';
+  previewProfilePicture = '';
+  previewProfilePictureFailed = false;
 
   // ViewChild references for autofocus
+  @ViewChild('wizardViewportScroll') wizardViewportScroll?: ElementRef<HTMLElement>;
   @ViewChild('welcomeCelebrationVideo') welcomeCelebrationVideo?: ElementRef<HTMLVideoElement>;
   @ViewChild('firstNameInput') firstNameInput?: ElementRef<HTMLInputElement>;
   @ViewChild('customGoalPanel') customGoalPanel?: ElementRef<HTMLElement>;
@@ -1344,16 +1350,28 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewInit, AfterVi
 
   showPreviewPage() {
     this.computePreviewLabels();
+    this.previewProfilePictureFailed = false;
+    this.previewProfilePicture = '';
+    this.authService.getUserProfile().pipe(take(1)).subscribe(user => {
+      this.previewProfilePicture = user?.picture || '';
+      this.cdr.markForCheck();
+    });
     this.showPreview = true;
     this.hasReachedPreview = true;
     // Scroll to top when preview page is shown
     setTimeout(() => {
-      const scrollEl = document.querySelector('.preview-wizard-scroll');
+      const scrollEl =
+        this.wizardViewportScroll?.nativeElement ??
+        document.querySelector('.preview-wizard-scroll');
       if (scrollEl instanceof HTMLElement) {
         scrollEl.scrollTop = 0;
       }
       window.scrollTo(0, 0);
     }, 0);
+  }
+
+  onPreviewAvatarError(): void {
+    this.previewProfilePictureFailed = true;
   }
 
   goBackToEdit(step?: number) {

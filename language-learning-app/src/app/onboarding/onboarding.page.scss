@@ -1398,7 +1398,30 @@ ion-header {
   }
 }
 
-// Goal Type Cards (Step 4)
+// Goal Type Cards (Step 6)
+.ob-wizard-split-main-scroll--goal-step {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.goal-step-pane {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.goal-step-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  scrollbar-gutter: stable;
+  padding-right: 4px;
+  box-sizing: border-box;
+}
+
 .goal-cards-grid {
   display: flex;
   flex-direction: column;
@@ -2085,47 +2108,6 @@ ion-header {
   }
 }
 
-// Dark mode support for profile pictures
-@media (prefers-color-scheme: dark) {
-  .preview-hero-summary {
-    .preview-summary-item {
-      .profile-picture-container {
-        .profile-picture {
-          border: 2px solid rgba(255, 255, 255, 0.2);
-          
-          &:hover {
-            box-shadow: 0 2px 8px rgba(255, 255, 255, 0.1);
-          }
-        }
-      }
-    }
-  }
-}
-
-// Ionic dark mode support
-:host-context(html.ion-palette-dark) {
-  .preview-hero-summary {
-    .preview-summary-item {
-      .profile-picture-container {
-        .profile-picture {
-          border: 2px solid rgba(255, 255, 255, 0.2);
-          
-          &:hover {
-            box-shadow: 0 2px 8px rgba(255, 255, 255, 0.1);
-          }
-        }
-      }
-    }
-
-    .summary-text {
-      font-size: 15px;
-      font-weight: 500;
-      color: #f5f5f7;
-      line-height: 1.4;
-    }
-  }
-}
-
 .preview-hero-actions {
   display: flex;
   flex-direction: column;
@@ -2724,5 +2706,5 @@ ion-header {
 }
 
 @import '../shared/styles/onboarding-welcome-fit';
-@import '../shared/styles/onboarding-tutor-shared-dark';
+@import '../shared/styles/onboarding-force-light';
 @import '../shared/styles/tutor-welcome-hub';

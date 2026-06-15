@@ -972,7 +972,7 @@ $orb-preview-sidebar-w: min(380px, 44%);
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background-image: url('/assets/login-hero.jpg');
+  background-image: url('/assets/login-hero.png');
   background-size: cover;
   background-position: center bottom;
   background-repeat: no-repeat;
@@ -1579,109 +1579,5 @@ $orb-preview-sidebar-w: min(380px, 44%);
       position: static;
       align-self: flex-start;
     }
-  }
-}
-
-:host-context(html.ion-palette-dark) {
-  .preview-container {
-    background: #1c1c1e;
-  }
-
-  .onboarding-container--preview.preview-container {
-    background: #000000;
-  }
-
-  .onboarding-container--preview {
-    .ed-sidebar-head__name,
-    .ed-section-label,
-    .ed-kv-val,
-    .ed-sidebar-schedule__primary,
-    .orb-setup-heading,
-    .orb-setup-list__item {
-      color: #f5f5f7;
-    }
-
-    .orb-preview-page-title {
-      color: #f5f5f7;
-    }
-
-    .orb-preview-page-subtitle,
-    .ed-kv-key,
-    .ed-sidebar-schedule__secondary,
-    .orb-preview-sidebar-note {
-      color: #a1a1a6;
-    }
-
-    .ed-sidebar-head__avatar--initial {
-      background: #3a3a3c;
-      color: #f5f5f7;
-    }
-
-    .ed-sidebar-schedule {
-      background: #2c2c2e;
-      border-color: rgba(255, 255, 255, 0.08);
-    }
-
-    .ed-sidebar-schedule__divider,
-    .ed-pc-divider,
-    .ed-divider {
-      background: rgba(255, 255, 255, 0.08);
-    }
-
-    .orb-preview-main.ed-actions.approval-split-main {
-      border-top-color: rgba(255, 255, 255, 0.08);
-    }
-
-    .orb-preview-sidebar.ed-details.approval-split-guidance {
-      border-right-color: rgba(255, 255, 255, 0.08);
-    }
-
-    .ed-kv {
-      border-bottom-color: rgba(255, 255, 255, 0.06);
-    }
-
-    .orb-preview-edit-link {
-      color: #64b5ff;
-
-      &:hover {
-        background: rgba(100, 181, 255, 0.12);
-      }
-    }
-  }
-
-  .orb-profile-card {
-    background: #2c2c2e;
-    border-color: rgba(255, 255, 255, 0.1);
-  }
-
-  .orb-profile-name,
-  .orb-setup-heading,
-  .orb-section-label,
-  .orb-kv-val,
-  .orb-setup-list__item,
-  .orb-profile-detail-primary {
-    color: #f5f5f7;
-  }
-
-  .orb-subtitle,
-  .orb-kv-key,
-  .orb-card-note,
-  .orb-profile-detail-secondary {
-    color: #a1a1a6;
-  }
-
-  .orb-card-divider,
-  .orb-divider,
-  .orb-kv {
-    border-color: rgba(255, 255, 255, 0.08);
-  }
-
-  .orb-divider {
-    background: rgba(255, 255, 255, 0.08);
-  }
-
-  .orb-lang-tag {
-    background: #3a3a3c;
-    color: #f5f5f7;
   }
 }
