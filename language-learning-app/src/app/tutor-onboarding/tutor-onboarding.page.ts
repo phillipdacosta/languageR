@@ -161,19 +161,27 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewInit, Af
   country = ''; // Nationality / Where are you from?
 
   /**
-   * Capitalizes a name properly (title case)
-   * "JASON DERULA" -> "Jason Derula"
-   * "jason derula" -> "Jason Derula"
-   * "jAsOn DeRuLa" -> "Jason Derula"
+   * Normalize a name for display/storage.
+   * - ALL CAPS or all lowercase → title case per word ("JASON" → "Jason", "jason" → "Jason")
+   * - Mixed case is preserved as typed ("DaCosta", "McDonald", "O'Brien")
    */
   private formatName(name: string): string {
     if (!name) return '';
-    return name
-      .toLowerCase()
-      .split(' ')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ')
-      .trim();
+    const trimmed = name.trim().replace(/\s+/g, ' ');
+    if (!trimmed) return '';
+
+    const lettersOnly = trimmed.replace(/[^a-zA-Z]/g, '');
+    if (!lettersOnly) return trimmed;
+
+    if (lettersOnly === lettersOnly.toUpperCase() || lettersOnly === lettersOnly.toLowerCase()) {
+      return trimmed
+        .toLowerCase()
+        .split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
+    }
+
+    return trimmed;
   }
 
   /**
