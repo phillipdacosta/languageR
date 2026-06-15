@@ -2767,8 +2767,14 @@ async function analyzeLesson(transcriptId) {
       analysisResult.pronunciationAnalysis = aggregatedPronunciation;
     }
     
-    // Filter and prioritize errors based on lesson duration
-    if (analysisResult.topErrors && analysisResult.topErrors.length > 0) {
+    // Filter and prioritize errors based on lesson duration.
+    // Skip when the deterministic errorPatternEngine already ranked + capped
+    // the errors (it grounds, clusters and ranks via the taxonomy/struggle
+    // scorer); re-running the legacy heuristic would re-sort by the old naive
+    // metric and undo that work.
+    if (analysisResult._engine?.ranked) {
+      console.log(`✅ topErrors already ranked by errorPatternEngine (${analysisResult.topErrors?.length || 0}); skipping legacy filter`);
+    } else if (analysisResult.topErrors && analysisResult.topErrors.length > 0) {
       const lessonDuration = transcript.endTime && transcript.startTime 
         ? Math.round((new Date(transcript.endTime) - new Date(transcript.startTime)) / 60000) // minutes
         : 25; // default to 25 if no end time

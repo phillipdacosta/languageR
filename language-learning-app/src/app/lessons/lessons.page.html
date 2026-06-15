@@ -90,7 +90,15 @@
             </div>
 
             <div class="lgc-title-wrap">
-              <h2 class="lgc-title">{{ pl.isClass ? (pl.className || pl.subject) : pl.otherName }}</h2>
+              <div class="lgc-title-row">
+                <h2 class="lgc-title">{{ pl.isClass ? (pl.className || pl.subject) : pl.otherName }}</h2>
+                <span
+                  class="badge-inline badge-trial lgc-trial-badge"
+                  *ngIf="pl.isTrial && pl.status !== 'cancelled'">
+                  <ion-icon name="star" aria-hidden="true"></ion-icon>
+                  <span>{{ 'HOME.TRIAL_LESSON' | translate }}</span>
+                </span>
+              </div>
             </div>
             <div class="lgc-date-time-wrap">
               <div class="lgc-date-time-block">
@@ -109,9 +117,6 @@
             <div
               class="lgc-mid"
               [class.lgc-mid--has-feedback-banner]="(isTutorUser && pl.needsTutorFeedback) || (isStudentUser && pl.feedbackPendingForStudent)">
-              <div class="lgc-badges-row" *ngIf="pl.isTrial">
-                <span class="lgc-pill trial" *ngIf="pl.isTrial">{{ 'LESSONS_PAGE.TRIAL_BADGE' | translate }}</span>
-              </div>
 
               <div
                 class="lgc-feedback-banner-slot"

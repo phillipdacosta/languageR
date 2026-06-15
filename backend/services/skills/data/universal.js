@@ -103,6 +103,35 @@ module.exports = [
     goalTags: ['exam_prep', 'professional', 'relocation']
   },
   {
+    // Surfaced by the deterministic complexityAnalyzer when a student with
+    // enough speech leans on short, simple sentences and rarely subordinates
+    // — i.e. "overuse of simple structures when more is expected".
+    id: 'universal.discourse.sentence_complexity',
+    displayName: {
+      en: 'Sentence complexity',
+      es: 'Complejidad de las oraciones',
+      fr: 'Complexité des phrases',
+      de: 'Satzkomplexität',
+      it: 'Complessità delle frasi',
+      pt: 'Complexidade das frases'
+    },
+    category: 'discourse',
+    cefr: 'B1',
+    prerequisites: [],
+    aliases: [
+      'sentence complexity',
+      'simple sentences',
+      'overuse of simple structures',
+      'short sentences',
+      'lack of subordination',
+      'more complex sentences',
+      'sentence variety',
+      'subordinate clauses'
+    ],
+    impactWeight: 1.0,
+    goalTags: ['exam_prep', 'professional', 'relocation', 'conversational']
+  },
+  {
     id: 'universal.pragmatics.register',
     displayName: {
       en: 'Register and politeness',
