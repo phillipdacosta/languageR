@@ -9,6 +9,8 @@
    ·  Detail pairs use icon+text, not grid boxes
    ────────────────────────────────────────────────────────── */
 
+@import '../../shared/styles/trial-badge';
+
 :host {
   display: block;
   height: 100%;
@@ -269,25 +271,8 @@ $ed-sidebar-w: min(380px, 44%);
   }
 
   .ed-trial-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 4px 9px;
-    border-radius: 999px;
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.3px;
-    text-transform: uppercase;
-    line-height: 1;
-    white-space: nowrap;
-    flex-shrink: 0;
-    background: linear-gradient(135deg, #ff9500 0%, #ff6b35 100%);
-    color: #ffffff;
-
-    ion-icon {
-      font-size: 11px;
-      color: #ffffff;
-    }
+    // Layout hook only — visual style from shared _trial-badge.scss
+    margin: 0;
   }
 }
 
@@ -1086,30 +1071,9 @@ ion-header ion-toolbar {
   margin-top: 8px;
   margin-bottom: 4px;
 
-  /* Same as home `.lesson-status-badges .status-badge.badge-trial` (orange pill + star) */
+  /* Trial badge — shared Up Next style (orange star pill) */
   .ed-trial-badge {
-    display: inline-flex !important;
-    align-items: center;
-    gap: 4px;
-    padding: 4px 10px;
-    border-radius: 10px;
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.3px;
-    text-transform: uppercase;
-    line-height: 1;
-    white-space: nowrap;
-    flex-shrink: 0;
-    background: linear-gradient(135deg, #ff9500 0%, #ff6b35 100%) !important;
-    color: #ffffff !important;
-    -webkit-background-clip: padding-box;
-    background-clip: padding-box;
-    box-shadow: none;
-
-    ion-icon {
-      font-size: 12px !important;
-      color: #ffffff !important;
-    }
+    margin: 0;
   }
 }
 
@@ -3470,11 +3434,6 @@ ion-header {
     padding: 3px 10px;
   }
 
-  .ed-trial-badge {
-    font-size: 11px;
-    padding: 3px 8px;
-  }
-
   .ed-type-label {
     font-size: 11px;
   }
@@ -5019,14 +4978,6 @@ ion-header {
         }
       }
 
-      .ed-trial-badge {
-        background: linear-gradient(135deg, #ff9500 0%, #ff6b35 100%);
-        color: #ffffff;
-
-        ion-icon {
-          color: #ffffff;
-        }
-      }
     }
 
     .ed-sidebar-schedule {
@@ -5261,15 +5212,6 @@ ion-header {
   .ed-type-label {
     background: #2c2c2e;
     color: #8e8e93;
-  }
-
-  .ed-status-row .ed-trial-badge {
-    background: linear-gradient(135deg, #ff9500 0%, #ff6b35 100%) !important;
-    color: #ffffff !important;
-
-    ion-icon {
-      color: #ffffff !important;
-    }
   }
 
   .ed-count {

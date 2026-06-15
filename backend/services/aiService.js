@@ -1,4 +1,6 @@
 const OpenAI = require('openai');
+const errorPatternEngine = require('./errorPatternEngine');
+const complexityAnalyzer = require('./complexityAnalyzer');
 
 /**
  * Calculate Levenshtein distance between two strings
@@ -642,11 +644,22 @@ OUTPUT REQUIREMENTS
    - "changes": [ { "original", "corrected", "type", "reason", "severity" } ]
 
 4. "type" must be one of:
-   - "grammar"
-   - "tense"
-   - "preposition"
-   - "agreement"
-   - "word_choice"
+   - "grammar"      (general morphology/syntax not covered below)
+   - "tense"        (wrong tense/aspect: present vs past, etc.)
+   - "mood"         (wrong/ missing MOOD — e.g. indicative used where the
+                     SUBJUNCTIVE is required: "no creo que es" → "no creo que sea";
+                     also conditional/imperative mood errors). Use this whenever
+                     a mood contrast is the issue, in ANY language.
+   - "preposition"  (wrong/missing preposition or case marker/particle)
+   - "agreement"    (gender, number, person, subject–verb, noun–adjective, pronoun–antecedent)
+   - "pronoun"      (wrong pronoun choice/placement; clitic position)
+   - "word_order"   (constituent order errors)
+   - "word_choice"  (a real lexical error — the chosen word is wrong in context)
+
+   Choose the MOST SPECIFIC type. Prefer "mood" / "agreement" / "preposition" /
+   "pronoun" / "tense" over the generic "grammar" when one clearly applies, so
+   recurring patterns can be grouped correctly. These categories are
+   language-agnostic — the examples are illustrative, not language-specific.
 
 5. Do NOT invent changes just to fill the list.
    - If you find no real errors, "changes" may be an empty array.
@@ -680,8 +693,11 @@ const multilingualCorrectionSchema = {
               enum: [
                 "grammar",
                 "tense",
+                "mood",
                 "preposition",
                 "agreement",
+                "pronoun",
+                "word_order",
                 "word_choice",
               ],
             },
@@ -1208,49 +1224,62 @@ IMPORTANT INSTRUCTIONS:
       return matrix[len1][len2];
     };
     
+    // CORROBORATED, CATEGORY-AWARE TRANSCRIPTION-RISK CLASSIFICATION.
+    //
+    // The old code auto-demoted ANY ≤2-char edit to severity="optional" and
+    // any low-confidence span to "optional", then dropped them. In fusional
+    // languages a 1–2 char change IS the grammar (es→sea subjunctive,
+    // bonito→bonita gender, como→come person), so that heuristic silently
+    // deleted exactly the recurring patterns we care about.
+    //
+    // Now: we compute a transcription-RISK score from CORROBORATING signals
+    // and KEEP the correction (the ranking engine down-weights, never deletes,
+    // by design). We do NOT mutate severity from heuristics anymore — severity
+    // reflects the model's grammatical judgment.
     const verifiedChanges = correctionResult.changes.map(change => {
       const original = change.original.toLowerCase().trim();
       const corrected = change.corrected.toLowerCase().trim();
-      
-      // Initialize ASR artifact tracking
-      change.isLikelyASRArtifact = false;
-      change.asrEvidence = null;
-      
-      // ASR ARTIFACT CHECK 1: Low confidence segment
-      // If the corrected word appears in a low-confidence segment, it's likely ASR mishear
+
       const correctedWords = corrected.split(/\s+/);
       const hasLowConfWord = correctedWords.some(word => lowConfidenceWords.has(word));
-      
-      if (hasLowConfWord) {
-        change.isLikelyASRArtifact = true;
-        change.asrEvidence = {
-          reason: "Correction involves word(s) from low-confidence ASR segment",
-          method: "confidence_gate",
-          confidence: "< " + confidenceThreshold
-        };
-        change.severity = "optional"; // Don't count toward proficiency level
-        console.log(`🔍 ASR ARTIFACT (low confidence): "${original}" → "${corrected}"`);
-        return change; // Early return - already classified
-      }
-      
-      // ASR ARTIFACT CHECK 2: One-edit grammatical fix
-      // Small edit distance + restores grammaticality = likely ASR confusion
       const editDistance = levenshteinDistance(original, corrected);
-      const isSmallEdit = editDistance <= 2;
-      
-      if (isSmallEdit) {
-        change.isLikelyASRArtifact = true;
-        change.asrEvidence = {
-          reason: `Minor edit (${editDistance} char${editDistance > 1 ? 's' : ''}) likely ASR phonetic confusion`,
-          method: "one_edit_heuristic",
-          editDistance: editDistance
-        };
-        change.severity = "optional"; // Don't count toward proficiency level
-        console.log(`🔍 ASR ARTIFACT (small edit): "${original}" → "${corrected}" (edit distance: ${editDistance})`);
-        return change; // Early return
+
+      // Phonetic lookalike on the single changed token (language-aware helper).
+      let isPhoneticallySimilar = false;
+      const oWords = original.split(/\s+/);
+      const cWords = corrected.split(/\s+/);
+      if (oWords.length === 1 && cWords.length <= 2) {
+        const oW = oWords[0].replace(/[.,!?¿¡;:]/g, '');
+        const cW = cWords[cWords.length - 1].replace(/[.,!?¿¡;:]/g, '');
+        isPhoneticallySimilar = arePhoneticallySimilar(oW, cW, language);
       }
-      
-      return change; // Not an ASR artifact
+
+      // "corrected form recurs" — speaker uses the correct form consistently
+      // elsewhere, so this instance is likely an ASR mishear of it.
+      const correctedAppearsOften =
+        transcriptLower.includes(corrected) &&
+        countOccurrences(transcriptLower, corrected) >= threshold;
+
+      const risk = errorPatternEngine.classifyTranscriptionRisk({
+        type: change.type,
+        editDistance,
+        hasLowConfidenceWord: hasLowConfWord,
+        isPhoneticallySimilar,
+        correctedAppearsOften
+      });
+
+      change.transcriptionRisk = risk.risk;
+      change.isLikelyTranscriptionError = risk.isLikelyTranscriptionError;
+      // Back-compat field name used elsewhere in this function / downstream.
+      change.isLikelyASRArtifact = risk.isLikelyTranscriptionError;
+      change.asrEvidence = risk.isLikelyTranscriptionError
+        ? { reason: risk.reasons.join(', '), method: 'corroborated_risk', risk: risk.risk, editDistance }
+        : null;
+
+      if (risk.isLikelyTranscriptionError) {
+        console.log(`🔍 LIKELY ASR (risk ${risk.risk.toFixed(2)}): "${original}" → "${corrected}" [${risk.reasons.join(', ')}]`);
+      }
+      return change;
     });
     
     // Continue with frequency-based verification for non-ASR-artifacts
@@ -1334,40 +1363,24 @@ IMPORTANT INSTRUCTIONS:
       console.log(`⚠️  Filtered out ${filteredCount} punctuation/spelling errors (transcription artifacts)`);
     }
     
-    // CRITICAL: Separate ASR artifacts from real errors
-    // ASR artifacts are kept for transparency but don't affect proficiency scoring
-    const asrArtifacts = meaningfulCorrections.filter(c => c.isLikelyASRArtifact);
-    const realErrors = meaningfulCorrections.filter(c => !c.isLikelyASRArtifact);
-    
+    // Count (don't delete) likely-ASR corrections — the ranking engine
+    // down-weights them via the transcription-risk factor. Deleting them
+    // outright used to hide real recurring errors when ASR glitched on the
+    // same word twice.
+    const asrArtifacts = meaningfulCorrections.filter(c => c.isLikelyTranscriptionError);
+    const realErrors = meaningfulCorrections.filter(c => !c.isLikelyTranscriptionError);
+
     console.log(`\n📊 ERROR CLASSIFICATION:`);
     console.log(`   Total corrections: ${correctionResult.changes.length}`);
     console.log(`   After filtering punctuation/spelling: ${meaningfulCorrections.length}`);
-    console.log(`   ├─ ASR artifacts (won't affect level): ${asrArtifacts.length}`);
-    console.log(`   └─ Real learner errors (scorable): ${realErrors.length}`);
-    
-    // Use only REAL errors for validation (not ASR artifacts)
-    meaningfulCorrections = realErrors;
-    
-    // FILTER: Minimum word-count (language-agnostic)
-    // Only flag errors that are 3+ words long (sentence-level issues)
-    // This filters out nitpicky 1-2 word corrections like "con yo" → "conmigo"
-    const substantiveErrors = meaningfulCorrections.filter(change => {
-      const wordCount = change.original.trim().split(/\s+/).length;
-      
-      if (wordCount < 3) {
-        console.log(`⏭️  Skipping ${wordCount}-word correction (too short, likely nitpicky): "${change.original}" → "${change.corrected}"`);
-        return false;
-      }
-      
-      return true; // Keep 3+ word corrections (sentence-level issues)
-    });
-    
-    const filteredShortCount = meaningfulCorrections.length - substantiveErrors.length;
-    if (filteredShortCount > 0) {
-      console.log(`📏 Filtered out ${filteredShortCount} short corrections (< 3 words) - focusing on sentence-level issues`);
-    }
-    
-    meaningfulCorrections = substantiveErrors;
+    console.log(`   ├─ ASR-suspect (kept, down-weighted): ${asrArtifacts.length}`);
+    console.log(`   └─ Clean learner errors (scorable): ${realErrors.length}`);
+
+    // NOTE: We intentionally NO LONGER drop short (<3-word) corrections.
+    // Subjunctive, gender/number agreement, prepositions and pronoun choice
+    // are short by nature — dropping them removed our highest-value patterns.
+    // Short LEXICAL nitpicks are handled by the category-aware phonetic check
+    // below and by ranking, not by a blunt word-count gate.
     
     // Validate corrections - filter out nonsensical ones and transcription errors
     // Common issue: Model tries to "sanitize" vulgar language or makes incorrect corrections
@@ -1392,30 +1405,30 @@ IMPORTANT INSTRUCTIONS:
         return false;
       }
       
-      // NEW: Filter out phonetically similar single-word changes (likely transcription errors)
-      // Examples: "tiene" → "tienes", "hace" → "se les", "sentido" → "sentidos"
+      // CATEGORY-AWARE phonetic filter. We HARD-drop a phonetic lookalike
+      // ONLY when it's a LEXICAL change (word_choice) — e.g. "apretas" →
+      // "aprietas" — because that's almost certainly an ASR mishear of a word.
+      // For GRAMMATICAL types (agreement/tense/mood/pronoun/preposition/
+      // word_order), a lookalike is often the real contrast (tiene→tienes can
+      // be a genuine person error), so we KEEP it and let transcription-risk
+      // down-weight it instead of deleting it.
       const originalWords = change.original.split(/\s+/);
       const correctedWords = change.corrected.split(/\s+/);
-      
-      // Only check single-word-to-single-word or single-word-to-two-word corrections
-      if (originalWords.length === 1 && correctedWords.length <= 2) {
-        // Extract just the main changed words
+      const isLexicalType = !errorPatternEngine._internal.GRAMMATICAL_TYPES.has(change.type);
+
+      if (isLexicalType && originalWords.length === 1 && correctedWords.length <= 2) {
         const origWord = originalWords[0].toLowerCase().replace(/[.,!?¿¡;:]/g, '');
         const corrWord = correctedWords[correctedWords.length - 1].toLowerCase().replace(/[.,!?¿¡;:]/g, '');
-        
-        // Check phonetic similarity with language context for better accuracy
+
         if (arePhoneticallySimilar(origWord, corrWord, language)) {
-          console.log(`⏭️  Skipping phonetically similar words (likely transcription error): "${change.original}" → "${change.corrected}"`);
+          console.log(`⏭️  Skipping phonetically similar LEXICAL change (likely transcription error): "${change.original}" → "${change.corrected}"`);
           return false;
         }
-        
-        // Also check if first word of correction is phonetically similar to original
-        // This catches cases like "hace" → "se les hace" where the main verb is similar
         if (correctedWords.length >= 2) {
           for (const cWord of correctedWords) {
             const cleanCWord = cWord.toLowerCase().replace(/[.,!?¿¡;:]/g, '');
             if (arePhoneticallySimilar(origWord, cleanCWord, language)) {
-              console.log(`⏭️  Skipping phonetically similar phrase (likely transcription error): "${change.original}" → "${change.corrected}"`);
+              console.log(`⏭️  Skipping phonetically similar LEXICAL phrase (likely transcription error): "${change.original}" → "${change.corrected}"`);
               return false;
             }
           }
@@ -1498,8 +1511,14 @@ IMPORTANT INSTRUCTIONS:
     
     console.log(`✅ Final verified error count: ${meaningfulCorrections.length}`);
     
-    // Store verified error count for prompt
-    const verifiedErrorCount = meaningfulCorrections.length;
+    // Verified error count drives the proficiency/grammar score in the
+    // prompt, so it must reflect CLEAN errors only — ASR-suspect corrections
+    // are kept for the pattern engine but excluded from the level signal.
+    const cleanErrorCorrections = meaningfulCorrections.filter(c => !c.isLikelyTranscriptionError);
+    const verifiedErrorCount = cleanErrorCorrections.length;
+    // Keep the full grounded set (clean + ASR-suspect, severity="error") for
+    // the deterministic pattern engine after Stage 2 returns.
+    const groundedCorrectionsForEngine = meaningfulCorrections;
     
     // Format corrections for GPT-4 analysis (using filtered corrections)
     const correctionsContext = meaningfulCorrections.length > 0 
@@ -2080,6 +2099,72 @@ You MUST include errorPatterns and correctedExcerpts arrays with actual quotes f
       };
     }
     
+    // ── DETERMINISTIC, GROUNDED ERROR PATTERNS (single source of truth) ──
+    // Replace the LLM's self-reported errorPatterns/topErrors — which can
+    // fabricate frequencies/examples and rank poorly — with grounded,
+    // clustered, taxonomy-ranked output built from the verified corrections.
+    // The LLM's arrays are still passed in, but ONLY to (a) recover real
+    // errors Stage 1 missed (kept only if the quote is grounded in the
+    // transcript) and (b) lend localized names/explanations. This guarantees
+    // counts, examples, ranking and the grammar score stay mutually consistent.
+    try {
+      // True recurrence is counted over the FULL student transcript (not the
+      // sampled slice sent to the LLM), so long lessons don't undercount
+      // repeated patterns. This is pure string matching → no extra AI cost.
+      const fullTranscriptLower = studentSegments
+        .map(s => s.text)
+        .join('\n')
+        .toLowerCase();
+
+      // Deterministic "overuse of simple structures" detector — reuses metrics
+      // already in hand (segments + the level/complexSentencesUsed the LLM
+      // returned), so it adds no analysis cost.
+      const complexity = complexityAnalyzer.analyzeComplexity({
+        studentSegments,
+        proficiencyLevel: analysis.overallAssessment?.proficiencyLevel || null,
+        complexSentencesUsed: analysis.progressionMetrics?.complexSentencesUsed || 0,
+        nativeLanguage: studentNativeLanguage
+      });
+      const extraSignals = complexity.signal ? [complexity.signal] : [];
+
+      const engineOut = errorPatternEngine.buildErrorPatterns({
+        corrections: groundedCorrectionsForEngine,
+        llmErrorPatterns: Array.isArray(analysis.errorPatterns) ? analysis.errorPatterns : [],
+        llmTopErrors: Array.isArray(analysis.topErrors) ? analysis.topErrors : [],
+        transcriptLower,
+        fullTranscriptLower,
+        extraSignals,
+        language,
+        nativeLanguage: studentNativeLanguage,
+        durationMinutes: speakingTimeMinutes,
+        goalType: null // lesson-local view; rolling aggregator folds in goal + beliefs
+      });
+      analysis.errorPatterns = engineOut.errorPatterns;
+      analysis.topErrors = engineOut.topErrors;
+      analysis._engine = {
+        ranked: true,
+        verifiedErrorCount: engineOut.verifiedErrorCount,
+        clusterCount: engineOut.clusters.length,
+        complexityFlagged: !!complexity.signal
+      };
+
+      // Surface the complexity opportunity in the narrative arrays too (deduped).
+      if (complexity.signal && complexity.recommendation) {
+        analysis.areasForImprovement = Array.isArray(analysis.areasForImprovement) ? analysis.areasForImprovement : [];
+        analysis.recommendedFocus = Array.isArray(analysis.recommendedFocus) ? analysis.recommendedFocus : [];
+        if (!analysis.areasForImprovement.some(a => /complex|subordinat|simple structure|conector|connector/i.test(String(a)))) {
+          analysis.areasForImprovement.push(complexity.recommendation);
+        }
+        if (!analysis.recommendedFocus.some(a => /complex|subordinat|simple structure|conector|connector/i.test(String(a)))) {
+          analysis.recommendedFocus.push(complexity.recommendation);
+        }
+      }
+
+      console.log(`🧩 Error pattern engine: ${engineOut.errorPatterns.length} grounded patterns from ${engineOut.clusters.length} clusters, ${engineOut.verifiedErrorCount} verified errors${complexity.signal ? ', +complexity signal' : ''}`);
+    } catch (engineErr) {
+      console.warn('⚠️  errorPatternEngine failed — keeping LLM patterns as fallback:', engineErr.message);
+    }
+
     console.log(`✅ Analysis completed: ${analysis.overallAssessment?.proficiencyLevel || '(recap-only, no level)'} ${gradeMode === 'recap_only' ? '[recap mode]' : 'level detected'}`);
     console.log(`✅ Student summary: ${(analysis.studentSummary || '').substring(0, 100)}...`);
     console.log(`🤖 ========================================`);

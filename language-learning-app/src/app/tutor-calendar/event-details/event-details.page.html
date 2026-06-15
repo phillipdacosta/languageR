@@ -99,9 +99,9 @@
                   </p>
                   <div class="ed-sidebar-head__badges">
                     <span class="ed-status" [ngClass]="statusClass">{{ statusLabel }}</span>
-                    <span class="ed-trial-badge" *ngIf="lesson?.isTrialLesson && !(edHasPlan && edPlanIsTrial)">
+                    <span class="ed-trial-badge badge-inline badge-trial" *ngIf="lesson?.isTrialLesson && lesson?.status !== 'cancelled' && !(edHasPlan && edPlanIsTrial)">
                       <ion-icon name="star" aria-hidden="true"></ion-icon>
-                      {{ 'HOME.STATUS_TRIAL' | translate }}
+                      <span>{{ 'HOME.TRIAL_LESSON' | translate }}</span>
                     </span>
                   </div>
                 </div>
