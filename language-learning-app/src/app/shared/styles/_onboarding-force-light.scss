@@ -1,0 +1,237 @@
+// Keep signup / role-select / student / tutor onboarding on the light palette even when
+// the rest of the app uses `html.ion-palette-dark`.
+
+:host.ob-force-light,
+:host-context(html.ion-palette-dark).ob-force-light,
+:host-context(html.ion-palette-dark) {
+  --ion-background-color: #ffffff;
+  --ion-text-color: #222222;
+  --ion-color-step-50: #f2f2f2;
+  --ion-color-step-100: #e6e6e6;
+  --ion-color-step-150: #d9d9d9;
+  --ion-color-step-200: #cccccc;
+  --ion-color-step-250: #bfbfbf;
+  --ion-color-step-300: #b3b3b3;
+  --ion-color-step-350: #a6a6a6;
+  --ion-color-step-400: #999999;
+  --ion-color-step-450: #8c8c8c;
+  --ion-color-step-500: #808080;
+  --ion-color-step-550: #737373;
+  --ion-color-step-600: #666666;
+  --ion-color-step-650: #595959;
+  --ion-color-step-700: #4d4d4d;
+  --ion-color-step-750: #404040;
+  --ion-color-step-800: #333333;
+  --ion-color-step-850: #262626;
+  --ion-color-step-900: #1a1a1a;
+  --ion-color-step-950: #0d0d0d;
+  color: #222222;
+}
+
+:host-context(html.ion-palette-dark) {
+  background: #ffffff;
+
+  .barnabi-wordmark-for-light-ui,
+  .barnabi-mascot-for-light-ui {
+    display: inline-block !important;
+  }
+
+  .barnabi-wordmark-for-dark-ui,
+  .barnabi-mascot-for-dark-ui {
+    display: none !important;
+  }
+
+  ion-header ion-toolbar.onboarding-toolbar,
+  ion-header ion-toolbar.onboarding-wizard-toolbar,
+  ion-header.onboarding-wizard-header ion-toolbar.onboarding-toolbar,
+  ion-header.onboarding-wizard-header ion-toolbar.onboarding-wizard-toolbar {
+    --background: #ffffff;
+    --color: #222222;
+    --border-color: transparent;
+    background: #ffffff;
+    box-shadow: none;
+
+    .logout-btn {
+      --color: #222222;
+
+      &:hover {
+        --color: #000000;
+      }
+    }
+  }
+
+  ion-content,
+  .role-select-content {
+    --background: #ffffff;
+    --color: #222222;
+    color: #222222;
+  }
+
+  .cm-details-wizard-page-toolbar-title,
+  .cm-details-wizard-header h1 {
+    color: #1d1d1f;
+  }
+
+  .cm-details-wizard-step-indicator,
+  .cm-details-wizard-header p,
+  .cm-details-wizard-step-chip-text span {
+    color: #6e6e73;
+  }
+
+  .cm-details-wizard-progress {
+    background: #ebebeb;
+  }
+
+  .cm-details-wizard-progress-fill {
+    background: #007aff;
+  }
+
+  .cm-details-wizard-footer {
+    border-top-color: #ebebeb;
+  }
+
+  .cm-details-wizard-save,
+  .cm-btn-secondary {
+    background: #ffffff;
+    border-color: #dddddd;
+    color: #222222;
+
+    &:hover:not(:disabled) {
+      background: #f7f7f7;
+      border-color: #222222;
+    }
+  }
+
+  .cm-btn-primary,
+  .cm-wizard-viewport-footer__primary {
+    background: #222222;
+    color: #ffffff;
+
+    &:hover:not(:disabled) {
+      background: #000000;
+    }
+  }
+
+  .cm-details-wizard-step-chip {
+    background: #ffffff;
+    border-color: #dddddd;
+
+    &--current {
+      border-color: #222222;
+    }
+
+    &--done {
+      background: rgba(52, 199, 89, 0.08);
+    }
+  }
+
+  .cm-details-wizard-step-chip-num {
+    background: #f7f7f7;
+    color: #222222;
+
+    .cm-details-wizard-step-chip--current & {
+      background: #222222;
+      color: #ffffff;
+    }
+  }
+
+  .cm-details-wizard-step-chip-text strong {
+    color: #222222;
+  }
+
+  .cm-details-wizard-text-link {
+    color: #007aff;
+  }
+
+  .cm-wizard-viewport-footer {
+    background: #ffffff;
+    border-top-color: #ebebeb;
+  }
+
+  .cm-wizard-viewport-footer__back {
+    background: #ffffff;
+    border-color: #dddddd;
+    color: #222222;
+
+    &:hover:not(:disabled) {
+      border-color: #222222;
+      background: #f7f7f7;
+    }
+  }
+
+  .form-fields {
+    .name-step-subtext {
+      color: #717171;
+
+      &--example {
+        color: #b0b0b0;
+      }
+    }
+  }
+
+  .form-fields .form-field {
+    label {
+      color: #222222;
+    }
+
+    .field-hint,
+    .field-note,
+    .optional-label {
+      color: #717171;
+    }
+
+    .char-count {
+      color: #b0b0b0;
+    }
+
+    .modern-input,
+    .modern-textarea {
+      background: #ffffff;
+      border-color: #dddddd;
+      color: #222222;
+
+      &:focus {
+        border-color: #222222;
+        box-shadow: none;
+      }
+
+      &::placeholder {
+        color: #b0b0b0;
+      }
+    }
+  }
+
+  .step-title,
+  .step-description {
+    color: #222222;
+  }
+
+  .language-chip,
+  .goal-card,
+  .level-card,
+  .timeline-card {
+    background: #ffffff;
+    border-color: #dddddd;
+    color: #222222;
+  }
+
+  .pre-step-container,
+  .pre-step-container.pre-step-container--scrollable,
+  .pre-step-container.welcome-phase,
+  .pre-step-container.welcome-phase.tutor-welcome-hub,
+  .onboarding-container,
+  .onboarding-container--wizard,
+  .preview-container,
+  .success-page {
+    background: #ffffff;
+  }
+
+  .onboarding-container--preview.preview-container {
+    background: #ffffff;
+  }
+
+  .welcome-celebration-video,
+  .tutor-welcome-hub__video {
+    mix-blend-mode: multiply;
+  }
+}

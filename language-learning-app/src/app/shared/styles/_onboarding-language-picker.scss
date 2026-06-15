@@ -53,21 +53,3 @@
     background: rgba(15, 29, 58, 0.38);
   }
 }
-
-:host-context(html.ion-palette-dark) {
-  .pre-step-language-scroll {
-    scrollbar-color: rgba(255, 255, 255, 0.32) transparent;
-
-    &::-webkit-scrollbar-track {
-      background: rgba(255, 255, 255, 0.06);
-    }
-
-    &::-webkit-scrollbar-thumb {
-      background: rgba(255, 255, 255, 0.28);
-    }
-
-    &:hover::-webkit-scrollbar-thumb {
-      background: rgba(255, 255, 255, 0.42);
-    }
-  }
-}

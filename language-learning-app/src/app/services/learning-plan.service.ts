@@ -553,7 +553,7 @@ export class LearningPlanService {
           `${this.apiUrl}/${encodeURIComponent(language)}/phase/${phaseIndex}`,
           updates,
           { headers }
-        ).pipe(tap(() => this.invalidatePlanCache(language)));
+        ).pipe(tap(res => this.broadcastPlanUpdate(language, res)));
       })
     );
   }

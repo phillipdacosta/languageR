@@ -110,7 +110,7 @@
 
 <div class="onboarding-container onboarding-container--wizard ob-wizard-split-active" *ngIf="!showPreview && !showWelcome && preStepPhase === 'done'">
   <div class="onboarding-wizard-card">
-    <div class="cm-wizard-viewport-scroll" [class.cm-wizard-viewport-scroll--fit]="currentStep === 2 || currentStep === 3">
+    <div class="cm-wizard-viewport-scroll" [class.cm-wizard-viewport-scroll--fit]="currentStep === 2 || currentStep === 3 || currentStep === 6">
     <div class="cm-details-wizard-page-shell">
       <div class="cm-details-wizard">
         <div class="cm-details-wizard-scroll">
@@ -145,7 +145,7 @@
                   </div>
                 </div>
               </div>
-              <div class="ob-wizard-split-main-scroll">
+              <div class="ob-wizard-split-main-scroll" [class.ob-wizard-split-main-scroll--goal-step]="currentStep === 6">
               <div class="step-content-card step-content-card--wizard">
         
         <!-- Step 1: Name -->
@@ -246,7 +246,8 @@
         </div>
 
         <!-- Step 6: What's your goal? -->
-        <div *ngIf="currentStep === 6">
+        <div *ngIf="currentStep === 6" class="goal-step-pane">
+          <div class="goal-step-scroll ob-wizard-scroll-container">
           <div class="goal-cards-grid">
             <button 
               *ngFor="let goal of goalTypeOptions"
@@ -287,6 +288,7 @@
             <span>{{ 'ONBOARDING.STUDENT.SKIP_GOAL_LINK' | translate }}</span>
           </button>
           <p class="goal-skip-help">{{ 'ONBOARDING.STUDENT.SKIP_GOAL_HELP' | translate }}</p>
+          </div>
         </div>
 
         <!-- Step 7: Where are you now? -->
@@ -402,50 +404,57 @@
 <!-- Preview / Review (wizard shell + footer) -->
 <div class="preview-container onboarding-container onboarding-container--wizard onboarding-container--preview" *ngIf="showPreview && !showWelcome">
   <div class="onboarding-wizard-card onboarding-wizard-card--preview">
-    <div class="cm-wizard-viewport-scroll preview-wizard-scroll">
-      <div class="orb-layout">
-        <aside class="orb-sidebar">
-          <div class="orb-profile-card">
-            <div class="orb-profile-avatar">
-              <ng-container *ngIf="user$ | async as user; else studentOrbAvatarInitials">
-                <img *ngIf="user.picture" [src]="user.picture" [alt]="firstName + ' ' + lastName" />
-                <span *ngIf="!user.picture" class="orb-profile-initials">{{ previewProfileInitials }}</span>
-              </ng-container>
-              <ng-template #studentOrbAvatarInitials>
-                <span class="orb-profile-initials">{{ previewProfileInitials }}</span>
-              </ng-template>
-            </div>
-            <h2 class="orb-profile-name">{{ firstName }} {{ lastName }}</h2>
-            <p class="orb-profile-role">
-              <span class="orb-role-badge orb-role-badge--student">{{ 'ONBOARDING.STUDENT.PREVIEW_STUDENT_BADGE' | translate }}</span>
-            </p>
-
-            <div class="orb-profile-details">
-              <div class="orb-profile-detail">
-                <ion-icon name="language-outline" aria-hidden="true"></ion-icon>
-                <div>
-                  <span class="orb-profile-detail-primary">{{ previewNativeLanguageName }}</span>
-                  <span class="orb-profile-detail-secondary">{{ 'ONBOARDING.STUDENT.PREVIEW_NATIVE_LANG' | translate }}</span>
-                </div>
-              </div>
-              <div class="orb-profile-detail">
-                <ion-icon name="book-outline" aria-hidden="true"></ion-icon>
-                <div>
-                  <span class="orb-profile-detail-primary">{{ previewSelectedLanguages }}</span>
-                  <span class="orb-profile-detail-secondary">{{ 'ONBOARDING.STUDENT.PREVIEW_LEARNING' | translate }}</span>
-                </div>
-              </div>
-              <div class="orb-profile-detail">
-                <ion-icon name="flag-outline" aria-hidden="true"></ion-icon>
-                <div>
-                  <span class="orb-profile-detail-primary">{{ previewGoalLabel }}</span>
-                  <span class="orb-profile-detail-secondary">{{ 'ONBOARDING.STUDENT.PREVIEW_GOAL' | translate }}</span>
-                </div>
+    <div #wizardViewportScroll class="cm-wizard-viewport-scroll preview-wizard-scroll ob-wizard-scroll-container">
+      <div class="orb-preview-split ed-split approval-split-layout">
+        <aside class="ed-details approval-split-guidance orb-preview-sidebar">
+          <div class="ed-sidebar-head">
+            <img
+              *ngIf="previewProfilePicture && !previewProfilePictureFailed"
+              class="ed-sidebar-head__avatar"
+              [src]="previewProfilePicture"
+              [alt]="firstName + ' ' + lastName"
+              referrerpolicy="no-referrer"
+              (error)="onPreviewAvatarError()" />
+            <span
+              *ngIf="!previewProfilePicture || previewProfilePictureFailed"
+              class="ed-sidebar-head__avatar ed-sidebar-head__avatar--initial">{{ previewProfileInitials }}</span>
+            <div class="ed-sidebar-head__body">
+              <h3 class="ed-sidebar-head__name">{{ firstName }} {{ lastName }}</h3>
+              <div class="ed-sidebar-head__badges">
+                <span class="orb-preview-role-badge">{{ 'ONBOARDING.STUDENT.PREVIEW_STUDENT_BADGE' | translate }}</span>
               </div>
             </div>
+          </div>
 
-            <div class="orb-card-divider"></div>
+          <div class="ed-sidebar-schedule">
+            <div class="ed-sidebar-schedule__row">
+              <ion-icon name="language-outline" aria-hidden="true"></ion-icon>
+              <div class="ed-sidebar-schedule__text">
+                <span class="ed-sidebar-schedule__primary">{{ previewNativeLanguageName }}</span>
+                <span class="ed-sidebar-schedule__secondary">{{ 'ONBOARDING.STUDENT.PREVIEW_NATIVE_LANG' | translate }}</span>
+              </div>
+            </div>
+            <div class="ed-sidebar-schedule__divider" aria-hidden="true"></div>
+            <div class="ed-sidebar-schedule__row">
+              <ion-icon name="book-outline" aria-hidden="true"></ion-icon>
+              <div class="ed-sidebar-schedule__text">
+                <span class="ed-sidebar-schedule__primary">{{ previewSelectedLanguages }}</span>
+                <span class="ed-sidebar-schedule__secondary">{{ 'ONBOARDING.STUDENT.PREVIEW_LEARNING' | translate }}</span>
+              </div>
+            </div>
+            <div class="ed-sidebar-schedule__divider" aria-hidden="true"></div>
+            <div class="ed-sidebar-schedule__row">
+              <ion-icon name="flag-outline" aria-hidden="true"></ion-icon>
+              <div class="ed-sidebar-schedule__text">
+                <span class="ed-sidebar-schedule__primary">{{ previewGoalLabel }}</span>
+                <span class="ed-sidebar-schedule__secondary">{{ 'ONBOARDING.STUDENT.PREVIEW_GOAL' | translate }}</span>
+              </div>
+            </div>
+          </div>
 
+          <div class="ed-pc-divider"></div>
+
+          <div class="orb-preview-setup">
             <div class="orb-setup-head">
               <div class="orb-setup-head-text">
                 <p class="orb-setup-status" [class.orb-setup-status--incomplete]="!studentProfileComplete">
@@ -490,83 +499,85 @@
                 <span>{{ 'ONBOARDING.STUDENT.PREVIEW_CHECKLIST_GOALS' | translate }}</span>
               </li>
             </ul>
-
-            <p class="orb-card-note">
-              <ion-icon name="shield-checkmark-outline" aria-hidden="true"></ion-icon>
-              <span>{{ 'ONBOARDING.TUTOR_OB.PREVIEW_EDIT_LATER_NOTE' | translate }}</span>
-            </p>
           </div>
+
+          <p class="orb-preview-sidebar-note">
+            <ion-icon name="shield-checkmark-outline" aria-hidden="true"></ion-icon>
+            <span>{{ 'ONBOARDING.TUTOR_OB.PREVIEW_EDIT_LATER_NOTE' | translate }}</span>
+          </p>
         </aside>
 
-        <main class="orb-main">
-          <h1 class="orb-title">{{ 'ONBOARDING.STUDENT.PREVIEW_TITLE' | translate }}</h1>
-          <p class="orb-subtitle">{{ 'ONBOARDING.STUDENT.PREVIEW_SUBTITLE' | translate }}</p>
+        <div class="ed-actions approval-split-main orb-preview-main">
+          <div class="ed-actions-scroll">
+            <h1 class="orb-preview-page-title">{{ 'ONBOARDING.STUDENT.PREVIEW_TITLE' | translate }}</h1>
+            <p class="orb-preview-page-subtitle">{{ 'ONBOARDING.STUDENT.PREVIEW_SUBTITLE' | translate }}</p>
 
-          <div class="orb-divider"></div>
-          <section class="orb-row">
-            <div class="orb-section-head">
-              <h2 class="orb-section-label">{{ 'ONBOARDING.STUDENT.PREVIEW_ABOUT' | translate }}</h2>
-              <button type="button" class="orb-edit-link" (click)="goBackToEdit(1)">
-                <ion-icon name="create-outline" aria-hidden="true"></ion-icon>
-                {{ 'ONBOARDING.NAV.EDIT' | translate }}
-              </button>
-            </div>
-            <div class="orb-kv">
-              <span class="orb-kv-key">{{ 'ONBOARDING.STUDENT.PREVIEW_NAME' | translate }}</span>
-              <span class="orb-kv-val">{{ firstName }} {{ lastName }}</span>
-            </div>
-            <div class="orb-kv">
-              <span class="orb-kv-key">{{ 'ONBOARDING.STUDENT.PREVIEW_NATIVE_LANG' | translate }}</span>
-              <span class="orb-kv-val">{{ previewNativeLanguageName }}</span>
-            </div>
-            <div class="orb-kv" *ngIf="previewSpokenLanguages.length > 0">
-              <span class="orb-kv-key">{{ 'ONBOARDING.PREVIEW_ALSO_SPEAKS' | translate }}</span>
-              <span class="orb-kv-val orb-kv-val--tags">
-                <span class="orb-lang-tag" *ngFor="let sl of previewSpokenLanguages">
-                  {{ sl.name }} <span class="orb-lang-cefr">{{ sl.level }}</span>
+            <div class="ed-divider"></div>
+            <section class="ed-row">
+              <div class="orb-preview-section-head">
+                <h2 class="ed-section-label">{{ 'ONBOARDING.STUDENT.PREVIEW_ABOUT' | translate }}</h2>
+                <button type="button" class="orb-preview-edit-link" (click)="goBackToEdit(1)">
+                  <ion-icon name="create-outline" aria-hidden="true"></ion-icon>
+                  {{ 'ONBOARDING.NAV.EDIT' | translate }}
+                </button>
+              </div>
+              <div class="ed-kv">
+                <span class="ed-kv-key">{{ 'ONBOARDING.STUDENT.PREVIEW_NAME' | translate }}</span>
+                <span class="ed-kv-val">{{ firstName }} {{ lastName }}</span>
+              </div>
+              <div class="ed-kv">
+                <span class="ed-kv-key">{{ 'ONBOARDING.STUDENT.PREVIEW_NATIVE_LANG' | translate }}</span>
+                <span class="ed-kv-val">{{ previewNativeLanguageName }}</span>
+              </div>
+              <div class="ed-kv ed-kv--stacked" *ngIf="previewSpokenLanguages.length > 0">
+                <span class="ed-kv-key">{{ 'ONBOARDING.PREVIEW_ALSO_SPEAKS' | translate }}</span>
+                <span class="ed-kv-val ed-kv-val--tags">
+                  <span class="orb-lang-tag" *ngFor="let sl of previewSpokenLanguages">
+                    {{ sl.name }} <span class="orb-lang-cefr">{{ sl.level }}</span>
+                  </span>
                 </span>
-              </span>
-            </div>
-          </section>
+              </div>
+            </section>
 
-          <div class="orb-divider"></div>
-          <section class="orb-row">
-            <div class="orb-section-head">
-              <h2 class="orb-section-label">{{ 'ONBOARDING.STUDENT.PREVIEW_LANGUAGE_SECTION' | translate }}</h2>
-              <button type="button" class="orb-edit-link" (click)="goBackToEdit(3)">
-                <ion-icon name="create-outline" aria-hidden="true"></ion-icon>
-                {{ 'ONBOARDING.NAV.EDIT' | translate }}
-              </button>
-            </div>
-            <div class="orb-kv">
-              <span class="orb-kv-key">{{ 'ONBOARDING.STUDENT.PREVIEW_LEARNING' | translate }}</span>
-              <span class="orb-kv-val">{{ previewSelectedLanguages }}</span>
-            </div>
-          </section>
+            <div class="ed-divider"></div>
+            <section class="ed-row">
+              <div class="orb-preview-section-head">
+                <h2 class="ed-section-label">{{ 'ONBOARDING.STUDENT.PREVIEW_LANGUAGE_SECTION' | translate }}</h2>
+                <button type="button" class="orb-preview-edit-link" (click)="goBackToEdit(3)">
+                  <ion-icon name="create-outline" aria-hidden="true"></ion-icon>
+                  {{ 'ONBOARDING.NAV.EDIT' | translate }}
+                </button>
+              </div>
+              <div class="ed-kv">
+                <span class="ed-kv-key">{{ 'ONBOARDING.STUDENT.PREVIEW_LEARNING' | translate }}</span>
+                <span class="ed-kv-val">{{ previewSelectedLanguages }}</span>
+              </div>
+            </section>
 
-          <div class="orb-divider"></div>
-          <section class="orb-row">
-            <div class="orb-section-head">
-              <h2 class="orb-section-label">{{ 'ONBOARDING.STUDENT.PREVIEW_GOAL_LEVEL_SECTION' | translate }}</h2>
-              <button type="button" class="orb-edit-link" (click)="goBackToEdit(6)">
-                <ion-icon name="create-outline" aria-hidden="true"></ion-icon>
-                {{ 'ONBOARDING.NAV.EDIT' | translate }}
-              </button>
-            </div>
-            <div class="orb-kv">
-              <span class="orb-kv-key">{{ 'ONBOARDING.STUDENT.PREVIEW_GOAL' | translate }}</span>
-              <span class="orb-kv-val">{{ previewGoalLabel }}</span>
-            </div>
-            <div class="orb-kv">
-              <span class="orb-kv-key">{{ 'ONBOARDING.STUDENT.PREVIEW_CURRENT_LEVEL' | translate }}</span>
-              <span class="orb-kv-val">{{ previewLevelLabel }}</span>
-            </div>
-            <div class="orb-kv">
-              <span class="orb-kv-key">{{ 'ONBOARDING.STUDENT.PREVIEW_TIMELINE_ROW' | translate }}</span>
-              <span class="orb-kv-val">{{ previewTimelineLabel }}</span>
-            </div>
-          </section>
-        </main>
+            <div class="ed-divider"></div>
+            <section class="ed-row">
+              <div class="orb-preview-section-head">
+                <h2 class="ed-section-label">{{ 'ONBOARDING.STUDENT.PREVIEW_GOAL_LEVEL_SECTION' | translate }}</h2>
+                <button type="button" class="orb-preview-edit-link" (click)="goBackToEdit(6)">
+                  <ion-icon name="create-outline" aria-hidden="true"></ion-icon>
+                  {{ 'ONBOARDING.NAV.EDIT' | translate }}
+                </button>
+              </div>
+              <div class="ed-kv">
+                <span class="ed-kv-key">{{ 'ONBOARDING.STUDENT.PREVIEW_GOAL' | translate }}</span>
+                <span class="ed-kv-val">{{ previewGoalLabel }}</span>
+              </div>
+              <div class="ed-kv">
+                <span class="ed-kv-key">{{ 'ONBOARDING.STUDENT.PREVIEW_CURRENT_LEVEL' | translate }}</span>
+                <span class="ed-kv-val">{{ previewLevelLabel }}</span>
+              </div>
+              <div class="ed-kv">
+                <span class="ed-kv-key">{{ 'ONBOARDING.STUDENT.PREVIEW_TIMELINE_ROW' | translate }}</span>
+                <span class="ed-kv-val">{{ previewTimelineLabel }}</span>
+              </div>
+            </section>
+          </div>
+        </div>
       </div>
     </div>
 

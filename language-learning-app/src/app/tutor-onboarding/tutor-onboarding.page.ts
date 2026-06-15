@@ -28,6 +28,9 @@ export type TutorOnboardingNativeLangChip = { code: string; native: string; inte
   standalone: false,
 })
 export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewInit, AfterViewChecked {
+  @HostBinding('class.ob-force-light')
+  readonly obForceLight = true;
+
   @HostBinding('class.onboarding-page--wizard-main')
   get onboardingPageWizardMainActive(): boolean {
     return !this.showWelcome && this.preStepPhase === 'done';
