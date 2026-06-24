@@ -50,5 +50,5 @@ services:
     # one bundled into the deployed app. Anything that depended on the
     # "staging" file (which had production: false) should now read from
     # environment.prod.ts.
-    buildCommand: npm ci && npm run build -- --configuration=production
+    buildCommand: NODE_OPTIONS='--max-old-space-size=4096' npm ci && npm run build:prod
     staticPublishPath: www

@@ -7,9 +7,9 @@
     "ng": "ng",
     "start": "ng serve",
     "start:staging": "ng serve --configuration=staging",
-    "build": "ng build",
-    "build:staging": "ng build --configuration=staging",
-    "build:prod": "ng build --configuration=production",
+    "build": "node --max-old-space-size=4096 ./node_modules/@angular/cli/bin/ng.js build",
+    "build:staging": "node --max-old-space-size=4096 ./node_modules/@angular/cli/bin/ng.js build --configuration=staging",
+    "build:prod": "node --max-old-space-size=4096 ./node_modules/@angular/cli/bin/ng.js build --configuration=production",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "lint": "ng lint"
