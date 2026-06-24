@@ -1070,9 +1070,80 @@ html.ion-palette-dark .cefr-card {
     align-items: center;
     justify-content: space-between;
     gap: 16px;
+
+    &--stacked {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 12px;
+
+      .lg-edit-link {
+        align-self: flex-end;
+      }
+    }
   }
 
-  .lg-card-main {
+  .lg-language-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .lg-language-head__label {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .lg-language-head__name {
+    font-size: 17px;
+    font-weight: 600;
+    color: #222;
+    letter-spacing: -0.2px;
+  }
+
+  .lg-language-head__status {
+    flex-shrink: 0;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: #f3f4f6;
+    color: #6b7280;
+
+    &--active {
+      background: #ecfdf5;
+      color: #047857;
+    }
+
+    &--paused {
+      background: #fff7ed;
+      color: #c2410c;
+    }
+
+    &--unframed {
+      background: #f3f4f6;
+      color: #6b7280;
+    }
+
+    &--complete {
+      background: #eff6ff;
+      color: #1d4ed8;
+    }
+  }
+
+  .lg-plan-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid #ebebeb;
+  }
+
+  .lg-plan-action {
     display: flex;
     align-items: center;
     gap: 16px;
@@ -1228,6 +1299,48 @@ html.ion-palette-dark .cefr-card {
   }
 }
 
+// Multi-plan "Manage language plans" — lives outside ion-card, needs its own scope.
+.lg-plan-actions--multi {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 0 32px;
+  border-bottom: 1px solid #ebebeb;
+
+  .lg-plan-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid #ebebeb;
+    background: #fff;
+    color: #111;
+    padding: 10px 16px;
+    border-radius: 999px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.18s ease, border-color 0.18s ease;
+
+    ion-icon {
+      font-size: 16px;
+    }
+
+    &:hover {
+      background: #f7f7f7;
+    }
+
+    &.lg-plan-action--primary {
+      background: #111;
+      color: #fff;
+      border-color: #111;
+
+      &:hover {
+        background: #000;
+      }
+    }
+  }
+}
+
 .learning-goal-card.learning-goal-card--unframed {
   .lg-unframed-inner {
     display: flex;
@@ -1270,6 +1383,29 @@ html.ion-palette-dark .cefr-card {
 html.ion-palette-dark {
   .learning-goal-card .lg-plan-actions {
     border-top-color: #2c2c2e;
+  }
+  .lg-plan-actions--multi {
+    border-bottom-color: #2c2c2e;
+
+    .lg-plan-action {
+      background: #1c1c1e;
+      color: #fff;
+      border-color: #2c2c2e;
+
+      &:hover {
+        background: #2c2c2e;
+      }
+
+      &.lg-plan-action--primary {
+        background: #fff;
+        color: #111;
+        border-color: #fff;
+
+        &:hover {
+          background: #f2f2f7;
+        }
+      }
+    }
   }
   .learning-goal-card .lg-plan-action {
     background: #1c1c1e;

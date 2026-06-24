@@ -9,6 +9,8 @@ import { firstValueFrom, filter, Subscription } from 'rxjs';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { SharedModule } from '../../shared/shared.module';
 import { WebSocketService } from '../../services/websocket.service';
+import { LocaleDisplayService, TEACHABLE_ENGLISH_NAME_TO_ISO639 } from '../../services/locale-display.service';
+import { LanguageService } from '../../services/language.service';
 
 @Pipe({
   name: 'sanitizeUrl',
@@ -40,13 +42,14 @@ export class TutorReviewPage implements OnInit, OnDestroy {
   selectedTab: 'pending' | 'approved' | 'rejected' = 'pending';
   private videoUploadSubscription?: Subscription;
   private credentialUploadSubscription?: Subscription;
+  private photoUploadSubscription?: Subscription;
   
-  // Track which specific tutors have new videos (by tutor ID)
+  // Track which specific tutors have new submissions (by tutor ID)
   tutorsWithUpdates = new Set<string>();
   
-  // New videos notification
-  newVideosCount = 0;
-  showNewVideosAlert = false;
+  // New submissions notification
+  newUpdatesCount = 0;
+  showNewUpdatesAlert = false;
   
   // Cooling period in minutes (configurable)
   readonly COOLING_PERIOD_MINUTES = 30;
@@ -72,7 +75,9 @@ export class TutorReviewPage implements OnInit, OnDestroy {
     private alertController: AlertController,
     private toastController: ToastController,
     private loadingController: LoadingController,
-    private webSocketService: WebSocketService
+    private webSocketService: WebSocketService,
+    private localeDisplay: LocaleDisplayService,
+    private languageService: LanguageService
   ) {}
 
   async ngOnInit() {
@@ -84,33 +89,26 @@ export class TutorReviewPage implements OnInit, OnDestroy {
     );
     await this.loadAllTutors();
     
-    // Listen for new video uploads from tutors
     this.videoUploadSubscription = this.webSocketService.tutorVideoUploaded$.subscribe((data: any) => {
-      console.log('📬 Admin received video upload notification:', data);
-      
-      // Track which specific tutor has an update
-      this.tutorsWithUpdates.add(data.tutorId);
-      
-      // Show notification banner
-      this.newVideosCount++;
-      this.showNewVideosAlert = true;
-      
-      // Optional: Show subtle toast
-      this.showToast(`${data.tutorName} uploaded a new video`, 'primary');
+      this.handleReviewUpdate(data.tutorId, `${data.tutorName} uploaded a new video`);
     });
 
-    // Listen for new credential uploads from tutors
     this.credentialUploadSubscription = this.webSocketService.tutorCredentialUploaded$.subscribe((data: any) => {
-      console.log('📄 Admin received credential upload notification:', data);
-      
-      this.tutorsWithUpdates.add(data.tutorId);
-      this.showNewVideosAlert = true;
-      this.newVideosCount++;
-      
-      const credLabel = data.credentialType === 'governmentId' ? 'government ID' : 
-                         data.credentialType === 'teachingCertification' ? 'teaching certification' : 'document';
-      this.showToast(`${data.tutorName} uploaded a ${credLabel}`, 'primary');
+      const credLabel = data.credentialType === 'governmentId' ? 'government ID' :
+        data.credentialType === 'teachingCertification' ? 'teaching certification' : 'document';
+      this.handleReviewUpdate(data.tutorId, `${data.tutorName} uploaded a ${credLabel}`);
     });
+
+    this.photoUploadSubscription = this.webSocketService.tutorPhotoUploaded$.subscribe((data: any) => {
+      this.handleReviewUpdate(data.tutorId, `${data.tutorName} uploaded a new profile photo`);
+    });
+  }
+
+  private handleReviewUpdate(tutorId: string, toastMessage: string) {
+    this.tutorsWithUpdates.add(tutorId);
+    this.newUpdatesCount++;
+    this.showNewUpdatesAlert = true;
+    this.showToast(toastMessage, 'primary');
   }
 
   ngOnDestroy() {
@@ -121,26 +119,29 @@ export class TutorReviewPage implements OnInit, OnDestroy {
     if (this.credentialUploadSubscription) {
       this.credentialUploadSubscription.unsubscribe();
     }
+    if (this.photoUploadSubscription) {
+      this.photoUploadSubscription.unsubscribe();
+    }
   }
 
   // Manual refresh triggered by admin
   async refreshTutorList() {
-    this.showNewVideosAlert = false;
-    this.newVideosCount = 0;
-    this.tutorsWithUpdates.clear(); // Clear all individual update flags
+    this.showNewUpdatesAlert = false;
+    this.newUpdatesCount = 0;
+    this.tutorsWithUpdates.clear();
     await this.loadAllTutors();
-    this.showToast('Tutor list refreshed', 'success');
+    this.showToast('Review queue refreshed', 'success');
   }
 
-  dismissNewVideosAlert() {
-    this.showNewVideosAlert = false;
+  dismissNewUpdatesAlert() {
+    this.showNewUpdatesAlert = false;
   }
 
   // Refresh a single tutor's video data
   async refreshSingleTutor(tutorId: string) {
     try {
       const loading = await this.loadingController.create({
-        message: 'Refreshing video...',
+        message: 'Refreshing...',
         duration: 3000
       });
       await loading.present();
@@ -169,16 +170,8 @@ export class TutorReviewPage implements OnInit, OnDestroy {
 
       // Enrich the updated tutor with computed properties
       const enrichTutor = (tutor: any) => {
-        tutor._videoUrl = tutor.onboardingData?.pendingVideo || tutor.onboardingData?.introductionVideo || '';
-        tutor._thumbnailUrl = tutor.onboardingData?.pendingVideoThumbnail || tutor.onboardingData?.videoThumbnail || '';
-        tutor._videoType = this.detectVideoType(tutor._videoUrl);
-        tutor._timeAgo = this.calculateTimeAgo(tutor);
-        tutor._minutesSinceUpload = this.calculateMinutesSinceUpload(tutor);
-        tutor._isInCoolingPeriod = tutor._minutesSinceUpload < this.COOLING_PERIOD_MINUTES;
-        tutor._remainingCoolingMinutes = Math.max(0, this.COOLING_PERIOD_MINUTES - Math.floor(tutor._minutesSinceUpload));
-        tutor._isExternalVideo = tutor._videoUrl.includes('vimeo.com') || 
-                                 tutor._videoUrl.includes('youtube.com') || 
-                                 tutor._videoUrl.includes('youtu.be');
+        tutor._displayPhotoUrl = tutor.onboardingData?.pendingPhoto || tutor.picture || '';
+        tutor._pendingPhotoUrl = tutor.onboardingData?.pendingPhoto || '';
         return tutor;
       };
       
@@ -205,18 +198,19 @@ export class TutorReviewPage implements OnInit, OnDestroy {
       if (!updated) {
         await this.loadAllTutors();
       } else {
+        this.enrichTutorData();
         this.updateDisplayedTutors();
       }
 
       // Remove from updates tracking
       this.tutorsWithUpdates.delete(tutorId);
-      this.newVideosCount = Math.max(0, this.newVideosCount - 1);
+      this.newUpdatesCount = Math.max(0, this.newUpdatesCount - 1);
 
       await loading.dismiss();
-      this.showToast('Video refreshed successfully', 'success');
+      this.showToast('Tutor refreshed successfully', 'success');
     } catch (error) {
       console.error('Error refreshing tutor:', error);
-      this.showToast('Failed to refresh video', 'danger');
+      this.showToast('Failed to refresh tutor', 'danger');
     }
   }
 
@@ -238,9 +232,33 @@ export class TutorReviewPage implements OnInit, OnDestroy {
   // Enrich tutor data with computed properties to avoid function calls in template
   enrichTutorData() {
     const enrichTutor = (tutor: any) => {
+      tutor._displayPhotoUrl = tutor.onboardingData?.pendingPhoto || tutor.picture || '';
+      tutor._pendingPhotoUrl = tutor.onboardingData?.pendingPhoto || '';
+      tutor._hasPendingPhoto = !!(tutor.onboardingData?.pendingPhoto && tutor.onboardingData.pendingPhoto !== '');
+      tutor._photoTimeAgo = this.calculatePhotoTimeAgo(tutor);
+      tutor._needsPhotoReview = tutor.pendingReviewItems?.includes('photo') ?? (
+        tutor._hasPendingPhoto ||
+        (
+          tutor.tutorOnboarding?.photoUploaded === true &&
+          tutor.tutorOnboarding?.photoApproved !== true &&
+          tutor.tutorOnboarding?.photoRejected !== true
+        )
+      );
+
       // Video URLs - prioritize pending video over approved video
       const hasPendingVideo = tutor.onboardingData?.pendingVideo && tutor.onboardingData.pendingVideo !== '';
       const hasApprovedVideo = tutor.onboardingData?.introductionVideo && tutor.onboardingData.introductionVideo !== '';
+
+      tutor._needsVideoReview = tutor.pendingReviewItems?.includes('video') ?? (
+        !!hasPendingVideo ||
+        (
+          !!hasApprovedVideo &&
+          tutor.tutorOnboarding?.videoApproved !== true &&
+          tutor.tutorOnboarding?.videoRejected !== true
+        )
+      );
+      tutor._needsCredentialReview = tutor.pendingReviewItems?.includes('credentials') ?? false;
+      tutor._hasVideoContent = !!(hasPendingVideo || hasApprovedVideo);
       
       tutor._videoUrl = hasPendingVideo ? tutor.onboardingData.pendingVideo : 
                         (hasApprovedVideo ? tutor.onboardingData.introductionVideo : '');
@@ -278,9 +296,72 @@ export class TutorReviewPage implements OnInit, OnDestroy {
       tutor._governmentIdStatus = creds?.governmentId?.status || 'not_uploaded';
       tutor._hasCertifications = (creds?.teachingCertifications?.length || 0) > 0;
       tutor._hasAdditionalDocs = (creds?.additionalDocuments?.length || 0) > 0;
-      tutor._credentialsAllApproved = 
-        creds?.governmentId?.status === 'approved' && 
+      tutor._hasAnyCredentials = !!(
+        creds?.governmentId?.url ||
+        creds?.teachingCertifications?.length ||
+        creds?.additionalDocuments?.length
+      );
+      tutor._hasPendingCredentials = tutor._needsCredentialReview;
+      tutor._credentialsAllApproved =
+        creds?.governmentId?.status === 'approved' &&
         creds?.teachingCertifications?.some((c: any) => c.status === 'approved');
+
+      if (creds?.governmentId?.status) {
+        creds.governmentId._badgeColor = this.credentialBadgeColor(creds.governmentId.status);
+      }
+      creds?.teachingCertifications?.forEach((cert: any) => {
+        cert._badgeColor = this.credentialBadgeColor(cert.status);
+      });
+      creds?.additionalDocuments?.forEach((doc: any) => {
+        doc._badgeColor = this.credentialBadgeColor(doc.status);
+      });
+
+      // Approved vs pending breakdown
+      tutor._photoIsApproved = tutor.tutorOnboarding?.photoApproved === true && !tutor._hasPendingPhoto;
+      tutor._photoIsRejected = tutor.tutorOnboarding?.photoRejected === true;
+      tutor._videoIsApproved = tutor.tutorOnboarding?.videoApproved === true && !tutor._needsVideoReview;
+      tutor._videoIsRejected = tutor.tutorOnboarding?.videoRejected === true;
+
+      tutor._approvedPhotoUrl = tutor._photoIsApproved ? (tutor.picture || '') : '';
+      if (!tutor._approvedPhotoUrl && tutor._hasPendingPhoto && tutor.picture) {
+        const pendingUrl = tutor.onboardingData?.pendingPhoto || '';
+        const liveUrl = tutor.picture || '';
+        if (liveUrl && liveUrl !== pendingUrl && liveUrl.includes('storage.googleapis.com')) {
+          tutor._approvedPhotoUrl = liveUrl;
+        }
+      }
+      tutor._showApprovedPhoto = !!tutor._approvedPhotoUrl;
+
+      tutor._approvedVideoUrl = hasApprovedVideo ? tutor.onboardingData.introductionVideo : '';
+      tutor._approvedVideoThumbnail = hasApprovedThumbnail ? tutor.onboardingData.videoThumbnail : '';
+      tutor._approvedVideoType = this.detectVideoType(tutor._approvedVideoUrl);
+      tutor._approvedVideoIsExternal =
+        tutor._approvedVideoUrl.includes('vimeo.com') ||
+        tutor._approvedVideoUrl.includes('youtube.com') ||
+        tutor._approvedVideoUrl.includes('youtu.be');
+
+      tutor._pendingVideoUrl = hasPendingVideo ? tutor.onboardingData.pendingVideo : '';
+      tutor._pendingVideoThumbnail = hasPendingThumbnail ? tutor.onboardingData.pendingVideoThumbnail : '';
+      tutor._pendingVideoType = this.detectVideoType(tutor._pendingVideoUrl);
+      tutor._pendingVideoIsExternal =
+        tutor._pendingVideoUrl.includes('vimeo.com') ||
+        tutor._pendingVideoUrl.includes('youtube.com') ||
+        tutor._pendingVideoUrl.includes('youtu.be');
+
+      tutor._approvedCredentials = this.buildApprovedCredentials(tutor);
+      tutor._pendingCredentials = this.buildPendingCredentials(tutor);
+
+      tutor._reviewChecklist = this.buildReviewChecklist(tutor);
+      tutor._hasActionItems =
+        tutor._needsPhotoReview ||
+        tutor._needsVideoReview ||
+        tutor._pendingCredentials.length > 0;
+      tutor._hasApprovedItems =
+        tutor._showApprovedPhoto ||
+        tutor._videoIsApproved ||
+        tutor._approvedCredentials.length > 0;
+
+      this.enrichTutorLanguages(tutor);
       
       return tutor;
     };
@@ -297,16 +378,182 @@ export class TutorReviewPage implements OnInit, OnDestroy {
     return 'upload';
   }
 
+  private buildReviewChecklist(tutor: any): Array<{
+    key: string;
+    label: string;
+    status: string;
+    statusLabel: string;
+    icon: string;
+  }> {
+    const photoStatus = tutor._needsPhotoReview
+      ? 'pending'
+      : tutor._photoIsRejected
+        ? 'rejected'
+        : tutor._photoIsApproved || tutor.tutorOnboarding?.photoUploaded
+          ? 'approved'
+          : 'missing';
+
+    const videoStatus = tutor._needsVideoReview
+      ? 'pending'
+      : tutor._videoIsRejected
+        ? 'rejected'
+        : tutor._videoIsApproved
+          ? 'approved'
+          : tutor._hasVideoContent
+            ? 'pending'
+            : 'missing';
+
+    let credStatus = 'missing';
+    if (tutor._needsCredentialReview) {
+      credStatus = 'pending';
+    } else if (tutor._hasAnyCredentials) {
+      const hasApproved =
+        tutor.tutorCredentials?.governmentId?.status === 'approved' ||
+        tutor.tutorCredentials?.teachingCertifications?.some((c: any) => c.status === 'approved') ||
+        tutor.tutorCredentials?.additionalDocuments?.some((d: any) => d.status === 'approved');
+      credStatus = hasApproved ? 'approved' : 'missing';
+    }
+
+    const labelMap: Record<string, string> = {
+      approved: 'Approved',
+      pending: 'Needs review',
+      rejected: 'Rejected',
+      missing: 'Not submitted',
+    };
+
+    const iconMap: Record<string, string> = {
+      approved: 'checkmark-circle',
+      pending: 'time-outline',
+      rejected: 'close-circle',
+      missing: 'ellipse-outline',
+    };
+
+    return [
+      { key: 'photo', label: 'Photo', status: photoStatus, statusLabel: labelMap[photoStatus], icon: iconMap[photoStatus] },
+      { key: 'video', label: 'Video', status: videoStatus, statusLabel: labelMap[videoStatus], icon: iconMap[videoStatus] },
+      { key: 'credentials', label: 'Credentials', status: credStatus, statusLabel: labelMap[credStatus], icon: iconMap[credStatus] },
+    ];
+  }
+
+  private buildApprovedCredentials(tutor: any): any[] {
+    const items: any[] = [];
+    const creds = tutor.tutorCredentials;
+    if (!creds) return items;
+
+    if (creds.governmentId?.url && creds.governmentId.status === 'approved') {
+      items.push({
+        type: 'governmentId',
+        id: null,
+        label: 'Government ID',
+        fileName: creds.governmentId.fileName,
+        icon: 'id-card',
+      });
+    }
+    creds.teachingCertifications?.forEach((cert: any) => {
+      if (cert.status === 'approved') {
+        items.push({
+          type: 'teachingCertification',
+          id: cert._id,
+          label: cert.certificationName || 'Teaching Certification',
+          fileName: cert.fileName,
+          icon: 'ribbon',
+        });
+      }
+    });
+    creds.additionalDocuments?.forEach((doc: any) => {
+      if (doc.status === 'approved') {
+        items.push({
+          type: 'additionalDocument',
+          id: doc._id,
+          label: doc.label || doc.documentType || 'Additional Document',
+          fileName: doc.fileName,
+          icon: 'document-attach',
+        });
+      }
+    });
+    return items;
+  }
+
+  private enrichTutorLanguages(tutor: any): void {
+    const profile = tutor.languageProfile;
+    if (profile) {
+      tutor._primaryLanguageLabel = profile.communicatesBestIn || '';
+      tutor._teachingLanguagesText = profile.teaches || '';
+      tutor._spokenLanguagesText = profile.alsoSpeaks || '';
+      tutor._hasLanguageInfo = profile.hasLanguageInfo === true;
+      return;
+    }
+
+    const ui = this.languageService.getCurrentLanguage();
+    const nativeCode = (tutor.nativeLanguage || '').trim();
+    tutor._primaryLanguageLabel = nativeCode
+      ? this.localeDisplay.languageName(nativeCode, ui)
+      : '';
+
+    const teaching = tutor.onboardingData?.languages || [];
+    tutor._teachingLanguageLabels = teaching.map((name: string) => {
+      const iso = TEACHABLE_ENGLISH_NAME_TO_ISO639[name];
+      return iso ? this.localeDisplay.languageName(iso, ui) : name;
+    });
+    tutor._teachingLanguagesText = tutor._teachingLanguageLabels.join(', ');
+
+    const spoken = tutor.spokenLanguages || [];
+    tutor._spokenLanguagesText = spoken
+      .map((entry: { code: string; level: string }) =>
+        `${this.localeDisplay.languageName(entry.code, ui)} (${entry.level})`)
+      .join(', ');
+
+    tutor._hasLanguageInfo =
+      !!tutor._primaryLanguageLabel ||
+      !!tutor._teachingLanguagesText ||
+      !!tutor._spokenLanguagesText;
+  }
+
+  private buildPendingCredentials(tutor: any): any[] {
+    const items: any[] = [];
+    const creds = tutor.tutorCredentials;
+    if (!creds) return items;
+
+    if (creds.governmentId?.url && creds.governmentId.status === 'pending') {
+      items.push({
+        type: 'governmentId',
+        id: null,
+        label: 'Government ID',
+        fileName: creds.governmentId.fileName,
+        icon: 'id-card',
+        badgeColor: creds.governmentId._badgeColor,
+      });
+    }
+    creds.teachingCertifications?.forEach((cert: any) => {
+      if (cert.status === 'pending') {
+        items.push({
+          type: 'teachingCertification',
+          id: cert._id,
+          label: cert.certificationName || 'Teaching Certification',
+          fileName: cert.fileName,
+          icon: 'ribbon',
+          badgeColor: cert._badgeColor,
+        });
+      }
+    });
+    creds.additionalDocuments?.forEach((doc: any) => {
+      if (doc.status === 'pending') {
+        items.push({
+          type: 'additionalDocument',
+          id: doc._id,
+          label: doc.label || doc.documentType || 'Additional Document',
+          fileName: doc.fileName,
+          icon: 'document-attach',
+          badgeColor: doc._badgeColor,
+        });
+      }
+    });
+    return items;
+  }
+
   calculateTimeAgo(tutor: any): string {
     const uploadedAt = tutor.tutorOnboarding?.videoUploadedAt;
-    
-    console.log('⏰ calculateTimeAgo for tutor:', tutor.email, {
-      uploadedAt: uploadedAt,
-      tutorOnboarding: tutor.tutorOnboarding,
-      hasTutorOnboarding: !!tutor.tutorOnboarding,
-      hasUploadedAt: !!uploadedAt
-    });
-    
+
     if (!uploadedAt) {
       if (tutor.createdAt) {
         const createdDate = new Date(tutor.createdAt);
@@ -339,6 +586,21 @@ export class TutorReviewPage implements OnInit, OnDestroy {
     const now = new Date();
     const diffMs = now.getTime() - uploadDate.getTime();
     return diffMs / (1000 * 60);
+  }
+
+  calculatePhotoTimeAgo(tutor: any): string {
+    const uploadedAt = tutor.tutorOnboarding?.photoUploadedAt;
+    if (!uploadedAt) return '';
+    const uploadDate = new Date(uploadedAt);
+    const now = new Date();
+    const diffMs = now.getTime() - uploadDate.getTime();
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMinutes / 60);
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffMinutes < 1) return 'Just now';
+    if (diffMinutes < 60) return `${diffMinutes} minute${diffMinutes === 1 ? '' : 's'} ago`;
+    if (diffHours < 24) return `${diffHours} hour${diffHours === 1 ? '' : 's'} ago`;
+    return `${diffDays} day${diffDays === 1 ? '' : 's'} ago`;
   }
 
   onTabChange(event: any) {
@@ -432,11 +694,10 @@ export class TutorReviewPage implements OnInit, OnDestroy {
   }
 
   async approveTutor(tutor: any) {
-    // Prevent approving if there are new videos pending
-    if (this.showNewVideosAlert) {
+    if (this.showNewUpdatesAlert) {
       const alert = await this.alertController.create({
         header: 'Data Out of Date',
-        message: `There ${this.newVideosCount === 1 ? 'is 1 new video' : `are ${this.newVideosCount} new videos`} uploaded. Please refresh the list first to ensure you're reviewing the latest videos.`,
+        message: `There ${this.newUpdatesCount === 1 ? 'is 1 new submission' : `are ${this.newUpdatesCount} new submissions`} since you last refreshed. Please refresh the list first.`,
         buttons: [
           {
             text: 'Cancel',
@@ -508,11 +769,10 @@ export class TutorReviewPage implements OnInit, OnDestroy {
   // These are now computed once in enrichTutorData() and stored as tutor properties
 
   async rejectTutor(tutor: any) {
-    // Prevent rejecting if there are new videos pending
-    if (this.showNewVideosAlert) {
+    if (this.showNewUpdatesAlert) {
       const alert = await this.alertController.create({
         header: 'Data Out of Date',
-        message: `There ${this.newVideosCount === 1 ? 'is 1 new video' : `are ${this.newVideosCount} new videos`} uploaded. Please refresh the list first to ensure you're reviewing the latest videos.`,
+        message: `There ${this.newUpdatesCount === 1 ? 'is 1 new submission' : `are ${this.newUpdatesCount} new submissions`} since you last refreshed. Please refresh the list first.`,
         buttons: [
           {
             text: 'Cancel',
@@ -652,14 +912,94 @@ export class TutorReviewPage implements OnInit, OnDestroy {
     }
   }
 
+  async approvePhoto(tutor: any) {
+    const alert = await this.alertController.create({
+      header: 'Approve Photo',
+      message: `Approve profile photo for ${tutor.name || tutor.email}?`,
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        {
+          text: 'Approve',
+          handler: async () => {
+            await this.submitPhotoApproval(tutor._id, true, null);
+          }
+        }
+      ]
+    });
+    await alert.present();
+  }
+
+  async rejectPhoto(tutor: any) {
+    const alert = await this.alertController.create({
+      header: 'Reject Photo',
+      message: 'Please provide a reason for rejection:',
+      inputs: [
+        {
+          name: 'reason',
+          type: 'textarea',
+          placeholder: 'Rejection reason...'
+        }
+      ],
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        {
+          text: 'Reject',
+          handler: async (data) => {
+            if (data.reason) {
+              await this.submitPhotoApproval(tutor._id, false, data.reason);
+            }
+          }
+        }
+      ]
+    });
+    await alert.present();
+  }
+
+  async submitPhotoApproval(tutorId: string, approved: boolean, rejectionReason: string | null) {
+    const loading = await this.loadingController.create({
+      message: approved ? 'Approving...' : 'Rejecting...'
+    });
+    await loading.present();
+
+    try {
+      const response = await firstValueFrom(
+        this.http.post<any>(
+          `${environment.apiUrl}/admin/approve-photo/${tutorId}`,
+          { approved, rejectionReason },
+          { headers: this.userService.getAuthHeadersSync() }
+        )
+      );
+
+      await loading.dismiss();
+
+      if (response.success) {
+        this.showToast(approved ? 'Photo approved!' : 'Photo rejected', 'success');
+        await this.loadAllTutors();
+      }
+    } catch (error: any) {
+      await loading.dismiss();
+      this.showToast(error.error?.message || 'Operation failed', 'danger');
+    }
+  }
+
   async showToast(message: string, color: string) {
     const toast = await this.toastController.create({ message, duration: 3000, color, position: 'top' });
     await toast.present();
   }
 
-  playTutorVideo(tutor: any) {
-    console.log('🎬 Opening video modal for tutor:', tutor.name);
-    this.selectedTutor = tutor;
+  playTutorVideo(tutor: any, source: 'approved' | 'pending') {
+    const videoUrl = source === 'approved' ? tutor._approvedVideoUrl : tutor._pendingVideoUrl;
+    const thumbnailUrl = source === 'approved' ? tutor._approvedVideoThumbnail : tutor._pendingVideoThumbnail;
+    const videoType = source === 'approved' ? tutor._approvedVideoType : tutor._pendingVideoType;
+    const isExternal = source === 'approved' ? tutor._approvedVideoIsExternal : tutor._pendingVideoIsExternal;
+
+    this.selectedTutor = {
+      ...tutor,
+      _modalVideoUrl: videoUrl,
+      _modalThumbnailUrl: thumbnailUrl,
+      _modalVideoType: videoType,
+      _modalIsExternal: isExternal,
+    };
     this.isVideoModalOpen = true;
   }
 
@@ -680,10 +1020,10 @@ export class TutorReviewPage implements OnInit, OnDestroy {
   // CREDENTIAL REVIEW METHODS
   // ============================================================
 
-  getCredentialBadgeColor(status: string): string {
+  credentialBadgeColor(status: string): string {
     if (status === 'approved') return 'success';
     if (status === 'rejected') return 'danger';
-    return 'warning'; // pending
+    return 'warning';
   }
 
   hasPendingCredentials(tutor: any): boolean {

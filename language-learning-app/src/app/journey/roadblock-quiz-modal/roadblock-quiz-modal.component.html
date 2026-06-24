@@ -1,0 +1,76 @@
+<div class="journey-roadblock-modal-content">
+  <div class="rbq-card" (click)="$event.stopPropagation()">
+    <div class="rbq-header" *ngIf="stage !== 'done'">
+      <img [src]="roadblockIconSrc" alt="" class="rbq-icon" />
+      <div class="rbq-header-copy">
+        <p class="rbq-kicker">{{ 'JOURNEY.ROADBLOCK.TITLE' | translate }}</p>
+        <p class="rbq-header-sub" *ngIf="stage === 'intro'">{{ introLine }}</p>
+        <p class="rbq-count" *ngIf="stage === 'quiz'">{{ questionCountLabel }}</p>
+      </div>
+    </div>
+
+    <div class="rbq-scroll">
+      <div class="rbq-pane" *ngIf="stage === 'intro'">
+        <p class="rbq-hint">{{ 'JOURNEY.ROADBLOCK.NO_FAIL' | translate }}</p>
+      </div>
+
+      <div class="rbq-pane rbq-pane--quiz" *ngIf="stage === 'quiz' && currentQuestion">
+        <div class="rbq-progress">
+          <span class="rbq-progress-bar" [style.width.%]="progressPct"></span>
+        </div>
+        <p class="rbq-prompt">{{ currentQuestion.prompt }}</p>
+
+        <div class="rbq-options" *ngIf="isMultipleChoice">
+          <button
+            type="button"
+            *ngFor="let opt of currentQuestion.options; trackBy: trackByIndex"
+            class="rbq-option"
+            [class.rbq-option--selected]="selectedAnswer === opt"
+            [class.rbq-option--correct]="answered && optionIsCorrect(opt)"
+            [class.rbq-option--wrong]="answered && selectedAnswer === opt && !optionIsCorrect(opt)"
+            [disabled]="answered && isCorrect"
+            (click)="pickOption(opt)">
+            {{ opt }}
+          </button>
+        </div>
+
+        <div class="rbq-text" *ngIf="!isMultipleChoice">
+          <input
+            class="rbq-input"
+            type="text"
+            [(ngModel)]="typedAnswer"
+            [disabled]="answered && isCorrect"
+            [placeholder]="'JOURNEY.ROADBLOCK.TYPE_PLACEHOLDER' | translate"
+            (ngModelChange)="onTypedAnswerChange()"
+            (keyup.enter)="onFooterPrimary()" />
+        </div>
+
+        <div class="rbq-feedback rbq-feedback--ok" *ngIf="answered && isCorrect">
+          <strong>{{ 'JOURNEY.ROADBLOCK.CORRECT' | translate }}</strong>
+          <span *ngIf="currentQuestion.explanation">{{ currentQuestion.explanation }}</span>
+        </div>
+        <div class="rbq-feedback rbq-feedback--retry" *ngIf="answered && !isCorrect">
+          <strong>{{ 'JOURNEY.ROADBLOCK.NOT_QUITE' | translate }}</strong>
+          <span *ngIf="currentQuestion.explanation">{{ currentQuestion.explanation }}</span>
+        </div>
+      </div>
+
+      <div class="rbq-pane rbq-pane--done" *ngIf="stage === 'done'">
+        <img [src]="roadblockIconSrc" alt="" class="rbq-icon rbq-icon--done" />
+        <div class="rbq-done-emoji">🎉</div>
+        <h2 class="rbq-title">{{ 'JOURNEY.ROADBLOCK.CLEARED_TITLE' | translate }}</h2>
+        <p class="rbq-sub">{{ 'JOURNEY.ROADBLOCK.CLEARED_SUB' | translate }}</p>
+      </div>
+    </div>
+
+    <div class="rbq-footer" *ngIf="footerVisible">
+      <button
+        type="button"
+        class="rbq-btn rbq-btn--primary"
+        [disabled]="footerDisabled"
+        (click)="onFooterPrimary()">
+        {{ footerLabelKey | translate }}
+      </button>
+    </div>
+  </div>
+</div>

@@ -22,6 +22,7 @@ const User = require('../models/User');
 const alertService = require('../services/alertService');
 const subscriptionService = require('../services/subscriptionService');
 const { applyApprovalIfReady } = require('../utils/tutorApproval');
+const { collectStripeRequirements, requirementsArraysEqual } = require('../utils/stripeRequirements');
 
 // Webhook endpoint MUST use raw body, not JSON parsed body
 // This is handled in server.js with express.raw() for this specific route
@@ -150,11 +151,9 @@ async function handleConnectAccountUpdated(account) {
     const identityVerified =
       onboarded && requirementsDue === 0 && pastDue === 0 && eventuallyDue === 0;
     const disabledReason = account.requirements?.disabled_reason || null;
-    const accountDisabled = !!(
-      disabledReason ||
-      pastDue > 0 ||
-      (account.details_submitted && account.charges_enabled === false)
-    );
+    const accountDisabled = !!(disabledReason || pastDue > 0);
+    const stripeActionRequired = !onboarded && (requirementsDue > 0 || pastDue > 0);
+    const requirementsCurrentlyDue = collectStripeRequirements(account);
 
     let changed = false;
 
@@ -181,6 +180,26 @@ async function handleConnectAccountUpdated(account) {
       changed = true;
       console.log(`🔄 [WEBHOOK] stripeAccountDisabled=${accountDisabled} (${disabledReason || 'pastDue/charges'}) for ${user.email}`);
     }
+    const detailsSubmitted = account.details_submitted === true;
+    if (user.stripeDetailsSubmitted !== detailsSubmitted) {
+      user.stripeDetailsSubmitted = detailsSubmitted;
+      changed = true;
+      console.log(`🔄 [WEBHOOK] stripeDetailsSubmitted=${detailsSubmitted} for ${user.email}`);
+    }
+    if (detailsSubmitted && user.payoutProvider === 'none') {
+      user.payoutProvider = 'stripe';
+      changed = true;
+    }
+    if (user.stripeActionRequired !== stripeActionRequired) {
+      user.stripeActionRequired = stripeActionRequired;
+      changed = true;
+      console.log(`🔄 [WEBHOOK] stripeActionRequired=${stripeActionRequired} for ${user.email}`);
+    }
+    if (!requirementsArraysEqual(user.stripeRequirementsCurrentlyDue, requirementsCurrentlyDue)) {
+      user.stripeRequirementsCurrentlyDue = requirementsCurrentlyDue;
+      changed = true;
+      console.log(`🔄 [WEBHOOK] stripeRequirementsCurrentlyDue for ${user.email}:`, requirementsCurrentlyDue);
+    }
 
     if (changed) {
       const wasTutorApproved = user.tutorApproved === true;
@@ -201,6 +220,9 @@ async function handleConnectAccountUpdated(account) {
         : 'Stripe updated your account status. Your profile checklist has been refreshed.';
       const notificationData = {
         stripeConnectOnboarded: user.stripeConnectOnboarded,
+        stripeDetailsSubmitted: user.stripeDetailsSubmitted,
+        stripeActionRequired: user.stripeActionRequired,
+        stripeRequirementsCurrentlyDue: user.stripeRequirementsCurrentlyDue || [],
         stripeIdentityVerified: user.stripeIdentityVerified,
         stripeAccountDisabled: user.stripeAccountDisabled,
         stripePayoutsEnabled: user.stripePayoutsEnabled,

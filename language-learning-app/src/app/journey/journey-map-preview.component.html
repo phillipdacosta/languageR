@@ -1,0 +1,81 @@
+<div
+  class="jmp-card"
+  *ngIf="showIllustration || mapNodes.length"
+  [attr.data-theme]="chapterTheme"
+  [class.jmp-card--fallback]="backgroundFailed && !showIllustration"
+  [class.jmp-card--illustration]="showIllustration"
+  [class.jmp-card--illustration-paused]="illustration === 'paused'"
+  [class.jmp-card--illustration-empty]="illustration === 'empty'"
+  [class.jmp-card--large]="size === 'large'"
+  [class.jmp-card--sidebar]="size === 'sidebar'">
+  <div class="jmp-header" *ngIf="planStateLabel && !showIllustration">
+    <span class="jmp-plan-state">{{ planStateLabel }}</span>
+  </div>
+  <div class="jmp-stage jmp-stage--illustration" *ngIf="showIllustration">
+    <div class="jmp-illustration-canvas">
+      <img
+        class="jmp-illustration-art jmp-illustration-art--theme-light"
+        [src]="illustrationArtUrl"
+        alt=""
+        decoding="async" />
+      <img
+        *ngIf="illustrationHasDarkArt"
+        class="jmp-illustration-art jmp-illustration-art--theme-dark"
+        [src]="illustrationArtUrlDark"
+        alt=""
+        decoding="async" />
+    </div>
+  </div>
+  <div class="jmp-stage" *ngIf="!showIllustration" [class.jmp-stage--after-header]="planStateLabel">
+    <img
+      class="jmp-bg jmp-bg--sharp"
+      [src]="backgroundSrcHiRes"
+      [srcset]="backgroundSrcSet"
+      [sizes]="backgroundSizes"
+      alt=""
+      decoding="async"
+      (error)="onBackgroundError()" />
+
+    <svg
+      *ngIf="mapPathD"
+      class="jmp-path"
+      viewBox="0 0 100 100"
+      preserveAspectRatio="none"
+      aria-hidden="true">
+      <path class="jmp-path-dust" [attr.d]="mapPathD" />
+      <path class="jmp-path-halo" [attr.d]="mapPathD" />
+      <path class="jmp-path-line" [attr.d]="mapPathD" />
+    </svg>
+
+    <div
+      *ngFor="let node of mapNodes; trackBy: trackByMapNode"
+      class="jmp-node"
+      [class.jmp-node--completed]="node.status === 'completed'"
+      [class.jmp-node--active]="node.status === 'active'"
+      [class.jmp-node--locked]="node.status === 'locked'"
+      [class.jmp-node--recovery]="node.isRecovery"
+      [class.jmp-node--split]="node.isSplit"
+      [style.left.%]="node.xPct"
+      [style.top.%]="node.yPct"
+      [style.--jmp-depth-scale]="node.depthScale"
+      [style.--jmp-depth-opacity]="node.depthOpacity"
+      [style.z-index]="node.depthZIndex"
+      aria-hidden="true">
+      <span *ngIf="node.isSplit" class="jmp-split-badge">
+        <ion-icon name="cut-outline"></ion-icon>
+      </span>
+      <span *ngIf="node.isRecovery" class="jmp-recovery-badge">
+        <ion-icon name="leaf-outline"></ion-icon>
+      </span>
+      <span class="jmp-dot">
+        <ion-icon *ngIf="node.status === 'completed'" name="checkmark"></ion-icon>
+        <span *ngIf="node.status === 'active'" class="jmp-pulse-ring"></span>
+        <ion-icon *ngIf="node.status === 'locked'" name="lock-closed-outline"></ion-icon>
+      </span>
+    </div>
+  </div>
+
+  <div class="jmp-footer" *ngIf="caption">
+    <span class="jmp-caption">{{ caption }}</span>
+  </div>
+</div>

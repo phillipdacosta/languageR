@@ -15,6 +15,7 @@ import { LessonService } from './services/lesson.service';
 import { ClassService } from './services/class.service';
 import { TutorFeedbackService } from './services/tutor-feedback.service';
 import { ImagePreloadService } from './services/image-preload.service';
+import { EventDetailsImagePreloadService } from './services/event-details-image-preload.service';
 import { GROWTH_TICKER_ICON_URLS } from './services/tutor-growth.service';
 import { Router, NavigationEnd } from '@angular/router';
 import { Subject, takeUntil, filter, forkJoin, take } from 'rxjs';
@@ -51,7 +52,8 @@ export class AppComponent implements OnInit, OnDestroy {
     private tutorFeedbackService: TutorFeedbackService,
     private alertController: AlertController,
     private toastController: ToastController,
-    private imagePreloadService: ImagePreloadService
+    private imagePreloadService: ImagePreloadService,
+    private eventDetailsImagePreload: EventDetailsImagePreloadService,
   ) {
     this.initializeDeepLinks();
   }
@@ -108,6 +110,7 @@ export class AppComponent implements OnInit, OnDestroy {
 
     // Warm static home illustrations during idle time so they paint instantly.
     this.imagePreloadService.preloadWhenIdle(AppComponent.HOME_PRELOAD_ASSETS);
+    this.eventDetailsImagePreload.warmStaticAssets();
     
     // Ensure theme is applied immediately when app initializes
     // This ensures dark mode works across all pages, not just the profile page
@@ -330,6 +333,34 @@ export class AppComponent implements OnInit, OnDestroy {
 
             // Refresh user data to update approval status across the app
             this.userService.getCurrentUser(true).subscribe();
+          });
+
+          // Listen for tutor photo approval notifications
+          this.websocketService.tutorPhotoApproved$.pipe(
+            takeUntil(this.destroy$)
+          ).subscribe(async (data: any) => {
+            const toast = await this.toastController.create({
+              message: data.message,
+              duration: 5000,
+              color: 'success',
+              position: 'top',
+              icon: 'checkmark-circle'
+            });
+            await toast.present();
+          });
+
+          // Listen for tutor photo rejection notifications
+          this.websocketService.tutorPhotoRejected$.pipe(
+            takeUntil(this.destroy$)
+          ).subscribe(async (data: any) => {
+            const toast = await this.toastController.create({
+              message: data.message,
+              duration: 7000,
+              color: 'danger',
+              position: 'top',
+              icon: 'close-circle'
+            });
+            await toast.present();
           });
 
           // Listen for credential approval notifications (global - works on all pages)
@@ -650,11 +681,9 @@ export class AppComponent implements OnInit, OnDestroy {
       })
       .then(response => response.json())
       .then(data => {
-        if (data.success && data.onboarded) {
-          // Force refresh the user data and approval status
+        if (data.success && (data.accountId || data.onboarded || data.stripePendingReview || data.stripeActionRequired || data.detailsSubmitted)) {
           this.userService.getCurrentUser(true).subscribe(() => {
             this.userService.refreshTutorApprovalStatus();
-            // Reload payout status to reflect Stripe connection
             this.userService.loadPayoutStatus();
           });
         }

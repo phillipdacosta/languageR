@@ -571,6 +571,14 @@ const MOCK_SPANISH_PLAN_SUMMARY: LearningPlanSummary = {
     'Practice irregular preterite verbs in natural conversation — weave in ser vs estar when describing past states.',
   tutorOverrides: [],
   selfAssessedLevel: 'simple_conversations',
+  chapterTheme: 'a2-coast',
+  chapterLevel: 'A2',
+  phases: [
+    { title: 'Getting Around Town', status: 'completed' },
+    { title: 'Past Tense & Storytelling', status: 'active' },
+    { title: 'Social Interactions', status: 'locked' },
+    { title: 'Exploring Culture', status: 'locked' },
+  ],
 };
 
 function buildMockLessonPrep(summary: LearningPlanSummary, includeBriefing: boolean): LessonPrep {

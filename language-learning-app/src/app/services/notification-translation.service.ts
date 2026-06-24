@@ -190,14 +190,14 @@ export class NotificationTranslationService {
         case 'tip_received':
           if (d.stripeFee && d.stripeFee > 0) {
             return t('NOTIFICATIONS.MSG.TIP_RECEIVED_WITH_FEE', {
-              netAmount: fmtMoney(d.tutorReceived || d.amount), studentName: d.from || '', date: fmtDate(d.lessonDate),
+              netAmount: fmtMoney(d.tutorReceived || d.amount), studentName: d.from || '', date: fmtDate(d.lessonDate || d.startTime),
               grossAmount: fmtMoney(d.amount), fee: fmtMoney(d.stripeFee)
             });
           }
-          return t('NOTIFICATIONS.MSG.TIP_RECEIVED', { amount: fmtMoney(d.amount), studentName: d.from || '', date: fmtDate(d.lessonDate) });
+          return t('NOTIFICATIONS.MSG.TIP_RECEIVED', { amount: fmtMoney(d.amount), studentName: d.from || '', date: fmtDate(d.lessonDate || d.startTime) });
 
         case 'tip_sent':
-          return t('NOTIFICATIONS.MSG.TIP_SENT', { amount: fmtMoney(d.amount), tutorName: d.to || '', date: fmtDate(d.lessonDate) });
+          return t('NOTIFICATIONS.MSG.TIP_SENT', { amount: fmtMoney(d.amount), tutorName: d.to || '', date: fmtDate(d.lessonDate || d.startTime) });
 
         case 'withdrawal_initiated': {
           const methodLabel = d.method === 'stripe_connect' ? 'Stripe Connect' : d.method === 'paypal' ? 'PayPal' : (d.method || '');
@@ -209,6 +209,12 @@ export class NotificationTranslationService {
 
         case 'tutor_video_rejected':
           return t('NOTIFICATIONS.MSG.VIDEO_REJECTED');
+
+        case 'tutor_photo_approved':
+          return t('NOTIFICATIONS.MSG.PHOTO_APPROVED');
+
+        case 'tutor_photo_rejected':
+          return t('NOTIFICATIONS.MSG.PHOTO_REJECTED');
 
         case 'feedback_required':
           return t('NOTIFICATIONS.MSG.FEEDBACK_REQUIRED', { studentName: d.studentName || '' });
@@ -288,6 +294,8 @@ export class NotificationTranslationService {
       'withdrawal_initiated': 'NOTIFICATIONS.TITLE_TYPE.WITHDRAWAL_INITIATED',
       'tutor_video_approved': 'NOTIFICATIONS.TITLE_TYPE.VIDEO_APPROVED',
       'tutor_video_rejected': 'NOTIFICATIONS.TITLE_TYPE.VIDEO_REJECTED',
+      'tutor_photo_approved': 'NOTIFICATIONS.TITLE_TYPE.PHOTO_APPROVED',
+      'tutor_photo_rejected': 'NOTIFICATIONS.TITLE_TYPE.PHOTO_REJECTED',
       'feedback_required': 'NOTIFICATIONS.TITLE_TYPE.FEEDBACK_REQUIRED',
       'feedback_received': 'NOTIFICATIONS.TITLE_TYPE.FEEDBACK_RECEIVED',
       'feedback_reminder': 'NOTIFICATIONS.TITLE_TYPE.FEEDBACK_REMINDER',

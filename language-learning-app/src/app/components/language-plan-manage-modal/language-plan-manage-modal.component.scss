@@ -1,0 +1,372 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+ion-content {
+  flex: 1;
+  min-height: 0;
+  --background: #ffffff;
+}
+
+ion-content::part(scroll) {
+  display: flex;
+  flex-direction: column;
+}
+
+.floating-close-button {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+  --background: #f7f7f7;
+  --background-hover: #ebebeb;
+  --border-radius: 50%;
+  --color: #222222;
+  --padding-start: 0;
+  --padding-end: 0;
+  width: 36px;
+  height: 36px;
+  margin: 0;
+  --border-width: 0;
+  border: none;
+  overflow: hidden;
+
+  ion-icon {
+    font-size: 24px;
+  }
+}
+
+.lpm-shell {
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 56px 28px 28px;
+  text-align: center;
+}
+
+.lpm-icon-wrap {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 20px;
+  border-radius: 50%;
+  background: #f7f7f7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  ion-icon {
+    font-size: 34px;
+    color: #222222;
+  }
+}
+
+.lpm-title {
+  margin: 0 0 10px;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.4px;
+  color: #222222;
+}
+
+.lpm-subtitle {
+  margin: 0 0 24px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: #717171;
+}
+
+.lpm-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  text-align: left;
+}
+
+.lpm-card {
+  padding: 16px;
+  border: 1px solid #ebebeb;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+
+.lpm-card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.lpm-card__language {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  h2 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 700;
+    color: #222222;
+    letter-spacing: -0.02em;
+  }
+}
+
+.lpm-card__status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #f7f7f7;
+  color: #555555;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.lpm-card__status--active {
+  background: #eaf7ef;
+  color: #147a3d;
+}
+
+.lpm-card__status--paused {
+  background: #fff4e8;
+  color: #b45309;
+}
+
+.lpm-card__status--unframed {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.lpm-card__status--complete {
+  background: #eef2ff;
+  color: #4338ca;
+}
+
+.lpm-card__body {
+  margin: 10px 0 14px;
+  color: #717171;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.lpm-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.lpm-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 9px 14px;
+  border: 1px solid #ebebeb;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #222222;
+  font-size: 14px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+
+  ion-icon {
+    font-size: 16px;
+  }
+
+  &:hover {
+    background: #f7f7f7;
+  }
+}
+
+.lpm-action--primary {
+  background: #111111;
+  border-color: #111111;
+  color: #ffffff;
+}
+
+.lpm-action--ghost {
+  background: transparent;
+  border-color: transparent;
+  color: #555555;
+}
+
+.lpm-card--selectable {
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+
+  &:hover {
+    border-color: rgba(0, 0, 0, 0.16);
+  }
+}
+
+.lpm-card--selected {
+  border-color: #111111;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+.lpm-card__select-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.lpm-select-indicator {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1.5px solid #d1d1d6;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  background: #ffffff;
+  transition: background 0.2s ease, border-color 0.2s ease;
+
+  ion-icon {
+    font-size: 14px;
+  }
+}
+
+.lpm-select-indicator--active {
+  background: #111111;
+  border-color: #111111;
+}
+
+.lpm-select-label {
+  font-size: 14px;
+  font-weight: 650;
+  color: #555555;
+}
+
+.lpm-footer {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: flex-end;
+  padding: 16px 24px 24px;
+  background: #ffffff;
+  border-top: 1px solid #ebebeb;
+}
+
+.lpm-done-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 112px;
+  min-height: 44px;
+  padding: 0 22px;
+  border: none;
+  border-radius: 999px;
+  background: #111111;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+
+  &:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+
+  ion-spinner {
+    width: 18px;
+    height: 18px;
+    --color: #ffffff;
+  }
+}
+
+:host-context(html.ion-palette-dark) {
+  ion-content {
+    --background: #1c1c1e;
+  }
+
+  .floating-close-button {
+    --background: #2c2c2e;
+    --color: #f5f5f7;
+  }
+
+  .lpm-icon-wrap {
+    background: #2c2c2e;
+
+    ion-icon {
+      color: #f5f5f7;
+    }
+  }
+
+  .lpm-title {
+    color: #f5f5f7;
+  }
+
+  .lpm-subtitle,
+  .lpm-card__body {
+    color: #a1a1aa;
+  }
+
+  .lpm-card {
+    background: #1c1c1e;
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow: 0 2px 18px rgba(0, 0, 0, 0.4);
+  }
+
+  .lpm-card__language h2 {
+    color: #f5f5f7;
+  }
+
+  .lpm-action {
+    background: #2c2c2e;
+    border-color: rgba(255, 255, 255, 0.12);
+    color: #f5f5f7;
+  }
+
+  .lpm-action--primary {
+    background: #f5f5f7;
+    border-color: #f5f5f7;
+    color: #111111;
+  }
+
+  .lpm-action--ghost {
+    background: transparent;
+    border-color: transparent;
+    color: #c7c7cc;
+  }
+
+  .lpm-card--selected {
+    border-color: rgba(255, 255, 255, 0.28);
+  }
+
+  .lpm-select-indicator {
+    background: #2c2c2e;
+    border-color: rgba(255, 255, 255, 0.18);
+  }
+
+  .lpm-select-indicator--active {
+    background: #f5f5f7;
+    border-color: #f5f5f7;
+    color: #111111;
+  }
+
+  .lpm-select-label {
+    color: #a1a1aa;
+  }
+
+  .lpm-footer {
+    background: #1c1c1e;
+    border-top-color: rgba(255, 255, 255, 0.12);
+  }
+
+  .lpm-done-btn {
+    background: #f5f5f7;
+    color: #111111;
+
+    ion-spinner {
+      --color: #111111;
+    }
+  }
+}

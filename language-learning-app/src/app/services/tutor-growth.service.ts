@@ -40,6 +40,8 @@ export interface GrowthInsight {
   lockRotation?: boolean;
   /** When false, the ticker hides the dismiss (X) affordance. Defaults to true. */
   dismissable?: boolean;
+  /** Optional admin rejection note — rendered as grey Barnabi review team suffix. */
+  rejectionTeamNote?: string | null;
 }
 
 export interface ProfileChecklistItem {
@@ -49,6 +51,11 @@ export interface ProfileChecklistItem {
   done: boolean;
   /** Submitted by tutor but waiting on admin (or video) review — show orange, not green. */
   pendingReview?: boolean;
+  /** Admin rejected — tutor must re-upload; show red headline + optional grey team note. */
+  rejected?: boolean;
+  rejectionReason?: string;
+  /** Admin note shown as grey "Barnabi review team" suffix when present. */
+  rejectionTeamNote?: string | null;
   route: string;
 }
 
@@ -90,8 +97,13 @@ export interface GrowthContext {
   hasEverHadBooking: boolean;
 
   hasCustomPhoto: boolean;
+  photoApproved: boolean;
+  photoRejected?: boolean;
+  photoRejectionReason?: string | null;
   hasVideo: boolean;
   videoApproved: boolean;
+  videoRejected?: boolean;
+  videoRejectionReason?: string | null;
   /** Combined upload state — kept for legacy growth-insight rules. */
   credentialsComplete: boolean;
   /** Combined admin-approved state — kept for legacy growth-insight rules. */
@@ -106,7 +118,17 @@ export interface GrowthContext {
   certificationsUploaded: boolean;
   /** At least one teaching certification admin-approved. */
   certificationsApproved: boolean;
+  certificationsRejected?: boolean;
+  certificationsRejectionReason?: string | null;
+  governmentIdRejected?: boolean;
+  governmentIdRejectionReason?: string | null;
+  credentialsRejected?: boolean;
+  credentialsRejectionReason?: string | null;
   hasPayoutSetup: boolean;
+  /** Stripe Connect form submitted; waiting on Stripe review. */
+  stripePendingReview?: boolean;
+  /** Stripe needs more info — tutor must return to Stripe. */
+  stripeActionRequired?: boolean;
   tosComplete: boolean;
   tutorApproved: boolean;
 }
@@ -175,70 +197,123 @@ export function buildTutorProfileChecklist(
   ctx: Pick<
     GrowthContext,
     | 'hasCustomPhoto'
+    | 'photoApproved'
+    | 'photoRejected'
+    | 'photoRejectionReason'
     | 'hasVideo'
     | 'videoApproved'
+    | 'videoRejected'
+    | 'videoRejectionReason'
     | 'identityRequired'
     | 'governmentIdUploaded'
+    | 'governmentIdRejected'
+    | 'governmentIdRejectionReason'
     | 'identitySatisfied'
     | 'certificationsUploaded'
     | 'certificationsApproved'
+    | 'certificationsRejected'
+    | 'certificationsRejectionReason'
+    | 'credentialsRejected'
+    | 'credentialsRejectionReason'
     | 'hasPayoutSetup'
+    | 'stripePendingReview'
+    | 'stripeActionRequired'
     | 'tosComplete'
   >
 ): ProfileChecklistItem[] {
   const items: ProfileChecklistItem[] = [];
 
+  const photoRejected = ctx.photoRejected === true;
+  const photoPendingReview = ctx.hasCustomPhoto && !ctx.photoApproved && !photoRejected;
   items.push({
     id: 'photo',
-    labelKey: 'HOME.GROWTH.CHECKLIST_PHOTO',
-    done: ctx.hasCustomPhoto,
-    pendingReview: false,
+    labelKey: photoRejected
+      ? 'HOME.GROWTH.CHECKLIST_PHOTO_REJECTED_HEADLINE'
+      : photoPendingReview
+        ? 'HOME.GROWTH.CHECKLIST_PHOTO_PENDING'
+        : 'HOME.GROWTH.CHECKLIST_PHOTO',
+    labelParams: undefined,
+    rejectionTeamNote: photoRejected ? (ctx.photoRejectionReason?.trim() || null) : null,
+    done: photoRejected ? false : ctx.hasCustomPhoto,
+    pendingReview: photoPendingReview,
+    rejected: photoRejected,
+    rejectionReason: ctx.photoRejectionReason || undefined,
     route: '/tutor-approval',
   });
 
-  const videoPendingReview = ctx.hasVideo && !ctx.videoApproved;
+  const videoRejected = ctx.videoRejected === true;
+  const videoPendingReview = ctx.hasVideo && !ctx.videoApproved && !videoRejected;
   items.push({
     id: 'video',
-    labelKey: videoPendingReview
-      ? 'HOME.GROWTH.CHECKLIST_VIDEO_PENDING'
-      : 'HOME.GROWTH.CHECKLIST_VIDEO',
-    done: ctx.hasVideo,
+    labelKey: videoRejected
+      ? 'HOME.GROWTH.CHECKLIST_VIDEO_REJECTED_HEADLINE'
+      : videoPendingReview
+        ? 'HOME.GROWTH.CHECKLIST_VIDEO_PENDING'
+        : 'HOME.GROWTH.CHECKLIST_VIDEO',
+    labelParams: undefined,
+    rejectionTeamNote: videoRejected ? (ctx.videoRejectionReason?.trim() || null) : null,
+    done: videoRejected ? false : ctx.hasVideo,
     pendingReview: videoPendingReview,
+    rejected: videoRejected,
+    rejectionReason: ctx.videoRejectionReason || undefined,
     route: '/tabs/profile',
   });
 
+  const stripePayoutPendingReview = ctx.stripePendingReview === true;
+  const stripePayoutActionRequired = ctx.stripeActionRequired === true;
   items.push({
     id: 'payout',
-    labelKey: 'HOME.GROWTH.CHECKLIST_PAYOUT',
+    labelKey: stripePayoutActionRequired
+      ? 'HOME.GROWTH.CHECKLIST_PAYOUT_STRIPE_ACTION'
+      : stripePayoutPendingReview
+        ? 'HOME.GROWTH.CHECKLIST_PAYOUT_STRIPE_PENDING'
+        : 'HOME.GROWTH.CHECKLIST_PAYOUT',
     done: ctx.hasPayoutSetup,
-    pendingReview: false,
+    pendingReview: stripePayoutPendingReview,
+    rejected: stripePayoutActionRequired,
     route: '/tutor-approval',
   });
 
   // Hide manual identity row when Stripe Connect owns KYC for this tutor.
   if (ctx.identityRequired) {
-    const identityActionDone = ctx.governmentIdUploaded;
+    const identityRejected = ctx.governmentIdRejected === true;
+    const identityActionDone = ctx.governmentIdUploaded && !identityRejected;
     const identityPendingReview = identityActionDone && !ctx.identitySatisfied;
     items.push({
       id: 'identity',
-      labelKey: identityPendingReview
-        ? 'HOME.GROWTH.CHECKLIST_IDENTITY_PENDING'
-        : 'HOME.GROWTH.CHECKLIST_IDENTITY',
-      done: identityActionDone,
+      labelKey: identityRejected
+        ? 'HOME.GROWTH.CHECKLIST_IDENTITY_REJECTED_HEADLINE'
+        : identityPendingReview
+          ? 'HOME.GROWTH.CHECKLIST_IDENTITY_PENDING'
+          : 'HOME.GROWTH.CHECKLIST_IDENTITY',
+      labelParams: undefined,
+      rejectionTeamNote: identityRejected ? (ctx.governmentIdRejectionReason?.trim() || null) : null,
+      done: identityRejected ? false : ctx.governmentIdUploaded,
       pendingReview: identityPendingReview,
+      rejected: identityRejected,
+      rejectionReason: ctx.governmentIdRejectionReason || undefined,
       route: '/tutor-approval',
     });
   }
 
+  const qualificationsRejected = ctx.certificationsRejected === true;
   const qualificationsPendingReview =
-    ctx.certificationsUploaded && !ctx.certificationsApproved;
+    ctx.certificationsUploaded && !ctx.certificationsApproved && !qualificationsRejected;
   items.push({
     id: 'qualifications',
-    labelKey: qualificationsPendingReview
-      ? 'HOME.GROWTH.CHECKLIST_QUALIFICATIONS_PENDING'
-      : 'HOME.GROWTH.CHECKLIST_QUALIFICATIONS',
-    done: ctx.certificationsUploaded,
+    labelKey: qualificationsRejected
+      ? 'HOME.GROWTH.CHECKLIST_QUALIFICATIONS_REJECTED_HEADLINE'
+      : qualificationsPendingReview
+        ? 'HOME.GROWTH.CHECKLIST_QUALIFICATIONS_PENDING'
+        : 'HOME.GROWTH.CHECKLIST_QUALIFICATIONS',
+    labelParams: undefined,
+    rejectionTeamNote: qualificationsRejected ? (ctx.certificationsRejectionReason?.trim() || null) : null,
+    done: qualificationsRejected
+      ? false
+      : (ctx.certificationsApproved || ctx.certificationsUploaded),
     pendingReview: qualificationsPendingReview,
+    rejected: qualificationsRejected,
+    rejectionReason: ctx.certificationsRejectionReason || undefined,
     route: '/tutor-approval',
   });
 
@@ -253,11 +328,71 @@ export function buildTutorProfileChecklist(
   return items;
 }
 
-/** Rows that still need tutor action or are awaiting admin review. */
+/** Build checklist rows from the shared tutorApprovalStatus snapshot. */
+export function buildTutorProfileChecklistFromStatus(status: {
+  photoComplete?: boolean;
+  photoApproved?: boolean;
+  photoRejected?: boolean;
+  photoRejectionReason?: string | null;
+  videoComplete?: boolean;
+  videoApproved?: boolean;
+  videoRejected?: boolean;
+  videoRejectionReason?: string | null;
+  identityRequired?: boolean;
+  governmentIdUploaded?: boolean;
+  governmentIdRejected?: boolean;
+  governmentIdRejectionReason?: string | null;
+  identitySatisfied?: boolean;
+  certificationsUploaded?: boolean;
+  certificationsApproved?: boolean;
+  certificationsRejected?: boolean;
+  certificationsRejectionReason?: string | null;
+  credentialsRejected?: boolean;
+  credentialsRejectionReason?: string | null;
+  stripeConnectOnboarded?: boolean;
+  stripePendingReview?: boolean;
+  stripeActionRequired?: boolean;
+  stripeComplete?: boolean;
+  tosComplete?: boolean;
+} | null | undefined): ProfileChecklistItem[] {
+  if (!status) {
+    return [];
+  }
+  return buildTutorProfileChecklist({
+    hasCustomPhoto: status.photoComplete === true,
+    photoApproved: status.photoApproved === true,
+    photoRejected: status.photoRejected === true,
+    photoRejectionReason: status.photoRejectionReason,
+    hasVideo: status.videoComplete === true,
+    videoApproved: status.videoApproved === true,
+    videoRejected: status.videoRejected === true,
+    videoRejectionReason: status.videoRejectionReason,
+    identityRequired: status.identityRequired === true,
+    governmentIdUploaded: status.governmentIdUploaded === true,
+    governmentIdRejected: status.governmentIdRejected === true,
+    governmentIdRejectionReason: status.governmentIdRejectionReason,
+    identitySatisfied: status.identitySatisfied === true,
+    certificationsUploaded: status.certificationsUploaded === true,
+    certificationsApproved: status.certificationsApproved === true,
+    certificationsRejected: status.certificationsRejected === true,
+    certificationsRejectionReason: status.certificationsRejectionReason,
+    credentialsRejected: status.credentialsRejected === true,
+    credentialsRejectionReason: status.credentialsRejectionReason,
+    hasPayoutSetup: status.stripeComplete === true,
+    stripePendingReview: status.stripePendingReview === true,
+    stripeActionRequired: status.stripeActionRequired === true,
+    tosComplete: status.tosComplete === true,
+  });
+}
+
+export function countCompletedProfileChecklistItems(items: ProfileChecklistItem[]): number {
+  return items.filter((item) => item.done && !item.pendingReview && !item.rejected).length;
+}
+
 export function getOutstandingProfileChecklistItems(
   items: ProfileChecklistItem[]
 ): ProfileChecklistItem[] {
-  return items.filter((item) => !item.done || item.pendingReview);
+  return items.filter((item) => !item.done || item.pendingReview || item.rejected);
 }
 
 @Injectable({
@@ -327,6 +462,23 @@ export class TutorGrowthService {
         route: '/tutor-approval',
         priority: 200,
       });
+    } else if (ctx.photoRejected) {
+      raw.push({
+        id: 'profile_photo_rejected',
+        iconSrc: GROWTH_TICKER_ICONS.warning,
+        messageKey: 'HOME.GROWTH.INSIGHT_PHOTO_REJECTED_HEADLINE',
+        rejectionTeamNote: ctx.photoRejectionReason?.trim() || null,
+        route: '/tutor-approval',
+        priority: 201,
+      });
+    } else if (!ctx.photoApproved) {
+      raw.push({
+        id: 'profile_photo_pending',
+        iconSrc: GROWTH_TICKER_ICONS.hourglass,
+        messageKey: 'HOME.GROWTH.INSIGHT_PHOTO_PENDING',
+        route: '/tutor-approval',
+        priority: 112,
+      });
     }
     if (!ctx.hasVideo) {
       raw.push({
@@ -335,6 +487,15 @@ export class TutorGrowthService {
         messageKey: 'HOME.GROWTH.INSIGHT_PROFILE_VIDEO',
         route: '/tabs/profile',
         priority: 198,
+      });
+    } else if (ctx.videoRejected) {
+      raw.push({
+        id: 'profile_video_rejected',
+        iconSrc: GROWTH_TICKER_ICONS.warning,
+        messageKey: 'HOME.GROWTH.INSIGHT_VIDEO_REJECTED_HEADLINE',
+        rejectionTeamNote: ctx.videoRejectionReason?.trim() || null,
+        route: '/tabs/profile',
+        priority: 199,
       });
     } else if (!ctx.videoApproved) {
       raw.push({
@@ -362,7 +523,23 @@ export class TutorGrowthService {
         priority: 108,
       });
     }
-    if (!ctx.hasPayoutSetup) {
+    if (!ctx.hasPayoutSetup && ctx.stripeActionRequired) {
+      raw.push({
+        id: 'profile_stripe_action',
+        iconSrc: GROWTH_TICKER_ICONS.warning,
+        messageKey: 'HOME.GROWTH.INSIGHT_STRIPE_ACTION',
+        route: '/tutor-approval',
+        priority: 195,
+      });
+    } else if (!ctx.hasPayoutSetup && ctx.stripePendingReview) {
+      raw.push({
+        id: 'profile_stripe_pending',
+        iconSrc: GROWTH_TICKER_ICONS.hourglass,
+        messageKey: 'HOME.GROWTH.INSIGHT_STRIPE_PENDING',
+        route: '/tutor-approval',
+        priority: 109,
+      });
+    } else if (!ctx.hasPayoutSetup) {
       raw.push({
         id: 'profile_payout',
         iconSrc: GROWTH_TICKER_ICONS.warning,
@@ -375,7 +552,7 @@ export class TutorGrowthService {
     this.profileChecklist = buildTutorProfileChecklist(ctx);
 
     // ── Self-resolving: Set availability (only if profile requirements are met) ──
-    const hasProfileItems = !ctx.hasCustomPhoto || !ctx.hasVideo || !ctx.credentialsComplete || !ctx.hasPayoutSetup;
+    const hasProfileItems = !ctx.photoApproved || !ctx.hasVideo || !ctx.credentialsComplete || !ctx.hasPayoutSetup;
     if (!ctx.hasAvailability && !hasProfileItems) {
       raw.push({
         id: 'set_availability',

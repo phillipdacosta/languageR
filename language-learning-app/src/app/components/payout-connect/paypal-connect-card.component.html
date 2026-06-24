@@ -98,7 +98,7 @@
       [disabled]="connectDisabled || loading"
       (click)="connectClick.emit()">
       <ion-spinner *ngIf="loading" name="crescent"></ion-spinner>
-      <span *ngIf="!loading">{{ 'TUTOR_APPROVAL.PAYPAL_CONNECT_CTA' | translate }}</span>
+      <span *ngIf="!loading">{{ connectCtaLabelKey | translate }}</span>
     </button>
 
     <p class="paypal-connect-card__powered">
@@ -118,13 +118,13 @@
           <span *ngIf="hasUSBankAccount">{{ 'TUTOR_APPROVAL.SUMMARY_US_BANK' | translate }}</span>
           <span *ngIf="!hasUSBankAccount">{{ 'TUTOR_APPROVAL.SUMMARY_NO_US_BANK' | translate }}</span>
         </div>
-        <ion-button fill="clear" size="small" (click)="editTaxInfoClick.emit()">
+        <ion-button *ngIf="showLegacyEdit" fill="clear" size="small" (click)="editTaxInfoClick.emit()">
           <ion-icon name="create-outline" slot="start"></ion-icon>
           {{ 'COMMON.EDIT' | translate }}
         </ion-button>
       </div>
 
-      <div class="button-row">
+      <div class="button-row" *ngIf="showLegacyBack">
         <ion-button fill="outline" (click)="backClick.emit()">
           <ion-icon name="arrow-back" slot="start"></ion-icon>
           {{ 'COMMON.BACK' | translate }}

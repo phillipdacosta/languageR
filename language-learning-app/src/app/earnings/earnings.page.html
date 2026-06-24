@@ -254,23 +254,41 @@
         <p class="empty-sub">{{ 'EARNINGS.TRANSFERS_EMPTY_SUB' | translate }}</p>
       </div>
       <div class="transfers-list" *ngIf="withdrawalHistory.length > 0">
-        <div class="transfer-card" *ngFor="let w of withdrawalHistory">
-          <div class="transfer-icon-wrap">
-            <ion-icon [name]="w.method === 'paypal' ? 'logo-paypal' : 'card-outline'"></ion-icon>
+        <div class="transfer-card" [class.transfer-card--breakdown]="w.showFeeBreakdown" *ngFor="let w of withdrawalHistory">
+          <div class="transfer-card-main">
+            <div class="transfer-icon-wrap">
+              <ion-icon [name]="w.method === 'paypal' ? 'logo-paypal' : 'card-outline'"></ion-icon>
+            </div>
+            <div class="transfer-details">
+              <span class="transfer-method">{{ w.method === 'paypal' ? 'PayPal' : 'Stripe' }}</span>
+              <span class="transfer-date">{{ w.requestedAt | date:'MMM d, y' }}</span>
+            </div>
+            <div class="transfer-right">
+              <span class="transfer-amount" *ngIf="!w.showFeeBreakdown">{{ w.netAmountDisplay }}</span>
+              <span class="transfer-settled" *ngIf="!w.showFeeBreakdown && w.settledDisplay">{{ w.settledDisplay }}</span>
+              <span class="transfer-status"
+                [class.status-completed]="w.status === 'completed'"
+                [class.status-pending]="w.status === 'pending' || w.status === 'processing'"
+                [class.status-failed]="w.status === 'failed'">
+                {{ w.statusLabelKey | translate }}
+              </span>
+            </div>
           </div>
-          <div class="transfer-details">
-            <span class="transfer-method">{{ w.method === 'paypal' ? 'PayPal' : 'Stripe' }}</span>
-            <span class="transfer-date">{{ w.requestedAt | date:'MMM d, y' }}</span>
-          </div>
-          <div class="transfer-right">
-            <span class="transfer-amount">{{ w.amountDisplay }}</span>
-            <span class="transfer-settled" *ngIf="w.settledDisplay">{{ w.settledDisplay }}</span>
-            <span class="transfer-status"
-              [class.status-completed]="w.status === 'completed'"
-              [class.status-pending]="w.status === 'pending' || w.status === 'processing'"
-              [class.status-failed]="w.status === 'failed'">
-              {{ w.status === 'completed' ? 'Completed' : w.status === 'failed' ? 'Failed' : 'Processing' }}
-            </span>
+          <div class="transfer-breakdown" *ngIf="w.showFeeBreakdown">
+            <div class="transfer-breakdown-item">
+              <span class="transfer-breakdown-label">{{ 'EARNINGS.TRANSFER_WITHDRAWAL_AMOUNT' | translate }}</span>
+              <span class="transfer-breakdown-value">{{ w.withdrawalAmountDisplay }}</span>
+            </div>
+            <div class="transfer-breakdown-sep" aria-hidden="true"></div>
+            <div class="transfer-breakdown-item" *ngFor="let row of w.feeRows">
+              <span class="transfer-breakdown-label">{{ row.labelKey | translate }}</span>
+              <span class="transfer-breakdown-value is-fee">{{ row.valueDisplay }}</span>
+            </div>
+            <div class="transfer-breakdown-sep" aria-hidden="true"></div>
+            <div class="transfer-breakdown-item">
+              <span class="transfer-breakdown-label">{{ 'EARNINGS.TRANSFER_NET_AMOUNT' | translate }}</span>
+              <span class="transfer-breakdown-value is-total">{{ w.netAmountDisplay }}</span>
+            </div>
           </div>
         </div>
       </div>

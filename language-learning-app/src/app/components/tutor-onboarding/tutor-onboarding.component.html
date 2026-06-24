@@ -92,9 +92,31 @@
                 <div class="photo-step-upload-inner">
                 <div
                   class="photo-step-google-notice photo-step-google-notice--upload"
-                  *ngIf="!photoStepCompleted && currentUser?.picture">
+                  *ngIf="showGooglePhotoNoticeVisible">
                   <ion-icon name="information-circle" color="primary" aria-hidden="true"></ion-icon>
                   <p>{{ 'TUTOR_APPROVAL.PHOTO_GOOGLE_WARNING' | translate }}</p>
+                </div>
+
+                <div
+                  *ngIf="photoReviewStatusVisible"
+                  class="photo-step-review-status video-step-review-status">
+                  <div *ngIf="approvalStatus?.photoApproved" class="status-badge success">
+                    <ion-icon name="checkmark-circle"></ion-icon>
+                    <span>{{ 'TUTOR_APPROVAL.PHOTO_STATUS_APPROVED' | translate }}</span>
+                  </div>
+                  <div *ngIf="!approvalStatus?.photoApproved && !approvalStatus?.photoRejected" class="status-badge pending">
+                    <ion-icon name="time-outline"></ion-icon>
+                    <span>{{ 'TUTOR_APPROVAL.PHOTO_STATUS_PENDING' | translate }}</span>
+                  </div>
+                  <div *ngIf="approvalStatus?.photoRejected" class="status-badge rejected step-rejection-notice">
+                    <ion-icon name="close-circle"></ion-icon>
+                    <div class="step-rejection-notice__copy">
+                      <span class="step-rejection-notice__headline">{{ photoRejectionHeadline }}</span>
+                      <span class="step-rejection-notice__team-note" *ngIf="photoRejectionTeamNote">
+                        {{ 'TUTOR_APPROVAL.BARNABI_REVIEW_TEAM_NOTE' | translate: { message: photoRejectionTeamNote } }}
+                      </span>
+                    </div>
+                  </div>
                 </div>
 
                 <div
@@ -102,7 +124,7 @@
                   role="button"
                   tabindex="0"
                   [class.photo-upload-zone--dragover]="photoUploadDragOver"
-                  [class.photo-upload-zone--completed]="photoStepCompleted"
+                  [class.photo-upload-zone--completed]="photoStepSubmitted"
                   [attr.aria-label]="'TUTOR_APPROVAL.PHOTO_UPLOAD_CAMERA_A11Y' | translate"
                   (click)="triggerPictureUpload()"
                   (keydown.enter)="triggerPictureUpload()"
@@ -112,11 +134,11 @@
                   (drop)="onPhotoDrop($event)">
                   <div class="photo-upload-avatar">
                     <img
-                      *ngIf="currentUser?.picture"
-                      [src]="currentUser.picture"
+                      *ngIf="displayPhotoUrl"
+                      [src]="displayPhotoUrl"
                       [attr.alt]="'TUTOR_APPROVAL.PHOTO_ALT_CURRENT' | translate" />
                     <ion-icon
-                      *ngIf="!currentUser?.picture"
+                      *ngIf="!displayPhotoUrl"
                       name="person-circle-outline"
                       aria-hidden="true"></ion-icon>
                     <button
@@ -127,7 +149,7 @@
                       <ion-icon name="camera" aria-hidden="true"></ion-icon>
                     </button>
                     <ion-icon
-                      *ngIf="photoStepCompleted"
+                      *ngIf="photoStepSubmitted && approvalStatus?.photoApproved"
                       name="checkmark-circle"
                       class="photo-upload-check"
                       color="success"
@@ -145,14 +167,14 @@
                       [disabled]="isRemovingPhoto"
                       (click)="triggerPictureUpload()">
                       <ion-icon name="cloud-upload-outline" aria-hidden="true"></ion-icon>
-                      <span *ngIf="photoStepCompleted">{{ 'TUTOR_APPROVAL.PHOTO_BTN_CHANGE' | translate }}</span>
-                      <span *ngIf="!photoStepCompleted">{{ 'TUTOR_APPROVAL.PHOTO_BTN_UPLOAD' | translate }}</span>
+                      <span *ngIf="photoStepSubmitted">{{ 'TUTOR_APPROVAL.PHOTO_BTN_CHANGE' | translate }}</span>
+                      <span *ngIf="!photoStepSubmitted">{{ 'TUTOR_APPROVAL.PHOTO_BTN_UPLOAD' | translate }}</span>
                     </button>
 
                     <button
                       type="button"
                       class="photo-upload-remove"
-                      *ngIf="photoStepCompleted"
+                      *ngIf="photoStepSubmitted"
                       [disabled]="isRemovingPhoto"
                       (click)="removeProfilePhoto()">
                       {{ 'TUTOR_APPROVAL.PHOTO_BTN_REMOVE' | translate }}
@@ -192,7 +214,7 @@
                     <p class="video-step-intro__desc">{{ 'TUTOR_APPROVAL.VIDEO_INTRO_DESC' | translate }}</p>
                   </div>
 
-                  <div *ngIf="approvalStatus?.videoComplete && (approvalStatus?.videoApproved || approvalStatus?.videoRejected)" class="video-step-review-status">
+                  <div *ngIf="videoReviewStatusVisible" class="video-step-review-status">
                     <div *ngIf="approvalStatus?.videoApproved" class="status-badge success">
                       <ion-icon name="checkmark-circle"></ion-icon>
                       <span>{{ 'TUTOR_APPROVAL.VIDEO_STATUS_APPROVED' | translate }}</span>
@@ -201,13 +223,14 @@
                       <ion-icon name="time-outline"></ion-icon>
                       <span>{{ 'TUTOR_APPROVAL.VIDEO_STATUS_PENDING' | translate }}</span>
                     </div>
-                    <div *ngIf="approvalStatus?.videoRejected && currentUser?.tutorOnboarding?.rejectionReason" class="status-badge rejected">
+                    <div *ngIf="approvalStatus?.videoRejected" class="status-badge rejected step-rejection-notice">
                       <ion-icon name="close-circle"></ion-icon>
-                      <span>{{ 'TUTOR_APPROVAL.VIDEO_REJECTED_WITH_REASON' | translate: { reason: currentUser?.tutorOnboarding?.rejectionReason } }}</span>
-                    </div>
-                    <div *ngIf="approvalStatus?.videoRejected && !currentUser?.tutorOnboarding?.rejectionReason" class="status-badge rejected">
-                      <ion-icon name="close-circle"></ion-icon>
-                      <span>{{ 'TUTOR_APPROVAL.VIDEO_REJECTED_GENERIC' | translate }}</span>
+                      <div class="step-rejection-notice__copy">
+                        <span class="step-rejection-notice__headline">{{ videoRejectionHeadline }}</span>
+                        <span class="step-rejection-notice__team-note" *ngIf="videoRejectionTeamNote">
+                          {{ 'TUTOR_APPROVAL.BARNABI_REVIEW_TEAM_NOTE' | translate: { message: videoRejectionTeamNote } }}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
@@ -314,11 +337,15 @@
                   </div>
 
                   <div
-                    class="identity-rejection-notice"
+                    class="identity-rejection-notice step-rejection-notice"
                     *ngIf="currentUser?.tutorCredentials?.governmentId?.status === 'rejected'">
                     <ion-icon name="alert-circle" color="danger" aria-hidden="true"></ion-icon>
-                    <span *ngIf="currentUser.tutorCredentials.governmentId.rejectionReason">{{ currentUser.tutorCredentials.governmentId.rejectionReason }}</span>
-                    <span *ngIf="!currentUser.tutorCredentials.governmentId.rejectionReason">{{ 'TUTOR_APPROVAL.GOV_ID_REJECTION_FALLBACK' | translate }}</span>
+                    <div class="step-rejection-notice__copy">
+                      <span class="step-rejection-notice__headline">{{ governmentIdRejectionHeadline }}</span>
+                      <span class="step-rejection-notice__team-note" *ngIf="governmentIdRejectionTeamNote">
+                        {{ 'TUTOR_APPROVAL.BARNABI_REVIEW_TEAM_NOTE' | translate: { message: governmentIdRejectionTeamNote } }}
+                      </span>
+                    </div>
                   </div>
 
                   <div
@@ -598,10 +625,14 @@
                           (click)="removeCertification(i)">
                           {{ 'TUTOR_APPROVAL.GOV_ID_BTN_REMOVE' | translate }}
                         </button>
-                        <div class="qualifications-rejection-notice" *ngIf="cert.status === 'rejected'">
+                        <div class="qualifications-rejection-notice step-rejection-notice" *ngIf="cert.status === 'rejected'">
                           <ion-icon name="alert-circle" color="danger" aria-hidden="true"></ion-icon>
-                          <span *ngIf="cert.rejectionReason">{{ cert.rejectionReason }}</span>
-                          <span *ngIf="!cert.rejectionReason">{{ 'TUTOR_APPROVAL.CRED_REUPLOAD' | translate }}</span>
+                          <div class="step-rejection-notice__copy">
+                            <span class="step-rejection-notice__headline">{{ cert.rejectionHeadline }}</span>
+                            <span class="step-rejection-notice__team-note" *ngIf="cert.rejectionTeamNote">
+                              {{ 'TUTOR_APPROVAL.BARNABI_REVIEW_TEAM_NOTE' | translate: { message: cert.rejectionTeamNote } }}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -681,6 +712,15 @@
                             class="qualifications-file-card__status rejected"
                             *ngIf="doc.status === 'rejected'">{{ 'TUTOR_APPROVAL.CRED_DOC_REJECTED' | translate }}</span>
                         </div>
+                        <div class="qualifications-rejection-notice step-rejection-notice" *ngIf="doc.status === 'rejected'">
+                          <ion-icon name="alert-circle" color="danger" aria-hidden="true"></ion-icon>
+                          <div class="step-rejection-notice__copy">
+                            <span class="step-rejection-notice__headline">{{ doc.rejectionHeadline }}</span>
+                            <span class="step-rejection-notice__team-note" *ngIf="doc.rejectionTeamNote">
+                              {{ 'TUTOR_APPROVAL.BARNABI_REVIEW_TEAM_NOTE' | translate: { message: doc.rejectionTeamNote } }}
+                            </span>
+                          </div>
+                        </div>
                         <button
                           type="button"
                           class="qualifications-file-card__remove"
@@ -741,7 +781,7 @@
             <div class="stripe-step-layout approval-split-layout approval-step-card">
               <div
                 class="approval-split-guidance ob-wizard-scroll-container"
-                [class.stripe-step-guidance--connected]="approvalStatus?.stripeComplete">
+                [class.stripe-step-guidance--connected]="stripePayoutFullyConnected">
                 <h3 class="approval-split-guidance__title">{{ approvalStepTitleKey | translate }}</h3>
                 <p class="approval-split-guidance__desc">{{ approvalStepDescriptionKey | translate }}</p>
 
@@ -809,19 +849,23 @@
 
               <div
                 class="approval-split-main ob-wizard-scroll-container"
-                [class.approval-split-main--form]="!approvalStatus?.stripeComplete"
-                [class.approval-split-main--payout-connected]="approvalStatus?.stripeComplete">
+                [class.approval-split-main--form]="!stripePayoutStatusCardVisible"
+                [class.approval-split-main--payout-connected]="stripePayoutStatusCardVisible">
                 <div class="approval-split-main-inner">
-            <!-- Already completed state -->
-            <ng-container *ngIf="approvalStatus?.stripeComplete">
+            <!-- Already completed or Stripe needs follow-up -->
+            <ng-container *ngIf="stripePayoutStatusCardVisible">
               <div id="tutor-approval-payout-connect-anchor" class="profile-payout-panel profile-payout-panel--wizard-connected">
-              <div *ngIf="currentUser?.payoutProvider === 'stripe'" class="profile-payout-provider tutor-approval-step-pane--sub">
+              <div *ngIf="currentUser?.payoutProvider !== 'paypal' && currentUser?.payoutProvider !== 'manual'" class="profile-payout-provider tutor-approval-step-pane--sub">
                 <app-stripe-connect-card
-                  [connected]="true"
-                  [connectedHeroLayout]="true"
+                  [connected]="approvalStatus?.stripeConnectOnboarded === true"
+                  [pendingReview]="approvalStatus?.stripePendingReview === true"
+                  [actionRequired]="approvalStatus?.stripeActionRequired === true"
+                  [stripeRequirementsCurrentlyDue]="approvalStatus?.stripeRequirementsCurrentlyDue || []"
+                  [connectedHeroLayout]="approvalStatus?.stripeConnectOnboarded === true"
                   [loading]="isLoadingPayoutEdit"
-                  [showSecondaryAction]="true"
+                  [showSecondaryAction]="!approvalStatus?.stripeActionRequired"
                   secondaryActionLabelKey="PROFILE_SCREEN.EDIT_PAYOUT_SETTINGS"
+                  (connectClick)="onStripeConnectContinueClick()"
                   (secondaryActionClick)="editStripeConnectAccount()">
                 </app-stripe-connect-card>
               </div>
@@ -855,7 +899,7 @@
             </ng-container>
 
             <!-- Not yet completed -->
-            <div *ngIf="!approvalStatus?.stripeComplete && paymentSetupStep !== 'setup-method'" class="payment-setup-flow">
+            <div *ngIf="!stripePayoutStatusCardVisible && paymentSetupStep !== 'setup-method'" class="payment-setup-flow">
               
               <!-- STEP 1: Tax Status Question (legacy only — country-driven users skip this) -->
               <div *ngIf="paymentSetupStep === 'tax-status' && !isCountryDrivenPayoutRouting" class="tax-question-card">
@@ -962,7 +1006,7 @@
             </div>
 
             <!-- STEP 3: Payment Method Setup — shared connect cards (matches Profile › Payments) -->
-            <div *ngIf="!approvalStatus?.stripeComplete && paymentSetupStep === 'setup-method'" id="tutor-approval-payout-connect-anchor" class="profile-payout-panel tutor-approval-step-pane tutor-approval-step-pane--sub">
+            <div *ngIf="!stripePayoutStatusCardVisible && paymentSetupStep === 'setup-method'" id="tutor-approval-payout-connect-anchor" class="profile-payout-panel tutor-approval-step-pane tutor-approval-step-pane--sub">
               <div *ngIf="determinedPayoutMethod === 'stripe'" class="profile-payout-provider">
                 <app-stripe-connect-card
                   [compactLayout]="true"

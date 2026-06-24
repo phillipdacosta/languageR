@@ -32,19 +32,19 @@
       </div>
     </div>
 
-    <p class="going-msg-sub">
-      {{ 'EVENT_DETAILS.GOING_MESSAGE_SUBTITLE' | translate }}
+    <p class="going-msg-sub" *ngIf="subtitleKey">
+      {{ subtitleKey | translate }}
     </p>
 
-    <ion-textarea
+    <textarea
+      #messageTextarea
       class="going-msg-textarea"
       [(ngModel)]="messageText"
       (ngModelChange)="onMessageTextChange()"
       [maxlength]="maxChars"
-      [autoGrow]="true"
-      [placeholder]="'EVENT_DETAILS.GOING_MESSAGE_PLACEHOLDER' | translate"
+      [attr.placeholder]="messagePlaceholder"
       rows="5"
-    ></ion-textarea>
+    ></textarea>
 
     <p class="going-msg-counter">
       {{ messageCharCount }}/{{ minChars }} {{ 'EVENT_DETAILS.GOING_MESSAGE_REQUIRED_HINT' | translate }}

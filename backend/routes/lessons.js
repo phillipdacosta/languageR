@@ -1368,6 +1368,57 @@ router.get('/my-lessons', verifyToken, async (req, res) => {
       }
     }
 
+    // ── Payment fund snapshot for tutor earnings labels on lesson cards ──
+    const allLessonIds = lessonsWithAnalysis.map(l => l._id);
+    if (allLessonIds.length > 0) {
+      const lessonPayments = await Payment.find({
+        lessonId: { $in: allLessonIds },
+        paymentType: { $nin: ['tip', 'material_purchase'] },
+      })
+        .select('lessonId status transferStatus tutorPayout refundAmount revenueRecognized paymentType')
+        .lean();
+
+      const paymentByLesson = new Map();
+      const transferPriority = ['available', 'on_hold', 'pending_withdrawal', 'withdrawn', 'succeeded', 'pending', 'failed'];
+
+      for (const p of lessonPayments) {
+        const lid = p.lessonId?.toString();
+        if (!lid) continue;
+
+        const existing = paymentByLesson.get(lid);
+        if (!existing) {
+          paymentByLesson.set(lid, {
+            status: p.status,
+            transferStatus: p.transferStatus,
+            tutorPayout: p.tutorPayout || 0,
+            refundAmount: p.refundAmount || 0,
+            revenueRecognized: !!p.revenueRecognized,
+          });
+          continue;
+        }
+
+        existing.tutorPayout += p.tutorPayout || 0;
+        existing.refundAmount += p.refundAmount || 0;
+        existing.revenueRecognized = existing.revenueRecognized || !!p.revenueRecognized;
+
+        if (p.transferStatus) {
+          const curIdx = existing.transferStatus ? transferPriority.indexOf(existing.transferStatus) : 99;
+          const newIdx = transferPriority.indexOf(p.transferStatus);
+          if (newIdx >= 0 && (curIdx < 0 || newIdx < curIdx)) {
+            existing.transferStatus = p.transferStatus;
+            existing.status = p.status;
+          }
+        }
+      }
+
+      for (const l of lessonsWithAnalysis) {
+        const snap = paymentByLesson.get(l._id.toString());
+        if (snap) {
+          l.paymentSnapshot = snap;
+        }
+      }
+    }
+
     res.json({ 
       success: true, 
       lessons: lessonsWithAnalysis 
@@ -4818,7 +4869,8 @@ router.post('/:id/tip', verifyToken, async (req, res) => {
         amount: amount,
         tutorReceived: tutorReceives,
         stripeFee: stripeFee,
-        from: studentDisplayName
+        from: studentDisplayName,
+        lessonDate: lesson.startTime,
       },
       relatedUserId: student._id,
       relatedUserPicture: student.picture || null,
@@ -4835,7 +4887,8 @@ router.post('/:id/tip', verifyToken, async (req, res) => {
       data: {
         lessonId: lessonId,
         amount: amount,
-        to: tutorDisplayName
+        to: tutorDisplayName,
+        lessonDate: lesson.startTime,
       },
       relatedUserId: tutor._id,
       relatedUserPicture: tutor.picture || null,

@@ -41,6 +41,12 @@ const AUTO_PAUSE_AFTER_NEGATIVE_RATINGS = 5;
 const AUTO_PAUSE_DURATION_DAYS = 14;
 const POOL_VARIANTS_TARGET = 5;
 
+// Triggers the *user* initiates on demand. These bypass the premium gate,
+// the daily push cap, and the per-struggle cooldown — the student explicitly
+// asked for (or hit a gate that requires) the quiz. 'roadblock' is the
+// journey-map checkpoint gate (mandatory, un-failable).
+const USER_INITIATED_TRIGGERS = new Set(['manual', 'roadblock']);
+
 // ─────────────────────────────────────────────────────────────────────
 // Selection
 // ─────────────────────────────────────────────────────────────────────
@@ -58,9 +64,12 @@ async function selectAndPushQuiz(opts) {
     return { pushed: false, reason: 'missing_required_args' };
   }
 
-  // Premium gate. Free students don't get auto-push (G28).
+  const userInitiated = USER_INITIATED_TRIGGERS.has(trigger);
+
+  // Premium gate. Free students don't get auto-push (G28), but user-initiated
+  // quizzes (manual practice, roadblock checkpoints) are available to everyone.
   const user = await User.findById(userId).select('subscription userType').lean();
-  if (!entitlements.isPremium(user) && trigger !== 'manual') {
+  if (!entitlements.isPremium(user) && !userInitiated) {
     return { pushed: false, reason: 'free_tier_no_auto_push' };
   }
 
@@ -81,14 +90,14 @@ async function selectAndPushQuiz(opts) {
   // Daily cap.
   const todayKey = _todayKey();
   const used = (history.dailyPushCounts?.get?.(todayKey) ?? history.dailyPushCounts?.[todayKey]) || 0;
-  if (used >= DAILY_PUSH_CAP && trigger !== 'manual') {
+  if (used >= DAILY_PUSH_CAP && !userInitiated) {
     return { pushed: false, reason: 'daily_cap' };
   }
 
   // 48h per-struggle cooldown.
   const lastPush = history.lastPushedByStruggle?.get?.(struggle) ?? history.lastPushedByStruggle?.[struggle];
   if (lastPush && (Date.now() - new Date(lastPush).getTime()) < STRUGGLE_COOLDOWN_HOURS * 60 * 60 * 1000) {
-    if (trigger !== 'manual') return { pushed: false, reason: 'struggle_cooldown' };
+    if (!userInitiated) return { pushed: false, reason: 'struggle_cooldown' };
   }
 
   // Pool query: pick a variant the user hasn't seen for this struggle yet.

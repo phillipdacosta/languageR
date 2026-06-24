@@ -25,12 +25,15 @@ export class PaypalConnectCardComponent {
   @Input() reasonKey = '';
   @Input() reasonParams: Record<string, string> | null = null;
   @Input() showWizardLegacySummary = false;
+  @Input() showLegacyEdit = true;
+  @Input() showLegacyBack = true;
   @Input() isUSPersonForTax: boolean | null = null;
   @Input() hasUSBankAccount: boolean | null = null;
   @Input() showSecondaryAction = false;
   @Input() secondaryActionLabelKey = '';
   @Input() compactLayout = false;
   @Input() connectedHeroLayout = false;
+  @Input() connectCtaLabelKey = 'TUTOR_APPROVAL.PAYPAL_CONNECT_CTA';
 
   @Output() connectClick = new EventEmitter<void>();
   @Output() emailChange = new EventEmitter<string>();

@@ -611,15 +611,21 @@
                 <div class="profile-checklist-items">
                   <button type="button" *ngFor="let item of profileChecklist"
                      class="pcl-item"
-                     [class.pcl-item--done]="item.done && !item.pendingReview"
+                     [class.pcl-item--done]="item.done && !item.pendingReview && !item.rejected"
                      [class.pcl-item--pending-review]="item.pendingReview"
+                     [class.pcl-item--rejected]="item.rejected"
                      (click)="openTutorApprovalWizardFromChecklist(item)">
                     <ion-icon
                       class="pcl-check"
-                      [name]="item.pendingReview ? 'time-outline' : (item.done ? 'checkmark-circle' : 'ellipse-outline')">
+                      [name]="item.rejected ? 'close-circle' : (item.pendingReview ? 'time-outline' : (item.done ? 'checkmark-circle' : 'ellipse-outline'))">
                     </ion-icon>
-                    <span class="pcl-label">{{ item.labelKey | translate:(item.labelParams || {}) }}</span>
-                    <ion-icon name="chevron-forward-outline" class="pcl-arrow" *ngIf="!item.done || item.pendingReview"></ion-icon>
+                    <span class="pcl-label">
+                      <span>{{ item.labelKey | translate:(item.labelParams || {}) }}</span>
+                      <span class="pcl-rejection-team-note" *ngIf="item.rejected && item.rejectionTeamNote">
+                        {{ 'HOME.GROWTH.BARNABI_REVIEW_TEAM_NOTE' | translate: { message: item.rejectionTeamNote } }}
+                      </span>
+                    </span>
+                    <ion-icon name="chevron-forward-outline" class="pcl-arrow" *ngIf="!item.done || item.pendingReview || item.rejected"></ion-icon>
                   </button>
                 </div>
               </div>

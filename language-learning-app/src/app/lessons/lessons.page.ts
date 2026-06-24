@@ -17,6 +17,8 @@ import { takeUntil, filter, take } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 import { formatDateInTz, formatTimeInTz, formatTimeRangeInTz, toIntlLocale } from '../shared/timezone.utils';
 import { buildMockLessonEntity } from './lesson-mock-preview';
+import { LearningPlanService, LearningPlanSummary } from '../services/learning-plan.service';
+import { EventDetailsImagePreloadService } from '../services/event-details-image-preload.service';
 
 // Pre-computed lesson display model (avoids function calls in template)
 interface ProcessedLesson {
@@ -166,6 +168,11 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
   private _lastDataFetch = 0;
   private _cacheValidityMs = 30000; // 30 seconds
 
+  /** Student learning-plan summaries for card copy (e.g. completed trial → next focus). */
+  private planSummaries: LearningPlanSummary[] = [];
+  /** Per-tutor resolved nextLessonFocus keyed by `tutorId|language`. */
+  private readonly tutorPlanFocus = new Map<string, string>();
+
 
   constructor(
     private lessonService: LessonService,
@@ -182,7 +189,9 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
     private alertController: AlertController,
     private http: HttpClient,
     private cdr: ChangeDetectorRef,
-    private translate: TranslateService
+    private translate: TranslateService,
+    private learningPlanService: LearningPlanService,
+    private eventDetailsImagePreload: EventDetailsImagePreloadService,
   ) {}
 
   ngOnInit() {
@@ -252,9 +261,17 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
       this.cdr.detectChanges();
     }
     try {
-      const [lessonResponse, classResponse] = await Promise.all([
+      const studentId = this.isStudentUser
+        ? String(this.currentUser?._id || this.currentUser?.id || '')
+        : '';
+
+      const [lessonResponse, classResponse, planResponse] = await Promise.all([
         firstValueFrom(this.lessonService.getMyLessons()),
-        firstValueFrom(this.classService.getMyClasses()).catch(() => ({ success: false, classes: [] }))
+        firstValueFrom(this.classService.getMyClasses()).catch(() => ({ success: false, classes: [] })),
+        studentId
+          ? firstValueFrom(this.learningPlanService.getStudentPlanSummary(studentId))
+              .catch(() => ({ success: false, summaries: [] as LearningPlanSummary[] }))
+          : Promise.resolve({ success: false, summaries: [] as LearningPlanSummary[] }),
       ]);
 
       const lessons: Lesson[] = lessonResponse?.success ? lessonResponse.lessons : [];
@@ -266,6 +283,13 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
       this.allLessons = [...lessons, ...classesAsLessons]
         .filter(l => !(l.status === 'cancelled' && (l as any).cancelReason === 'payment_failed'))
         .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
+
+      this.planSummaries = planResponse?.success ? (planResponse.summaries || []) : [];
+      if (studentId) {
+        await this.loadTutorPlanFocuses(this.allLessons, studentId);
+      } else {
+        this.tutorPlanFocus.clear();
+      }
 
       this.extractUniqueParticipants();
       this.extractUniqueSubjects();
@@ -281,6 +305,61 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
       this.isLoading = false;
       this.cdr.detectChanges();
     }
+  }
+
+  /** Resolve per-tutor nextLessonFocus for completed trial cards (multi-tutor students). */
+  private async loadTutorPlanFocuses(lessons: Lesson[], studentId: string): Promise<void> {
+    this.tutorPlanFocus.clear();
+    const tutorIds = new Set<string>();
+    for (const lesson of lessons) {
+      if (!lesson.isTrialLesson || lesson.isClass) continue;
+      if (lesson.status !== 'completed' && lesson.status !== 'ended_early') continue;
+      const tutorId = String(lesson.tutorId?._id || lesson.tutorId || '');
+      if (tutorId) tutorIds.add(tutorId);
+    }
+    if (!tutorIds.size) return;
+
+    const tutorIdList = [...tutorIds];
+    const results = await Promise.all(
+      tutorIdList.map(tutorId =>
+        firstValueFrom(this.learningPlanService.getStudentPlanSummary(studentId, tutorId))
+          .catch(() => ({ success: false, summaries: [] as LearningPlanSummary[] }))
+      )
+    );
+
+    results.forEach((res, index) => {
+      if (!res?.success || !res.summaries?.length) return;
+      const tutorId = tutorIdList[index];
+      for (const summary of res.summaries) {
+        const language = (summary.language || '').trim().toLowerCase();
+        const focus = (summary.nextLessonFocus || '').trim();
+        if (language && focus) {
+          this.tutorPlanFocus.set(`${tutorId}|${language}`, focus);
+        }
+      }
+    });
+  }
+
+  private pickPlanSummaryForLesson(lesson: Lesson): LearningPlanSummary | null {
+    if (!this.planSummaries.length) return null;
+    const language = String(lesson.subject || (lesson as any).language || '').trim().toLowerCase();
+    if (language) {
+      const match = this.planSummaries.find(
+        s => (s.language || '').trim().toLowerCase() === language
+      );
+      if (match) return match;
+    }
+    return this.planSummaries[0];
+  }
+
+  private resolveNextLessonFocusForCard(lesson: Lesson): string {
+    const language = String(lesson.subject || (lesson as any).language || '').trim().toLowerCase();
+    const tutorId = String(lesson.tutorId?._id || lesson.tutorId || '');
+    if (tutorId && language) {
+      const tutorFocus = this.tutorPlanFocus.get(`${tutorId}|${language}`);
+      if (tutorFocus) return tutorFocus;
+    }
+    return (this.pickPlanSummaryForLesson(lesson)?.nextLessonFocus || '').trim();
   }
 
   private classToLessonShape(cls: any): Lesson {
@@ -590,6 +669,8 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
     const dur = T('LESSONS_PAGE.CARD_STAT_DURATION');
     const pri = T('LESSONS_PAGE.CARD_STAT_PRICE');
     const rec = T('LESSONS_PAGE.CARD_STAT_RECEIVED');
+    const exp = T('LESSONS_PAGE.CARD_STAT_EXPECTED');
+    const pen = T('LESSONS_PAGE.CARD_STAT_PENDING');
     const sta = T('LESSONS_PAGE.CARD_STAT_STATUS');
     const m = (partial: Partial<ProcessedLesson> & { id: string }) => this.mockProcessedLesson(base, partial);
 
@@ -608,7 +689,7 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
         cardDescText: T('LESSONS_PAGE.PREVIEW_TUTOR_VIEW_DESC'),
         cardStats: [
           { value: '60 min', label: dur },
-          { value: '$40', label: rec },
+          { value: '$40', label: exp },
           { value: T('LESSONS_PAGE.STATUS_SCHEDULED'), label: sta },
         ],
         isTrial: false,
@@ -748,7 +829,7 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
         statusLabel: T('LESSONS_PAGE.STATUS_COMPLETED'),
         isTrial: true,
         cardDescMode: 'schedule',
-        cardDescText: T('LESSONS_PAGE.FIRST_LESSON_STUDENT', { name: 'Sofia' }),
+        cardDescText: T('LESSONS_PAGE.NEXT_LESSON_FOCUS_PREFIX') + 'Practice irregular preterite verbs in natural conversation — weave in ser vs estar when describing past states.',
         cardStats: [
           { value: '30 min', label: dur },
           { value: '$0', label: pri },
@@ -870,7 +951,7 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
         cardDescText: T('LESSONS_PAGE.LAST_SESSION_PREFIX') + 'Covered ser vs estar in present tense. Student struggled with temporary vs permanent states.',
         cardStats: [
           { value: '60 min', label: dur },
-          { value: '$0', label: rec },
+          { value: '$0', label: exp },
           { value: T('LESSONS_PAGE.STATUS_SCHEDULED'), label: sta },
         ],
         isTrial: false,
@@ -1138,7 +1219,13 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
         }
       } else {
         if (isTrial) {
-          // no description — card has name + date + stats already
+          const focus = this.resolveNextLessonFocusForCard(lesson);
+          cardDescMode = 'schedule';
+          if (focus) {
+            cardDescText = T('LESSONS_PAGE.NEXT_LESSON_FOCUS_PREFIX') + this.truncateCardText(focus, 200);
+          } else {
+            cardDescText = T('LESSONS_PAGE.TRIAL_COMPLETED_NO_FOCUS');
+          }
         } else if (analysisStatus === 'generating') {
           cardDescMode = 'analysis_generating';
         } else if (feedbackPendingForStudent) {
@@ -1377,7 +1464,7 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
     return name.split(' ').map(p => p.charAt(0)).join('').toUpperCase().slice(0, 2);
   }
 
-  /** Middle lesson-card column: list price for students, tutor net payout for tutors. */
+  /** Middle lesson-card column: list price for students, tutor net payout + fund status for tutors. */
   private lessonCardMoneyStat(lesson: Lesson, role: 'tutor' | 'student', tipAmt = 0): { value: string; label: string; sub?: string } {
     if (role === 'student') {
       const base = (lesson.price || 0).toFixed(0);
@@ -1391,19 +1478,95 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
           : undefined,
       };
     }
-    const raw = lesson.tutorPayout;
-    const n = typeof raw === 'number' && !Number.isNaN(raw) ? Math.max(0, raw) : 0;
-    const rounded = Math.abs(n - Math.round(n)) < 0.005 ? Math.round(n) : Math.round(n * 100) / 100;
-    const value = `$${rounded.toFixed(Number.isInteger(rounded) ? 0 : 2)}`;
+
+    const amount = this.lessonCardTutorAmount(lesson);
+    const labelKey = this.lessonCardFundLabelKey(lesson, amount);
     return {
-      value,
-      label: this.translate.instant('LESSONS_PAGE.CARD_STAT_RECEIVED'),
+      value: this.formatLessonCardMoney(amount),
+      label: this.translate.instant(labelKey),
       sub: tipAmt > 0
         ? this.translate.instant('LESSONS_PAGE.CARD_STAT_TIP_SUB', {
             amount: `$${tipAmt.toFixed(tipAmt % 1 === 0 ? 0 : 2)}`,
           })
         : undefined,
     };
+  }
+
+  private formatLessonCardMoney(n: number): string {
+    const safe = typeof n === 'number' && !Number.isNaN(n) ? Math.max(0, n) : 0;
+    const rounded = Math.abs(safe - Math.round(safe)) < 0.005 ? Math.round(safe) : Math.round(safe * 100) / 100;
+    return `$${rounded.toFixed(Number.isInteger(rounded) ? 0 : 2)}`;
+  }
+
+  private lessonCardTutorAmount(lesson: Lesson): number {
+    const snap = lesson.paymentSnapshot;
+    const paymentStatus = snap?.status ?? null;
+    const lessonStatus = lesson.status;
+
+    if (paymentStatus === 'refunded') {
+      return 0;
+    }
+
+    if (lessonStatus === 'cancelled') {
+      const hasComp = !!(lesson.isLateCancellation && (lesson.cancellationFeeCharged ?? 0) > 0);
+      const recognized = snap?.revenueRecognized ?? lesson.revenueRecognized;
+      if (!hasComp && !recognized) {
+        return 0;
+      }
+    }
+
+    const raw = snap?.tutorPayout ?? lesson.tutorPayout;
+    return typeof raw === 'number' && !Number.isNaN(raw) ? Math.max(0, raw) : 0;
+  }
+
+  /** Fund-status label under tutor earnings — only "received" when actually transferred. */
+  private lessonCardFundLabelKey(lesson: Lesson, amount: number): string {
+    const snap = lesson.paymentSnapshot;
+    const transferStatus = snap?.transferStatus ?? null;
+    const paymentStatus = snap?.status ?? null;
+    const lessonStatus = lesson.status;
+
+    if (paymentStatus === 'refunded' || (lessonStatus === 'cancelled' && amount <= 0)) {
+      return 'LESSONS_PAGE.CARD_STAT_NO_EARNINGS';
+    }
+
+    if (paymentStatus === 'partially_refunded' && amount <= 0) {
+      return 'LESSONS_PAGE.CARD_STAT_NO_EARNINGS';
+    }
+
+    if (lesson.payoutPaused || transferStatus === 'on_hold') {
+      return 'LESSONS_PAGE.CARD_STAT_ON_HOLD';
+    }
+
+    if (transferStatus === 'withdrawn' || transferStatus === 'succeeded') {
+      return 'LESSONS_PAGE.CARD_STAT_RECEIVED';
+    }
+
+    if (transferStatus === 'available' || transferStatus === 'pending_withdrawal') {
+      return 'LESSONS_PAGE.CARD_STAT_AVAILABLE';
+    }
+
+    if (transferStatus === 'failed') {
+      return 'LESSONS_PAGE.CARD_STAT_FAILED';
+    }
+
+    if (lessonStatus === 'scheduled' || lessonStatus === 'confirmed' || lessonStatus === 'pending_reschedule') {
+      return 'LESSONS_PAGE.CARD_STAT_EXPECTED';
+    }
+
+    if (lessonStatus === 'in_progress') {
+      return 'LESSONS_PAGE.CARD_STAT_PENDING';
+    }
+
+    if (lessonStatus === 'completed' || lessonStatus === 'ended_early') {
+      return 'LESSONS_PAGE.CARD_STAT_PENDING';
+    }
+
+    if (lessonStatus === 'cancelled' && amount > 0) {
+      return 'LESSONS_PAGE.CARD_STAT_PENDING';
+    }
+
+    return amount > 0 ? 'LESSONS_PAGE.CARD_STAT_EXPECTED' : 'LESSONS_PAGE.CARD_STAT_NO_EARNINGS';
   }
 
   // ─── Pagination ──────────────────────────────────────
@@ -1550,6 +1713,7 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
         });
       }
     }
+    this.eventDetailsImagePreload.warmForLesson(pl.id, true, pl.lesson);
     this.router.navigate(['/tabs/lessons', pl.id]);
   }
 

@@ -2,11 +2,19 @@ import { ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, OnInit, 
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, LoadingController, AlertController, ToastController, ModalController, Platform } from '@ionic/angular';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { User, UserService } from '../../services/user.service';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { firstValueFrom } from 'rxjs';
+import {
+  buildStripeConnectPayloadForApprovalWizardStep,
+  classifyStripeReturnStatus,
+  openStripeExternalUrl,
+  parseStripeConnectReturnParams,
+  STRIPE_RETURN_TOAST_KEYS,
+  stripStripeConnectQueryParams,
+} from '../../utils/stripe-connect.util';
 import { SharedModule } from '../../shared/shared.module';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { PayoutSelectionModalComponent } from '../payout-selection-modal/payout-selection-modal.component';
@@ -15,7 +23,6 @@ import { ImagePreloadService } from '../../services/image-preload.service';
 import { ImageCropperComponent } from '../image-cropper/image-cropper.component';
 import { isStripeSupportedCountry } from '../../data/stripe-supported-countries';
 import { TranslateService } from '@ngx-translate/core';
-import { buildStripeConnectPayloadForApprovalWizardStep, openStripeExternalUrl } from '../../utils/stripe-connect.util';
 import { StripeConnectCardComponent } from '../payout-connect/stripe-connect-card.component';
 import { PaypalConnectCardComponent } from '../payout-connect/paypal-connect-card.component';
 
@@ -178,13 +185,28 @@ export class TutorOnboardingComponent implements OnInit {
 
   /** Convenience flags for the template (avoid steps[N] by index in HTML). */
   photoStepCompleted = false;
+  photoStepSubmitted = false;
+  photoReviewStatusVisible = false;
+  photoRejectionNote = '';
+  photoRejectionHeadline = '';
+  photoRejectionTeamNote: string | null = null;
+  displayPhotoUrl = '';
+  showGooglePhotoNoticeVisible = false;
   photoUploadDragOver = false;
   isRemovingPhoto = false;
   identityUploadDragOver = false;
   certUploadDragOver = false;
   additionalDocUploadDragOver = false;
   videoStepCompleted = false;
+  videoReviewStatusVisible = false;
+  videoRejectionNote = '';
+  videoRejectionHeadline = '';
+  videoRejectionTeamNote: string | null = null;
   payoutStepCompleted = false;
+  /** True when Stripe is connected, in review, or needs follow-up (show status card). */
+  stripePayoutStatusCardVisible = false;
+  /** True only when Stripe Connect is fully enabled (not pending review). */
+  stripePayoutFullyConnected = false;
   identityStepCompleted = false;
   identityStepVisible = true;
   qualificationsStepCompleted = false;
@@ -195,6 +217,9 @@ export class TutorOnboardingComponent implements OnInit {
   uploadedAdditionalDocs: any[] = [];
   governmentIdStatus: string = 'not_uploaded';
   governmentIdStatusLabelKey = 'TUTOR_APPROVAL.GOV_ID_STATUS_NOT_UPLOADED';
+  governmentIdRejectionNote = '';
+  governmentIdRejectionHeadline = '';
+  governmentIdRejectionTeamNote: string | null = null;
   isUploadingCredential: boolean = false;
 
   educationNoDegree = false;
@@ -258,6 +283,7 @@ export class TutorOnboardingComponent implements OnInit {
   constructor(
     private userService: UserService,
     private router: Router,
+    private activatedRoute: ActivatedRoute,
     private http: HttpClient,
     private loadingController: LoadingController,
     private alertController: AlertController,
@@ -294,16 +320,33 @@ export class TutorOnboardingComponent implements OnInit {
     this.userService.currentUser$.subscribe(user => {
       if (user && this.currentUser) {
         this.currentUser = user;
-        const creds = user.tutorCredentials;
-        this.uploadedCertifications = creds?.teachingCertifications || [];
-        this.uploadedAdditionalDocs = creds?.additionalDocuments || [];
+        this.syncDisplayPhotoUrl();
+        this.syncCredentialLists(user.tutorCredentials);
+        if (this.approvalStatus) {
+          this.syncStepRejectionDisplay(this.approvalStatus);
+        }
       }
     });
     
-    const shouldAutoAdvance = !this.initialApprovalStepId;
+    const stripeReturn = this.presentAsModal
+      ? null
+      : parseStripeConnectReturnParams(this.activatedRoute.snapshot.queryParams);
+    const shouldAutoAdvance = !this.initialApprovalStepId && !stripeReturn?.tutorApprovalStepId;
     await this.loadOnboardingStatus(shouldAutoAdvance);
-    if (this.initialApprovalStepId) {
-      this.seekToApprovalStepById(this.initialApprovalStepId);
+
+    const stepId = stripeReturn?.tutorApprovalStepId || this.initialApprovalStepId;
+    if (stepId) {
+      this.seekToApprovalStepById(stepId);
+    }
+
+    if (stripeReturn?.success) {
+      await this.showStripeReturnToast();
+      const cleaned = stripStripeConnectQueryParams(this.activatedRoute.snapshot.queryParams);
+      void this.router.navigate([], {
+        relativeTo: this.activatedRoute,
+        queryParams: cleaned,
+        replaceUrl: true,
+      });
     }
   }
 
@@ -347,11 +390,8 @@ export class TutorOnboardingComponent implements OnInit {
 
   // Ionic lifecycle hook - refresh data when page becomes active
   ionViewWillEnter() {
-    if (this.presentAsModal) {
-      return;
-    }
     console.log('🔄 [TUTOR-APPROVAL] ionViewWillEnter - refreshing onboarding status');
-    this.loadOnboardingStatus();
+    void this.loadOnboardingStatus(false, { silent: true });
   }
 
   /** Look up a step by id (only across all steps, not just visible). */
@@ -382,13 +422,19 @@ export class TutorOnboardingComponent implements OnInit {
     const identityRequired = status.identityRequired === true;
 
     const photo = this.getStep('photo');
-    if (photo) photo.completed = status.photoComplete;
+    if (photo) photo.completed = status.photoApproved;
+    this.syncStepRejectionDisplay(status);
 
     const video = this.getStep('video');
     if (video) video.completed = status.videoApproved;
 
     const stripe = this.getStep('stripe');
     if (stripe) stripe.completed = status.stripeComplete;
+    this.stripePayoutStatusCardVisible =
+      status.stripeComplete === true ||
+      status.stripePendingReview === true ||
+      status.stripeActionRequired === true;
+    this.stripePayoutFullyConnected = status.stripeConnectOnboarded === true;
 
     const identity = this.getStep('identity');
     if (identity) {
@@ -434,7 +480,9 @@ export class TutorOnboardingComponent implements OnInit {
             : 'TUTOR_APPROVAL.GOV_ID_STATUS_NOT_UPLOADED';
 
     console.log('📊 [TUTOR-APPROVAL] Updated steps from status:', {
-      photo: status.photoComplete,
+      photo: status.photoApproved,
+      photoSubmitted: this.photoStepSubmitted,
+      photoRejected: status.photoRejected,
       video: status.videoApproved,
       stripe: status.stripeComplete,
       identityVisible: identity?.visible,
@@ -446,12 +494,19 @@ export class TutorOnboardingComponent implements OnInit {
     });
   }
 
-  async loadOnboardingStatus(autoAdvanceStep = true) {
-    this.loading = true;
+  async loadOnboardingStatus(autoAdvanceStep = true, options?: { silent?: boolean }) {
+    const silent = options?.silent === true;
+    if (!silent) {
+      this.loading = true;
+    }
     try {
-      // Force refresh from server, not cache
+      // Sync live Stripe Connect state (pending review, action required, etc.)
+      // before reading /users/me — the DB alone can lag until this runs.
+      await this.userService.refreshStripeConnectStatusFromApi();
+
       const user = await firstValueFrom(this.userService.getCurrentUser(true));
       this.currentUser = user;
+      this.syncDisplayPhotoUrl();
 
       console.log('📹 [TUTOR-APPROVAL] Full onboardingData:', user.onboardingData);
       console.log('📹 [TUTOR-APPROVAL] tutorOnboarding:', user.tutorOnboarding);
@@ -516,8 +571,7 @@ export class TutorOnboardingComponent implements OnInit {
 
       // Load credential data
       const creds = user.tutorCredentials;
-      this.uploadedCertifications = creds?.teachingCertifications || [];
-      this.uploadedAdditionalDocs = creds?.additionalDocuments || [];
+      this.syncCredentialLists(creds);
       this.applyHigherEducationFromUser(creds?.higherEducation);
       
       console.log('📄 [TUTOR-APPROVAL] Credentials loaded:', {
@@ -541,7 +595,7 @@ export class TutorOnboardingComponent implements OnInit {
         } else if (user.payoutProvider === 'manual') {
           payoutStep.titleKey = 'TUTOR_APPROVAL.STEP_PAYMENT_TITLE_MANUAL';
           payoutStep.descriptionKey = 'TUTOR_APPROVAL.STEP_PAYMENT_DESC_MANUAL';
-        } else if (user.stripeConnectOnboarded) {
+        } else if (user.stripeConnectOnboarded || user.stripeDetailsSubmitted) {
           payoutStep.titleKey = 'TUTOR_APPROVAL.STEP_PAYMENT_TITLE_STRIPE';
           payoutStep.descriptionKey = 'TUTOR_APPROVAL.STEP_PAYMENT_DESC_STRIPE';
         } else {
@@ -624,6 +678,91 @@ export class TutorOnboardingComponent implements OnInit {
     return this.steps[this.currentStepIndex];
   }
 
+  private syncStepRejectionDisplay(status: any): void {
+    const onboarding = this.currentUser?.tutorOnboarding;
+    this.photoRejectionNote = (status?.photoRejectionReason || onboarding?.photoRejectionReason || '').trim();
+    this.videoRejectionNote = (
+      status?.videoRejectionReason ||
+      onboarding?.videoRejectionReason ||
+      (onboarding as { rejectionReason?: string } | undefined)?.rejectionReason ||
+      ''
+    ).trim();
+    this.governmentIdRejectionNote = (
+      status?.governmentIdRejectionReason ||
+      this.currentUser?.tutorCredentials?.governmentId?.rejectionReason ||
+      ''
+    ).trim();
+    this.applyStepRejectionParts(
+      status.photoRejected === true,
+      this.photoRejectionNote,
+      'TUTOR_APPROVAL.PHOTO_REJECTED_GENERIC',
+      (headline, teamNote) => {
+        this.photoRejectionHeadline = headline;
+        this.photoRejectionTeamNote = teamNote;
+      }
+    );
+    this.applyStepRejectionParts(
+      status.videoRejected === true,
+      this.videoRejectionNote,
+      'TUTOR_APPROVAL.VIDEO_REJECTED_GENERIC',
+      (headline, teamNote) => {
+        this.videoRejectionHeadline = headline;
+        this.videoRejectionTeamNote = teamNote;
+      }
+    );
+    this.applyStepRejectionParts(
+      status.governmentIdRejected === true,
+      this.governmentIdRejectionNote,
+      'TUTOR_APPROVAL.GOV_ID_REJECTED_GENERIC',
+      (headline, teamNote) => {
+        this.governmentIdRejectionHeadline = headline;
+        this.governmentIdRejectionTeamNote = teamNote;
+      }
+    );
+    this.photoStepSubmitted = !!status.photoComplete || status.photoRejected === true;
+    this.photoReviewStatusVisible =
+      status.photoApproved === true ||
+      status.photoRejected === true ||
+      status.photoComplete === true;
+    this.videoReviewStatusVisible =
+      status.videoApproved === true ||
+      status.videoRejected === true ||
+      status.videoComplete === true;
+    this.syncDisplayPhotoUrl();
+  }
+
+  private syncCredentialLists(creds: User['tutorCredentials'] | undefined): void {
+    this.uploadedCertifications = (creds?.teachingCertifications || []).map((cert) => ({
+      ...cert,
+      rejectionHeadline: cert.status === 'rejected'
+        ? this.translate.instant('TUTOR_APPROVAL.CRED_CERT_REJECTED_GENERIC')
+        : '',
+      rejectionTeamNote: cert.status === 'rejected' ? ((cert.rejectionReason || '').trim() || null) : null,
+    }));
+    this.uploadedAdditionalDocs = (creds?.additionalDocuments || []).map((doc) => ({
+      ...doc,
+      rejectionHeadline: doc.status === 'rejected'
+        ? this.translate.instant('TUTOR_APPROVAL.CRED_DOC_REJECTED_GENERIC', {
+            label: doc.label || doc.fileName || this.translate.instant('TUTOR_APPROVAL.CRED_DOC_REJECTED_LABEL'),
+          })
+        : '',
+      rejectionTeamNote: doc.status === 'rejected' ? ((doc.rejectionReason || '').trim() || null) : null,
+    }));
+  }
+
+  private applyStepRejectionParts(
+    isRejected: boolean,
+    adminNote: string | null | undefined,
+    headlineKey: string,
+    apply: (headline: string, teamNote: string | null) => void
+  ): void {
+    if (!isRejected) {
+      apply('', null);
+      return;
+    }
+    apply(this.translate.instant(headlineKey), (adminNote || '').trim() || null);
+  }
+
   private syncApprovalWizardDisplay(): void {
     const s = this.steps[this.currentStepIndex];
     if (!s) {
@@ -676,7 +815,7 @@ export class TutorOnboardingComponent implements OnInit {
   }
 
   private shouldScrollPayoutConnectIntoView(): boolean {
-    return !!this.approvalStatus?.stripeComplete || this.paymentSetupStep === 'setup-method';
+    return this.stripePayoutStatusCardVisible || this.paymentSetupStep === 'setup-method';
   }
 
   private scheduleScrollPayoutConnectIntoView(): void {
@@ -873,10 +1012,10 @@ export class TutorOnboardingComponent implements OnInit {
 
     switch (data.provider) {
       case 'stripe':
-        await this.setupStripeConnect(data.isUSPersonForTax, data.hasUSBankAccount);
+        await this.setupStripeConnect(data.isUSPersonForTax, data.hasUSBankAccount, data.residenceCountry);
         break;
       case 'paypal':
-        await this.setupPayPal(data.paypalEmail, data.isUSPersonForTax, data.hasUSBankAccount);
+        await this.setupPayPal(data.paypalEmail, data.isUSPersonForTax, data.hasUSBankAccount, data.residenceCountry);
         break;
       case 'manual':
         await this.setupManualPayout(data.isUSPersonForTax, data.hasUSBankAccount);
@@ -889,8 +1028,49 @@ export class TutorOnboardingComponent implements OnInit {
     await this.startEditPayoutEmail();
   }
 
+  /** Connected Stripe — resume onboarding or open Express Dashboard. */
+  async onStripeConnectContinueClick(): Promise<void> {
+    if (this.approvalStatus?.stripeActionRequired) {
+      await this.resumeStripeConnectOnboarding();
+      return;
+    }
+    await this.editStripeConnectAccount();
+  }
+
+  /** Re-open Stripe Connect onboarding (resumes outstanding requirements). */
+  async resumeStripeConnectOnboarding(): Promise<void> {
+    this.isLoadingPayoutEdit = true;
+
+    try {
+      const response = await firstValueFrom(
+        this.http.post<{ success?: boolean; url?: string; onboardingUrl?: string; message?: string }>(
+          `${environment.apiUrl}/payments/stripe-connect/onboard`,
+          buildStripeConnectPayloadForApprovalWizardStep('stripe'),
+          { headers: this.userService.getAuthHeadersSync() }
+        )
+      );
+
+      const redirectUrl = response.url || response.onboardingUrl;
+      if (response.success && redirectUrl) {
+        window.location.href = redirectUrl;
+      } else {
+        this.showToast('Failed to open Stripe setup: ' + (response.message || 'No URL returned'), 'danger');
+      }
+    } catch (error: unknown) {
+      console.error('Error resuming Stripe onboarding:', error);
+      this.showToast('Failed to open Stripe setup', 'danger');
+    } finally {
+      this.isLoadingPayoutEdit = false;
+    }
+  }
+
   /** Connected Stripe — open Express Dashboard to edit bank / payout details. */
   async editStripeConnectAccount(): Promise<void> {
+    if (this.approvalStatus?.stripeActionRequired) {
+      await this.resumeStripeConnectOnboarding();
+      return;
+    }
+
     this.isLoadingPayoutEdit = true;
 
     try {
@@ -988,6 +1168,32 @@ export class TutorOnboardingComponent implements OnInit {
     }
   }
 
+  /**
+   * Refresh TOS step UI after acceptance without hiding the wizard.
+   */
+  private async refreshTosStepAfterAccept(result: {
+    tosAcceptedAt: string;
+    tosVersion?: string;
+  }): Promise<void> {
+    this.tosAcceptedAt = new Date(result.tosAcceptedAt);
+    this.tosChecked = true;
+
+    const user = await firstValueFrom(this.userService.getCurrentUser(true));
+    this.currentUser = user;
+    if (user.tosAcceptedAt) {
+      this.tosAcceptedAt = new Date(user.tosAcceptedAt);
+    }
+
+    const tos = this.getStep('tos');
+    if (tos) {
+      tos.completed = true;
+    }
+    this.recomputeVisibleSteps();
+    this.userService.refreshTutorApprovalStatus();
+    this.syncApprovalWizardDisplay();
+    this.cdr.markForCheck();
+  }
+
   async acceptTos() {
     if (!this.tosChecked || this.isAcceptingTos) return;
 
@@ -1001,9 +1207,8 @@ export class TutorOnboardingComponent implements OnInit {
     try {
       const result = await firstValueFrom(this.userService.acceptTos('1.0'));
       if (result?.success) {
-        this.tosAcceptedAt = new Date(result.tosAcceptedAt);
         this.showToast('Terms accepted successfully!', 'success');
-        await this.loadOnboardingStatus(false);
+        await this.refreshTosStepAfterAccept(result);
       } else {
         this.showToast('Failed to accept terms', 'danger');
       }
@@ -1012,7 +1217,7 @@ export class TutorOnboardingComponent implements OnInit {
       this.showToast(error.error?.message || 'Failed to accept terms', 'danger');
     } finally {
       this.isAcceptingTos = false;
-      await loading.dismiss();
+      await this.dismissLoadingSafely(loading);
     }
   }
 
@@ -1108,6 +1313,13 @@ export class TutorOnboardingComponent implements OnInit {
     void this.uploadCredentialFile(file, 'additionalDocument');
   }
 
+  private syncDisplayPhotoUrl(): void {
+    this.displayPhotoUrl = this.currentUser?.onboardingData?.pendingPhoto
+      || this.currentUser?.picture
+      || '';
+    this.showGooglePhotoNoticeVisible = !this.photoStepSubmitted && !!this.currentUser?.picture;
+  }
+
   /**
    * Trigger file picker for profile picture upload
    */
@@ -1189,6 +1401,27 @@ export class TutorOnboardingComponent implements OnInit {
   }
 
   /**
+   * Refresh tutor + photo step UI after upload/remove without hiding the wizard.
+   */
+  private async refreshPhotoStepAfterUpload(): Promise<void> {
+    const user = await firstValueFrom(this.userService.getCurrentUser(true));
+    this.currentUser = user;
+    this.syncDisplayPhotoUrl();
+    this.cdr.markForCheck();
+  }
+
+  private async dismissLoadingSafely(loading: HTMLIonLoadingElement): Promise<void> {
+    try {
+      await loading.dismiss();
+    } catch {
+      const top = await this.loadingController.getTop();
+      if (top) {
+        await top.dismiss();
+      }
+    }
+  }
+
+  /**
    * Upload profile picture to server
    */
   async uploadProfilePicture(file: File, input?: HTMLInputElement) {
@@ -1199,17 +1432,14 @@ export class TutorOnboardingComponent implements OnInit {
     await loading.present();
 
     try {
-      // Upload image using FileUploadService (handles headers correctly)
       const uploadResult = await firstValueFrom(this.fileUploadService.uploadImage(file));
       
       if (uploadResult?.success && uploadResult?.imageUrl) {
-        // Update user picture in database
         const updateResult = await firstValueFrom(this.userService.updatePicture(uploadResult.imageUrl));
         
         if (updateResult?.success) {
-          // Refresh onboarding status to update the photo step
-          await this.loadOnboardingStatus(false);
-          this.showToast('Profile photo uploaded successfully!', 'success');
+          await this.refreshPhotoStepAfterUpload();
+          this.showToast('Profile photo submitted for review', 'success');
         } else {
           this.showToast('Failed to update profile picture', 'danger');
         }
@@ -1220,7 +1450,7 @@ export class TutorOnboardingComponent implements OnInit {
       console.error('Error uploading profile picture:', error);
       this.showToast(error.error?.message || 'Failed to upload photo', 'danger');
     } finally {
-      await loading.dismiss();
+      await this.dismissLoadingSafely(loading);
       this.resetPhotoFileInput(input);
     }
   }
@@ -1264,7 +1494,7 @@ export class TutorOnboardingComponent implements OnInit {
         if (this.currentUser) {
           this.currentUser.picture = result.picture;
         }
-        await this.loadOnboardingStatus(false);
+        await this.refreshPhotoStepAfterUpload();
         this.showToast(
           this.translate.instant('TUTOR_APPROVAL.PHOTO_REMOVE_SUCCESS'),
           'success'
@@ -1284,7 +1514,7 @@ export class TutorOnboardingComponent implements OnInit {
       );
     } finally {
       this.isRemovingPhoto = false;
-      await loading.dismiss();
+      await this.dismissLoadingSafely(loading);
       this.cdr.markForCheck();
     }
   }
@@ -1414,7 +1644,7 @@ export class TutorOnboardingComponent implements OnInit {
               );
               if (result?.success) {
                 this.showToast('Document removed', 'medium');
-                await this.loadOnboardingStatus();
+                await this.loadOnboardingStatus(false);
               }
             } catch (error: any) {
               console.error('❌ Error removing credential:', error);
@@ -1529,10 +1759,10 @@ export class TutorOnboardingComponent implements OnInit {
     // Handle based on selected provider - pass tax info along
     switch (data.provider) {
       case 'stripe':
-        await this.setupStripeConnect(data.isUSPersonForTax, data.hasUSBankAccount);
+        await this.setupStripeConnect(data.isUSPersonForTax, data.hasUSBankAccount, data.residenceCountry);
         break;
       case 'paypal':
-        await this.setupPayPal(data.paypalEmail, data.isUSPersonForTax, data.hasUSBankAccount);
+        await this.setupPayPal(data.paypalEmail, data.isUSPersonForTax, data.hasUSBankAccount, data.residenceCountry);
         break;
       case 'manual':
         await this.setupManualPayout(data.isUSPersonForTax, data.hasUSBankAccount);
@@ -1540,8 +1770,12 @@ export class TutorOnboardingComponent implements OnInit {
     }
   }
 
-  private async setupStripeConnect(isUSPersonForTax?: boolean | null, hasUSBankAccount?: boolean | null) {
-    const residenceCountry = (this.currentUser?.residenceCountry || '').trim();
+  private async setupStripeConnect(
+    isUSPersonForTax?: boolean | null,
+    hasUSBankAccount?: boolean | null,
+    residenceCountryOverride?: string | null
+  ) {
+    const residenceCountry = (residenceCountryOverride || this.currentUser?.residenceCountry || '').trim();
 
     // Defensive: bail early if we know Stripe can't support this country.
     if (residenceCountry && !isStripeSupportedCountry(residenceCountry)) {
@@ -1668,6 +1902,23 @@ export class TutorOnboardingComponent implements OnInit {
 
   skipForNow() {
     this.exitModalOrNavigateHome();
+  }
+
+  private async showStripeReturnToast(): Promise<void> {
+    const kind = classifyStripeReturnStatus({
+      onboarded: this.approvalStatus?.stripeConnectOnboarded,
+      stripePendingReview: this.approvalStatus?.stripePendingReview,
+      stripeActionRequired: this.approvalStatus?.stripeActionRequired,
+      detailsSubmitted: this.currentUser?.stripeDetailsSubmitted,
+    });
+    const message = this.translate.instant(STRIPE_RETURN_TOAST_KEYS[kind]);
+    const color =
+      kind === 'connected'
+        ? 'success'
+        : kind === 'pending_review'
+          ? 'primary'
+          : 'warning';
+    await this.showToast(message, color);
   }
 
   async showToast(message: string, color: string = 'primary') {
@@ -1840,17 +2091,28 @@ export class TutorOnboardingComponent implements OnInit {
     }
   }
 
-  private async setupPayPal(paypalEmail: string, isUSPersonForTax?: boolean | null, hasUSBankAccount?: boolean | null) {
+  private async setupPayPal(
+    paypalEmail: string,
+    isUSPersonForTax?: boolean | null,
+    hasUSBankAccount?: boolean | null,
+    residenceCountryOverride?: string | null
+  ) {
     const loading = await this.loadingController.create({
       message: 'Setting up PayPal...'
     });
     await loading.present();
 
     try {
+      const body: Record<string, unknown> = { paypalEmail, isUSPersonForTax, hasUSBankAccount };
+      const residenceCountry = (residenceCountryOverride || '').trim();
+      if (residenceCountry) {
+        body['residenceCountry'] = residenceCountry;
+      }
+
       const response = await firstValueFrom(
         this.http.post<any>(
           `${environment.apiUrl}/payments/setup-paypal`,
-          { paypalEmail, isUSPersonForTax, hasUSBankAccount },
+          body,
           { headers: this.userService.getAuthHeadersSync() }
         )
       );
@@ -1860,7 +2122,7 @@ export class TutorOnboardingComponent implements OnInit {
       if (response.success) {
         this.showToast('PayPal setup complete! You can now receive payments.', 'success');
         this.editingPayoutEmail = false;
-        await this.loadOnboardingStatus(); // Refresh status
+        await this.loadOnboardingStatus(false); // Refresh status without jumping steps
       } else {
         this.showToast('Failed to setup PayPal: ' + (response.message || 'Unknown error'), 'danger');
       }
@@ -1901,7 +2163,7 @@ export class TutorOnboardingComponent implements OnInit {
 
               if (response.success) {
                 this.showToast('Manual payout method configured successfully!', 'success');
-                await this.loadOnboardingStatus(); // Refresh status
+                await this.loadOnboardingStatus(false); // Refresh status without jumping steps
               } else {
                 this.showToast('Failed to setup manual payout: ' + (response.message || 'Unknown error'), 'danger');
               }

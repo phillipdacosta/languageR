@@ -237,6 +237,12 @@ export class NotificationsPage implements OnDestroy {
       return;
     }
 
+    if (target.kind === 'tutor_approval') {
+      this.homeInlineToolbar.pendingOpenTutorApprovalStep = target.stepId;
+      this.router.navigate(['/tabs/home']);
+      return;
+    }
+
     this.router.navigate(target.commands, {
       queryParams: target.queryParams,
     });
@@ -294,6 +300,8 @@ export class NotificationsPage implements OnDestroy {
       'payment_received': 'cash',
       'tutor_video_approved': 'checkmark-circle',
       'tutor_video_rejected': 'close-circle',
+      'tutor_photo_approved': 'checkmark-circle',
+      'tutor_photo_rejected': 'close-circle',
       'credential_approved': 'shield-checkmark',
       'credential_rejected': 'shield',
       'stripe_account_updated': 'card',
@@ -322,6 +330,8 @@ export class NotificationsPage implements OnDestroy {
     const systemTypes = [
       'tutor_video_approved',
       'tutor_video_rejected',
+      'tutor_photo_approved',
+      'tutor_photo_rejected',
       'lesson_analysis_ready',
       'credential_approved',
       'credential_rejected',

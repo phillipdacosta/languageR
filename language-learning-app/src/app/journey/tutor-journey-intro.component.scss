@@ -1,0 +1,260 @@
+@import './journey-intro-shell.scss';
+
+:host {
+  display: contents;
+}
+
+.journey-intro-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  position: relative;
+}
+
+@mixin ji-tutor-callout-card {
+  text-align: left;
+  width: 100%;
+  max-width: 440px;
+  padding: 16px 18px;
+  border-radius: 16px;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.06);
+
+  ion-icon {
+    font-size: 20px;
+    color: #222222;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  p {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.55;
+    color: #484848;
+    letter-spacing: -0.1px;
+  }
+}
+
+@mixin ji-tutor-centered-body {
+  align-items: center;
+  text-align: center;
+  justify-content: flex-start;
+}
+
+// Slide 0 — centered hero + elevated callout cards
+.ji-body--tutor-welcome {
+  @include ji-tutor-centered-body;
+  padding-top: 48px;
+
+  .ji-eyebrow {
+    margin-bottom: 20px;
+  }
+
+  .ji-hero-mascot--centered {
+    width: 96px;
+    height: 96px;
+    margin: 0 0 20px;
+  }
+
+  .ji-title--sm {
+    margin-bottom: 12px;
+    max-width: 420px;
+  }
+
+  .ji-desc--sm {
+    margin: 0 0 28px;
+    max-width: 440px;
+    color: #717171;
+    line-height: 1.55;
+  }
+
+  .ji-callout--card {
+    @include ji-tutor-callout-card;
+    margin-bottom: 12px;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  .ji-callout--accent ion-icon {
+    color: #22a06b;
+  }
+}
+
+// Slide 1 — map preview + callout
+.ji-body--tutor-phases {
+  @include ji-tutor-centered-body;
+  padding-top: 48px;
+
+  .ji-phases-label,
+  .ji-desc--sm {
+    max-width: 440px;
+    width: 100%;
+  }
+
+  .ji-desc--sm {
+    margin-bottom: 20px;
+    color: #717171;
+    line-height: 1.55;
+  }
+
+  .ji-map-preview-wrap {
+    width: 100%;
+    max-width: 440px;
+    margin: 0 0 20px;
+  }
+
+  .ji-callout--card {
+    @include ji-tutor-callout-card;
+    margin-bottom: 0;
+  }
+}
+
+// Slide 2 — adapts after lessons
+.ji-body--tutor-explain {
+  @include ji-tutor-centered-body;
+  padding-top: 48px;
+
+  .ji-empty-title-block {
+    max-width: 440px;
+  }
+
+  .ji-focus-demo {
+    max-width: 440px;
+    margin: 0 0 20px;
+  }
+
+  .ji-focus-card {
+    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.06);
+    border-color: rgba(0, 0, 0, 0.06);
+  }
+
+  .ji-desc {
+    max-width: 440px;
+    color: #484848;
+    line-height: 1.55;
+  }
+
+  .ji-desc--hint {
+    max-width: 440px;
+    color: #717171;
+  }
+}
+
+// Slide 4 — where tutors see it
+.ji-body--tutor-where {
+  @include ji-tutor-centered-body;
+  padding-top: 48px;
+
+  .ji-empty-title-block {
+    max-width: 440px;
+  }
+
+  .ji-desc {
+    max-width: 440px;
+    margin-bottom: 20px;
+    color: #717171;
+    line-height: 1.55;
+  }
+
+  .ji-action-cards {
+    max-width: 440px;
+    margin: 0 0 16px;
+  }
+
+  .ji-action-card--elevated {
+    background: #ffffff;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    border-radius: 16px;
+    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.06);
+    padding: 14px 16px;
+  }
+
+  .ji-action-icon--thumb {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: #f7f7f7;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    overflow: hidden;
+    padding: 0;
+  }
+
+  .ji-action-thumb {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center top;
+  }
+
+  .ji-callout--card {
+    @include ji-tutor-callout-card;
+    margin-bottom: 0;
+  }
+}
+
+.ji-map-preview {
+  display: block;
+  width: 100%;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+:host-context(html.ion-palette-dark) {
+  .ji-body--tutor-welcome,
+  .ji-body--tutor-phases,
+  .ji-body--tutor-explain,
+  .ji-body--tutor-where {
+    .ji-desc,
+    .ji-desc--sm,
+    .ji-desc--hint {
+      color: #98989d;
+    }
+
+    .ji-callout--card {
+      background: #2c2c2e;
+      border-color: rgba(255, 255, 255, 0.08);
+      box-shadow: 0 2px 16px rgba(0, 0, 0, 0.24);
+
+      ion-icon {
+        color: #f5f5f7;
+      }
+
+      p {
+        color: #98989d;
+      }
+    }
+  }
+
+  .ji-body--tutor-welcome .ji-callout--accent ion-icon {
+    color: #34c759;
+  }
+
+  .ji-body--tutor-explain .ji-focus-card {
+    background: #2c2c2e;
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.24);
+  }
+
+  .ji-body--tutor-where {
+    .ji-action-card--elevated {
+      background: #2c2c2e;
+      border-color: rgba(255, 255, 255, 0.08);
+      box-shadow: 0 2px 16px rgba(0, 0, 0, 0.24);
+    }
+
+    .ji-action-icon--thumb {
+      background: #1c1c1e;
+      border-color: rgba(255, 255, 255, 0.08);
+    }
+
+    .ji-action-label {
+      color: #f5f5f7;
+    }
+  }
+}

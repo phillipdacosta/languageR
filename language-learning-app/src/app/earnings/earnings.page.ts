@@ -65,6 +65,11 @@ interface TutorBalance {
   lastWithdrawal: Date | null;
 }
 
+interface TransferFeeRow {
+  labelKey: string;
+  valueDisplay: string;
+}
+
 interface WithdrawalHistory {
   id: string;
   amount: number;
@@ -79,16 +84,20 @@ interface WithdrawalHistory {
   };
   requestedAt: Date;
   completedAt?: Date;
-  // Settlement (what actually landed in the tutor's account after any FX)
   sourceCurrency?: string;
   settledCurrency?: string | null;
   settledAmount?: number | null;
   settledNetAmount?: number | null;
   settledFee?: number;
   exchangeRate?: number | null;
-  // Precomputed display strings (template must not call functions)
+  /** Precomputed display strings (template must not call functions) */
   settledDisplay?: string | null;
   amountDisplay?: string;
+  showFeeBreakdown: boolean;
+  withdrawalAmountDisplay: string;
+  netAmountDisplay: string;
+  feeRows: TransferFeeRow[];
+  statusLabelKey: string;
 }
 
 @Component({
@@ -258,12 +267,31 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
       });
   }
 
+  private isTutorAccount(): boolean {
+    return this.userService.getCurrentUserValue()?.userType === 'tutor';
+  }
+
   async ngOnInit() {
     if (!this.inline) {
       this.route.queryParams.pipe(takeUntil(this.destroy$)).subscribe(params => {
         EarningsPage.applyReturnSectionParam(params['earningsSection']);
         this.applyPendingReturnSection();
       });
+    }
+
+    try {
+      const user = await firstValueFrom(this.userService.getCurrentUser());
+      if (user?.userType !== 'tutor') {
+        this.loading = false;
+        this._hasInitiallyLoaded = true;
+        this.cdr.detectChanges();
+        return;
+      }
+    } catch {
+      this.loading = false;
+      this._hasInitiallyLoaded = true;
+      this.cdr.detectChanges();
+      return;
     }
 
     const cache = EarningsPage._dataCache;
@@ -387,6 +415,9 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
   }
 
   private async silentRefresh() {
+    if (!this.isTutorAccount()) {
+      return;
+    }
     try {
       const prevPaymentsJson = JSON.stringify(this.recentPayments.map(p => p.id));
       const prevBalance = { ...this.balance };
@@ -524,6 +555,9 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
   }
 
   async loadEarnings() {
+    if (!this.isTutorAccount()) {
+      return;
+    }
     this.error = null;
 
     try {
@@ -616,6 +650,15 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
     } else {
       this.navCtrl.back();
     }
+  }
+
+  /** Inline home FLIP: ensure Details tab + withdraw chrome exist before measuring clones. */
+  prepareForGoBackFlip(): void {
+    if (this.earningsActiveSection !== 'details') {
+      this.onSelectEarningsSection('details');
+      return;
+    }
+    this.cdr.detectChanges();
   }
 
   /** Routed earnings: reset scroll so sidebar/panel titles are not clipped above the viewport. */
@@ -1104,6 +1147,9 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
   // ============================================================
 
   async loadBalance() {
+    if (!this.isTutorAccount()) {
+      return;
+    }
     try {
       const response = await firstValueFrom(
         this.http.get<any>(`${environment.apiUrl}/withdrawals/balance`, {
@@ -1224,6 +1270,9 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
   }
 
   async loadWithdrawalHistory() {
+    if (!this.isTutorAccount()) {
+      return;
+    }
     try {
       const response = await firstValueFrom(
         this.http.get<any>(`${environment.apiUrl}/withdrawals/history?limit=10`, {
@@ -1256,22 +1305,95 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
 
   /**
    * Precompute display strings so the template stays function-free.
-   * Shows the real settled amount (e.g. €4.30) when funds converted from USD.
+   * Shows withdrawal amount, fee rows, and net transferred.
    */
-  private decorateWithdrawal(w: WithdrawalHistory): WithdrawalHistory {
-    w.amountDisplay = `$${Number(w.amount || 0).toFixed(2)}`;
-
+  private decorateWithdrawal(w: any): WithdrawalHistory {
+    const amount = Number(w.amount ?? 0);
+    const netAmount = Number(w.netAmount ?? amount);
+    const paypalFee = Number(w.paypalFee ?? 0);
+    const stripeFee = Number(w.stripeFee ?? 0);
+    const platformFee = Number(w.platformFee ?? 0);
+    const settledFee = Number(w.settledFee ?? 0);
+    const method = w.method === 'paypal' ? 'paypal' : 'stripe_connect';
     const source = (w.sourceCurrency || 'usd').toLowerCase();
     const settled = (w.settledCurrency || '').toLowerCase();
     const converted = !!settled && settled !== source && w.settledNetAmount != null;
 
-    w.settledDisplay = converted
-      ? this.translateService.instant('EARNINGS.TRANSFER_RECEIVED', {
-          amount: this.formatMoney(w.settledNetAmount as number, settled)
-        })
-      : null;
+    const feeRows: TransferFeeRow[] = [];
 
-    return w;
+    if (paypalFee > 0) {
+      feeRows.push({
+        labelKey: 'EARNINGS.TRANSFER_FEE_PAYPAL',
+        valueDisplay: `−${this.formatMoney(paypalFee, source)}`,
+      });
+    }
+    if (stripeFee > 0) {
+      feeRows.push({
+        labelKey: 'EARNINGS.TRANSFER_FEE_STRIPE',
+        valueDisplay: `−${this.formatMoney(stripeFee, source)}`,
+      });
+    }
+    if (platformFee > 0) {
+      feeRows.push({
+        labelKey: 'EARNINGS.TRANSFER_FEE_PLATFORM',
+        valueDisplay: `−${this.formatMoney(platformFee, source)}`,
+      });
+    }
+    if (converted && settledFee > 0) {
+      feeRows.push({
+        labelKey: 'EARNINGS.TRANSFER_FEE_CONVERSION',
+        valueDisplay: `−${this.formatMoney(settledFee, settled)}`,
+      });
+    }
+
+    const showFeeBreakdown = feeRows.length > 0;
+    const withdrawalAmountDisplay = this.formatMoney(amount, source);
+    const netAmountDisplay = converted
+      ? this.formatMoney(w.settledNetAmount as number, settled)
+      : this.formatMoney(netAmount, source);
+
+    let statusLabelKey = 'EARNINGS.WITHDRAW_STATUS_PROCESSING';
+    if (w.status === 'completed') statusLabelKey = 'EARNINGS.WITHDRAW_STATUS_COMPLETED';
+    else if (w.status === 'failed') statusLabelKey = 'EARNINGS.WITHDRAW_STATUS_FAILED';
+    else if (w.status === 'cancelled') statusLabelKey = 'EARNINGS.WITHDRAW_STATUS_CANCELLED';
+    else if (w.status === 'pending') statusLabelKey = 'EARNINGS.WITHDRAW_STATUS_PENDING';
+
+    const decorated: WithdrawalHistory = {
+      id: String(w._id ?? w.id ?? ''),
+      amount,
+      netAmount,
+      method,
+      status: w.status,
+      fees: {
+        paypal: paypalFee,
+        stripe: stripeFee,
+        platform: platformFee,
+        total: paypalFee + stripeFee + platformFee,
+      },
+      requestedAt: w.requestedAt ?? w.createdAt,
+      completedAt: w.completedAt,
+      sourceCurrency: w.sourceCurrency,
+      settledCurrency: w.settledCurrency,
+      settledAmount: w.settledAmount,
+      settledNetAmount: w.settledNetAmount,
+      settledFee,
+      exchangeRate: w.exchangeRate,
+      showFeeBreakdown,
+      withdrawalAmountDisplay,
+      netAmountDisplay,
+      feeRows,
+      statusLabelKey,
+      amountDisplay: netAmountDisplay,
+      settledDisplay: null,
+    };
+
+    if (converted && !showFeeBreakdown) {
+      decorated.settledDisplay = this.translateService.instant('EARNINGS.TRANSFER_RECEIVED', {
+        amount: netAmountDisplay,
+      });
+    }
+
+    return decorated;
   }
 
   async requestWithdrawal() {

@@ -57,15 +57,21 @@
           <div class="profile-checklist-items">
             <button type="button" *ngFor="let item of profileChecklist"
                     class="pcl-item"
-                    [class.pcl-item--done]="item.done && !item.pendingReview"
+                    [class.pcl-item--done]="item.done && !item.pendingReview && !item.rejected"
                     [class.pcl-item--pending-review]="item.pendingReview"
+                    [class.pcl-item--rejected]="item.rejected"
                     (click)="openProfileChecklistItem(item)">
               <ion-icon
                 class="pcl-check"
-                [name]="item.pendingReview ? 'time-outline' : (item.done ? 'checkmark-circle' : 'ellipse-outline')">
+                [name]="item.rejected ? 'close-circle' : (item.pendingReview ? 'time-outline' : (item.done ? 'checkmark-circle' : 'ellipse-outline'))">
               </ion-icon>
-              <span class="pcl-label">{{ item.labelKey | translate:(item.labelParams || {}) }}</span>
-              <ion-icon name="chevron-forward-outline" class="pcl-arrow" *ngIf="!item.done || item.pendingReview"></ion-icon>
+              <span class="pcl-label">
+                <span>{{ item.labelKey | translate:(item.labelParams || {}) }}</span>
+                <span class="pcl-rejection-team-note" *ngIf="item.rejected && item.rejectionTeamNote">
+                  {{ 'HOME.GROWTH.BARNABI_REVIEW_TEAM_NOTE' | translate: { message: item.rejectionTeamNote } }}
+                </span>
+              </span>
+              <ion-icon name="chevron-forward-outline" class="pcl-arrow" *ngIf="!item.done || item.pendingReview || item.rejected"></ion-icon>
             </button>
           </div>
         </div>
@@ -183,6 +189,27 @@
         </app-stripe-connect-card>
       </div>
 
+      <!-- Stripe review pending -->
+      <div class="profile-payout-provider profile-payout-provider--pending" *ngIf="stripePayoutPendingReview && !stripePayoutActionRequired && profileDeterminedPayoutMethod === 'stripe'">
+        <app-stripe-connect-card
+          [pendingReview]="true"
+          [loading]="isLoadingStripeConnect"
+          [showSecondaryAction]="true"
+          secondaryActionLabelKey="PROFILE_SCREEN.EDIT_PAYOUT_SETTINGS"
+          (secondaryActionClick)="editStripeConnectAccount()">
+        </app-stripe-connect-card>
+      </div>
+
+      <!-- Stripe needs additional info -->
+      <div class="profile-payout-provider profile-payout-provider--action" *ngIf="stripePayoutActionRequired && profileDeterminedPayoutMethod === 'stripe'">
+        <app-stripe-connect-card
+          [actionRequired]="true"
+          [stripeRequirementsCurrentlyDue]="stripeRequirementsCurrentlyDue"
+          [loading]="isLoadingStripeConnect"
+          (connectClick)="connectProfilePayout()">
+        </app-stripe-connect-card>
+      </div>
+
       <!-- Connected: PayPal -->
       <div class="profile-payout-provider profile-payout-provider--connected" *ngIf="hasPayoutSetup === true && profileDeterminedPayoutMethod === 'paypal'">
         <app-paypal-connect-card
@@ -210,7 +237,7 @@
       </div>
 
       <!-- Setup: Stripe -->
-      <div id="profile-payout-connect-anchor" class="profile-payout-provider" *ngIf="hasPayoutSetup === false && profileDeterminedPayoutMethod === 'stripe'">
+      <div id="profile-payout-connect-anchor" class="profile-payout-provider" *ngIf="hasPayoutSetup === false && !stripePayoutPendingReview && !stripePayoutActionRequired && profileDeterminedPayoutMethod === 'stripe'">
         <app-stripe-connect-card
           [loading]="isLoadingStripeConnect"
           (connectClick)="connectProfilePayout()">
@@ -345,8 +372,94 @@
 
     <!-- Student-specific sections -->
     <ng-container *ngIf="isStudentUser && (isViewingOtherUser || (!isViewingOtherUser && profileActiveSection === 'learning'))">
-      <!-- My Learning Goal Card -->
-      <ion-card class="learning-goal-card" *ngIf="!isViewingOtherUser && (learningGoalTypeKey || learningGoalCustomDesc) && !isUnframed">
+      <!-- Multi-language: one goal card per journey -->
+      <ng-container *ngIf="!isViewingOtherUser && hasMultiplePlanLanguages">
+        <ion-card
+          class="learning-goal-card"
+          *ngFor="let plan of languagePlanItems">
+          <ion-card-content>
+            <div class="lg-language-head">
+              <div class="lg-language-head__label">
+                <app-flag-icon [language]="plan.language" [size]="22" cssClass="lg-language-head__flag"></app-flag-icon>
+                <span class="lg-language-head__name">{{ plan.language }}</span>
+              </div>
+              <span
+                class="lg-language-head__status"
+                [class.lg-language-head__status--active]="plan.statusTone === 'active'"
+                [class.lg-language-head__status--paused]="plan.statusTone === 'paused'"
+                [class.lg-language-head__status--unframed]="plan.statusTone === 'unframed'"
+                [class.lg-language-head__status--complete]="plan.statusTone === 'complete'">
+                {{ plan.statusLabel }}
+              </span>
+            </div>
+
+            <div class="lg-unframed-inner" *ngIf="plan.isUnframed">
+              <div class="lg-unframed-icon">
+                <ion-icon name="leaf-outline"></ion-icon>
+              </div>
+              <p class="lg-unframed-body" *ngIf="plan.isPremium">
+                Premium still works without a plan — AI analysis, your review
+                deck, and tutor briefings keep running on every lesson.
+              </p>
+              <p class="lg-unframed-body" *ngIf="!plan.isPremium">
+                You'll keep growing with every lesson. Add a goal any time to
+                get a personalized roadmap.
+              </p>
+              <button
+                class="lg-plan-action lg-plan-action--primary"
+                *ngIf="plan.hadStructuredPlan"
+                (click)="restoreLanguagePlan(plan)">
+                <ion-icon name="refresh-outline"></ion-icon>
+                <span>Restore plan</span>
+              </button>
+              <button
+                class="lg-plan-action lg-plan-action--primary"
+                *ngIf="!plan.hadStructuredPlan"
+                (click)="openGoalEditorForPlan(plan)">
+                <ion-icon name="rocket-outline"></ion-icon>
+                <span>Add a learning goal</span>
+              </button>
+            </div>
+
+            <ng-container *ngIf="!plan.isUnframed && (plan.goalTypeKey || plan.goalCustomDesc)">
+              <div class="lg-card-inner lg-card-inner--stacked">
+                <div class="lg-card-main">
+                  <div class="lg-goal-icon">
+                    <ion-icon [name]="plan.goalIcon"></ion-icon>
+                  </div>
+                  <div class="lg-goal-info">
+                    <span class="lg-goal-type" *ngIf="plan.goalTypeKey">{{ plan.goalTypeKey | translate }}</span>
+                    <span class="lg-goal-type" *ngIf="!plan.goalTypeKey">{{ plan.goalCustomDesc }}</span>
+                    <div class="lg-goal-meta">
+                      <span class="lg-goal-level" *ngIf="plan.goalLevelKey">{{ plan.goalLevelKey | translate }}</span>
+                      <span class="lg-meta-dot" *ngIf="plan.goalLevelKey && plan.goalTimelineKey"></span>
+                      <span class="lg-goal-timeline" *ngIf="plan.goalTimelineKey && !plan.goalTimelineDate">{{ plan.goalTimelineKey | translate }}</span>
+                      <span class="lg-goal-timeline" *ngIf="plan.goalTimelineKey && plan.goalTimelineDate">{{ plan.goalTimelineKey | translate : { date: plan.goalTimelineDate } }}</span>
+                    </div>
+                  </div>
+                </div>
+                <button class="lg-edit-link" (click)="openGoalEditorForPlan(plan)" [disabled]="plan.goalCooldownActive">
+                  {{ 'PROFILE.EDIT' | translate }}
+                </button>
+              </div>
+              <div class="lg-cooldown-notice" *ngIf="plan.goalCooldownActive">
+                <ion-icon name="time-outline"></ion-icon>
+                <span>{{ 'PROFILE.GOAL_COOLDOWN_NOTICE' | translate : { date: plan.goalCooldownDateDisplay } }}</span>
+              </div>
+            </ng-container>
+          </ion-card-content>
+        </ion-card>
+
+        <div class="lg-plan-actions lg-plan-actions--multi">
+          <button class="lg-plan-action lg-plan-action--primary" (click)="openPlanPickerModal()">
+            <ion-icon name="layers-outline"></ion-icon>
+            <span>Manage language plans</span>
+          </button>
+        </div>
+      </ng-container>
+
+      <!-- Single language: one goal card -->
+      <ion-card class="learning-goal-card" *ngIf="!isViewingOtherUser && !hasMultiplePlanLanguages && (learningGoalTypeKey || learningGoalCustomDesc) && !isUnframed">
         <ion-card-header *ngIf="isViewingOtherUser">
           <ion-card-title>{{ 'PROFILE.MY_LEARNING_GOAL' | translate }}</ion-card-title>
         </ion-card-header>
@@ -376,21 +489,21 @@
             <span>{{ 'PROFILE.GOAL_COOLDOWN_NOTICE' | translate : { date: goalCooldownDateDisplay } }}</span>
           </div>
 
-          <!-- Plan lifecycle actions -->
-          <div class="lg-plan-actions" *ngIf="hasStructuredPlan && !isPaused">
+          <!-- Plan lifecycle actions (single language only) -->
+          <div class="lg-plan-actions" *ngIf="!hasMultiplePlanLanguages && hasStructuredPlan && !isPaused">
             <button class="lg-plan-action lg-plan-action--secondary" (click)="pauseMyPlan()">
               <ion-icon name="pause-circle-outline"></ion-icon>
-              <span>Pause my plan</span>
+              <span>Pause {{ planLanguage }} plan</span>
             </button>
             <button class="lg-plan-action lg-plan-action--ghost" (click)="skipMyPlan()">
               <ion-icon name="leaf-outline"></ion-icon>
               <span>Learn at my own pace</span>
             </button>
           </div>
-          <div class="lg-plan-actions" *ngIf="isPaused">
+          <div class="lg-plan-actions" *ngIf="!hasMultiplePlanLanguages && isPaused">
             <button class="lg-plan-action lg-plan-action--primary" (click)="resumeMyPlan()">
               <ion-icon name="play-outline"></ion-icon>
-              <span>Resume my plan</span>
+              <span>Resume {{ planLanguage }} plan</span>
             </button>
             <button class="lg-plan-action lg-plan-action--ghost" (click)="skipMyPlan()">
               <ion-icon name="leaf-outline"></ion-icon>
@@ -401,7 +514,7 @@
       </ion-card>
 
       <!-- Unframed Card — shown when student opted out of a structured plan -->
-      <ion-card class="learning-goal-card learning-goal-card--unframed" *ngIf="!isViewingOtherUser && isUnframed">
+      <ion-card class="learning-goal-card learning-goal-card--unframed" *ngIf="!isViewingOtherUser && !hasMultiplePlanLanguages && isUnframed">
         <ion-card-content>
           <div class="lg-unframed-inner">
             <div class="lg-unframed-icon">

@@ -1,0 +1,262 @@
+<div class="journey-phase-modal-content">
+  <div class="jpcd-card jpcd-card--modal" *ngIf="selectedRow" (click)="$event.stopPropagation()">
+      <!-- ── Read mode ─────────────────────────────────────────── -->
+      <ng-container *ngIf="!host.selectedRow?.editing">
+
+        <!-- Top row: phase pill + action icons -->
+        <div class="jpcd-top-row">
+          <span class="jpcd-pill"
+            [class.jpcd-pill--active]="host.selectedRow.status === 'active'"
+            [class.jpcd-pill--completed]="host.selectedRow.status === 'completed'">
+            <img src="assets/journey-phase.png" alt="" class="jpcd-pill-phase-icon" />
+            {{ 'JOURNEY.PHASE' | translate }} {{ host.selectedRow.index + 1 }} / {{ host.phaseRows.length }}
+          </span>
+          <div class="jpcd-actions">
+            <button
+              *ngIf="host.selectedRow.status !== 'completed' && host.permissions?.canEditPhases"
+              class="jpcd-icon-btn"
+              type="button"
+              [attr.aria-label]="'JOURNEY.EDIT.EDIT_PHASE' | translate"
+              (click)="host.startEdit(host.selectedRow, $event)">
+              <ion-icon name="create-outline"></ion-icon>
+            </button>
+            <button
+              class="jpcd-icon-btn jpcd-icon-btn--close"
+              type="button"
+              aria-label="Close"
+              (click)="host.closePhaseModal()">
+              <ion-icon name="close-outline"></ion-icon>
+            </button>
+          </div>
+        </div>
+
+        <!-- Phase title -->
+        <h3 class="jpcd-title">{{ host.selectedRow.title }}</h3>
+
+        <!-- Locked-phase preview. Reframes the empty card into a "what's
+             coming" disclosure: lets the student see the phase content
+             before they get there without making it feel like a checklist
+             of requirements. No estimated lesson count (varies wildly per
+             phase); no progress bar; no primary CTA — see
+             docs/learning-journey/voice-and-framing.md. -->
+        <ng-container *ngIf="host.selectedRow.status === 'locked'">
+          <div class="jpcd-locked-eyebrow">
+            <ion-icon name="lock-closed-outline" aria-hidden="true"></ion-icon>
+            <span>{{ 'JOURNEY.LOCKED.EYEBROW' | translate }}</span>
+          </div>
+
+          <p class="jpcd-locked-desc" *ngIf="host.selectedRow.description">
+            {{ host.selectedRow.description }}
+          </p>
+
+          <div class="jpcd-locked-section" *ngIf="host.selectedRow.focusAreas?.length">
+            <span class="jpcd-locked-key">{{ 'JOURNEY.LOCKED.FOCUS_LABEL' | translate }}</span>
+            <div class="jpcd-locked-chips">
+              <span class="jpcd-locked-chip" *ngFor="let f of host.selectedRow.focusAreas">{{ f }}</span>
+            </div>
+          </div>
+
+          <!-- Goal-flavored scenario hints. These differ from focusAreas
+               (which are skill-flavored) — they're the one place the
+               student's goal type ("Use it for work", "Travel") visibly
+               shapes a phase. Hidden when the generator didn't attach any. -->
+          <div class="jpcd-locked-section jpcd-locked-section--goal" *ngIf="host.selectedRow.suggestedTopics?.length">
+            <span class="jpcd-locked-key">{{ 'JOURNEY.LOCKED.GOAL_TOPICS_LABEL' | translate }}</span>
+            <div class="jpcd-locked-chips">
+              <span class="jpcd-locked-chip jpcd-locked-chip--goal"
+                *ngFor="let t of host.selectedRow.suggestedTopics">{{ t }}</span>
+            </div>
+          </div>
+
+          <div class="jpcd-locked-section" *ngIf="host.selectedRow.exitCriteria">
+            <span class="jpcd-locked-key">{{ 'JOURNEY.LOCKED.OUTCOME_LABEL' | translate }}</span>
+            <p class="jpcd-locked-outcome">{{ host.selectedRow.exitCriteria }}</p>
+          </div>
+
+          <p class="jpcd-locked-anchor" *ngIf="host.selectedRow.previousPhaseTitle">
+            {{ 'JOURNEY.LOCKED.CONTINUES_FROM' | translate }}
+            <strong>{{ host.selectedRow.previousPhaseTitle }}</strong>
+          </p>
+
+          <button
+            type="button"
+            class="jpcd-locked-back"
+            (click)="host.backToCurrentPhase($event)">
+            <ion-icon name="arrow-back-outline" aria-hidden="true"></ion-icon>
+            {{ 'JOURNEY.LOCKED.BACK_TO_CURRENT' | translate }}
+          </button>
+        </ng-container>
+
+        <!-- Adaptive-split explainer. Renders for both halves of a split phase
+             so the student understands why their plan now has a sub-section.
+             Inline rather than a separate sheet — the card itself is already
+             the explainer surface for the tapped node. -->
+        <div class="jpcd-split-callout" *ngIf="host.selectedRow.isSplit">
+          <div class="jpcd-split-icon" aria-hidden="true">
+            <ion-icon name="cut-outline"></ion-icon>
+          </div>
+          <div class="jpcd-split-text">
+            <span class="jpcd-split-eyebrow">{{ 'JOURNEY.SPLIT.CARD_EYEBROW' | translate }}</span>
+            <p class="jpcd-split-body">{{ 'JOURNEY.SPLIT.CARD_BODY' | translate }}</p>
+            <button
+              type="button"
+              class="jpcd-split-why"
+              (click)="host.openSplitExplainer($event)">
+              {{ 'JOURNEY.SPLIT.WHY' | translate }}
+              <ion-icon name="chevron-forward-outline" aria-hidden="true"></ion-icon>
+            </button>
+          </div>
+        </div>
+
+        <!-- Recovery-bridge callout. Renders only on the recovery phase
+             (last phase of the demoted-to chapter). Voice: positive
+             reinforcement, never "you failed" — see
+             docs/learning-journey/voice-and-framing.md. -->
+        <div class="jpcd-recovery-callout" *ngIf="host.selectedRow.isRecovery">
+          <div class="jpcd-recovery-icon" aria-hidden="true">
+            <ion-icon name="leaf-outline"></ion-icon>
+          </div>
+          <div class="jpcd-recovery-text">
+            <span class="jpcd-recovery-eyebrow">{{ 'JOURNEY.RECOVERY.CARD_EYEBROW' | translate }}</span>
+            <p class="jpcd-recovery-body">{{ 'JOURNEY.RECOVERY.CARD_BODY' | translate }}</p>
+          </div>
+        </div>
+
+        <!-- Progress (active only). Deliberately *qualitative* — we never
+             show the raw mastery score or the 70 threshold to the student.
+             The pill copy is driven by `progressState` from the server
+             (see backend masteryService.phaseProgressState). The "How do
+             I move on?" link opens an honest explainer that talks about
+             cadence without putting a number on it. -->
+        <div class="jpcd-progress" *ngIf="host.selectedRow.status === 'active'">
+          <div class="jpcd-progress-row">
+            <span class="jpcd-progress-key">{{ 'HOME.JOURNEY_PHASE_PROGRESS' | translate }}</span>
+            <span
+              class="jpcd-progress-pill"
+              *ngIf="host.selectedRow.progressState"
+              [class.jpcd-progress-pill--ready]="host.selectedRow.progressState === 'ready_soon'"
+              [class.jpcd-progress-pill--wrap]="host.selectedRow.progressState === 'wrapping_up'">
+              {{ host.selectedRow.progressStateLabel }}
+            </span>
+          </div>
+          <div class="jpcd-progress-track">
+            <div class="jpcd-progress-fill" [style.width.%]="host.selectedRow.windowProgressPercent"></div>
+          </div>
+          <button
+            type="button"
+            class="jpcd-progress-explain"
+            (click)="host.openProgressionExplainer($event)">
+            {{ 'JOURNEY.PROGRESSION.HOW' | translate }}
+            <ion-icon name="information-circle-outline" aria-hidden="true"></ion-icon>
+          </button>
+        </div>
+
+        <!-- Next lesson focus.
+             When the literal next event is a trial (incl. a returning
+             student's first booking with a new tutor), swap in trial
+             framing. The plan-level `host.nextLessonFocus` is unchanged — we
+             just stop surfacing it as "what happens next" right before
+             a meet-and-greet. -->
+        <div class="jpcd-focus jpcd-focus--trial" *ngIf="host.pendingTrial && host.selectedRow.status === 'active'">
+          <span class="jpcd-focus-icon-wrap">
+            <img src="assets/journey-focus.png" alt="" class="jpcd-focus-img" />
+          </span>
+          <div class="jpcd-focus-text">
+            <span class="jpcd-focus-eyebrow" *ngIf="host.nextTrialTutorFirstName">
+              {{ 'HOME.JOURNEY_TRIAL_FOCUS_EYEBROW_WITH_TUTOR' | translate:{ tutor: host.nextTrialTutorFirstName } }}
+            </span>
+            <span class="jpcd-focus-eyebrow" *ngIf="!host.nextTrialTutorFirstName">
+              {{ 'HOME.JOURNEY_TRIAL_FOCUS_EYEBROW' | translate }}
+            </span>
+            <p class="jpcd-focus-body">{{ 'HOME.JOURNEY_TRIAL_FOCUS_BODY' | translate }}</p>
+          </div>
+        </div>
+
+        <div class="jpcd-focus" *ngIf="!host.pendingTrial && host.nextLessonFocus && host.selectedRow.status === 'active'">
+          <span class="jpcd-focus-icon-wrap">
+            <img src="assets/journey-focus.png" alt="" class="jpcd-focus-img" />
+          </span>
+          <div class="jpcd-focus-text">
+            <span class="jpcd-focus-eyebrow">{{ 'HOME.JOURNEY_NEXT_FOCUS' | translate }}</span>
+            <p class="jpcd-focus-body">{{ host.nextLessonFocus }}</p>
+          </div>
+        </div>
+
+        <!-- Goal-flavored scenarios for the active phase. Same data
+             surfaced on locked phases, but rendered as a single
+             discreet row under the goal label so it doesn't fight the
+             "next lesson focus" card for attention. -->
+        <div class="jpcd-active-goal-topics"
+          *ngIf="host.selectedRow.status === 'active' && host.selectedRow.suggestedTopics?.length">
+          <span class="jpcd-active-goal-topics-key">
+            {{ 'JOURNEY.ACTIVE_TOPICS_LABEL' | translate }}
+          </span>
+          <div class="jpcd-active-goal-topics-chips">
+            <span class="jpcd-active-goal-topics-chip"
+              *ngFor="let t of host.selectedRow.suggestedTopics">{{ t }}</span>
+          </div>
+        </div>
+
+        <!-- Goal -->
+        <div class="jpcd-goal" *ngIf="host.goalLabel && host.selectedRow.status === 'active'">
+          <img src="assets/journey-goal.png" alt="" class="jpcd-goal-icon" />
+          <span class="jpcd-goal-label">{{ 'HOME.JOURNEY_GOAL' | translate }}:</span>
+          <span class="jpcd-goal-value">{{ host.goalLabel }}</span>
+        </div>
+
+        <!-- CTA pill — same black pill as home widget, FLIP animation target -->
+        <div class="jw-primary-cta-row" *ngIf="host.primaryCtaLabel">
+          <button
+            type="button"
+            class="jw-primary-cta-btn"
+            (click)="host.onPrimaryCtaTap()">
+            <span class="jw-primary-cta-content">
+              <span class="jw-primary-cta-label">{{ host.primaryCtaLabel }}</span>
+              <span class="jw-primary-cta-sub" *ngIf="host.primaryCtaSubLabel">{{ host.primaryCtaSubLabel }}</span>
+            </span>
+            <ion-icon *ngIf="host.primaryCtaIcon" [name]="host.primaryCtaIcon"></ion-icon>
+          </button>
+        </div>
+
+      </ng-container>
+
+      <!-- ── Edit mode ─────────────────────────────────────────── -->
+      <ng-container *ngIf="host.selectedRow.editing">
+        <div class="journey-phase-edit" (click)="$event.stopPropagation()">
+          <label class="journey-phase-edit-label">
+            <span>{{ 'JOURNEY.EDIT.FIELD_TITLE' | translate }}</span>
+            <input type="text" class="journey-phase-edit-input"
+              [(ngModel)]="host.selectedRow.draftTitle" maxlength="60"
+              [disabled]="host.selectedRow.saving" />
+          </label>
+          <label class="journey-phase-edit-label">
+            <span>{{ 'JOURNEY.EDIT.FIELD_DESCRIPTION' | translate }}</span>
+            <textarea class="journey-phase-edit-textarea" rows="3" maxlength="300"
+              [(ngModel)]="host.selectedRow.draftDescription"
+              [disabled]="host.selectedRow.saving"></textarea>
+          </label>
+          <label class="journey-phase-edit-label">
+            <span>{{ 'JOURNEY.EDIT.FIELD_FOCUS' | translate }}</span>
+            <textarea class="journey-phase-edit-textarea" rows="3"
+              [placeholder]="'JOURNEY.EDIT.FIELD_FOCUS_PLACEHOLDER' | translate"
+              [(ngModel)]="host.selectedRow.draftFocusAreasText"
+              [disabled]="host.selectedRow.saving"></textarea>
+          </label>
+          <div class="journey-phase-edit-actions">
+            <button type="button" class="journey-phase-edit-btn-cancel"
+              [disabled]="host.selectedRow.saving"
+              (click)="host.cancelEdit(host.selectedRow, $event)">
+              {{ 'COMMON.CANCEL' | translate }}
+            </button>
+            <button type="button" class="journey-phase-edit-btn-save"
+              [disabled]="host.selectedRow.saving || !host.selectedRow.draftTitle?.trim()"
+              (click)="host.saveEdit(host.selectedRow, $event)">
+              <ion-spinner *ngIf="host.selectedRow.saving" name="dots"></ion-spinner>
+              <span *ngIf="!host.selectedRow.saving">{{ 'COMMON.SAVE' | translate }}</span>
+            </button>
+          </div>
+        </div>
+      </ng-container>
+
+  </div>
+</div>

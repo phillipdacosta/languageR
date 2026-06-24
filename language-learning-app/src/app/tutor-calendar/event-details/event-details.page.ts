@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy, ChangeDetectorRef, Input, ViewChild, Elem
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Location } from '@angular/common';
-import { IonicModule, ModalController, ToastController, LoadingController, ViewWillEnter, ViewDidEnter } from '@ionic/angular';
+import { IonicModule, ModalController, ToastController, LoadingController, AlertController, ViewWillEnter, ViewDidEnter } from '@ionic/angular';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { LessonService, Lesson, CachedLessonDetailBundle } from '../../services/lesson.service';
@@ -18,6 +18,7 @@ import { PlatformService } from '../../services/platform.service';
 import { WalletService } from '../../services/wallet.service';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { environment } from '../../../environments/environment';
+import { JourneyMapPreviewComponent, JourneyMapPreviewIllustration, JourneyMapPreviewPhase } from '../../journey/journey-map-preview.component';
 import { CancelReasonModalComponent } from '../../components/cancel-reason-modal/cancel-reason-modal.component';
 import { ClassAttendeesComponent } from '../../components/class-attendees/class-attendees.component';
 import { ClassInvitationModalComponent } from '../../components/class-invitation-modal/class-invitation-modal.component';
@@ -54,6 +55,7 @@ const GOAL_LEVEL_I18N_KEYS: Record<string, string> = {
   advanced: 'ONBOARDING.STUDENT.LEVEL_OPTION_ADVANCED',
 };
 import { WebSocketService } from '../../services/websocket.service';
+import { EventDetailsImagePreloadService } from '../../services/event-details-image-preload.service';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { Subscription, firstValueFrom } from 'rxjs';
 import { filter } from 'rxjs/operators';
@@ -139,7 +141,7 @@ type RecommendedMaterialDisplay = TutorMaterial & {
   templateUrl: './event-details.page.html',
   styleUrls: ['./event-details.page.scss'],
   standalone: true,
-  imports: [CommonModule, FormsModule, IonicModule, SharedModule, TranslateModule, CancelReasonModalComponent, ConfirmActionModalComponent, RescheduleLessonModalComponent, ClassAttendeesComponent, ClassInvitationModalComponent, ClassGoingMessageModalComponent]
+  imports: [CommonModule, FormsModule, IonicModule, SharedModule, TranslateModule, CancelReasonModalComponent, ConfirmActionModalComponent, RescheduleLessonModalComponent, ClassAttendeesComponent, ClassInvitationModalComponent, ClassGoingMessageModalComponent, JourneyMapPreviewComponent]
 })
 export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewDidEnter {
   /** When presented as a modal, the caller passes the event ID directly */
@@ -178,10 +180,21 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   isLessonInProgress = false;
   canCancelLesson = false;
   showJoinButton = false;
+  /** Student sidebar: rebook CTA (cancelled lessons, or completed trial). */
+  showStudentRebookButton = false;
+  /** Side-by-side join/rebook + message layout. */
+  showSidebarActionsRow = false;
 
   // Formatted data
   formattedDate = '';
+  /** Up Next–style schedule tray (lessons/:id sidebar). */
+  edScheduleIsToday = false;
+  edScheduleDateBadgeMonth = '';
+  edScheduleDateBadgeDay = '';
+  edScheduleDateBadgeWeekday = '';
+  edScheduleDurationLabel = '';
   edSidebarTitle = '';
+  edSidebarShowTrialLabel = false;
   edSidebarHasExtraDetails = false;
   formattedTimeRange = '';
   formattedDuration = '';
@@ -206,7 +219,6 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   tutorId: string | null = null; // For navigation to tutor profile (students only)
 
   // Sidebar info
-  participantBio = '';
   participantLanguages: string[] = [];
   participantRate = '';
   participantRating = '';
@@ -240,6 +252,15 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   edPlanGoalTimelineDate = '';
   edPlanShowGoalCard = false;
   edPlanPhaseLabel = '';
+  showJourneyMapPreview = false;
+  edJourneyIllustration: JourneyMapPreviewIllustration | null = null;
+  edJourneyStatusNote = '';
+  edShowGoalSidebarSection = false;
+  edJourneyChapterTheme = 'a1-desert';
+  edJourneyChapterLevel = 'A1';
+  edJourneyPhases: JourneyMapPreviewPhase[] = [];
+  edJourneyCaption = '';
+  edJourneyCurrentPhaseIndex = 0;
   edPlanNextFocus = '';
   edPlanStudentSummary = '';
   edPlanFocusAreas: string[] = [];
@@ -269,6 +290,8 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   edPlanTrialBody = '';
   // Small "Draft plan" chip so draft-vs-active is legible on the lesson itself.
   edPlanStateLabel = '';
+  edPlanIsPaused = false;
+  edPlanFocusBody = '';
   edShowPlanExpanded = false;
   edShowTutorBriefing = false;
   edPrepShowPersistentChallenges = false;
@@ -279,6 +302,8 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   private edPlanSummary: LearningPlanSummary | null = null;
   /** Last fetched plan summaries — persisted in detail cache for instant reload. */
   private cachedPlanSummaries: LearningPlanSummary[] = [];
+  private planContextLoaded = false;
+  private planUpdatesSub?: { unsubscribe(): void };
 
   // Pre-lesson briefing (tutor only) — populated alongside plan summary.
   // Combines plan + latest analysis + a short deterministic agenda.
@@ -330,6 +355,9 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   mcPaymentEmptyKey = 'EVENT_DETAILS.LESSON_SCREEN.EMPTY_PAYMENT_STUDENT';
   showMcLearningMaterials = false;
   mcLearningMaterialsEmpty = false;
+  /** Trial lesson: centered placeholder instead of feedback/practice/materials. */
+  showMcTrialInsightsPlaceholder = false;
+  mcTrialInsightsBodyKey = 'EVENT_DETAILS.LESSON_SCREEN.TRIAL_INSIGHTS_BODY_STUDENT';
 
   // Tip info
   hasTip = false;
@@ -359,6 +387,9 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   isUnderInvestigation = false;
   isInvestigationResolved = false;
   investigationResolutionLabel = '';
+  edShowReportIssueButton = false;
+  edShowIssueReportedChip = false;
+  edShowIssueResolvedChip = false;
 
   // Reschedule info
   hasReschedule = false;
@@ -569,6 +600,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     private modalController: ModalController,
     private toastController: ToastController,
     private loadingController: LoadingController,
+    private alertController: AlertController,
     private location: Location,
     private flipTransition: FlipTransitionService,
     private cdr: ChangeDetectorRef,
@@ -576,11 +608,15 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     private learningPlanService: LearningPlanService,
     private analysisTranslation: AnalysisTranslationService,
     private webSocketService: WebSocketService,
-    private translate: TranslateService
+    private translate: TranslateService,
+    private eventDetailsImagePreload: EventDetailsImagePreloadService,
   ) {}
 
   ionViewWillEnter() {
     this.syncTranslationOnEnter();
+    if (this.eventId && this.lesson && !this.isClass && this.planContextLoaded) {
+      this.loadLearningPlanContext(true);
+    }
   }
 
   ionViewDidEnter() {
@@ -617,6 +653,10 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     this.eventId = this.modalEventId || this.route.snapshot.paramMap.get('id');
     this.resetPageTranslation();
 
+    if (this.eventId) {
+      this.warmEventDetailsImages(true);
+    }
+
     this.userService.getCurrentUser().subscribe({
       next: (user) => {
         this.currentUser = user;
@@ -642,6 +682,13 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
         this.refreshSidebarFromTranslationState();
         this.cdr.detectChanges();
       }
+    });
+
+    this.planUpdatesSub = this.learningPlanService.planUpdates$.subscribe(({ language }) => {
+      const lessonLang = this.resolveLessonLanguage();
+      if (!this.eventId || this.isClass || !lessonLang) return;
+      if (lessonLang.toLowerCase() !== language.toLowerCase()) return;
+      this.loadLearningPlanContext(true);
     });
 
     this.langChangeSub = this.translate.onLangChange.subscribe(() => {
@@ -677,6 +724,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   ngOnDestroy() {
     this.translationSub?.unsubscribe();
     this.langChangeSub?.unsubscribe();
+    this.planUpdatesSub?.unsubscribe();
     if (this.countdownInterval) {
       clearInterval(this.countdownInterval);
     }
@@ -1117,8 +1165,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
 
       if (cached.planSummaries?.length) {
         this.cachedPlanSummaries = cached.planSummaries as LearningPlanSummary[];
-        const lessonLanguage =
-          String(cached.lesson?.language || cached.lesson?.subject || '').trim();
+        const lessonLanguage = this.resolveLessonLanguage();
         const summary = this.pickPlanSummaryForLesson(this.cachedPlanSummaries, lessonLanguage);
         if (summary) {
           this.applyPlanSummary(summary);
@@ -1199,8 +1246,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   private initPendingRequestCount(): number {
     let count = 6; // analysis + feedback + billing + payment + previous notes + plan
     if (this.isStudentUser) count++; // payment method
-    const prepLanguage =
-      String((this.lesson as any)?.language || (this.lesson as any)?.subject || '').trim();
+    const prepLanguage = this.resolveLessonLanguage();
     if (prepLanguage) count++; // lesson prep
     return count;
   }
@@ -1390,6 +1436,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
               recommendedStruggles: this.recommendedStruggles,
             });
           }
+          this.warmEventDetailsImages(true);
         }
         this.recommendedLoading = false;
         this.refreshMainCardSections();
@@ -1536,15 +1583,16 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     this.computeCancelButton();
     this.computeFormatted();
     this.computeParticipant();
-    this.refreshSplitLayoutLabels();
     this.computeTip();
     this.computeCancellation();
+    this.computeSidebarActions();
     this.computeIssue();
     this.computeReschedule();
     this.computeLastSessionContext();
     this.computeFirstLessonContext();
     this.sanitizeLessonForViewerRole();
     this.refreshPlanPresentation();
+    this.refreshSplitLayoutLabels();
     this.refreshNotesPresentation();
     this.refreshMainCardSections();
     this.capturePageOriginals();
@@ -1572,6 +1620,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     this.mcPaymentEmpty = false;
     this.showMcLearningMaterials = false;
     this.mcLearningMaterialsEmpty = false;
+    this.showMcTrialInsightsPlaceholder = false;
   }
 
   /** Which main-card sections render and whether they show an empty state. */
@@ -1584,6 +1633,10 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     const upcoming = !this.isLessonCompleted && !this.isCancelled;
     const completed = this.isLessonCompleted && !this.isCancelled;
     const trial = !!this.lesson.isTrialLesson;
+
+    this.mcTrialInsightsBodyKey = this.isTutorUser
+      ? 'EVENT_DETAILS.LESSON_SCREEN.TRIAL_INSIGHTS_BODY_TUTOR'
+      : 'EVENT_DETAILS.LESSON_SCREEN.TRIAL_INSIGHTS_BODY_STUDENT';
 
     this.mcLearningFocusEmptyKey = this.isTutorUser
       ? 'EVENT_DETAILS.LESSON_SCREEN.EMPTY_FOCUS_TUTOR'
@@ -1602,16 +1655,29 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       : 'EVENT_DETAILS.LESSON_SCREEN.EMPTY_PAYMENT_STUDENT';
 
     this.showMcLearningFocus = true;
-    this.mcLearningFocusEmpty = !this.edPlanNextFocus && !this.edPlanTrialBody;
+    this.mcLearningFocusEmpty = !this.edPlanIsPaused && !this.edPlanNextFocus && !this.edPlanTrialBody;
 
-    this.showMcFirstLesson = upcoming;
-    this.mcFirstLessonEmpty = !this.hasFirstLessonContext;
+    const upcomingTrial = upcoming && trial;
+    if (upcomingTrial) {
+      this.showMcFirstLesson = false;
+      this.mcFirstLessonEmpty = false;
+      this.showMcLastSession = false;
+      this.mcLastSessionEmpty = false;
+      this.showMcTutorBriefing = false;
+      this.mcTutorBriefingEmpty = false;
+      this.showMcTrialInsightsPlaceholder = true;
+    } else {
+      this.showMcFirstLesson = upcoming;
+      this.mcFirstLessonEmpty = !this.hasFirstLessonContext;
 
-    this.showMcLastSession = upcoming;
-    this.mcLastSessionEmpty = !this.hasLastSessionContext;
+      this.showMcLastSession = upcoming;
+      this.mcLastSessionEmpty = !this.hasLastSessionContext;
 
-    this.showMcTutorBriefing = upcoming && this.isTutorUser;
-    this.mcTutorBriefingEmpty = !this.edPrepHasContent;
+      this.showMcTutorBriefing = upcoming && this.isTutorUser;
+      this.mcTutorBriefingEmpty = !this.edPrepHasContent;
+
+      this.showMcTrialInsightsPlaceholder = trial && completed;
+    }
 
     // AI analysis is intentionally disabled for trial lessons.
     this.showMcAnalysis = completed && !trial;
@@ -1621,17 +1687,17 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       !this.showTutorPrivateNotes;
     this.showLessonNotesSection = this.showMcAnalysis && !this.mcAnalysisEmpty;
 
-    this.showMcPracticeAreas = completed && this.isStudentUser;
+    this.showMcPracticeAreas = completed && this.isStudentUser && !trial;
     this.mcPracticeAreasEmpty = !this.recommendedLoading && !this.hasRecommendations;
 
     // Student: one unified section combining personal note + structured feedback.
     // Include the tutor's free-text note (hasTutorNote) — on AI-enabled lessons
     // it's the only feedback and would otherwise never surface for the student.
-    this.showMcTutorFeedback = completed && this.isStudentUser;
+    this.showMcTutorFeedback = completed && this.isStudentUser && !trial;
     this.mcTutorFeedbackEmpty = !this.hasTutorFeedback && !this.hasTutorNote;
 
     // Tutor: status banner + own note / structured feedback
-    this.showMcYourFeedback = completed && this.isTutorUser;
+    this.showMcYourFeedback = completed && this.isTutorUser && !trial;
     this.mcYourFeedbackEmpty = !this.hasTutorNote && !this.hasTutorFeedback;
     this.showYourFeedbackCollapsible = this.feedbackProvided && !this.mcYourFeedbackEmpty;
 
@@ -1641,7 +1707,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
 
     const recIds = new Set(this.recommendedMaterials.map(m => m._id));
     this.tutorMaterialsFiltered = this.tutorMaterials.filter(m => !recIds.has(m._id));
-    this.showMcLearningMaterials = this.isStudentUser && !this.isCancelled;
+    this.showMcLearningMaterials = this.isStudentUser && !this.isCancelled && !trial;
     this.mcLearningMaterialsEmpty = !this.tutorMaterialsFiltered.length;
   }
 
@@ -1685,7 +1751,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       this.statusColor = '#60a5fa';
       this.statusClass = 'in-progress';
       this.isLessonInProgress = true;
-    } else if (now > end) {
+    } else if (now > end || this.lesson.status === 'completed' || this.lesson.status === 'ended_early') {
       this.statusLabel = this.translate.instant('LESSONS_PAGE.STATUS_COMPLETED');
       this.statusColor = '#6b7280';
       this.statusClass = 'completed';
@@ -1724,6 +1790,28 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     }
   }
 
+  private computeSidebarActions(): void {
+    if (!this.lesson) {
+      this.showStudentRebookButton = false;
+      this.showSidebarActionsRow = false;
+      return;
+    }
+
+    const finished =
+      this.isLessonCompleted ||
+      this.lesson.status === 'completed' ||
+      this.lesson.status === 'ended_early';
+    const cancelled = this.isCancelled || this.lesson.status === 'cancelled';
+
+    this.showStudentRebookButton = !!(
+      this.isStudentUser &&
+      this.tutorId &&
+      !this.showJoinButton &&
+      (cancelled || finished)
+    );
+    this.showSidebarActionsRow = this.showJoinButton || this.showStudentRebookButton;
+  }
+
   private computeCancelButton() {
     if (!this.lesson?.startTime || this.lesson.status === 'cancelled') {
       this.canCancelLesson = false;
@@ -1750,7 +1838,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       this.formattedDate = this.translate.instant('HOME.TOMORROW');
     } else {
       this.formattedDate = formatDateInTz(start, this.userTz, {
-        weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
+        weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
       });
     }
 
@@ -1778,7 +1866,50 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
 
     // Price
     this.formattedPrice = this.lesson.price != null ? `$${this.lesson.price.toFixed(2)}` : '';
+    this.refreshEdScheduleTray();
     this.refreshSplitLayoutLabels();
+  }
+
+  /** Date badge + time tray matching home Up Next card. */
+  private refreshEdScheduleTray(): void {
+    if (!this.lesson?.startTime) {
+      this.edScheduleIsToday = false;
+      this.edScheduleDateBadgeMonth = '';
+      this.edScheduleDateBadgeDay = '';
+      this.edScheduleDateBadgeWeekday = '';
+      this.edScheduleDurationLabel = '';
+      return;
+    }
+
+    const start = new Date(this.lesson.startTime);
+    const today = new Date();
+
+    this.edScheduleIsToday = start.toDateString() === today.toDateString();
+    if (!this.edScheduleIsToday) {
+      this.edScheduleDateBadgeMonth = formatDateInTz(start, this.userTz, {
+        month: 'short',
+        day: undefined,
+        year: undefined,
+      });
+      this.edScheduleDateBadgeDay = formatDateInTz(start, this.userTz, {
+        day: 'numeric',
+        month: undefined,
+        year: undefined,
+      });
+      this.edScheduleDateBadgeWeekday = formatDateInTz(start, this.userTz, {
+        weekday: 'short',
+        month: undefined,
+        day: undefined,
+        year: undefined,
+      });
+    } else {
+      this.edScheduleDateBadgeMonth = '';
+      this.edScheduleDateBadgeDay = '';
+      this.edScheduleDateBadgeWeekday = '';
+    }
+
+    const minutes = Math.max(1, Math.round(Number(this.lesson.duration) || 25));
+    this.edScheduleDurationLabel = this.translate.instant('HOME.MIN_LESSON', { minutes });
   }
 
   /** Labels for post-lesson-style split header + left guidance column. */
@@ -1786,9 +1917,12 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     this.edSidebarTitle = this.isTutorUser
       ? (this.participantName || '')
       : this.translate.instant('EVENT_DETAILS.LESSON_SCREEN.LESSON_WITH', { name: this.participantName || '' });
+    this.edSidebarShowTrialLabel = !!(
+      this.lesson?.isTrialLesson &&
+      this.lesson?.status !== 'cancelled'
+    );
     this.edSidebarHasExtraDetails = !!(
-      (this.formattedPrice && !this.hasPaymentStatus) ||
-      (this.isStudentUser && this.paymentMethodLabel) ||
+      (this.formattedPrice && !this.hasPaymentStatus && this.isTutorUser) ||
       (!this.isCancelled && this.billingData && this.formattedActualDuration && !this.hasPaymentStatus) ||
       (!this.isCancelled && this.billingData && this.formattedActualPrice && !this.hasPaymentStatus)
     );
@@ -1831,7 +1965,6 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     if (p) {
       const pAny = p as any;
       this.participantId = pAny._id?.toString() || pAny.auth0Id || null;
-      this.participantBio = pAny.onboardingData?.bio || pAny.onboardingData?.summary || pAny.profile?.bio || '';
       this.participantLanguages = pAny.onboardingData?.languages || [];
       this.participantExperienceLevel = pAny.onboardingData?.experienceLevel || '';
       this.participantGoals = pAny.onboardingData?.goals || [];
@@ -1872,10 +2005,14 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     }
   }
 
-  /** "English, Spanish · Student · United States" for the guidance sidebar. */
+  /** "{{Lesson language}} Student" (or Tutor) for the guidance sidebar. */
   private buildParticipantMetaLine(): string {
     let line = '';
-    if (this.participantLanguages.length) {
+    const lessonLang = this.resolveLessonLanguage();
+
+    if (lessonLang) {
+      line = `${lessonLang} ${this.participantRoleDisplay}`.trim();
+    } else if (this.participantLanguages.length) {
       line = `${this.participantLanguages.join(', ')} ${this.participantRoleDisplay}`.trim();
     }
     if (this.participantCountry) {
@@ -2017,7 +2154,19 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
 
   private computeIssue() {
     if (!this.lesson) return;
+
+    const hoursSinceEnd = this.lesson.endTime
+      ? (Date.now() - new Date(this.lesson.endTime).getTime()) / (1000 * 60 * 60)
+      : Infinity;
+    this.edShowReportIssueButton = this.lesson.status === 'completed'
+      && !this.lesson.issueReported
+      && !this.lesson.investigationResolvedAt
+      && hoursSinceEnd <= 24;
+    this.edShowIssueResolvedChip = !!this.lesson.investigationResolvedAt;
+
     this.hasIssue = !!this.lesson.issueReported;
+    this.edShowIssueReportedChip = this.hasIssue && !this.lesson.investigationResolvedAt;
+
     if (this.hasIssue) {
       const issueKeyMap: Record<string, string> = {
         tutor_no_show: 'LESSONS_PAGE.ISSUE_TUTOR_NO_SHOW',
@@ -2600,6 +2749,18 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   }
 
   /** The lesson's tutor id (tutor viewing = self; student viewing = lesson.tutorId). */
+  /**
+   * Lesson subjects are stored as "German Lesson", "Spanish Lesson", etc.
+   * Strip the trailing " Lesson" suffix so the value matches plan.language
+   * ("German", "Spanish") which is what every plan endpoint queries against.
+   */
+  private resolveLessonLanguage(): string {
+    const raw = String(
+      (this.lesson as any)?.language || (this.lesson as any)?.subject || ''
+    ).trim();
+    return raw.replace(/\s+lesson$/i, '').trim();
+  }
+
   private resolveLessonTutorId(): string | undefined {
     if (this.isTutorUser) {
       const selfId = (this.currentUser as any)?._id || this.currentUser?.id;
@@ -2697,6 +2858,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
 
   private applyPlanSummary(summary: LearningPlanSummary): void {
     this.edPlanSummary = summary;
+    this.upsertCachedPlanSummary(summary);
     this.edPlanGoalLabel = this.goalLabelForType(summary.goal?.type, summary.goal?.description);
     this.edPlanPhaseLabel = summary.currentPhase
       ? this.translate.instant('PRE_CALL.PHASE_LABEL', {
@@ -2705,18 +2867,143 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
           title: summary.currentPhase.title,
         })
       : '';
+    this.applyJourneyMapFromSummary(summary);
     this.edPlanNextFocus = summary.nextLessonFocus || '';
     this.edPlanStudentSummary = summary.studentSummary || '';
     this.edPlanFocusAreas = summary.currentPhase?.focusAreas || [];
     this.edPlanSuggestedTopics = summary.currentPhase?.suggestedTopics || [];
     this.edHasPlan = true;
+    this.planContextLoaded = true;
     this.refreshPlanPresentation();
     this.refreshPlanGoalPresentation();
+    this.refreshJourneySidebarPresentation();
     this.refreshMainCardSections();
     this.capturePageOriginals();
+    this.warmEventDetailsImages(true);
+  }
+
+  private warmEventDetailsImages(urgent = false): void {
+    if (!this.eventId) return;
+    this.eventDetailsImagePreload.warmForLesson(this.eventId, urgent, this.lesson);
+  }
+
+  private applyJourneyMapFromSummary(summary: LearningPlanSummary): void {
+    this.edJourneyChapterTheme = summary.chapterTheme || 'a1-desert';
+    this.edJourneyChapterLevel = summary.chapterLevel || 'A1';
+    this.edJourneyCurrentPhaseIndex = summary.currentPhaseIndex ?? 0;
+
+    if (summary.phases?.length) {
+      this.edJourneyPhases = summary.phases.map(p => ({
+        title: p.title,
+        status: (p.status as JourneyMapPreviewPhase['status']) || 'locked',
+        isRecovery: !!p._isRecovery,
+        isSplit: !!p._isSplit
+      }));
+    } else if (summary.totalPhases > 0) {
+      this.edJourneyPhases = Array.from({ length: summary.totalPhases }, (_, i) => {
+        let status: JourneyMapPreviewPhase['status'] = 'locked';
+        if (i < this.edJourneyCurrentPhaseIndex) status = 'completed';
+        else if (i === this.edJourneyCurrentPhaseIndex) status = 'active';
+        const phaseTitle =
+          i === this.edJourneyCurrentPhaseIndex ? summary.currentPhase?.title || '' : '';
+        return {
+          title: phaseTitle,
+          status,
+          isRecovery: i === this.edJourneyCurrentPhaseIndex && !!summary.currentPhase?._isRecovery,
+          isSplit: i === this.edJourneyCurrentPhaseIndex && !!summary.currentPhase?._isSplit
+        };
+      });
+    } else {
+      this.edJourneyPhases = [];
+    }
+
+    this.edJourneyCaption = summary.currentPhase
+      ? this.translate.instant('PRE_CALL.PHASE_LABEL', {
+          current: String(summary.currentPhaseIndex + 1),
+          total: String(summary.totalPhases),
+          title: summary.currentPhase.title,
+        })
+      : '';
+  }
+
+  private upsertCachedPlanSummary(summary: LearningPlanSummary): void {
+    const lang = (summary.language || '').trim().toLowerCase();
+    const idx = this.cachedPlanSummaries.findIndex(
+      (s) => (s.language || '').trim().toLowerCase() === lang
+    );
+    if (idx >= 0) {
+      this.cachedPlanSummaries[idx] = summary;
+    } else {
+      this.cachedPlanSummaries.push(summary);
+    }
+  }
+
+  private refreshJourneySidebarPresentation(): void {
+    const mapStatuses = new Set(['draft', 'active', 'completed', 'mastery_mode']);
+    // Use edPrep?.plan?.status as a fallback so that when getLessonPrep resolves
+    // before getStudentPlanSummary (parallel race), we still detect paused/unframed.
+    const status = this.edPlanSummary?.status || this.edPrep?.plan?.status || '';
+    this.showJourneyMapPreview = !!(
+      this.edHasPlan &&
+      this.edJourneyPhases.length > 0 &&
+      this.edPlanSummary &&
+      mapStatuses.has(status)
+    );
+
+    this.edJourneyIllustration = null;
+    this.edJourneyStatusNote = '';
+
+    // Trial lessons use calibration copy in the main panel, but still surface
+    // the student's journey map when they already have a language plan.
+    if (this.edPlanIsTrial && !this.edHasPlan) {
+      this.edShowGoalSidebarSection = false;
+      return;
+    }
+
+    if (!this.edHasPlan) {
+      this.edJourneyIllustration = 'empty';
+      this.edJourneyStatusNote = this.translate.instant(
+        this.isTutorUser
+          ? 'EVENT_DETAILS.LESSON_SCREEN.JOURNEY_NO_PLAN_TUTOR'
+          : 'EVENT_DETAILS.LESSON_SCREEN.JOURNEY_NO_PLAN_STUDENT'
+      );
+    } else if (status === 'paused') {
+      this.edJourneyIllustration = 'paused';
+      this.edJourneyStatusNote = this.translate.instant(
+        this.isTutorUser
+          ? 'EVENT_DETAILS.LESSON_SCREEN.JOURNEY_PAUSED_TUTOR'
+          : 'EVENT_DETAILS.LESSON_SCREEN.JOURNEY_PAUSED_STUDENT'
+      );
+    } else if (status === 'unframed') {
+      this.edJourneyIllustration = 'empty';
+      this.edJourneyStatusNote = this.translate.instant(
+        this.isTutorUser
+          ? 'EVENT_DETAILS.LESSON_SCREEN.JOURNEY_UNFRAMED_TUTOR'
+          : 'EVENT_DETAILS.LESSON_SCREEN.JOURNEY_UNFRAMED_STUDENT'
+      );
+    }
+
+    this.edShowGoalSidebarSection = !!(
+      this.edPlanShowGoalCard ||
+      this.edPlanPhaseLabel ||
+      this.showJourneyMapPreview ||
+      this.edJourneyIllustration
+    );
   }
 
   private finishEdPlanLoad(silent = false): void {
+    if (!this.edHasPlan) {
+      this.refreshPlanPresentation();
+      this.refreshMainCardSections();
+    } else {
+      this.refreshJourneySidebarPresentation();
+    }
+    if (this.eventId && this.cachedPlanSummaries.length) {
+      this.lessonService.updateCachedLessonDetail(this.eventId, {
+        planSummaries: this.cachedPlanSummaries,
+      });
+    }
+    this.warmEventDetailsImages(true);
     if (!silent) {
       this.onRequestComplete(silent);
     }
@@ -2732,6 +3019,15 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     this.edPlanGoalTimelineDate = '';
     this.edPlanShowGoalCard = false;
     this.edPlanPhaseLabel = '';
+    this.showJourneyMapPreview = false;
+    this.edJourneyIllustration = null;
+    this.edJourneyStatusNote = '';
+    this.edShowGoalSidebarSection = false;
+    this.edJourneyChapterTheme = 'a1-desert';
+    this.edJourneyChapterLevel = 'A1';
+    this.edJourneyPhases = [];
+    this.edJourneyCaption = '';
+    this.edJourneyCurrentPhaseIndex = 0;
     this.edPlanNextFocus = '';
     this.edPlanStudentSummary = '';
     this.edPlanFocusAreas = [];
@@ -2748,10 +3044,29 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     this.edPlanIsTrial = false;
     this.edPlanTrialBody = '';
     this.edPlanStateLabel = '';
+    this.edPlanIsPaused = false;
+    this.edPlanFocusBody = '';
     this.edShowPlanExpanded = false;
     this.edShowTutorBriefing = false;
     this.edPrepShowPersistentChallenges = false;
     this.edHasPlan = false;
+    this.planContextLoaded = false;
+  }
+
+  private refreshPlanFocusBody(): void {
+    if (this.edPlanIsTrial) {
+      this.edPlanFocusBody = this.edPlanTrialBody;
+      return;
+    }
+    if (this.edPlanIsPaused) {
+      this.edPlanFocusBody = this.translate.instant(
+        this.isTutorUser
+          ? 'EVENT_DETAILS.LESSON_SCREEN.PLAN_FOCUS_PAUSED_TUTOR'
+          : 'EVENT_DETAILS.LESSON_SCREEN.PLAN_FOCUS_PAUSED_STUDENT'
+      );
+      return;
+    }
+    this.edPlanFocusBody = this.edPlanNextFocus || '';
   }
 
   private refreshPlanPresentation(): void {
@@ -2763,10 +3078,24 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       this.edPlanTrialBody = this.isTutorUser
         ? this.translate.instant('EVENT_DETAILS.LESSON_SCREEN.TRIAL_OBJECTIVE_TUTOR', { name: displayName })
         : this.translate.instant('EVENT_DETAILS.LESSON_SCREEN.TRIAL_OBJECTIVE_STUDENT');
+      this.refreshJourneySidebarPresentation();
       return;
     }
 
     if (!this.edHasPlan) {
+      this.edPlanEyebrowKey = this.isLessonCompleted
+        ? 'EVENT_DETAILS.LESSON_SCREEN.PLAN_NEXT_UP'
+        : 'EVENT_DETAILS.LESSON_SCREEN.LESSON_OBJECTIVE';
+      if (this.isTutorUser) {
+        this.edPlanEyebrowKey = this.isLessonCompleted
+          ? 'EVENT_DETAILS.LESSON_SCREEN.PLAN_TUTOR_NEXT'
+          : 'EVENT_DETAILS.LESSON_SCREEN.PLAN_TUTOR_THIS';
+      }
+      this.edPlanStateLabel = '';
+      this.edPlanIsPaused = false;
+      this.edPlanFocusBody = '';
+      this.edPlanTrialBody = '';
+      this.refreshJourneySidebarPresentation();
       return;
     }
 
@@ -2783,10 +3112,15 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
         : 'EVENT_DETAILS.LESSON_SCREEN.PLAN_TUTOR_THIS';
     }
 
-    // Advisory autonomy note — tutors only, and never on trials (which have
-    // their own calibration framing). Keeps the same recommended topics but
-    // signals the tutor is free to adapt.
-    if (this.isTutorUser && !this.lesson?.isTrialLesson) {
+    // Resolve plan status from the richest available source. edPlanSummary is
+    // set by getStudentPlanSummary; edPrep is set by getLessonPrep. Both fire
+    // in parallel so whichever arrives first wins, and the second corrects it.
+    // Using both avoids showing stale/empty status when one races ahead.
+    const planStatus = this.edPlanSummary?.status || this.edPrep?.plan?.status || '';
+    this.edPlanIsPaused = planStatus === 'paused';
+
+    // Advisory autonomy note — tutors only, never on trials or paused plans.
+    if (this.isTutorUser && !this.lesson?.isTrialLesson && !this.edPlanIsPaused) {
       const name = this.participantName?.split(' ')[0] || '';
       this.edPlanAdvisoryNote = name
         ? this.translate.instant('EVENT_DETAILS.LESSON_SCREEN.PLAN_TUTOR_ADVISORY_NAMED', { name })
@@ -2799,7 +3133,6 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     // trials (calibration framing). The adjust_focus override only accepts
     // active/mastery_mode plans, so don't offer it on a draft (pre-first-lesson)
     // plan where the save would 404.
-    const planStatus = this.edPlanSummary?.status || '';
     const planAcceptsOverride = planStatus === 'active' || planStatus === 'mastery_mode';
     this.edCanEditFocus = this.isTutorUser && !this.lesson?.isTrialLesson && planAcceptsOverride;
     if (!this.edCanEditFocus) {
@@ -2807,15 +3140,6 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       this.edFocusBodyMinHeight = 0;
     }
 
-    this.edShowPlanExpanded = !this.isLessonCompleted;
-    this.edPlanTopicChips = this.edShowPlanExpanded
-      ? (this.edPlanSuggestedTopics.length
-          ? this.edPlanSuggestedTopics
-          : this.edPlanFocusAreas).slice(0, 4)
-      : [];
-
-    // Trial calibration framing — overrides the objective for an upcoming trial.
-    this.edPlanIsTrial = !this.isLessonCompleted && !!this.lesson?.isTrialLesson;
     if (this.edPlanIsTrial) {
       const other = this.isTutorUser ? this.lesson?.studentId : this.lesson?.tutorId;
       const displayName = this.participantName || (other ? this.formatPersonName(other) : '');
@@ -2826,15 +3150,32 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       this.edPlanTrialBody = '';
     }
 
-    // Draft-state chip — only meaningful while the plan is still a draft.
-    this.edPlanStateLabel = this.edPlanSummary?.status === 'draft'
-      ? this.translate.instant(this.isTutorUser
+    // Draft / paused state chips on the focus card.
+    if (planStatus === 'draft') {
+      this.edPlanStateLabel = this.translate.instant(this.isTutorUser
           ? 'EVENT_DETAILS.LESSON_SCREEN.PLAN_STATE_DRAFT_TUTOR'
-          : 'EVENT_DETAILS.LESSON_SCREEN.PLAN_STATE_DRAFT')
-      : '';
+          : 'EVENT_DETAILS.LESSON_SCREEN.PLAN_STATE_DRAFT');
+    } else if (this.edPlanIsPaused) {
+      this.edPlanStateLabel = this.translate.instant(this.isTutorUser
+          ? 'EVENT_DETAILS.LESSON_SCREEN.PLAN_STATE_PAUSED_TUTOR'
+          : 'EVENT_DETAILS.LESSON_SCREEN.PLAN_STATE_PAUSED_STUDENT');
+    } else {
+      this.edPlanStateLabel = '';
+    }
+
+    this.edShowPlanExpanded = !this.isLessonCompleted && !this.edPlanIsPaused;
+    this.edPlanTopicChips = this.edShowPlanExpanded
+      ? (this.edPlanSuggestedTopics.length
+          ? this.edPlanSuggestedTopics
+          : this.edPlanFocusAreas).slice(0, 4)
+      : [];
+
+    this.refreshPlanFocusBody();
 
     this.edShowTutorBriefing =
-      this.isTutorUser && !this.isLessonCompleted && !!this.edPrepHasContent;
+      this.isTutorUser && !this.isLessonCompleted && !!this.edPrepHasContent && !this.edPlanIsPaused;
+
+    this.refreshJourneySidebarPresentation();
   }
 
   /** Open the inline focus editor, prefilled with the current focus. */
@@ -2864,10 +3205,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     if (!note || this.edFocusSaving) return;
 
     const studentId = this.resolvePlanStudentId();
-    const language =
-      String((this.lesson as any)?.language || (this.lesson as any)?.subject || '').trim() ||
-      this.edPlanSummary?.language ||
-      '';
+    const language = this.resolveLessonLanguage() || this.edPlanSummary?.language || '';
     if (!studentId || !language) {
       await this.presentFocusToast(
         this.translate.instant('EVENT_DETAILS.LESSON_SCREEN.FOCUS_EDIT_ERROR'),
@@ -2954,6 +3292,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
 
     const studentId = this.resolvePlanStudentId();
     if (!studentId) {
+      this.refreshPlanPresentation();
       this.onRequestComplete(silent);
       return;
     }
@@ -2961,10 +3300,11 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     // Keep painted plan/briefing during silent revalidate — reset wipes the UI.
     if (!silent) {
       this.resetPlanContext();
+      this.refreshPlanPresentation();
+      this.refreshMainCardSections();
     }
 
-    const lessonLanguage =
-      String((this.lesson as any)?.language || (this.lesson as any)?.subject || '').trim();
+    const lessonLanguage = this.resolveLessonLanguage();
 
     // Pass the lesson's tutor so the card surfaces *that* tutor's advisory
     // focus lane (multi-tutor students) instead of the shared plan focus.
@@ -2982,6 +3322,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
         this.finishEdPlanLoad(silent);
       },
       error: () => {
+        this.refreshPlanPresentation();
         this.finishEdPlanLoad(silent);
       },
     });
@@ -2990,7 +3331,11 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       this.learningPlanService.getLessonPrep(studentId, lessonLanguage).subscribe({
         next: (res) => {
           if (!res.success || !res.prep) {
-            if (!silent) this.onRequestComplete(silent);
+            // Always settle this request — the prep slot is counted in both
+            // the silent and non-silent pending tallies. Skipping it in silent
+            // mode left `silentPendingRequests` > 0, so `isRevalidating` never
+            // reset and background revalidation stopped firing on later visits.
+            this.onRequestComplete(silent);
             return;
           }
           if (this.isTutorUser) {
@@ -3000,6 +3345,10 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
             if (!this.edPlanNextFocus && res.prep.plan?.nextLessonFocus) {
               this.edPlanNextFocus = res.prep.plan.nextLessonFocus;
             }
+            // Re-sync focus body in case plan status from prep differs from
+            // what the summary returned (e.g. paused plan still has a focus).
+            this.refreshPlanPresentation();
+            this.refreshMainCardSections();
           }
           this.onRequestComplete(silent);
         },
@@ -3014,6 +3363,8 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     const ctx = getMockLearningPlanContext(mockId);
     if (!ctx) {
       this.resetPlanContext();
+      this.refreshPlanPresentation();
+      this.refreshMainCardSections();
       return;
     }
 
@@ -3618,7 +3969,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     } else if (start.toDateString() === tomorrow.toDateString()) {
       this.formattedDate = this.translate.instant('HOME.TOMORROW');
     } else {
-      this.formattedDate = formatDateInTz(start, this.userTz, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+      this.formattedDate = formatDateInTz(start, this.userTz, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
     }
     this.formattedTimeRange = `${formatTimeInTz(start, this.userTz, undefined, true)} – ${formatTimeInTz(end, this.userTz, undefined, true)}`;
     this.formattedDuration = `${this.classData.duration || 60} minutes`;
@@ -3920,9 +4271,16 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   // ── Countdown ─────────────────────────────────────────────────
 
   private startCountdown() {
-    this.countdownInterval = setInterval(() => {
+    if (this.countdownInterval) {
+      clearInterval(this.countdownInterval);
+    }
+    const tick = () => {
       this.computeJoinButton();
-    }, 60000);
+      this.computeSidebarActions();
+      this.cdr.markForCheck();
+    };
+    tick();
+    this.countdownInterval = setInterval(tick, 30000);
   }
 
   // ── Actions ───────────────────────────────────────────────────
@@ -4022,9 +4380,19 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     });
   }
 
-  messageClassTutor() {
-    if (!this.classTutorId) return;
-    this.router.navigate(['/tabs/messages'], { queryParams: { tutorId: this.classTutorId } });
+  messageClassTutor(): void {
+    const tutor = this.classData?.tutorId;
+    const attendee =
+      tutor && typeof tutor === 'object'
+        ? tutor
+        : { name: this.classTutorName, picture: this.classTutorPicture };
+    const receiverId = this.classTutorId || this.resolveMessageReceiverId(tutor);
+    void this.openDirectMessageModal(
+      attendee,
+      receiverId,
+      '',
+      'EVENT_DETAILS.LESSON_SCREEN.MESSAGE_PLACEHOLDER_STUDENT',
+    );
   }
 
   onClassGoingMessageTap(): void {
@@ -4339,10 +4707,78 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     }
   }
 
-  messageParticipant() {
+  messageParticipant(): void {
     if (!this.participantId) return;
-    const param = this.isTutorUser ? 'userId' : 'tutorId';
-    this.router.navigate(['/tabs/messages'], { queryParams: { [param]: this.participantId } });
+    const participant = this.getLessonMessageParticipant();
+    const receiverId = this.resolveMessageReceiverId(participant ?? this.participantId);
+    if (!receiverId) return;
+    const attendee =
+      participant ??
+      ({
+        firstName: this.participantName?.split(' ')[0] || '',
+        lastName: this.participantName?.split(' ').slice(1).join(' ') || '',
+        name: this.participantName,
+        picture: this.participantPicture,
+      } as any);
+    const subtitleKey = this.isStudentUser
+      ? ''
+      : 'EVENT_DETAILS.LESSON_SCREEN.MESSAGE_SUBTITLE_TUTOR';
+    const placeholderKey = this.isStudentUser
+      ? 'EVENT_DETAILS.LESSON_SCREEN.MESSAGE_PLACEHOLDER_STUDENT'
+      : 'EVENT_DETAILS.LESSON_SCREEN.MESSAGE_PLACEHOLDER_TUTOR';
+    void this.openDirectMessageModal(attendee, receiverId, subtitleKey, placeholderKey);
+  }
+
+  private getLessonMessageParticipant(): any | null {
+    if (!this.lesson) return null;
+    const participant = this.isTutorUser ? this.lesson.studentId : this.lesson.tutorId;
+    return participant && typeof participant === 'object' ? participant : null;
+  }
+
+  private resolveMessageReceiverId(user: any): string {
+    if (!user) return '';
+    if (typeof user === 'string') return user.trim();
+    const auth0 = user.auth0Id || user.auth0_id;
+    if (typeof auth0 === 'string' && auth0.trim()) return auth0.trim();
+    const id = user._id || user.id;
+    if (id == null) return '';
+    return typeof id === 'string' ? id : String(id);
+  }
+
+  private async openDirectMessageModal(
+    attendee: any,
+    receiverId: string,
+    subtitleKey = '',
+    placeholderKey = 'EVENT_DETAILS.LESSON_SCREEN.MESSAGE_PLACEHOLDER_STUDENT',
+  ): Promise<void> {
+    if (!receiverId || !attendee) return;
+
+    try {
+      const modal = await this.modalController.create({
+        component: ClassGoingMessageModalComponent,
+        componentProps: {
+          attendees: [attendee],
+          receiverId,
+          receiverIds: [receiverId],
+          className: '',
+          classId: '',
+          subtitleKey,
+          placeholderKey,
+        },
+        cssClass: 'class-going-message-modal',
+      });
+      await modal.present();
+      const { data } = await modal.onDidDismiss();
+      if (data?.sent) {
+        if (data?.kind === 'direct' && data?.userId) {
+          await this.router.navigate(['/tabs/messages'], { queryParams: { userId: data.userId } });
+        } else {
+          await this.router.navigate(['/tabs/messages']);
+        }
+      }
+    } catch (e) {
+      console.error('[DirectMessage] modal failed', e);
+    }
   }
 
   openLesson(lessonId: string) {
@@ -4640,5 +5076,122 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       });
       await toast.present();
     }
+  }
+
+  async onReportIssueClick(): Promise<void> {
+    if (!this.lesson || !this.edShowReportIssueButton) {
+      return;
+    }
+
+    const studentIssueTypes: { type: 'radio'; label: string; value: string }[] = [
+      { type: 'radio', label: this.translate.instant('LESSONS_PAGE.ISSUE_TUTOR_NO_SHOW'), value: 'tutor_no_show' },
+      { type: 'radio', label: this.translate.instant('LESSONS_PAGE.ISSUE_ENDED_EARLY'), value: 'ended_early' },
+      { type: 'radio', label: this.translate.instant('LESSONS_PAGE.ISSUE_POOR_QUALITY'), value: 'poor_quality' },
+      { type: 'radio', label: this.translate.instant('LESSONS_PAGE.ISSUE_INAPPROPRIATE'), value: 'inappropriate' },
+      { type: 'radio', label: this.translate.instant('LESSONS_PAGE.ISSUE_TECHNICAL'), value: 'technical' },
+      { type: 'radio', label: this.translate.instant('LESSONS_PAGE.ISSUE_OTHER'), value: 'other' }
+    ];
+    const tutorIssueTypes: { type: 'radio'; label: string; value: string }[] = [
+      { type: 'radio', label: this.translate.instant('LESSONS_PAGE.ISSUE_STUDENT_NO_SHOW'), value: 'student_no_show' },
+      { type: 'radio', label: this.translate.instant('LESSONS_PAGE.ISSUE_ENDED_EARLY'), value: 'ended_early' },
+      { type: 'radio', label: this.translate.instant('LESSONS_PAGE.ISSUE_INAPPROPRIATE'), value: 'inappropriate' },
+      { type: 'radio', label: this.translate.instant('LESSONS_PAGE.ISSUE_TECHNICAL'), value: 'technical' },
+      { type: 'radio', label: this.translate.instant('LESSONS_PAGE.ISSUE_OTHER'), value: 'other' }
+    ];
+
+    const alert = await this.alertController.create({
+      header: this.translate.instant('LESSONS_PAGE.ALERT_REPORT_HEADER'),
+      message: this.translate.instant('LESSONS_PAGE.ALERT_REPORT_MESSAGE'),
+      inputs: this.isTutorUser ? tutorIssueTypes : studentIssueTypes,
+      buttons: [
+        { text: this.translate.instant('LESSONS_PAGE.ALERT_CANCEL'), role: 'cancel' },
+        {
+          text: this.translate.instant('LESSONS_PAGE.ALERT_NEXT'),
+          handler: (issueType) => {
+            if (!issueType) {
+              void this.showIssueToast(this.translate.instant('LESSONS_PAGE.ALERT_SELECT_ISSUE'), 'warning');
+              return false;
+            }
+            void this.showIssueDetailsInput(issueType);
+            return true;
+          }
+        }
+      ]
+    });
+    await alert.present();
+  }
+
+  private async showIssueDetailsInput(issueType: string): Promise<void> {
+    const alert = await this.alertController.create({
+      header: this.translate.instant('LESSONS_PAGE.ALERT_DETAILS_HEADER'),
+      message: this.translate.instant('LESSONS_PAGE.ALERT_DETAILS_MESSAGE'),
+      inputs: [
+        {
+          name: 'details',
+          type: 'textarea',
+          placeholder: this.translate.instant('LESSONS_PAGE.ALERT_DETAILS_PLACEHOLDER'),
+          attributes: { minlength: 10, maxlength: 500 }
+        }
+      ],
+      buttons: [
+        { text: this.translate.instant('LESSONS_PAGE.ALERT_CANCEL'), role: 'cancel' },
+        {
+          text: this.translate.instant('LESSONS_PAGE.ALERT_SUBMIT'),
+          handler: (data) => {
+            if (!data.details || data.details.length < 10) {
+              void this.showIssueToast(this.translate.instant('LESSONS_PAGE.ALERT_MIN_CHARS'), 'warning');
+              return false;
+            }
+            void this.submitIssueReport(issueType, data.details);
+            return true;
+          }
+        }
+      ]
+    });
+    await alert.present();
+  }
+
+  private async submitIssueReport(issueType: string, details: string): Promise<void> {
+    if (!this.lesson?._id) {
+      return;
+    }
+
+    const loading = await this.loadingController.create({
+      message: this.translate.instant('LESSONS_PAGE.TOAST_SUBMITTING')
+    });
+    await loading.present();
+
+    try {
+      const response = await firstValueFrom(
+        this.http.post<any>(
+          `${environment.apiUrl}/lessons/${this.lesson._id}/report-issue`,
+          { issueType, details },
+          { headers: this.userService.getAuthHeadersSync() }
+        )
+      );
+
+      if (response.success) {
+        await this.showIssueToast(this.translate.instant('LESSONS_PAGE.TOAST_ISSUE_REPORTED'), 'success');
+        this.fetchLessonDetail(false);
+      }
+    } catch (error: any) {
+      console.error('Error reporting issue:', error);
+      await this.showIssueToast(
+        error?.error?.error || error?.error?.message || this.translate.instant('LESSONS_PAGE.TOAST_REPORT_FAILED'),
+        'danger'
+      );
+    } finally {
+      await loading.dismiss();
+    }
+  }
+
+  private async showIssueToast(message: string, color: 'success' | 'danger' | 'warning'): Promise<void> {
+    const toast = await this.toastController.create({
+      message,
+      duration: 3000,
+      position: 'bottom',
+      color
+    });
+    await toast.present();
   }
 }

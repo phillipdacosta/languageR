@@ -69,6 +69,18 @@
     padding-top: 28px;
   }
 
+  &--pending {
+    padding-top: 28px;
+    border-color: rgba(245, 166, 35, 0.35);
+    background: linear-gradient(180deg, #fffdf8 0%, #ffffff 100%);
+  }
+
+  &--action-required {
+    padding-top: 28px;
+    border-color: rgba(234, 88, 12, 0.35);
+    background: linear-gradient(180deg, #fff9f5 0%, #ffffff 100%);
+  }
+
   &__logo {
     display: block;
     margin: 0 auto;
@@ -268,6 +280,64 @@
 
   &__connected-desc {
     margin: 0 0 4px;
+    font-size: 14px;
+    line-height: 1.5;
+    color: #425466;
+  }
+
+  &__pending-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 16px 0 8px;
+    font-size: 15px;
+    font-weight: 600;
+    color: #0a2540;
+
+    ion-icon {
+      font-size: 22px;
+    }
+  }
+
+  &__pending-headline {
+    margin: 0 0 8px;
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.45;
+    color: #0a2540;
+  }
+
+  &__pending-desc {
+    margin: 0 0 4px;
+    font-size: 14px;
+    line-height: 1.5;
+    color: #425466;
+  }
+
+  &__action-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 16px 0 8px;
+    font-size: 15px;
+    font-weight: 600;
+    color: #0a2540;
+
+    ion-icon {
+      font-size: 22px;
+    }
+  }
+
+  &__action-headline {
+    margin: 0 0 8px;
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.45;
+    color: #0a2540;
+  }
+
+  &__action-desc {
+    margin: 0 0 16px;
     font-size: 14px;
     line-height: 1.5;
     color: #425466;

@@ -9,6 +9,7 @@ import { SupportedLanguage } from './language.service';
 import { setGlobalTimeFormat, hasFutureTutorAvailability } from '../shared/timezone.utils';
 import { detectCalendarWeekStartsOn, normalizeCalendarWeekStartsOn, CalendarWeekStartDay } from '../shared/calendar-week.utils';
 import { isStripeSupportedCountry } from '../data/stripe-supported-countries';
+import { StripeConnectStatusSnapshot } from '../utils/stripe-connect.util';
 
 export interface User {
   id: string;
@@ -30,6 +31,9 @@ export interface User {
   // Tutor-specific onboarding tracking
   tutorOnboarding?: {
     photoUploaded: boolean;
+    photoApproved: boolean;
+    photoRejected: boolean;
+    photoRejectionReason?: string;
     videoUploaded: boolean;
     videoApproved: boolean;
     videoRejected: boolean;
@@ -83,6 +87,12 @@ export interface User {
   };
   tutorApproved?: boolean;
   stripeConnectOnboarded?: boolean;
+  /** Tutor finished the Stripe Connect form; Stripe may still be reviewing the account. */
+  stripeDetailsSubmitted?: boolean;
+  /** Stripe has currently_due / past_due requirements — tutor must return to Stripe. */
+  stripeActionRequired?: boolean;
+  /** Raw Stripe requirement field names (e.g. person_xxx.verification.document). */
+  stripeRequirementsCurrentlyDue?: string[];
   stripeConnectAccountId?: string;
   /** True once Stripe Connect KYC has fully verified the tutor (payouts enabled + no outstanding requirements). When true, the manual Government-ID step is skipped because Stripe already vouches for identity. */
   stripeIdentityVerified?: boolean;
@@ -117,6 +127,7 @@ export interface User {
     pendingVideo?: string;
     pendingVideoThumbnail?: string;
     pendingVideoType?: 'upload' | 'youtube' | 'vimeo';
+    pendingPhoto?: string;
     // Structured learning goal (student-only, powers the Learning Plan / Journey)
     learningGoal?: {
       type?: 'conversational' | 'exam_prep' | 'professional' | 'travel' | 'relocation' | 'other' | null;
@@ -266,15 +277,32 @@ export class UserService {
   // Tutor approval status tracking
   private tutorApprovalStatusSubject = new BehaviorSubject<{
     photoComplete: boolean;
+    photoApproved: boolean;
+    photoRejected: boolean;
+    photoRejectionReason: string | null;
     videoComplete: boolean;
     videoApproved: boolean;
     videoRejected: boolean;
+    videoRejectionReason: string | null;
     hasApprovedVideo: boolean;
+    /** Payout step complete for the tutor (includes Stripe pending review). */
     stripeComplete: boolean;
+    /** Stripe Connect fully enabled (charges + payouts). */
+    stripeConnectOnboarded: boolean;
+    /** Stripe is reviewing submitted Connect details. */
+    stripePendingReview: boolean;
+    /** Stripe needs more info from the tutor (e.g. verify representative). */
+    stripeActionRequired: boolean;
+    stripeRequirementsCurrentlyDue: string[];
     // Credential status
     governmentIdUploaded: boolean;
     governmentIdApproved: boolean;
     governmentIdRejected: boolean;
+    governmentIdRejectionReason: string | null;
+    certificationsRejected: boolean;
+    certificationsRejectionReason: string | null;
+    credentialsRejected: boolean;
+    credentialsRejectionReason: string | null;
     /** True when Stripe has fully KYC'd the tutor (skip manual gov-ID). */
     stripeIdentityVerified: boolean;
     /** True if identity is satisfied via either Stripe KYC or admin-approved gov-ID. */
@@ -295,10 +323,14 @@ export class UserService {
   private payoutStatusSubject = new BehaviorSubject<{
     provider: 'stripe' | 'paypal' | 'manual' | 'none';
     hasPayoutSetup: boolean;
+    stripePendingReview: boolean;
+    stripeActionRequired: boolean;
     options: any;
   }>({
     provider: 'none',
     hasPayoutSetup: false,
+    stripePendingReview: false,
+    stripeActionRequired: false,
     options: null
   });
   public payoutStatus$ = this.payoutStatusSubject.asObservable();
@@ -468,11 +500,16 @@ export class UserService {
   private updateTutorApprovalStatus(user: User): void {
     // Photo is complete only if they have a CUSTOM uploaded photo (not just Google/Auth0 default)
     // Check if picture is from GCS (custom upload) or different from their auth0Picture
-    const hasCustomPhoto = user.picture && (
-      user.picture.includes('storage.googleapis.com') || // GCS uploaded photo
-      (user.auth0Picture && user.picture !== user.auth0Picture) // Different from original Auth0 photo
+    const hasPendingPhoto = !!(user.onboardingData?.pendingPhoto && user.onboardingData.pendingPhoto.trim());
+    const hasApprovedCustomPhoto = !!(user.picture && (
+      user.picture.includes('storage.googleapis.com') ||
+      (user.auth0Picture && user.picture !== user.auth0Picture)
+    ));
+    const photoApproved = user.tutorOnboarding?.photoApproved === true || (
+      hasApprovedCustomPhoto && !hasPendingPhoto && user.tutorOnboarding?.photoRejected !== true
     );
-    const photoComplete = !!hasCustomPhoto;
+    const photoRejected = user.tutorOnboarding?.photoRejected === true;
+    const photoComplete = hasPendingPhoto || hasApprovedCustomPhoto;
     // Video is complete when there's either a pending submission (awaiting
     // review) or an approved video on file. We intentionally do NOT treat a
     // bare `videoRejected` flag as complete — the Teaching Profile section
@@ -490,6 +527,13 @@ export class UserService {
     const hasStripe = user.stripeConnectOnboarded === true;
     const hasPayPal = user.payoutProvider === 'paypal';
     const hasManual = user.payoutProvider === 'manual';
+    const stripeActionRequired = user.stripeActionRequired === true;
+    const stripePendingReview = !!(
+      user.stripeDetailsSubmitted &&
+      !hasStripe &&
+      !stripeActionRequired &&
+      !user.stripeAccountDisabled
+    );
     const stripeComplete = hasStripe || hasPayPal || hasManual;
 
     // Credential checks
@@ -497,6 +541,24 @@ export class UserService {
     const governmentIdUploaded = !!(creds?.governmentId?.url && creds.governmentId.status !== 'not_uploaded');
     const governmentIdApproved = creds?.governmentId?.status === 'approved';
     const governmentIdRejected = creds?.governmentId?.status === 'rejected';
+    const governmentIdRejectionReason = creds?.governmentId?.rejectionReason?.trim() || null;
+
+    const certificationsRejected = !!(creds?.teachingCertifications?.some(c => c.status === 'rejected'));
+    const certificationsRejectionReason =
+      creds?.teachingCertifications?.find(c => c.status === 'rejected')?.rejectionReason?.trim() ||
+      null;
+    // Optional additional documents do not block qualifications / profile approval.
+    const credentialsRejected = governmentIdRejected || certificationsRejected;
+    const credentialsRejectionReason =
+      governmentIdRejectionReason ||
+      certificationsRejectionReason ||
+      null;
+
+    const photoRejectionReason = user.tutorOnboarding?.photoRejectionReason?.trim() || null;
+    const videoRejectionReason =
+      user.tutorOnboarding?.videoRejectionReason?.trim() ||
+      (user.tutorOnboarding as { rejectionReason?: string } | undefined)?.rejectionReason?.trim() ||
+      null;
 
     // Stripe Connect handles its own KYC; when verified we skip the manual
     // Government-ID upload step (and treat identity as satisfied).
@@ -540,14 +602,29 @@ export class UserService {
     
     const status = {
       photoComplete,
+      photoApproved,
+      photoRejected,
+      photoRejectionReason,
       videoComplete,
       videoApproved,
       videoRejected,
+      videoRejectionReason,
       hasApprovedVideo,
       stripeComplete,
+      stripeConnectOnboarded: hasStripe,
+      stripePendingReview,
+      stripeActionRequired,
+      stripeRequirementsCurrentlyDue: Array.isArray(user.stripeRequirementsCurrentlyDue)
+        ? user.stripeRequirementsCurrentlyDue
+        : [],
       governmentIdUploaded,
       governmentIdApproved,
       governmentIdRejected,
+      governmentIdRejectionReason,
+      certificationsRejected,
+      certificationsRejectionReason,
+      credentialsRejected,
+      credentialsRejectionReason,
       stripeIdentityVerified,
       identitySatisfied,
       identityRequired,
@@ -567,17 +644,27 @@ export class UserService {
     // We only refresh the provider/hasPayoutSetup pair here and preserve the
     // cached `options` (loaded once via `loadPayoutStatus()` on app init).
     const prev = this.payoutStatusSubject.value;
-    const provider = (user.payoutProvider || 'none') as 'stripe' | 'paypal' | 'manual' | 'none';
+    let provider = (user.payoutProvider || 'none') as 'stripe' | 'paypal' | 'manual' | 'none';
+    if ((hasStripe || stripePendingReview) && provider === 'none') {
+      provider = 'stripe';
+    }
     let hasPayoutSetup = false;
     if (provider === 'stripe') {
-      hasPayoutSetup = user.stripeConnectOnboarded === true;
+      hasPayoutSetup = hasStripe;
     } else if (provider === 'paypal' || provider === 'manual') {
       hasPayoutSetup = true;
     }
-    if (prev.provider !== provider || prev.hasPayoutSetup !== hasPayoutSetup) {
+    if (
+      prev.provider !== provider ||
+      prev.hasPayoutSetup !== hasPayoutSetup ||
+      prev.stripePendingReview !== stripePendingReview ||
+      prev.stripeActionRequired !== stripeActionRequired
+    ) {
       this.payoutStatusSubject.next({
         provider,
         hasPayoutSetup,
+        stripePendingReview,
+        stripeActionRequired,
         options: prev.options,
       });
     }
@@ -610,28 +697,63 @@ export class UserService {
         // Fetch current user to get updated payout provider
         const user = await this.getCurrentUser(true).toPromise();
         const payoutProvider = user?.payoutProvider || 'none';
+        const stripeFullyConnected = user?.stripeConnectOnboarded === true;
+        const stripeActionRequired = user?.stripeActionRequired === true;
+        const stripePendingReview = !!(
+          user?.stripeDetailsSubmitted &&
+          !stripeFullyConnected &&
+          !stripeActionRequired &&
+          !user?.stripeAccountDisabled
+        );
         
-        // Determine if payout is set up. Must stay consistent with the
-        // tutorApprovalStatus.stripeComplete logic above so the profile
-        // Payouts tab and the shared profile checklist never disagree.
         let hasPayoutSetup = false;
-        if (payoutProvider === 'stripe') {
-          hasPayoutSetup = user?.stripeConnectOnboarded === true;
-        } else if (payoutProvider === 'paypal') {
+        let provider = payoutProvider as 'stripe' | 'paypal' | 'manual' | 'none';
+        if ((stripeFullyConnected || stripePendingReview) && provider === 'none') {
+          provider = 'stripe';
+        }
+        if (provider === 'stripe') {
+          hasPayoutSetup = stripeFullyConnected;
+        } else if (provider === 'paypal') {
           hasPayoutSetup = true;
-        } else if (payoutProvider === 'manual') {
+        } else if (provider === 'manual') {
           hasPayoutSetup = true;
         }
 
         // Update the subject
         this.payoutStatusSubject.next({
-          provider: payoutProvider as any,
+          provider,
           hasPayoutSetup,
+          stripePendingReview,
+          stripeActionRequired,
           options: optionsResponse.options
         });
       }
     } catch (error) {
       console.error('❌ [UserService] Error loading payout status:', error);
+    }
+  }
+
+  /**
+   * Hit Stripe status endpoint (persists stripeDetailsSubmitted server-side), then refresh local user + approval snapshot.
+   */
+  public async refreshStripeConnectStatusFromApi(): Promise<StripeConnectStatusSnapshot | null> {
+    try {
+      const headers = await this.getAuthHeadersAsync();
+      const response = await this.http
+        .get<StripeConnectStatusSnapshot & { success?: boolean }>(
+          `${this.apiUrl}/payments/stripe-connect/status`,
+          { headers }
+        )
+        .toPromise();
+      if (!response?.success) {
+        return null;
+      }
+      await this.getCurrentUser(true).pipe(take(1)).toPromise();
+      this.refreshTutorApprovalStatus();
+      return response;
+    } catch (error) {
+      console.error('❌ [UserService] Error refreshing Stripe Connect status:', error);
+      return null;
     }
   }
 
@@ -1182,32 +1304,71 @@ export class UserService {
       `${this.apiUrl}/users/tutor/accept-tos`,
       { tosVersion },
       { headers }
+    ).pipe(
+      tap((response) => {
+        if (!response?.success) {
+          return;
+        }
+        const currentUser = this.currentUserSubject.value;
+        if (currentUser) {
+          currentUser.tosAcceptedAt = response.tosAcceptedAt;
+          currentUser.tosVersion = response.tosVersion;
+          if (response.tutorApproved === true) {
+            currentUser.tutorApproved = true;
+          }
+          this.currentUserSubject.next({ ...currentUser });
+          this.updateTutorApprovalStatus(currentUser);
+        }
+        this.getCurrentUser(true).pipe(take(1)).subscribe();
+      }),
+      catchError(error => {
+        console.error('Error accepting TOS:', error);
+        throw error;
+      })
     );
   }
 
   /**
    * Update user profile picture
    */
-  updatePicture(pictureUrl: string): Observable<{ success: boolean; message: string; picture: string }> {
+  updatePicture(pictureUrl: string): Observable<{ success: boolean; message: string; picture: string; pendingPhoto?: string | null }> {
     return this.authService.user$.pipe(
       take(1),
       switchMap(user => {
         const userEmail = user?.email || 'unknown';
         
-        return this.http.put<{ success: boolean; message: string; picture: string }>(
+        return this.http.put<{ success: boolean; message: string; picture: string; pendingPhoto?: string | null }>(
           `${this.apiUrl}/users/profile-picture`,
           { imageUrl: pictureUrl },
           { headers: this.getAuthHeaders(userEmail) }
         );
       }),
       tap(response => {
-        // Update the current user subject with the new picture
         const currentUser = this.currentUserSubject.value;
-        if (currentUser && response.picture) {
-          currentUser.picture = response.picture;
+        if (currentUser) {
+          if (currentUser.userType === 'tutor') {
+            currentUser.onboardingData = currentUser.onboardingData || {} as any;
+            currentUser.onboardingData!.pendingPhoto = response.pendingPhoto || response.picture;
+            if (currentUser.tutorOnboarding) {
+              currentUser.tutorOnboarding.photoUploaded = true;
+              currentUser.tutorOnboarding.photoApproved = false;
+              currentUser.tutorOnboarding.photoRejected = false;
+            } else {
+              currentUser.tutorOnboarding = {
+                photoUploaded: true,
+                photoApproved: false,
+                photoRejected: false,
+                videoUploaded: false,
+                videoApproved: false,
+                videoRejected: false,
+                stripeConnected: false,
+              };
+            }
+          } else if (response.picture) {
+            currentUser.picture = response.picture;
+          }
           this.currentUserSubject.next(currentUser);
         }
-        // Also refresh from server
         this.getCurrentUser().pipe(take(1)).subscribe();
       }),
       catchError(error => {

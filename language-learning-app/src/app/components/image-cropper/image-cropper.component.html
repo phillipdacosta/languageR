@@ -78,8 +78,9 @@
         expand="block"
         class="crop-save-btn"
         (click)="crop()"
-        [disabled]="!cropReady">
-        Crop & Save
+        [disabled]="!cropReady || isCropping">
+        <ion-spinner *ngIf="isCropping" name="crescent"></ion-spinner>
+        <span *ngIf="!isCropping">Crop & Save</span>
       </ion-button>
     </div>
   </ion-toolbar>

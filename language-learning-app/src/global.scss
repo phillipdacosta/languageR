@@ -2305,6 +2305,90 @@ ion-modal .close-button {
   outline: none;
 }
 
+// Journey phase detail modal — card-sized, zooms from map node
+ion-modal.journey-phase-modal {
+  --width: min(440px, calc(100vw - 32px));
+  --height: min(680px, 88vh);
+  --max-height: min(680px, 88vh);
+  --border-radius: 18px;
+  --box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+  --backdrop-opacity: 0.35;
+
+  &::part(content) {
+    background: transparent;
+  }
+
+  .modal-wrapper {
+    overflow: hidden;
+    will-change: transform, opacity;
+    background: #fff;
+    border-radius: 18px;
+  }
+
+  .journey-phase-modal-content {
+    padding: 16px;
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+    height: 100%;
+    overflow-y: auto;
+    box-sizing: border-box;
+  }
+}
+
+// Journey map checkpoint modals — card-sized, zoom from map hotspot
+ion-modal.journey-roadblock-modal,
+ion-modal.journey-chest-modal {
+  --width: min(520px, calc(100vw - 32px));
+  --border-radius: 18px;
+  --box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+  --backdrop-opacity: 1;
+
+  &::part(backdrop) {
+    background: rgba(0, 0, 0, 0.32);
+    backdrop-filter: blur(16px) saturate(1.08);
+    -webkit-backdrop-filter: blur(16px) saturate(1.08);
+  }
+
+  ion-backdrop {
+    background: rgba(0, 0, 0, 0.32);
+    backdrop-filter: blur(16px) saturate(1.08);
+    -webkit-backdrop-filter: blur(16px) saturate(1.08);
+  }
+
+  &::part(content) {
+    background: transparent;
+  }
+
+  .modal-wrapper {
+    overflow: hidden;
+    will-change: transform, opacity;
+    background: #fff;
+    border-radius: 18px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+  }
+}
+
+ion-modal.journey-roadblock-modal {
+  --height: min(640px, 88vh);
+  --max-height: min(640px, 88vh);
+
+  .journey-roadblock-modal-content {
+    height: 100%;
+    overflow: hidden;
+    box-sizing: border-box;
+  }
+}
+
+ion-modal.journey-chest-modal {
+  --height: min(480px, 82vh);
+  --max-height: min(480px, 82vh);
+
+  .journey-chest-modal-content {
+    height: 100%;
+    overflow: hidden;
+    box-sizing: border-box;
+  }
+}
+
 // Video Player Modal Styling
 ion-modal.video-player-modal {
   --width: 90%;
@@ -2838,6 +2922,23 @@ ion-modal.video-player-modal {
     .pcl-label { text-decoration: none; font-weight: 500; }
     .pcl-arrow { color: #e8893c; }
   }
+
+  &.pcl-item--rejected {
+    opacity: 1;
+
+    .pcl-check { color: #ccc; }
+    .pcl-label { text-decoration: none; font-weight: 500; color: #b42318; }
+    .pcl-arrow { color: #bbb; }
+  }
+
+  .pcl-rejection-team-note {
+    display: block;
+    margin-top: 2px;
+    color: #6b7280;
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.35;
+  }
 }
 
 html.ion-palette-dark {
@@ -2861,6 +2962,14 @@ html.ion-palette-dark {
     &.pcl-item--pending-review {
       .pcl-check { color: #ff9f0a; }
       .pcl-arrow { color: #ff9f0a; }
+    }
+    &.pcl-item--rejected {
+      .pcl-check { color: #555; }
+      .pcl-label { color: #ff6961; }
+      .pcl-arrow { color: #555; }
+    }
+    .pcl-rejection-team-note {
+      color: #98989d;
     }
   }
 }
@@ -3145,10 +3254,23 @@ html.ion-palette-dark {
   /* Blurred dimming (opaque #000 above hides the blur on these modals) */
   ion-modal.reschedule-lesson-modal::part(backdrop),
   ion-modal.invite-student-modal::part(backdrop),
-  ion-modal.journey-intro-modal::part(backdrop) {
+  ion-modal.journey-intro-modal::part(backdrop),
+  ion-modal.journey-roadblock-modal::part(backdrop),
+  ion-modal.journey-phase-modal::part(backdrop),
+  ion-modal.journey-chest-modal::part(backdrop) {
     background: rgba(0, 0, 0, 0.32) !important;
     backdrop-filter: blur(6px) !important;
     -webkit-backdrop-filter: blur(6px) !important;
+  }
+
+  ion-modal.journey-roadblock-modal::part(backdrop) {
+    backdrop-filter: blur(16px) saturate(1.08) !important;
+    -webkit-backdrop-filter: blur(16px) saturate(1.08) !important;
+  }
+
+  ion-modal.journey-chest-modal::part(backdrop) {
+    backdrop-filter: blur(16px) saturate(1.08) !important;
+    -webkit-backdrop-filter: blur(16px) saturate(1.08) !important;
   }
 
   ion-modal.journey-intro-modal.journey-intro-expanded::part(backdrop) {
@@ -3159,10 +3281,23 @@ html.ion-palette-dark {
 
   ion-modal.reschedule-lesson-modal ion-backdrop,
   ion-modal.invite-student-modal ion-backdrop,
-  ion-modal.journey-intro-modal ion-backdrop {
+  ion-modal.journey-intro-modal ion-backdrop,
+  ion-modal.journey-roadblock-modal ion-backdrop,
+  ion-modal.journey-phase-modal ion-backdrop,
+  ion-modal.journey-chest-modal ion-backdrop {
     background: rgba(0, 0, 0, 0.32) !important;
     backdrop-filter: blur(6px) !important;
     -webkit-backdrop-filter: blur(6px) !important;
+  }
+
+  ion-modal.journey-roadblock-modal ion-backdrop {
+    backdrop-filter: blur(16px) saturate(1.08) !important;
+    -webkit-backdrop-filter: blur(16px) saturate(1.08) !important;
+  }
+
+  ion-modal.journey-chest-modal ion-backdrop {
+    backdrop-filter: blur(16px) saturate(1.08) !important;
+    -webkit-backdrop-filter: blur(16px) saturate(1.08) !important;
   }
 
   ion-modal.journey-intro-modal.journey-intro-expanded ion-backdrop {
@@ -4817,6 +4952,62 @@ body.cm-desktop-modal-open {
 // Clones are created as fixed-position text elements on document.body
 // and animated via CSS transitions. All styles are inline.
 
+
+// ── Language plan manage modal (profile multi-language pause/resume)
+ion-modal.language-plan-modal {
+  --width: 95%;
+  --max-width: 560px;
+  --height: min(720px, 88vh);
+  --max-height: 88vh;
+  --border-radius: 24px;
+  --box-shadow: 0 12px 48px rgba(0, 0, 0, 0.14);
+  --backdrop-opacity: 1;
+
+  &::part(backdrop) {
+    background: rgba(0, 0, 0, 0.36);
+    backdrop-filter: blur(12px) saturate(1.2);
+    -webkit-backdrop-filter: blur(12px) saturate(1.2);
+  }
+
+  ion-backdrop {
+    background: rgba(0, 0, 0, 0.36);
+    backdrop-filter: blur(12px) saturate(1.2);
+    -webkit-backdrop-filter: blur(12px) saturate(1.2);
+  }
+
+  &::part(content) {
+    border-radius: 24px;
+    overflow: hidden;
+  }
+
+  @media (max-width: 768px) {
+    --width: 94% !important;
+    --max-width: 94% !important;
+    --height: 92% !important;
+    --max-height: 92% !important;
+    --border-radius: 24px !important;
+  }
+
+  .ion-page {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: #fff;
+  }
+
+  app-language-plan-manage-modal {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    height: 100%;
+
+    ion-content {
+      flex: 1;
+      min-height: 0;
+    }
+  }
+}
 
 // ── Set learning goal modal (profile unframed → structured plan)
 ion-modal.set-goal-modal {

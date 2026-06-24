@@ -9,6 +9,7 @@ import { ProfilePage } from './profile.page';
 import { SharedModule } from '../shared/shared.module';
 import { PicturePreviewModalComponent } from '../components/picture-preview-modal/picture-preview-modal.component';
 import { InterfaceLanguageSelectModalComponent } from '../components/interface-language-select-modal/interface-language-select-modal.component';
+import { LanguagePlanManageModalComponent } from '../components/language-plan-manage-modal/language-plan-manage-modal.component';
 import { SafeUrlPipe } from '../pipes/safe-url.pipe';
 import { TutorOnboardingComponent } from '../components/tutor-onboarding/tutor-onboarding.component';
 import { StripeConnectCardComponent } from '../components/payout-connect/stripe-connect-card.component';
@@ -22,6 +23,7 @@ import { PaypalConnectCardComponent } from '../components/payout-connect/paypal-
     ProfilePageRoutingModule,
     SharedModule,
     InterfaceLanguageSelectModalComponent,
+    LanguagePlanManageModalComponent,
     TutorOnboardingComponent,
     StripeConnectCardComponent,
     PaypalConnectCardComponent

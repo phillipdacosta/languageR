@@ -2436,6 +2436,30 @@ $ob-wizard-cta-uniform-width: min(22.5rem, calc(100% - 16px));
     }
   }
 
+  .step-rejection-notice__copy {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .step-rejection-notice__headline {
+    color: inherit;
+  }
+
+  .step-rejection-notice__team-note {
+    color: #6b7280;
+    font-weight: 400;
+  }
+
+  .status-badge.step-rejection-notice {
+    align-items: flex-start;
+
+    ion-icon {
+      margin-top: 1px;
+    }
+  }
+
   .identity-step-layout .identity-upload-zone {
     flex: 1 1 auto;
     display: flex;
@@ -5672,6 +5696,14 @@ ion-button.credential-cta {
       max-width: 480px;
       margin: 0;
     }
+  }
+}
+
+:host-context(html.ion-palette-dark) {
+  .step-rejection-notice__team-note,
+  .pcl-rejection-team-note,
+  .growth-rejection-team-note {
+    color: #98989d;
   }
 }
 

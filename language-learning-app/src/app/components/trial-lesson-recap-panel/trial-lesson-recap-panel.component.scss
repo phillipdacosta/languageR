@@ -1,0 +1,326 @@
+// Trial lesson recap — mirrors post-lesson-student rating + rebook flow
+:host {
+  display: block;
+  width: 100%;
+}
+
+.trl-recap {
+  padding: 4px 0 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.trl-recap-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  align-self: flex-start;
+  margin-bottom: 16px;
+  padding: 8px 12px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 999px;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  color: #111;
+  cursor: pointer;
+
+  &--inline-head {
+    margin-bottom: 0;
+    z-index: 1;
+  }
+}
+
+.trl-recap-head {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  width: 100%;
+  margin-bottom: 8px;
+
+  .trl-recap-back--inline-head {
+    grid-column: 1;
+    grid-row: 1;
+    justify-self: start;
+  }
+
+  &__title {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    justify-self: center;
+    max-width: min(100%, 520px);
+    margin: 0;
+    padding: 0 48px;
+    box-sizing: border-box;
+    font-size: 28px;
+    font-weight: 800;
+    color: #111;
+    letter-spacing: -0.5px;
+    line-height: 1.15;
+    text-align: center;
+    text-wrap: balance;
+  }
+
+  &__emoji {
+    display: inline-block;
+    margin-right: 6px;
+    font-size: 1em;
+    line-height: 1;
+    vertical-align: -0.05em;
+  }
+}
+
+.trl-recap-body {
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+.trl-recap--full-calendar .trl-recap-body {
+  max-width: none;
+}
+
+.trl-availability-viewer-wrap {
+  width: 100%;
+}
+
+.trl-recap--full-calendar .trl-trial-head {
+  margin-bottom: 4px;
+  text-align: center;
+
+  .trl-sub {
+    margin-bottom: 8px;
+  }
+}
+
+.trl-title {
+  margin: 0 0 8px;
+  font-size: 22px;
+  font-weight: 700;
+  color: #111;
+  letter-spacing: -0.3px;
+}
+
+.trl-sub {
+  margin: 0 0 20px;
+  font-size: 15px;
+  color: #717171;
+  line-height: 1.5;
+}
+
+.trl-rating-question {
+  display: block;
+}
+
+.trl-rating-tutor {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  vertical-align: middle;
+}
+
+.trl-rating-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid rgba(0, 0, 0, 0.06);
+}
+
+.trl-rating-options {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+
+  @media (max-width: 520px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.trl-rating-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 112px;
+  padding: 18px 12px;
+  border: 1.5px solid #ddd;
+  border-radius: 16px;
+  background: #fff;
+  cursor: pointer;
+  transition: all 0.18s ease;
+
+  ion-icon { font-size: 28px; color: #111; }
+  span { font-size: 15px; font-weight: 600; color: #111; }
+
+  &:hover {
+    border-color: #111;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+  }
+
+  &--selected { border-color: #111; background: #f7f7f7; }
+  &--great.trl-rating-option--selected {
+    border-color: #059669; background: #ecfdf5;
+    ion-icon { color: #059669; } span { color: #065f46; }
+  }
+  &--okay.trl-rating-option--selected {
+    border-color: #2851c8; background: #eff6ff;
+    ion-icon { color: #2851c8; } span { color: #1e40af; }
+  }
+  &--bad.trl-rating-option--selected {
+    border-color: #dc2626; background: #fef2f2;
+    ion-icon { color: #dc2626; } span { color: #991b1b; }
+  }
+}
+
+.trl-sorry {
+  text-align: center;
+  padding: 8px 0;
+
+  &__icon {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 18px;
+    border-radius: 50%;
+    background: #fef2f2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    ion-icon { font-size: 30px; color: #dc2626; }
+  }
+
+  &__actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 24px;
+    max-width: 360px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+
+.trl-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 12px 20px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  width: 100%;
+
+  &--primary {
+    background: #111;
+    color: #fff;
+  }
+
+  &--secondary {
+    background: #fff;
+    color: #111;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+  }
+
+  &--full { width: 100%; margin-top: 12px; }
+}
+
+.trl-availability-host {
+  visibility: hidden;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0;
+
+  &--active {
+    visibility: visible;
+    height: auto;
+    overflow: visible;
+    pointer-events: auto;
+    opacity: 1;
+  }
+}
+
+.trl-availability-preview-loading,
+.trl-availability-preview-empty {
+  text-align: center;
+  padding: 24px 12px;
+}
+
+.trl-availability-preview-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 380px;
+  margin: 0 auto;
+}
+
+.trl-availability-preview-empty__icon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 12px;
+  border-radius: 50%;
+  background: #f5f5f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  ion-icon { font-size: 26px; color: #717171; }
+}
+
+.trl-availability-preview-empty__body {
+  margin: 0 0 20px;
+  font-size: 15px;
+  line-height: 1.55;
+  color: #717171;
+}
+
+.trl-availability-preview-empty__btn {
+  width: auto;
+  min-width: 0;
+  min-height: 44px;
+  padding: 12px 24px;
+  border-radius: 999px;
+}
+
+.trl-availability-preview-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.trl-availability-pill {
+  padding: 12px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  color: #111;
+  cursor: pointer;
+
+  &:hover {
+    border-color: #111;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  }
+}
+
+.trl-availability-viewer-wrap--hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.trl-trial-head {
+  margin-bottom: 8px;
+}

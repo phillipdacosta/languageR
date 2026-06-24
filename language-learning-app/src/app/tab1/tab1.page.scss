@@ -365,9 +365,10 @@ ion-content {
     --background: #ffffff !important;
   }
 
-  // Inline journey panel: same as earnings
+  // Inline journey panel: black canvas behind full-screen map
   &.ion-content--journey-open {
-    --background: #ffffff !important;
+    --background: #000000 !important;
+    --overflow: hidden;
   }
 }
 
@@ -534,6 +535,22 @@ ion-content {
   opacity: 0 !important;
   pointer-events: none !important;
   visibility: hidden !important;
+}
+
+.journey-inline-panel {
+  position: fixed;
+  top: var(--app-toolbar-height, calc(env(safe-area-inset-top, 0px) + 56px));
+  left: 0;
+  right: 0;
+  bottom: var(--app-tabbar-height, calc(50px + env(safe-area-inset-bottom, 0px)));
+  z-index: 50;
+  overflow: hidden;
+  background: #000;
+
+  app-journey-page {
+    display: block;
+    height: 100%;
+  }
 }
 
 // Inline Earnings Panel (embedded earnings view) — white canvas; elevated cards match lessons page.
@@ -1643,6 +1660,16 @@ ion-content {
     z-index: 1;
     white-space: nowrap;
     display: inline;
+  }
+
+  .growth-rejection-team-note {
+    display: block;
+    white-space: normal;
+    color: #6b7280;
+    font-size: 12px;
+    margin-top: 2px;
+    font-weight: 400;
+    line-height: 1.35;
   }
 
   .growth-ticker-icon {
@@ -3716,9 +3743,24 @@ ion-content {
   ion-icon { font-size: 9px; }
 }
 .m-filled-countdown { font-size: 13px !important; font-weight: 600 !important; color: #4a90d9 !important; }
-.m-filled-in-call {
-  display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; color: #34c759; margin-top: 2px;
-  .in-call-dot { width: 8px; height: 8px; border-radius: 50%; background: #34c759; animation: pulse-dot 1.4s ease-in-out infinite; }
+
+.m-filled-in-call-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #34c759;
+  line-height: 1.2;
+
+  .in-call-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #34c759;
+    flex-shrink: 0;
+    animation: pulse-dot 1.4s ease-in-out infinite;
+  }
 }
 
 .m-card-empty-calendar-wrap {
@@ -3748,6 +3790,11 @@ ion-content {
 }
 
 .m-card-empty-title {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   font-size: 18px;
   font-weight: 700;
   color: #1a1a1a;
@@ -4207,10 +4254,48 @@ img.m-card-empty-link-arrow-img {
   }
 
   .upnext-filled-trial-pill {
-    grid-column: 3;
-    grid-row: 1;
-    justify-self: start;
-    align-self: center;
+    flex: 0 0 auto;
+  }
+}
+
+.upnext-filled-name-badges {
+  grid-column: 3;
+  grid-row: 1;
+  justify-self: start;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+  max-width: min(42vw, 280px);
+}
+
+.upnext-filled-in-call {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: 0 1 auto;
+  min-width: 0;
+  pointer-events: none;
+  animation: fadeInCall 0.4s ease-out;
+
+  .in-call-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #22c55e;
+    flex-shrink: 0;
+    animation: pulseDot 1.5s ease-in-out infinite;
+  }
+
+  .in-call-text {
+    font-size: 11px;
+    font-weight: 500;
+    color: #16a34a;
+    letter-spacing: -0.1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 }
 
@@ -4477,16 +4562,16 @@ img.m-card-empty-link-arrow-img {
   }
 }
 
-// Schedule tray — 2-row grid so Today · time · status share row 1; duration/hint on row 2.
+// Schedule tray — date · time · status share row 1; duration/hint on row 2.
 .upnext-filled-schedule {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 2fr) auto minmax(0, 1fr);
+  grid-template-columns: auto auto minmax(0, 1.35fr) auto minmax(92px, 1fr);
   grid-template-rows: auto auto;
   align-items: center;
   justify-items: center;
   row-gap: 2px;
   column-gap: 0;
-  padding: 8px 0 6px;
+  padding: 8px 10px 6px;
   border-radius: 12px;
   margin: 0 auto;
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.05);
@@ -4494,7 +4579,7 @@ img.m-card-empty-link-arrow-img {
   max-width: 420px;
   box-sizing: border-box;
   min-height: 48px;
-  overflow: hidden;
+  overflow: visible;
 
   .tw-date-badge {
     flex-shrink: 0;
@@ -4614,6 +4699,9 @@ img.m-card-empty-link-arrow-img {
   line-height: 1.15;
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
   white-space: nowrap;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 
   @media (max-width: 600px) {
     font-size: 13px;
@@ -4624,53 +4712,66 @@ img.m-card-empty-link-arrow-img {
   grid-column: 3;
   grid-row: 2;
   justify-self: center;
+  width: 100%;
+  padding: 0 10px;
+  box-sizing: border-box;
   font-size: 9px;
-  font-weight: 600;
+  font-weight: 500;
   color: #8e8e93;
-  letter-spacing: 0.04em;
+  letter-spacing: -0.05px;
   line-height: 1.15;
-  text-transform: uppercase;
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+  text-align: center;
+}
+
+.upnext-filled-schedule-status {
+  grid-column: 5;
+  grid-row: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  padding: 0 4px 0 8px;
+  box-sizing: border-box;
 }
 
 // Status label — row 1 of schedule grid (aligned with Today + time).
 .upnext-filled-status-chip {
-  grid-column: 5;
-  grid-row: 1;
-  justify-self: center;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 4px;
-  padding: 0 10px 0 4px;
+  padding: 0;
   margin: 0;
   border: none;
   border-radius: 0;
   background: transparent;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: -0.2px;
-  line-height: 1.15;
+  line-height: 1.2;
   text-align: center;
-  white-space: nowrap;
-  flex-shrink: 0;
-  color: #1d1d1f;
+  white-space: normal;
+  text-wrap: pretty;
+  min-width: 0;
+  max-width: 100%;
+  flex-shrink: 1;
+  color: #90adce;
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
   box-sizing: border-box;
 
-  @media (max-width: 600px) {
-    font-size: 13px;
+  @media (min-width: 601px) {
+    font-size: 12px;
   }
 
   &--ready,
-  &--live {
-    background: transparent;
-    color: #137a3a;
-  }
-
+  &--live,
   &--soon {
     background: transparent;
-    color: #a45a00;
+    color: #90adce;
   }
 }
 
@@ -4687,11 +4788,9 @@ img.m-card-empty-link-arrow-img {
 }
 
 .upnext-filled-status-hint {
-  grid-column: 5;
-  grid-row: 2;
-  justify-self: center;
   width: 100%;
-  padding: 0 10px 0 4px;
+  max-width: 100%;
+  padding: 0;
   box-sizing: border-box;
   font-size: 9px;
   font-weight: 500;
@@ -4699,6 +4798,8 @@ img.m-card-empty-link-arrow-img {
   letter-spacing: -0.05px;
   line-height: 1.15;
   text-align: center;
+  white-space: normal;
+  text-wrap: pretty;
 }
 
 // Legacy countdown line — kept for backward compatibility but hidden in the
@@ -9637,11 +9738,6 @@ img.m-card-empty-link-arrow-img {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  transition: opacity 0.2s ease;
-
-  &.lessons-refreshing {
-    opacity: 0;
-  }
 
   @media (max-width: 600px) {
     flex: none;
@@ -12365,31 +12461,7 @@ img.m-card-empty-link-arrow-img {
   }
 }
 
-.participant-in-call {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  margin: 4px 0 0;
-  pointer-events: none;
-  animation: fadeInCall 0.4s ease-out;
-
-  .in-call-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: #22c55e;
-    flex-shrink: 0;
-    animation: pulseDot 1.5s ease-in-out infinite;
-  }
-
-  .in-call-text {
-    font-size: 12px;
-    font-weight: 500;
-    color: #16a34a;
-    letter-spacing: -0.1px;
-  }
-}
+// Legacy block removed — in-call now sits beside the trial badge in .upnext-filled-name-badges.
 
 @keyframes pulseDot {
   0%, 100% { opacity: 1; transform: scale(1); }
@@ -16009,7 +16081,7 @@ img.m-card-empty-link-arrow-img {
   }
 
   .upnext-filled-status-chip {
-    color: #ebebf0 !important;
+    color: #90adce !important;
   }
 
   .tw-date-badge__time {
@@ -16441,7 +16513,7 @@ img.m-card-empty-link-arrow-img {
 
   .m-filled-avatar-placeholder { background: #2c2c2e !important; ion-icon { color: #636366 !important; } }
   .m-filled-countdown { color: #5aa3f0 !important; }
-  .m-filled-in-call { color: #30d158 !important; .in-call-dot { background: #30d158 !important; } }
+  .m-filled-in-call-inline { color: #30d158 !important; .in-call-dot { background: #30d158 !important; } }
 
   .pop-float {
     animation-name: popFloatDark;

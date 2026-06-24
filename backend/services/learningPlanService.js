@@ -2044,6 +2044,7 @@ async function unframeExistingPlan(studentId, language) {
   plan.status = 'unframed';
   plan.unframedAt = new Date();
   plan.lessonsAtUnframed = lessonsSoFar;
+  plan.hadStructuredPlan = true;
   plan.softPlanPromptDismissedAt = null;
   plan.phases = [];
   plan.currentPhaseIndex = 0;
@@ -2089,6 +2090,33 @@ async function promoteUnframedPlan(studentId, language, newGoal) {
   await plan.save();
 
   return await _regeneratePlanForGoalChange(plan, newGoal);
+}
+
+/**
+ * Restore a previously-structured plan that the student switched to own
+ * pace, reusing the goal still stored on the plan — so they pick up their
+ * roadmap rather than starting over. Returns null with `{ needsGoal: true }`
+ * semantics (i.e. null) when there's no usable saved goal, so the caller can
+ * fall back to the build-a-plan (goal picker) flow instead.
+ */
+async function restoreUnframedPlan(studentId, language) {
+  const plan = await LearningPlan.findOne({ studentId, language });
+  if (!plan) return null;
+  if (plan.status !== 'unframed') return plan;
+
+  const goal = plan.goal;
+  // 'other' is the sentinel used by createUnframedPlan for plans that never
+  // had a real structured goal — those should build fresh, not restore.
+  if (!goal?.type || goal.type === 'other') return null;
+
+  return await promoteUnframedPlan(studentId, language, {
+    type: goal.type,
+    description: goal.description || '',
+    targetLevel: goal.targetLevel || '',
+    timeline: goal.timeline || 'no_rush',
+    targetDate: goal.targetDate || null,
+    selfAssessedLevel: plan.selfAssessedLevel || 'some_basics'
+  });
 }
 
 /**
@@ -2932,6 +2960,7 @@ module.exports = {
   resumePlan,
   unframeExistingPlan,
   promoteUnframedPlan,
+  restoreUnframedPlan,
   dismissSoftPlanPrompt,
   GOAL_TYPE_LABELS,
   LEVEL_LABELS

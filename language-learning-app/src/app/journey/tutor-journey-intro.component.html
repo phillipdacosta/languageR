@@ -1,0 +1,193 @@
+<div class="journey-intro-shell">
+
+  <button
+    *ngIf="!requireConfirmation"
+    class="ji-close"
+    type="button"
+    (click)="dismiss('skip')"
+    [attr.aria-label]="'COMMON.CLOSE' | translate">
+    <ion-icon name="close"></ion-icon>
+  </button>
+
+  <ion-content>
+
+    <!-- Slide 0: welcome + student journey overview -->
+    <div *ngIf="step === 0" class="ji-body ji-body--tutor-welcome">
+      <div class="ji-dots" aria-hidden="true">
+        <span *ngFor="let _ of slides; let i = index"
+              class="ji-dot"
+              [class.ji-dot--active]="i === step"
+              [class.ji-dot--done]="i < step"></span>
+      </div>
+
+      <p class="ji-eyebrow">{{ 'TUTOR_JOURNEY.INTRO.S1_EYEBROW' | translate }}</p>
+
+      <img
+        src="assets/barnabi-journey-intro-hero.png"
+        alt=""
+        class="ji-hero-mascot ji-hero-mascot--centered"
+        width="96"
+        height="96"
+        decoding="async" />
+
+      <h1 class="ji-title ji-title--sm">{{ 'TUTOR_JOURNEY.INTRO.S1_TITLE' | translate }}</h1>
+      <p class="ji-desc ji-desc--sm">{{ 'TUTOR_JOURNEY.INTRO.S1_BODY' | translate }}</p>
+
+      <div class="ji-callout ji-callout--card">
+        <ion-icon name="information-circle-outline" aria-hidden="true"></ion-icon>
+        <p>{{ 'TUTOR_JOURNEY.INTRO.S1_CALLOUT' | translate }}</p>
+      </div>
+
+      <div class="ji-callout ji-callout--card ji-callout--accent">
+        <ion-icon name="leaf-outline" aria-hidden="true"></ion-icon>
+        <p>{{ 'TUTOR_JOURNEY.INTRO.S1_UNFRAMED' | translate }}</p>
+      </div>
+    </div>
+
+    <!-- Slide 1: example chapter students see -->
+    <div *ngIf="step === 1" class="ji-body ji-body--phases ji-body--tutor-phases">
+      <div class="ji-dots ji-animate-in ji-animate-in--1" aria-hidden="true">
+        <span *ngFor="let _ of slides; let i = index"
+              class="ji-dot"
+              [class.ji-dot--active]="i === step"
+              [class.ji-dot--done]="i < step"></span>
+      </div>
+
+      <p class="ji-phases-label ji-animate-in ji-animate-in--2">
+        {{ 'TUTOR_JOURNEY.INTRO.S1B_PHASES_LABEL' | translate }}
+      </p>
+      <p class="ji-desc ji-desc--sm ji-animate-in ji-animate-in--2">{{ 'TUTOR_JOURNEY.INTRO.S1B_BODY' | translate }}</p>
+
+      <div class="ji-map-preview-wrap ji-animate-in ji-animate-in--3">
+        <app-journey-map-preview
+          class="ji-map-preview"
+          [chapterTheme]="exampleChapterTheme"
+          [chapterLevel]="exampleChapterLevel"
+          [phases]="exampleMapPhases"
+          [currentPhaseIndex]="0"
+          [caption]="exampleMapCaption" />
+      </div>
+
+      <div class="ji-callout ji-callout--card ji-animate-in ji-animate-in--4">
+        <ion-icon name="information-circle-outline" aria-hidden="true"></ion-icon>
+        <p>{{ 'TUTOR_JOURNEY.INTRO.S1B_CALLOUT' | translate }}</p>
+      </div>
+    </div>
+
+    <!-- Slide 2: adapts after lessons -->
+    <div *ngIf="step === 2" class="ji-body ji-body--explain ji-body--tutor-explain">
+      <div class="ji-dots ji-animate-in ji-animate-in--1" aria-hidden="true">
+        <span *ngFor="let _ of slides; let i = index"
+              class="ji-dot"
+              [class.ji-dot--active]="i === step"
+              [class.ji-dot--done]="i < step"></span>
+      </div>
+      <div class="ji-empty-title-block ji-animate-in ji-animate-in--2">
+        <h1 class="ji-empty-title">{{ 'TUTOR_JOURNEY.INTRO.S2_TITLE_LEAD' | translate }}</h1>
+        <p class="ji-empty-title-tail">{{ 'TUTOR_JOURNEY.INTRO.S2_TITLE_TAIL' | translate }}</p>
+      </div>
+      <div class="ji-focus-demo ji-animate-in ji-animate-in--3" aria-hidden="true">
+        <div class="ji-focus-card">
+          <span class="ji-focus-label">{{ 'TUTOR_JOURNEY.INTRO.S2_FOCUS_LABEL' | translate }}</span>
+          <div class="ji-focus-row">
+            <span class="ji-focus-chip ji-focus-chip--before">{{ 'TUTOR_JOURNEY.INTRO.S2_FOCUS_BEFORE' | translate }}</span>
+            <ion-icon name="arrow-forward-outline" class="ji-focus-arrow"></ion-icon>
+            <span class="ji-focus-chip ji-focus-chip--after">{{ 'TUTOR_JOURNEY.INTRO.S2_FOCUS_AFTER' | translate }}</span>
+          </div>
+        </div>
+      </div>
+      <p class="ji-desc ji-animate-in ji-animate-in--4">{{ 'TUTOR_JOURNEY.INTRO.S2_BODY' | translate }}</p>
+      <p class="ji-desc ji-desc--hint ji-animate-in ji-animate-in--5">{{ 'TUTOR_JOURNEY.INTRO.S2_GUIDE' | translate }}</p>
+      <p class="ji-desc ji-desc--hint ji-animate-in ji-animate-in--6">{{ 'TUTOR_JOURNEY.INTRO.S2_HINT' | translate }}</p>
+    </div>
+
+    <!-- Slide 3: full journey map -->
+    <div *ngIf="step === 3" class="ji-body ji-body--maps">
+      <div class="ji-dots ji-animate-in ji-animate-in--1" aria-hidden="true">
+        <span *ngFor="let _ of slides; let i = index"
+              class="ji-dot"
+              [class.ji-dot--active]="i === step"
+              [class.ji-dot--done]="i < step"></span>
+      </div>
+      <div class="ji-maps-stage">
+        <div class="ji-maps-title-block">
+          <h1 class="ji-empty-title">{{ 'TUTOR_JOURNEY.INTRO.S3_TITLE_LEAD' | translate }}</h1>
+          <p class="ji-empty-title-tail">{{ 'TUTOR_JOURNEY.INTRO.S3_TITLE_TAIL' | translate }}</p>
+        </div>
+        <div class="ji-maps-rail" aria-hidden="true">
+          <div class="ji-maps-track">
+            <div *ngFor="let map of journeyMapPreviews; let i = index"
+                 class="ji-map-card"
+                 [class.ji-map-card--start]="i === startingChapterIndex"
+                 [class.ji-map-card--summit]="i === journeyMapPreviews.length - 1"
+                 [style.--map-index]="i">
+              <div class="ji-map-thumb-wrap">
+                <span *ngIf="i === startingChapterIndex" class="ji-map-start-badge">{{ 'TUTOR_JOURNEY.INTRO.MAP_EXAMPLE' | translate }}</span>
+                <div class="ji-map-thumb" [style.background-image]="'url(' + map.imageUrl + ')'"></div>
+              </div>
+              <div class="ji-map-meta">
+                <span class="ji-map-level">{{ map.level }}</span>
+                <span class="ji-map-rung">{{ map.rungKey | translate }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="ji-desc ji-maps-caption">{{ 'TUTOR_JOURNEY.INTRO.S3_BODY' | translate:{ chapter: startingChapterRungLabel } }}</p>
+      </div>
+    </div>
+
+    <!-- Slide 4: where tutors see it + profile go-live -->
+    <div *ngIf="step === 4" class="ji-body ji-body--explain ji-body--tutor-where">
+      <div class="ji-dots ji-animate-in ji-animate-in--1" aria-hidden="true">
+        <span *ngFor="let _ of slides; let i = index"
+              class="ji-dot"
+              [class.ji-dot--active]="i === step"
+              [class.ji-dot--done]="i < step"></span>
+      </div>
+      <div class="ji-empty-title-block ji-animate-in ji-animate-in--2">
+        <h1 class="ji-empty-title">{{ 'TUTOR_JOURNEY.INTRO.S4_TITLE_LEAD' | translate }}</h1>
+        <p class="ji-empty-title-tail">{{ 'TUTOR_JOURNEY.INTRO.S4_TITLE_TAIL' | translate }}</p>
+      </div>
+      <p class="ji-desc ji-animate-in ji-animate-in--3">{{ 'TUTOR_JOURNEY.INTRO.S4_BODY' | translate }}</p>
+      <div class="ji-action-cards ji-animate-in ji-animate-in--4">
+        <div *ngFor="let action of tutorActions" class="ji-action-card ji-action-card--elevated">
+          <div class="ji-action-icon ji-action-icon--thumb">
+            <img [src]="action.imageUrl" alt="" class="ji-action-thumb" decoding="async" draggable="false" />
+          </div>
+          <span class="ji-action-label">{{ action.labelKey | translate }}</span>
+        </div>
+      </div>
+      <div class="ji-callout ji-callout--card ji-animate-in ji-animate-in--5">
+        <ion-icon name="alert-circle-outline" aria-hidden="true"></ion-icon>
+        <p>{{ profileProgressLabel }}</p>
+      </div>
+    </div>
+
+  </ion-content>
+
+  <ion-footer>
+    <ion-toolbar>
+      <div class="ji-footer">
+        <div class="ji-footer-start">
+          <button *ngIf="step > 0" class="ji-btn ji-btn--outline" type="button" (click)="prev()">
+            {{ 'COMMON.BACK' | translate }}
+          </button>
+        </div>
+        <div class="ji-footer-spacer" aria-hidden="true"></div>
+        <button *ngIf="step < slides.length - 1"
+                class="ji-btn ji-btn--solid"
+                type="button"
+                (click)="next()">
+          {{ 'COMMON.NEXT' | translate }}
+        </button>
+        <button *ngIf="step === slides.length - 1"
+                class="ji-btn ji-btn--solid"
+                type="button"
+                (click)="confirmDismiss()">
+          {{ requireConfirmation ? ('TUTOR_JOURNEY.INTRO.CTA_OK' | translate) : ('TUTOR_JOURNEY.INTRO.CTA_GO' | translate) }}
+        </button>
+      </div>
+    </ion-toolbar>
+  </ion-footer>
+
+</div>

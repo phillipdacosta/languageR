@@ -31,6 +31,8 @@ const NotificationSchema = new mongoose.Schema({
       'class_invitation_cancelled',
       'tutor_video_approved',
       'tutor_video_rejected',
+      'tutor_photo_approved',
+      'tutor_photo_rejected',
       'payment_received',
       'lesson_refunded',
       'lesson_partial_refund',

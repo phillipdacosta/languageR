@@ -16,7 +16,45 @@ const { formatNameWithInitial } = require('../utils/nameFormatter');
 const { triggerManualRelease } = require('../jobs/releaseEarnings'); // Added manual trigger
 const autoReleaseClassPayments = require('../jobs/autoReleaseClassPayments'); // Manual finalize classes
 const { initializeGCS } = require('../config/gcs');
-const { applyApprovalIfReady } = require('../utils/tutorApproval');
+const { applyApprovalIfReady, hasCustomProfilePhoto, hasPendingProfilePhoto, isPhotoApproved, tutorNeedsAdminReview, tutorHasVideoRejected, hasPendingVideoReview, getTutorPendingReviewItems, getLatestReviewActivityAt } = require('../utils/tutorApproval');
+const { buildTutorLanguageProfile } = require('../utils/languageLabels');
+
+const TUTOR_REVIEW_SELECT =
+  'userType name firstName lastName email picture onboardingData tutorOnboarding tutorCredentials tutorApproved stripeConnectOnboarded payoutProvider payoutDetails residenceCountry nativeLanguage spokenLanguages interfaceLanguage isUSPersonForTax hasUSBankAccount taxInfoCompletedAt createdAt';
+
+function enrichTutorForAdminReview(tutor) {
+  const doc = tutor.toObject ? tutor.toObject() : tutor;
+  doc.pendingReviewItems = getTutorPendingReviewItems(doc);
+  doc.latestReviewActivityAt = getLatestReviewActivityAt(doc);
+  doc.languageProfile = buildTutorLanguageProfile(doc);
+  return doc;
+}
+
+async function fetchTutorsForReviewStatus(status) {
+  const allTutors = await User.find({ userType: 'tutor' }).select(TUTOR_REVIEW_SELECT);
+
+  if (status === 'rejected') {
+    return allTutors
+      .filter((tutor) => tutorHasVideoRejected(tutor) && !hasPendingVideoReview(tutor))
+      .map(enrichTutorForAdminReview);
+  }
+
+  if (status === 'approved') {
+    return allTutors
+      .filter(
+        (tutor) =>
+          tutor.tutorOnboarding?.videoApproved === true &&
+          !tutorNeedsAdminReview(tutor) &&
+          !tutorHasVideoRejected(tutor)
+      )
+      .map(enrichTutorForAdminReview);
+  }
+
+  // Review queue: anything awaiting admin action
+  return allTutors
+    .filter((tutor) => tutorNeedsAdminReview(tutor))
+    .map(enrichTutorForAdminReview);
+}
 
 // Admin middleware - check if user is admin
 async function requireAdmin(req, res, next) {
@@ -53,169 +91,57 @@ async function requireAdmin(req, res, next) {
 
 /**
  * GET /api/admin/pending-tutors
- * Get all tutors pending video approval OR already approved tutors OR rejected
+ * Tutor review queue — anything awaiting admin review shows under status=pending (Review tab)
  * Query params: ?status=pending|approved|rejected
  */
 router.get('/pending-tutors', verifyToken, requireAdmin, async (req, res) => {
   try {
-    const status = req.query.status || 'pending'; // Default to pending
-    
-    let tutors;
-    
-    if (status === 'approved') {
-      // Get tutors with approved videos (and no pending video awaiting re-review)
-      tutors = await User.find({
-        userType: 'tutor',
-        'tutorOnboarding.videoApproved': true,
-        'onboardingData.introductionVideo': { $exists: true, $ne: null, $ne: '' }
-      }).select('name firstName lastName email picture onboardingData tutorOnboarding tutorCredentials tutorApproved stripeConnectOnboarded payoutProvider payoutDetails residenceCountry isUSPersonForTax hasUSBankAccount taxInfoCompletedAt');
-      
-      // Filter out tutors with pending videos (do this in JavaScript for clarity)
-      tutors = tutors.filter(tutor => {
-        const pendingVideo = tutor.onboardingData?.pendingVideo;
-        return !pendingVideo || pendingVideo === '' || pendingVideo === null;
-      });
-    } else if (status === 'rejected') {
-      // Get tutors with rejected videos
-      tutors = await User.find({
-        userType: 'tutor',
-        'tutorOnboarding.videoRejected': true,
-        $or: [
-          { 'onboardingData.introductionVideo': { $exists: true, $ne: null, $ne: '' } },
-          { 'onboardingData.pendingVideo': { $exists: true, $ne: null, $ne: '' } }
-        ]
-      }).select('name firstName lastName email picture onboardingData tutorOnboarding tutorCredentials tutorApproved stripeConnectOnboarded payoutProvider payoutDetails residenceCountry isUSPersonForTax hasUSBankAccount taxInfoCompletedAt');
-    } else {
-      // Get ALL tutors with videos
-      const allTutors = await User.find({
-        userType: 'tutor',
-        $or: [
-          { 'onboardingData.introductionVideo': { $exists: true, $ne: null, $ne: '' } },
-          { 'onboardingData.pendingVideo': { $exists: true, $ne: null, $ne: '' } }
-        ]
-      }).select('name firstName lastName email picture onboardingData tutorOnboarding tutorCredentials tutorApproved stripeConnectOnboarded payoutProvider payoutDetails residenceCountry isUSPersonForTax hasUSBankAccount taxInfoCompletedAt createdAt');
-      
-      console.log('📋 Sample tutor data from query:', allTutors[0] ? {
-        email: allTutors[0].email,
-        hasTutorOnboarding: !!allTutors[0].tutorOnboarding,
-        tutorOnboarding: allTutors[0].tutorOnboarding,
-        hasCreatedAt: !!allTutors[0].createdAt,
-        createdAt: allTutors[0].createdAt
-      } : 'No tutors found');
-      
-      // Filter to only pending (not approved OR has pending video)
-      tutors = allTutors.filter(tutor => {
-        const videoApproved = tutor.tutorOnboarding?.videoApproved === true;
-        const videoRejected = tutor.tutorOnboarding?.videoRejected === true;
-        const pendingVideo = tutor.onboardingData?.pendingVideo;
-        const hasPendingVideo = pendingVideo && pendingVideo !== '' && pendingVideo !== null;
-        
-        // Exclude rejected videos from pending tab
-        if (videoRejected) return false;
-        
-        // Include if:
-        // 1. Video not approved yet (new tutor)
-        // 2. OR has a pending video (existing tutor uploading new video)
-        return !videoApproved || hasPendingVideo;
-      });
-    }
-    
-    // Sort by upload date
-    tutors.sort((a, b) => {
-      const dateA = a.tutorOnboarding?.videoUploadedAt || new Date(0);
-      const dateB = b.tutorOnboarding?.videoUploadedAt || new Date(0);
-      return dateB - dateA;
-    });
+    const status = req.query.status || 'pending';
 
-    // Fix: Set videoUploadedAt for tutors who are missing it (one-time migration)
+    let tutors = await fetchTutorsForReviewStatus(status);
+
+    // One-time migration: backfill videoUploadedAt for tutors with videos
     let migrationCount = 0;
-    const tutorsToUpdate = [];
-    
     for (const tutor of tutors) {
-      console.log(`🔍 Checking tutor ${tutor.email}:`, {
-        hasVideoUploadedAt: !!tutor.tutorOnboarding?.videoUploadedAt,
-        videoUploadedAt: tutor.tutorOnboarding?.videoUploadedAt,
-        createdAt: tutor.createdAt
-      });
-      
-      if (!tutor.tutorOnboarding?.videoUploadedAt) {
-        console.log(`⏰ Setting videoUploadedAt for tutor ${tutor.email} (was missing)`);
+      const hasVideo =
+        (tutor.onboardingData?.introductionVideo && tutor.onboardingData.introductionVideo !== '') ||
+        (tutor.onboardingData?.pendingVideo && tutor.onboardingData.pendingVideo !== '');
+
+      if (hasVideo && !tutor.tutorOnboarding?.videoUploadedAt) {
         const fallbackDate = tutor.createdAt || new Date();
-        // Use updateOne instead of save() to avoid validation issues with partial select
         await User.updateOne(
           { _id: tutor._id },
           { $set: { 'tutorOnboarding.videoUploadedAt': fallbackDate } }
         );
-        if (!tutor.tutorOnboarding) {
-          tutor.tutorOnboarding = {};
-        }
+        if (!tutor.tutorOnboarding) tutor.tutorOnboarding = {};
         tutor.tutorOnboarding.videoUploadedAt = fallbackDate;
-        tutorsToUpdate.push(tutor._id);
         migrationCount++;
-        console.log(`✅ Set videoUploadedAt to:`, tutor.tutorOnboarding.videoUploadedAt);
       }
     }
-    
+
     if (migrationCount > 0) {
       console.log(`✅ Migration complete: Set videoUploadedAt for ${migrationCount} tutor(s)`);
-      
-      // Re-fetch the tutors list to get fresh timestamps
-      // Just re-query using the same criteria as before
-      if (status === 'approved') {
-        tutors = await User.find({
-          userType: 'tutor',
-          'tutorOnboarding.videoApproved': true,
-          'onboardingData.introductionVideo': { $exists: true, $ne: null, $ne: '' }
-        }).select('name firstName lastName email picture onboardingData tutorOnboarding tutorCredentials tutorApproved stripeConnectOnboarded payoutProvider payoutDetails residenceCountry createdAt');
-        
-        tutors = tutors.filter(tutor => {
-          const pendingVideo = tutor.onboardingData?.pendingVideo;
-          return !pendingVideo || pendingVideo === '' || pendingVideo === null;
-        });
-      } else if (status === 'rejected') {
-        tutors = await User.find({
-          userType: 'tutor',
-          'tutorOnboarding.videoRejected': true,
-          $or: [
-            { 'onboardingData.introductionVideo': { $exists: true, $ne: null, $ne: '' } },
-            { 'onboardingData.pendingVideo': { $exists: true, $ne: null, $ne: '' } }
-          ]
-        }).select('name firstName lastName email picture onboardingData tutorOnboarding tutorCredentials tutorApproved stripeConnectOnboarded payoutProvider payoutDetails residenceCountry createdAt');
-      } else {
-        // Pending status - re-fetch all and filter
-        const allTutors = await User.find({
-          userType: 'tutor',
-          $or: [
-            { 'onboardingData.introductionVideo': { $exists: true, $ne: null, $ne: '' } },
-            { 'onboardingData.pendingVideo': { $exists: true, $ne: null, $ne: '' } }
-          ]
-        }).select('name firstName lastName email picture onboardingData tutorOnboarding tutorCredentials tutorApproved stripeConnectOnboarded payoutProvider payoutDetails residenceCountry createdAt');
-        
-        tutors = allTutors.filter(tutor => {
-          const videoApproved = tutor.tutorOnboarding?.videoApproved === true;
-          const videoRejected = tutor.tutorOnboarding?.videoRejected === true;
-          const pendingVideo = tutor.onboardingData?.pendingVideo;
-          const hasPendingVideo = pendingVideo && pendingVideo !== '' && pendingVideo !== null;
-          if (videoRejected) return false;
-          return !videoApproved || hasPendingVideo;
-        });
-      }
-      
-      console.log(`🔄 Re-fetched ${tutors.length} tutors after migration`);
+      tutors = await fetchTutorsForReviewStatus(status);
     }
+
+    tutors.sort((a, b) => {
+      const dateA = a.latestReviewActivityAt || new Date(0);
+      const dateB = b.latestReviewActivityAt || new Date(0);
+      return dateB - dateA;
+    });
 
     console.log(`📊 Fetched ${tutors.length} tutors with status: ${status}`);
 
     res.json({
       success: true,
-      tutors: tutors,
-      status: status
+      tutors,
+      status,
     });
   } catch (error) {
     console.error('Error fetching pending tutors:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to fetch pending tutors'
+      message: 'Failed to fetch pending tutors',
     });
   }
 });
@@ -272,6 +198,8 @@ router.post('/approve-video/:userId', verifyToken, requireAdmin, async (req, res
       }
 
       tutor.tutorOnboarding.videoApproved = true;
+      tutor.tutorOnboarding.videoRejected = false;
+      tutor.tutorOnboarding.videoRejectionReason = null;
       tutor.tutorOnboarding.videoApprovedAt = new Date();
 
       // Promote to fully-approved only when every gate passes (photo,
@@ -370,8 +298,10 @@ router.post('/approve-video/:userId', verifyToken, requireAdmin, async (req, res
     });
     } else {
       // Video rejected
+      const rejectionMessage = rejectionReason || 'Video did not meet requirements';
       tutor.tutorOnboarding.videoApproved = false;
-      tutor.tutorOnboarding.videoRejectionReason = rejectionReason || 'Video did not meet requirements';
+      tutor.tutorOnboarding.videoRejected = true;
+      tutor.tutorOnboarding.videoRejectionReason = rejectionMessage;
       
       // Clear pending video
       if (tutor.onboardingData?.pendingVideo) {
@@ -381,6 +311,23 @@ router.post('/approve-video/:userId', verifyToken, requireAdmin, async (req, res
       }
 
       await tutor.save();
+
+      try {
+        const notification = new Notification({
+          userId: tutor._id,
+          type: 'tutor_video_rejected',
+          title: '❌ Video Rejected',
+          message: `Your introduction video was <strong>rejected</strong>. Reason: <strong>${rejectionMessage}</strong>`,
+          data: {
+            reason: rejectionReason,
+            rejectedAt: new Date()
+          },
+          read: false
+        });
+        await notification.save();
+      } catch (notifError) {
+        console.error('⚠️ Failed to create video rejection notification:', notifError);
+      }
 
       // Send rejection notification
       try {
@@ -400,6 +347,14 @@ router.post('/approve-video/:userId', verifyToken, requireAdmin, async (req, res
             reason: rejectionReason,
             timestamp: new Date()
           });
+
+          req.io.to(`user:${tutor.auth0Id}`).emit('new_notification', {
+            type: 'tutor_video_rejected',
+            title: '❌ Video Rejected',
+            message: rejectionReason || 'Your video was rejected',
+            timestamp: new Date(),
+            urgent: true
+          });
         }
       } catch (socketError) {
         console.warn('⚠️ Could not send WebSocket notification:', socketError.message);
@@ -416,6 +371,165 @@ router.post('/approve-video/:userId', verifyToken, requireAdmin, async (req, res
     res.status(500).json({
       success: false,
       message: 'Failed to approve video'
+    });
+  }
+});
+
+/**
+ * POST /api/admin/approve-photo/:userId
+ * Approve or reject a tutor's profile photo submission
+ */
+router.post('/approve-photo/:userId', verifyToken, requireAdmin, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { approved, rejectionReason } = req.body;
+
+    const tutor = await User.findById(userId);
+
+    if (!tutor || tutor.userType !== 'tutor') {
+      return res.status(404).json({
+        success: false,
+        message: 'Tutor not found'
+      });
+    }
+
+    tutor.tutorOnboarding = tutor.tutorOnboarding || {};
+    if (!tutor.onboardingData) {
+      tutor.onboardingData = {};
+    }
+
+    if (approved) {
+      const pendingPhoto = tutor.onboardingData.pendingPhoto;
+      if (pendingPhoto) {
+        tutor.picture = pendingPhoto;
+        tutor.onboardingData.pendingPhoto = '';
+      } else if (!hasCustomProfilePhoto(tutor)) {
+        return res.status(400).json({
+          success: false,
+          message: 'No profile photo to approve'
+        });
+      }
+
+      tutor.tutorOnboarding.photoApproved = true;
+      tutor.tutorOnboarding.photoRejected = false;
+      tutor.tutorOnboarding.photoRejectionReason = null;
+      tutor.tutorOnboarding.photoApprovedAt = new Date();
+      tutor.tutorOnboarding.photoUploaded = true;
+
+      const snapshot = applyApprovalIfReady(tutor);
+      if (!snapshot.isFullyApproved) {
+        console.log(`📋 Tutor ${tutor.email} photo approved but not fully approved yet:`, snapshot);
+      }
+
+      await tutor.save();
+
+      try {
+        const notification = new Notification({
+          userId: tutor._id,
+          type: 'tutor_photo_approved',
+          title: 'Profile photo approved',
+          message: 'Your profile photo has been approved.',
+          data: { photoApproved: true },
+          read: false
+        });
+        await notification.save();
+      } catch (notifError) {
+        console.error('⚠️ Failed to create photo approval notification:', notifError);
+      }
+
+      try {
+        if (req.io) {
+          const approvalPayload = {
+            message: 'Your profile photo has been approved.',
+            approved: true,
+            timestamp: new Date(),
+          };
+          req.io.to(`user:${tutor.auth0Id}`).emit('tutor_photo_approved', approvalPayload);
+          req.io.to(`mongo:${tutor._id.toString()}`).emit('tutor_photo_approved', approvalPayload);
+          req.io.to(`user:${tutor.auth0Id}`).emit('new_notification', {
+            type: 'tutor_photo_approved',
+            title: 'Profile photo approved',
+            message: 'Your profile photo has been approved.',
+            timestamp: new Date(),
+            urgent: false,
+            data: { photoApproved: true },
+          });
+        }
+      } catch (socketError) {
+        console.warn('⚠️ Could not send photo approval WebSocket notification:', socketError.message);
+      }
+
+      return res.json({
+        success: true,
+        message: 'Profile photo approved successfully',
+        tutorApproved: tutor.tutorApproved
+      });
+    }
+
+    tutor.tutorOnboarding.photoApproved = false;
+    tutor.tutorOnboarding.photoRejected = true;
+    tutor.tutorOnboarding.photoRejectionReason = rejectionReason || 'Photo did not meet requirements';
+
+    if (tutor.onboardingData.pendingPhoto) {
+      tutor.onboardingData.pendingPhoto = '';
+    }
+
+    await tutor.save();
+
+    const rejectionMessage = rejectionReason || 'Photo did not meet requirements';
+    const rejectionTitle = '❌ Profile Photo Rejected';
+
+    try {
+      const notification = new Notification({
+        userId: tutor._id,
+        type: 'tutor_photo_rejected',
+        title: rejectionTitle,
+        message: `Your profile photo was <strong>rejected</strong>. Reason: <strong>${rejectionMessage}</strong>`,
+        data: {
+          reason: rejectionReason,
+          rejectedAt: new Date(),
+        },
+        read: false,
+      });
+      await notification.save();
+      console.log(`📝 Database notification created for tutor ${tutor._id} (photo rejected)`);
+    } catch (notifError) {
+      console.error('⚠️ Failed to create photo rejection notification:', notifError);
+    }
+
+    try {
+      if (req.io) {
+        const rejectionPayload = {
+          message: rejectionReason || 'Your profile photo was rejected',
+          approved: false,
+          reason: rejectionReason,
+          timestamp: new Date(),
+        };
+        req.io.to(`user:${tutor.auth0Id}`).emit('tutor_photo_rejected', rejectionPayload);
+        req.io.to(`mongo:${tutor._id.toString()}`).emit('tutor_photo_rejected', rejectionPayload);
+        req.io.to(`user:${tutor.auth0Id}`).emit('new_notification', {
+          type: 'tutor_photo_rejected',
+          title: rejectionTitle,
+          message: rejectionReason || 'Your profile photo was rejected',
+          timestamp: new Date(),
+          urgent: true,
+          data: { reason: rejectionReason },
+        });
+      }
+    } catch (socketError) {
+      console.warn('⚠️ Could not send photo rejection WebSocket notification:', socketError.message);
+    }
+
+    return res.json({
+      success: true,
+      message: 'Profile photo rejected',
+      reason: rejectionReason
+    });
+  } catch (error) {
+    console.error('Error approving profile photo:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to approve profile photo'
     });
   }
 });
@@ -445,7 +559,7 @@ router.post('/approve-tutor/:userId', verifyToken, requireAdmin, async (req, res
 
     tutor.tutorOnboarding.videoApproved = true;
     tutor.tutorOnboarding.videoRejected = false;
-    tutor.tutorOnboarding.rejectionReason = null;
+    tutor.tutorOnboarding.videoRejectionReason = null;
     tutor.tutorOnboarding.videoApprovedAt = new Date();
 
     applyApprovalIfReady(tutor);
@@ -536,7 +650,7 @@ router.post('/reject-tutor/:userId', verifyToken, requireAdmin, async (req, res)
     // Mark video as rejected
     tutor.tutorOnboarding.videoApproved = false;
     tutor.tutorOnboarding.videoRejected = true;
-    tutor.tutorOnboarding.rejectionReason = reason || 'Video did not meet requirements';
+    tutor.tutorOnboarding.videoRejectionReason = reason || 'Video did not meet requirements';
     tutor.tutorOnboarding.videoRejectedAt = new Date();
     
     // Clear pending video if exists

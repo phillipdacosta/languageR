@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ChangeDetectorRef } from '@angular/core';
 import { Location } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
@@ -15,9 +15,16 @@ import { CardManagementModalComponent } from '../components/card-management-moda
 import { VocabularyService, VocabEntry, GoalEntry } from '../services/vocabulary.service';
 import { ReviewDeckService } from '../services/review-deck.service';
 import { LearningPlanService } from '../services/learning-plan.service';
-
-type LessonRating = 'great' | 'okay' | 'not_so_good';
-type RightPanelStep = 'rating' | 'sorry' | 'book';
+import {
+  TutorAvailabilityViewerComponent,
+  BookableSlotPreview,
+} from '../components/tutor-availability-viewer/tutor-availability-viewer.component';
+import { ClassGoingMessageModalComponent } from '../components/class-going-message-modal/class-going-message-modal.component';
+import { TrialRecapLayoutState } from '../services/trial-recap-state.service';
+import {
+  TrialLessonRecapPanelComponent,
+  TrialRecapTutor,
+} from '../components/trial-lesson-recap-panel/trial-lesson-recap-panel.component';
 
 interface LessonInfo {
   _id: string;
@@ -71,7 +78,6 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
   tipCtaLabel = '';
   tipSentLabel = '';
   reviewLabel = '';
-  seeProfileLabel = '';
   trialNextTitle = '';
   trialNextSub = '';
   analysisLoadingTitle = '';
@@ -106,8 +112,9 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
   lessonRatingQuestion = '';
   ratingQuestionLead = '';
   subheaderTitle = '';
-  showSubheaderRatingLayout = false;
   showSubheaderEmoji = true;
+  subheaderAlignToRightColumn = false;
+  centerRightPanelContent = false;
   positiveEnjoyedTitle = '';
   ratingGreatLabel = '';
   ratingOkayLabel = '';
@@ -117,13 +124,22 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
   findNewTutorsLabel = '';
   giveAnotherShotLabel = '';
   stepBackLabel = '';
+  availabilityPreviewLoading = false;
+  availabilityPreviewSlots: BookableSlotPreview[] = [];
+  availabilityPreviewHasMore = false;
+  availabilityPreviewEmpty = false;
+  showFullAvailabilityViewer = false;
+  availPreviewLoadingLabel = '';
+  availNoSlotsBody = '';
+  availSendMessageLabel = '';
+  viewAvailabilityLabel = '';
 
-  // Right-panel step flow (rating → book | sorry → book)
+  @ViewChild('availabilityViewer') availabilityViewer?: TutorAvailabilityViewerComponent;
+  private availabilityPreviewScanning = false;
+
+  // Trial lessons use TrialLessonRecapPanelComponent for the rating flow.
   showLessonRatingOptions = true;
   lessonsCompletedWithTutor = 0;
-  selectedLessonRating: LessonRating | null = null;
-  rightPanelSteps: RightPanelStep[] = ['rating'];
-  rightPanelStepIndex = 0;
 
   // AI analysis
   aiAnalysisEnabled = true;
@@ -327,8 +343,21 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
     private reviewDeckService: ReviewDeckService,
     private location: Location,
     private learningPlanService: LearningPlanService,
-    private translate: TranslateService
+    private translate: TranslateService,
+    private cdr: ChangeDetectorRef,
   ) {}
+
+  get trialRecapTutor(): TrialRecapTutor | null {
+    if (!this.tutor) return null;
+    const t = this.tutor as any;
+    return {
+      _id: String(t._id || t.id),
+      name: t.name,
+      firstName: t.firstName,
+      picture: t.picture,
+      auth0Id: t.auth0Id || t.auth0_id,
+    };
+  }
 
   async ngOnInit() {
     this.lessonId = this.route.snapshot.paramMap.get('id') || '';
@@ -573,7 +602,6 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
     this.loadingLabel = this.t('POST_LESSON.STUDENT.LOADING');
     this.tipSentLabel = this.t('POST_LESSON.STUDENT.TIP_SENT');
     this.reviewLabel = this.t('POST_LESSON.STUDENT.REVIEW');
-    this.seeProfileLabel = this.t('POST_LESSON.STUDENT.SEE_PROFILE');
     this.trialNextTitle = this.t('POST_LESSON.STUDENT.TRIAL_NEXT');
     this.analysisLoadingTitle = this.t('POST_LESSON.STUDENT.ANALYSIS_LOADING_TITLE');
     this.analysisLoadingSub = this.t('POST_LESSON.STUDENT.ANALYSIS_LOADING_SUB');
@@ -608,6 +636,9 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
     this.sorryTitle = this.t('POST_LESSON.STUDENT.SORRY_TITLE');
     this.findNewTutorsLabel = this.t('POST_LESSON.STUDENT.FIND_NEW_TUTORS');
     this.stepBackLabel = this.t('POST_LESSON.STUDENT.STEP_BACK');
+    this.availPreviewLoadingLabel = this.t('POST_LESSON.STUDENT.AVAIL_PREVIEW_LOADING');
+    this.availSendMessageLabel = this.t('POST_LESSON.STUDENT.AVAIL_SEND_MESSAGE');
+    this.viewAvailabilityLabel = this.t('POST_LESSON.STUDENT.VIEW_AVAILABILITY');
     this.cardFeeGenericNote = this.t('POST_LESSON.STUDENT.CARD_FEE_GENERIC', { label: this.cardFeeLabel });
     this.updateVocabCountLabel();
     this.updateTipLabels();
@@ -619,104 +650,171 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
     }
   }
 
-  get currentRightPanelStep(): RightPanelStep {
-    return this.rightPanelSteps[this.rightPanelStepIndex] ?? 'rating';
-  }
+  onTrialRecapLayoutChange(state: TrialRecapLayoutState): void {
+    const positiveRating = state.rating === 'great' || state.rating === 'okay';
+    const onRatingStep = state.step === 'rating';
+    const onSorryStep = state.step === 'sorry';
+    const onBookAfterPositive = state.step === 'book' && positiveRating;
+    const onBookAfterNegative = state.step === 'book' && state.rating === 'not_so_good';
 
-  get canRightPanelGoBack(): boolean {
-    return this.rightPanelStepIndex > 0;
-  }
-
-  get showRightPanelStepNav(): boolean {
-    return this.showLessonRatingOptions && this.canRightPanelGoBack;
-  }
-
-  selectLessonRating(rating: LessonRating): void {
-    this.selectedLessonRating = rating;
-    if (rating === 'not_so_good') {
-      this.pushRightPanelStep('sorry');
+    if (onRatingStep) {
+      this.showSubheaderEmoji = false;
+      this.subheaderTitle = '';
+    } else if (onBookAfterPositive) {
+      this.showSubheaderEmoji = true;
+      this.subheaderTitle = this.positiveEnjoyedTitle;
+    } else if (onSorryStep) {
+      this.showSubheaderEmoji = false;
+      this.subheaderTitle = '';
+    } else if (onBookAfterNegative) {
+      this.showSubheaderEmoji = false;
+      this.subheaderTitle = this.trialNextTitle;
     } else {
-      this.pushRightPanelStep('book');
+      this.showSubheaderEmoji = true;
+      this.subheaderTitle = this.pageTitle;
     }
-    this.updateSubheaderDisplay();
+
+    this.subheaderAlignToRightColumn =
+      !!(this.lesson && this.tutor) && (onBookAfterPositive || onBookAfterNegative);
+
+    this.centerRightPanelContent =
+      onRatingStep ||
+      (state.step === 'book' &&
+        state.useAvailabilityPreview &&
+        !state.showFullAvailabilityViewer);
+
+    this.cdr.markForCheck();
   }
 
-  giveTutorAnotherShot(): void {
-    this.pushRightPanelStep('book');
-    this.updateSubheaderDisplay();
+  /** Pill preview for non-trial book-again flow. */
+  get useAvailabilityPreview(): boolean {
+    if (this.isTrialLesson) return false;
+    return !this.showFullAvailabilityViewer;
   }
 
-  findNewTutors(): void {
-    this.router.navigate(['/tabs/tutor-search']);
-  }
-
-  rightPanelGoBack(): void {
-    if (!this.canRightPanelGoBack) return;
-    this.rightPanelStepIndex--;
-    this.updateSubheaderDisplay();
-  }
-
-  private pushRightPanelStep(step: RightPanelStep): void {
-    if (this.rightPanelStepIndex < this.rightPanelSteps.length - 1) {
-      this.rightPanelSteps = this.rightPanelSteps.slice(0, this.rightPanelStepIndex + 1);
+  onAvailabilityPreloaded(event: { hasAvailability: boolean; tutorBlocked: boolean }): void {
+    if (this.useAvailabilityPreview) {
+      void this.refreshAvailabilityPreview(event);
     }
-    if (this.rightPanelSteps[this.rightPanelSteps.length - 1] === step) {
+  }
+
+  async refreshAvailabilityPreview(
+    loaded?: { hasAvailability: boolean; tutorBlocked: boolean }
+  ): Promise<void> {
+    if (!this.useAvailabilityPreview || !this.availabilityViewer) {
       return;
     }
-    this.rightPanelSteps = [...this.rightPanelSteps, step];
-    this.rightPanelStepIndex = this.rightPanelSteps.length - 1;
+
+    const viewer = this.availabilityViewer;
+    if (
+      !loaded &&
+      !viewer.tutorBlocked &&
+      viewer.availability.length === 0
+    ) {
+      this.availabilityPreviewLoading = true;
+      this.availabilityPreviewEmpty = false;
+      this.updateRightPanelLayout();
+      this.cdr.markForCheck();
+      return;
+    }
+
+    if (this.availabilityPreviewScanning) {
+      return;
+    }
+
+    this.availabilityPreviewScanning = true;
+    this.availabilityPreviewLoading = true;
+    this.cdr.markForCheck();
+
+    try {
+      const result = await this.availabilityViewer.scanBookableSlots(3);
+      this.availabilityPreviewSlots = result.slots;
+      this.availabilityPreviewHasMore = result.hasMore;
+      const blocked = loaded?.tutorBlocked ?? false;
+      const noAvail = loaded?.hasAvailability === false;
+      this.availabilityPreviewEmpty =
+        blocked || noAvail || result.slots.length === 0;
+    } finally {
+      this.availabilityPreviewScanning = false;
+      this.availabilityPreviewLoading = false;
+      this.updateRightPanelLayout();
+      this.cdr.markForCheck();
+    }
   }
 
-  private resetRightPanelFlow(): void {
-    this.selectedLessonRating = null;
-    if (this.showLessonRatingOptions) {
-      this.rightPanelSteps = ['rating'];
-    } else {
-      this.rightPanelSteps = ['book'];
+  private resetAvailabilityPreview(): void {
+    this.showFullAvailabilityViewer = false;
+    this.availabilityPreviewSlots = [];
+    this.availabilityPreviewHasMore = false;
+    this.availabilityPreviewEmpty = false;
+    this.updateRightPanelLayout();
+  }
+
+  private updateRightPanelLayout(): void {
+    if (this.isTrialLesson) return;
+    this.centerRightPanelContent =
+      this.useAvailabilityPreview && !this.showFullAvailabilityViewer;
+    this.subheaderAlignToRightColumn = false;
+  }
+
+  openFullAvailabilityViewer(): void {
+    this.showFullAvailabilityViewer = true;
+    this.updateRightPanelLayout();
+  }
+
+  async onAvailabilityPreviewSlotClick(slot: BookableSlotPreview): Promise<void> {
+    this.showFullAvailabilityViewer = true;
+    this.cdr.detectChanges();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    this.availabilityViewer?.openBookableSlot(slot);
+  }
+
+  async openAskTutorForTimesMessage(): Promise<void> {
+    if (!this.tutor) return;
+
+    const receiverId = this.resolveTutorMessageReceiverId();
+    if (!receiverId) return;
+
+    const modal = await this.modalCtrl.create({
+      component: ClassGoingMessageModalComponent,
+      componentProps: {
+        attendees: [this.tutor],
+        receiverId,
+        receiverIds: [receiverId],
+        className: '',
+        classId: '',
+        subtitleKey: 'POST_LESSON.STUDENT.AVAIL_MESSAGE_SUBTITLE',
+        placeholderKey: 'POST_LESSON.STUDENT.AVAIL_MESSAGE_PLACEHOLDER',
+      },
+      cssClass: 'class-going-message-modal',
+    });
+
+    await modal.present();
+    const { data } = await modal.onDidDismiss();
+    if (data?.sent) {
+      if (data?.kind === 'direct' && data?.userId) {
+        await this.router.navigate(['/tabs/messages'], { queryParams: { userId: data.userId } });
+      } else {
+        await this.router.navigate(['/tabs/messages']);
+      }
     }
-    this.rightPanelStepIndex = 0;
-    this.updateSubheaderDisplay();
+  }
+
+  private resolveTutorMessageReceiverId(): string {
+    const t = this.tutor;
+    if (!t) return '';
+    const auth0 = t.auth0Id || t.auth0_id;
+    if (typeof auth0 === 'string' && auth0.trim()) return auth0.trim();
+    const id = t._id || t.id;
+    if (id == null) return '';
+    return typeof id === 'string' ? id : String(id);
   }
 
   private updateSubheaderDisplay(): void {
-    const positiveRating =
-      this.selectedLessonRating === 'great' || this.selectedLessonRating === 'okay';
-    const onRatingStep = this.currentRightPanelStep === 'rating';
-    const onSorryStep = this.currentRightPanelStep === 'sorry';
-    const onBookAfterPositive =
-      this.currentRightPanelStep === 'book' && positiveRating;
-    const onBookAfterNegative =
-      this.currentRightPanelStep === 'book' && this.selectedLessonRating === 'not_so_good';
-
-    if (onRatingStep && this.tutor && this.showLessonRatingOptions) {
-      this.showSubheaderRatingLayout = true;
-      this.showSubheaderEmoji = false;
-      this.subheaderTitle = '';
-      return;
-    }
-
-    this.showSubheaderRatingLayout = false;
-
-    if (onBookAfterPositive) {
-      this.showSubheaderEmoji = true;
-      this.subheaderTitle = this.positiveEnjoyedTitle;
-      return;
-    }
-
-    if (onSorryStep) {
-      this.showSubheaderEmoji = false;
-      this.subheaderTitle = '';
-      return;
-    }
-
-    if (onBookAfterNegative) {
-      this.showSubheaderEmoji = false;
-      this.subheaderTitle = this.trialNextTitle;
-      return;
-    }
-
+    if (this.isTrialLesson) return;
     this.showSubheaderEmoji = true;
     this.subheaderTitle = this.pageTitle;
+    this.updateRightPanelLayout();
   }
 
   private updateLessonDisplay(): void {
@@ -737,6 +835,7 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
     this.positiveEnjoyedTitle = this.t('POST_LESSON.STUDENT.POSITIVE_ENJOYED', { name: this.tutorFirstName });
     this.sorryBody = this.t('POST_LESSON.STUDENT.SORRY_BODY', { name: this.tutorFirstName });
     this.giveAnotherShotLabel = this.t('POST_LESSON.STUDENT.GIVE_ANOTHER_SHOT', { name: this.tutorFirstName });
+    this.availNoSlotsBody = this.t('POST_LESSON.STUDENT.AVAIL_NO_SLOTS_BODY', { name: this.tutorFirstName });
     this.updateTipLabels();
     this.updateSubheaderDisplay();
   }
@@ -807,7 +906,9 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
         // post-lesson loads before the just-finished lesson is marked completed.
         this.showLessonRatingOptions = this.isTrialLesson;
         this.updateTutorProperties();
-        this.resetRightPanelFlow();
+        if (!this.isTrialLesson) {
+          this.resetAvailabilityPreview();
+        }
         this.updateLessonDisplay();
         
         // Check if tip was already sent for this lesson
@@ -1101,13 +1202,6 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
       await this.router.navigate(['/tabs/profile'], {
         queryParams: { userId: this.tutor._id, action: 'review' }
       });
-    }
-  }
-
-  async bookAgain() {
-    // Navigate to tutor profile to book
-    if (this.tutor) {
-      await this.router.navigate(['/tutor', this.tutor._id]);
     }
   }
 
