@@ -12,6 +12,7 @@ import { Observable, takeUntil, take, filter, firstValueFrom, observeOn, asyncSc
 import { Subject, Subscription } from 'rxjs';
 import { LessonService, Lesson } from '../services/lesson.service';
 import { ImagePreloadService } from '../services/image-preload.service';
+import { EventDetailsImagePreloadService } from '../services/event-details-image-preload.service';
 import { ClassService, ClassInvitation } from '../services/class.service';
 import { ClassInvitationModalComponent } from '../components/class-invitation-modal/class-invitation-modal.component';
 import { ClassMenuPopoverComponent } from '../components/class-menu-popover/class-menu-popover.component';
@@ -41,10 +42,11 @@ import { FlagService } from '../services/flag.service';
 import { TutorFeedbackService, PendingFeedbackItem } from '../services/tutor-feedback.service';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../environments/environment';
-import { buildStripeConnectPayloadForProfilePayout, parseStripeConnectReturnParams, stripStripeConnectQueryParams, StripeConnectReturnState } from '../utils/stripe-connect.util';
+import { buildStripeConnectPayloadForProfilePayout, classifyStripeReturnStatus, parseStripeConnectReturnParams, stripStripeConnectQueryParams, StripeConnectReturnState, STRIPE_RETURN_TOAST_KEYS } from '../utils/stripe-connect.util';
 import { SmartIslandService, DynamicCard } from '../services/smart-island.service';
 import { TranslateService } from '@ngx-translate/core';
 import { LearningPlanService, LearningPlan } from '../services/learning-plan.service';
+import { journeyBackgroundUrl } from '../journey/journey-map-assets';
 import { TranscriptionService, LessonAnalysis } from '../services/transcription.service';
 import { GamificationService, Badge as GamBadge } from '../services/gamification.service';
 import { ReviewDeckService } from '../services/review-deck.service';
@@ -52,10 +54,14 @@ import { AnalysisTranslationService } from '../services/analysis-translation.ser
 import { HomeInlineToolbarService } from '../services/home-inline-toolbar.service';
 import { EarningsPage } from '../earnings/earnings.page';
 import { MaterialService, TutorMaterial } from '../services/material.service';
-import { TutorGrowthService, GrowthInsight, GrowthContext, ProfileChecklistItem, mapProfileChecklistIdToApprovalWizardStepId, buildTutorProfileChecklist, GROWTH_TICKER_ICONS, GROWTH_TICKER_ICON_URLS } from '../services/tutor-growth.service';
+import { TutorGrowthService, GrowthInsight, GrowthContext, ProfileChecklistItem, mapProfileChecklistIdToApprovalWizardStepId, buildTutorProfileChecklistFromStatus, countCompletedProfileChecklistItems, GROWTH_TICKER_ICONS, GROWTH_TICKER_ICON_URLS } from '../services/tutor-growth.service';
 import { ScheduleClassPage } from '../tutor-calendar/schedule-class/schedule-class.page';
 import { MOCK_CLASS_ATTENDEES_PREVIEW } from '../constants/mock-class-attendees-preview';
 import { isLessonMockId } from '../lessons/lesson-mock-preview';
+import {
+  LanguagePlanManageItem,
+  LanguagePlanManageModalComponent,
+} from '../components/language-plan-manage-modal/language-plan-manage-modal.component';
 
 @Component({
   selector: 'app-tab1',
@@ -106,6 +112,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   @ViewChild(IonContent) ionContent!: IonContent;
   @ViewChild('smartIsland') smartIsland!: SmartIslandComponent;
   @ViewChild('earningsComponent') earningsComponent: any;
+  @ViewChild('earningsViewComponent') earningsViewComponent?: EarningsPage;
   @ViewChild('createMaterialRef') createMaterialRef: any;
   @ViewChild('scheduleClassModalRef') scheduleClassModalRef?: ScheduleClassPage;
   
@@ -495,6 +502,9 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   journeyTotalLessonsCompleted = 0;
   journeyPausedSinceLabel = '';
   journeyChapterBadges: Array<{ level: string; label: string }> = [];
+  /** True when the unframed plan was structured before going own pace —
+   *  suppresses the widget's "Build me a plan" CTA. */
+  journeyHadStructuredPlan = false;
 
   /** Earned gamification badges (consistency streaks, lesson milestones,
    *  level achievements, skill badges) shown on the paused / unframed
@@ -722,7 +732,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     private homeInlineToolbar: HomeInlineToolbarService,
     private materialService: MaterialService,
     private tutorGrowthService: TutorGrowthService,
-    private imagePreloadService: ImagePreloadService
+    private imagePreloadService: ImagePreloadService,
+    private eventDetailsImagePreload: EventDetailsImagePreloadService,
   ) {
     // Cache the latest tutor approval status. Rebuilds the profile checklist
     // SYNCHRONOUSLY from the snapshot so any wizard step (TOS accepted,
@@ -779,8 +790,18 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         }
 
         if (this.isStudentUser && user?.onboardingData?.languages?.length) {
-          this.loadLearningPlan(user.onboardingData.languages[0]);
-          this.loadHomePracticeMaterials(user.onboardingData.languages[0]);
+          const cachedLang = this.learningPlanService.activeJourneyLanguage;
+          if (cachedLang) {
+            // Already resolved earlier this session → render the correct plan
+            // instantly (no German→Spanish flash) and keep the picker fresh.
+            this.loadLearningPlan(cachedLang);
+            this.loadHomePracticeMaterials(cachedLang);
+            this.refreshStudentJourneyLanguage();
+          } else {
+            // First load: show the skeleton and let refreshStudentJourneyLanguage
+            // (triggered after the lesson feed loads) commit a single correct load.
+            this.journeyWidgetState = 'loading';
+          }
         }
         
         // Check tutor onboarding status when user loads
@@ -963,6 +984,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       .pipe(takeUntil(this.destroy$))
       .subscribe((params) => {
         this.restoreEarningsAfterLessonReturn();
+        this.restoreTutorApprovalFromQuery(params);
         const stripeReturn = parseStripeConnectReturnParams(params);
         if (stripeReturn) {
           void this.handleStripeConnectReturn(stripeReturn);
@@ -1783,6 +1805,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     }
     this.refreshPrevNotesTranslationState();
     this.eagerLoadJourneyIntroIfNeeded();
+    this.maybeShowTutorJourneyIntroIfNeeded();
 
     // Refresh the Practice badge so returning from the review deck
     // reflects newly mastered cards immediately.
@@ -1818,6 +1841,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     }
 
     this.restoreEarningsAfterLessonReturn();
+    this.restoreTutorApprovalFromPending();
     
     // Check if we need to force reload (e.g., after booking a lesson)
     const navigation = this.router.getCurrentNavigation();
@@ -2688,6 +2712,198 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     this.router.navigate(['/tabs/lessons']);
   }
   
+  // Multi-language journey picker — opens the language-plan modal in select mode.
+  journeyLanguagePlanItems: LanguagePlanManageItem[] = [];
+  showJourneyLanguagePicker = false;
+  private journeyLanguageResolving = false;
+  private journeyOptionsLoaded = false;
+  /** Once the student taps a language we stop auto-switching for the session. */
+  private journeyLanguageManuallySelected = false;
+
+  /**
+   * Language of the student's most recently completed lesson, derived from
+   * the lesson subject ("German Lesson" → "German"). Used to bias which
+   * journey we surface when the student has multiple language plans.
+   */
+  private getMostRecentLessonLanguage(): string {
+    const now = Date.now();
+    const source = (this.pastLessons && this.pastLessons.length) ? this.pastLessons : this.lessons;
+    if (!source || !source.length) return '';
+    const mostRecentPast = source
+      .filter(l => l && l.status !== 'cancelled' && new Date(l.endTime).getTime() <= now)
+      .sort((a, b) => new Date(b.endTime).getTime() - new Date(a.endTime).getTime())[0];
+    return this.learningPlanService.normalizeLessonLanguage(mostRecentPast?.subject);
+  }
+
+  /** Build the picker options (one per language plan) from plan summaries. */
+  private applyJourneyLanguageOptions(summaries: { language: string; status: string }[]): void {
+    const seen = new Set<string>();
+    const options = (summaries || [])
+      .filter(s => {
+        const key = (s?.language || '').trim().toLowerCase();
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .map(s => ({ language: s.language, status: s.status }));
+    this.journeyLanguagePlanItems = options.map((s) => this.buildJourneyLanguagePlanItem(s));
+    this.showJourneyLanguagePicker = options.length > 1;
+    this.learningPlanService.journeyLanguageOptions = options;
+  }
+
+  private buildJourneyLanguagePlanItem(summary: { language: string; status: string }): LanguagePlanManageItem {
+    const status = String(summary.status || '').trim();
+    const statusLabelMap: Record<string, string> = {
+      draft: 'Initial plan',
+      active: 'Active plan',
+      completed: 'Completed',
+      paused: 'Paused',
+      mastery_mode: 'Mastery mode',
+      unframed: 'Own pace',
+    };
+    const statusToneMap: Record<string, LanguagePlanManageItem['statusTone']> = {
+      draft: 'active',
+      active: 'active',
+      completed: 'complete',
+      paused: 'paused',
+      mastery_mode: 'active',
+      unframed: 'unframed',
+    };
+    const descriptionMap: Record<string, string> = {
+      draft: 'Your roadmap is ready and will tune itself after lessons.',
+      active: 'Your roadmap is adapting after each lesson.',
+      completed: 'This roadmap is complete.',
+      paused: 'Progress is saved. Resume when you want to continue this roadmap.',
+      mastery_mode: 'You are reviewing and strengthening advanced skills.',
+      unframed: 'You are learning without a structured roadmap.',
+    };
+
+    return {
+      language: summary.language,
+      statusLabel: statusLabelMap[status] || 'Plan',
+      statusTone: statusToneMap[status] || 'neutral',
+      description: descriptionMap[status] || 'Your learning plan for this language.',
+      canPause: false,
+      canResume: false,
+      canSkip: false,
+      canBuildPlan: false,
+      hadStructuredPlan: false,
+    };
+  }
+
+  /**
+   * Resolve which language's journey Home (and, via the shared service, the
+   * Journey page) should surface when a student has multiple language plans,
+   * then load that plan. The active-language load is deferred until the lesson
+   * feed is available so we never surface one language and swap it (flicker).
+   */
+  private async refreshStudentJourneyLanguage(): Promise<void> {
+    if (!this.isStudentUser) return;
+    if (this.journeyLanguageResolving) return;
+    this.journeyLanguageResolving = true;
+    try {
+      const user = this.currentUser;
+      const studentId = (user as any)?._id || (user as any)?.id;
+      let summaries: { language: string; status: string }[] = [];
+      if (studentId) {
+        try {
+          const res = await this.learningPlanService.getStudentPlanSummary(String(studentId)).toPromise();
+          summaries = (res?.summaries as any[]) || [];
+        } catch {
+          summaries = [];
+        }
+      }
+      this.applyJourneyLanguageOptions(summaries);
+      this.journeyOptionsLoaded = true;
+      this.cdr.markForCheck();
+
+      // User explicitly picked a language — honor it, just keep options fresh.
+      if (this.journeyLanguageManuallySelected) return;
+
+      const recent = this.getMostRecentLessonLanguage();
+      const resolved = this.learningPlanService.resolveActiveJourneyLanguage({
+        summaries,
+        recentLessonLanguage: recent,
+        fallbackLanguages: user?.onboardingData?.languages || []
+      });
+      if (!resolved) return;
+
+      // Without a recent-lesson signal yet, wait for the lesson feed before
+      // committing a load — otherwise we'd guess (first active plan) and then
+      // swap to the most-recent-lesson language once lessons arrive.
+      const lessonsPending = this._isLoadingInProgress || !this._hasInitiallyLoaded;
+      if (!recent && lessonsPending) {
+        // Cold start only: show the skeleton until lessons arrive. If a plan is
+        // already loaded (cached language), leave it untouched.
+        if (!this.journeyLanguageLabel) {
+          this.journeyWidgetState = 'loading';
+          this.cdr.detectChanges();
+        }
+        return;
+      }
+
+      if (this.journeyLanguageLabel !== resolved) {
+        this.loadLearningPlan(resolved);
+        this.loadHomePracticeMaterials(resolved);
+      }
+      this.learningPlanService.setActiveJourneyLanguage(resolved);
+    } finally {
+      this.journeyLanguageResolving = false;
+    }
+  }
+
+  /** Opens the language-plan modal in select-only mode. */
+  async openJourneyLanguagePickerModal(): Promise<void> {
+    if (!this.showJourneyLanguagePicker || !this.journeyLanguagePlanItems.length) return;
+
+    const modal = await this.modalCtrl.create({
+      component: LanguagePlanManageModalComponent,
+      componentProps: {
+        mode: 'select',
+        subtitle: 'Choose which language journey you want to view on Home.',
+        planItems: this.journeyLanguagePlanItems,
+        currentLanguage: this.journeyLanguageLabel,
+        onApplySelection: (language: string) => this.applyJourneyLanguageSelection(language),
+      },
+      cssClass: 'language-plan-modal',
+      backdropDismiss: true,
+    });
+    await modal.present();
+  }
+
+  /** Load the selected language's plan and refresh Home + Journey surfaces. */
+  private applyJourneyLanguageSelection(language: string): Promise<void> {
+    this.journeyLanguageManuallySelected = true;
+    this.journeyLanguageLabel = language;
+    this.journeyWidgetState = 'loading';
+    this.cdr.detectChanges();
+
+    return firstValueFrom(
+      this.learningPlanService.getPlan(language).pipe(take(1))
+    ).then((res: any) => {
+      if (res?.success && res.plan) {
+        this.applyLearningPlan(res.plan, res.entitlements || null);
+        this.learningPlanService.publishPlanUpdate(language, res);
+      } else {
+        this.applyLearningPlanMissing();
+      }
+      this.loadHomePracticeMaterials(language);
+      // Emit after the plan is cached so the pre-mounted journey map reloads
+      // with the correct language data instead of racing an empty cache.
+      this.learningPlanService.setActiveJourneyLanguage(language);
+      this.cdr.markForCheck();
+    }).catch((err) => {
+      if (err?.status === 404) {
+        this.applyLearningPlanMissing();
+        this.loadHomePracticeMaterials(language);
+        this.learningPlanService.setActiveJourneyLanguage(language);
+        this.cdr.markForCheck();
+        return;
+      }
+      throw err;
+    });
+  }
+
   loadLearningPlan(language: string) {
     this.journeyLanguageLabel = language || '';
     if (this.shouldEagerLoadJourneyIntroPlan()) {
@@ -2787,8 +3003,9 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     // already decoded by the time the user taps "View roadmap". We do this
     // while the user is still on the home page — effectively zero cost.
     const chapterTheme: string = (plan as any).chapterTheme || 'a1-desert';
+    const phaseCount = Array.isArray(plan.phases) ? plan.phases.length : 4;
     const preloadImg = new Image();
-    preloadImg.src = `assets/journey-backgrounds/${chapterTheme}.png`;
+    preloadImg.src = journeyBackgroundUrl(chapterTheme, phaseCount);
 
     // Pre-mount the journey component hidden (behind *ngIf="journeyPreloaded")
     // so Angular bootstraps it, the cache-first getPlanWithCache returns
@@ -2830,8 +3047,19 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       this.journeyTotalLessonsCompleted = 0;
       this.journeyPausedSinceLabel = '';
       this.journeyChapterBadges = [];
+      this.journeyHadStructuredPlan = false;
       return;
     }
+
+    // Prefer the explicit backend flag; fall back to progress signals so
+    // plans unframed before the flag existed are still recognised as having
+    // had a structured plan (lessons taken, chapters graduated, or a CEFR
+    // reveal all imply prior structure).
+    this.journeyHadStructuredPlan = !!plan.hadStructuredPlan
+      || (plan.lessonsAtUnframed || 0) > 0
+      || (Array.isArray(plan.chaptersCompleted) && plan.chaptersCompleted.length > 0)
+      || !!plan.revealedCefrLevel?.level
+      || (!!plan.goal?.type && plan.goal.type !== 'other');
 
     // Only surface a level chip when the student has actually *earned*
     // one — either through a CEFR reveal milestone or a chapter
@@ -3152,6 +3380,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
 
   private journeyIntroRetryCount = 0;
   private journeyIntroRetryTimer: ReturnType<typeof setTimeout> | null = null;
+  private tutorIntroModalShownThisSession = false;
+  private tutorIntroModalOpenInFlight = false;
 
   private shouldEagerLoadJourneyIntroPlan(): boolean {
     if (this.learningPlanService.introModalShownThisSession) {
@@ -3293,6 +3523,81 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     }
   }
 
+  private shouldShowTutorJourneyIntro(): boolean {
+    if (!this.isTutorUser || this.tutorIntroModalShownThisSession) {
+      return false;
+    }
+    if (!this.currentUser?.onboardingCompleted) {
+      return false;
+    }
+    try {
+      if (localStorage.getItem('tutor_journey_intro_seen') === 'true') {
+        return false;
+      }
+      return sessionStorage.getItem('showTutorJourneyIntro') === 'true';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  private maybeShowTutorJourneyIntroIfNeeded(): void {
+    if (!this.shouldShowTutorJourneyIntro()) {
+      return;
+    }
+    if (this.profileChecklistTotal === 0) {
+      return;
+    }
+    void this.openTutorJourneyIntroModal();
+  }
+
+  private async openTutorJourneyIntroModal(): Promise<void> {
+    if (!this.shouldShowTutorJourneyIntro() || this.tutorIntroModalOpenInFlight) {
+      return;
+    }
+
+    this.tutorIntroModalOpenInFlight = true;
+    try {
+      const existing = await this.modalCtrl.getTop();
+      if (existing?.classList.contains('journey-intro-modal')) {
+        return;
+      }
+
+      const { TutorJourneyIntroComponent } = await import('../journey/tutor-journey-intro.component');
+      const modal = await this.modalCtrl.create({
+        component: TutorJourneyIntroComponent,
+        componentProps: {
+          requireConfirmation: true,
+          profileChecklistDoneCount: this.profileChecklistDoneCount,
+          profileChecklistTotal: this.profileChecklistTotal,
+        },
+        cssClass: 'journey-intro-modal',
+        backdropDismiss: false,
+        canDismiss: async (data, role) => role === 'confirm' || data?.reason === 'done',
+      });
+      await modal.present();
+      this.tutorIntroModalShownThisSession = true;
+
+      const { data } = await modal.onDidDismiss();
+      if (data?.reason === 'done') {
+        try { localStorage.setItem('tutor_journey_intro_seen', 'true'); } catch (_) {}
+        try { sessionStorage.removeItem('showTutorJourneyIntro'); } catch (_) {}
+      }
+
+      await this.dismissStackedJourneyIntroModals();
+    } finally {
+      this.tutorIntroModalOpenInFlight = false;
+    }
+  }
+
+  /** Safety net when duplicate journey-intro modals were stacked (race on home load). */
+  private async dismissStackedJourneyIntroModals(): Promise<void> {
+    let top = await this.modalCtrl.getTop();
+    while (top?.classList.contains('journey-intro-modal')) {
+      await top.dismiss({ reason: 'done' }, 'confirm');
+      top = await this.modalCtrl.getTop();
+    }
+  }
+
   private applyLearningPlanMissing(retryCount: number = 0) {
     const hasGoal = !!this.currentUser?.onboardingData?.learningGoal?.type;
     const language = this.currentUser?.onboardingData?.languages?.[0];
@@ -3346,289 +3651,16 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   journeyCtaHidden = false; // hides .jw-primary-cta-btn via CSS during FLIP flight
 
   goToJourney() {
-    // === FLIP Animation: Home "View roadmap" link → Inline Journey black pill ===
-    // Sequential timeline (no overlapping text):
-    //   0-100ms : outgoing text fades out
-    //   60-460ms: wrapper morphs (position, size, bg, border-radius, padding)
-    //   440-540ms: incoming text fades in
-    // Padding lives ONLY on the wrapper; both layers force padding:0 so they
-    // don't double-up the cloned button's class-defined padding.
-
-    const srcEl = document.querySelector('app-journey-widget .jw-cta-link') as HTMLElement | null;
-    const srcRect = srcEl?.getBoundingClientRect();
-
-    if (!srcEl || !srcRect) {
-      this.showJourneyView = true;
-      this.cdr.detectChanges();
-      this.ionContent?.scrollToTop(0);
-      return;
-    }
-
-    const srcCS = getComputedStyle(srcEl);
-
-    const clone = document.createElement('div');
-    Object.assign(clone.style, {
-      position: 'fixed',
-      left: `${srcRect.left}px`,
-      top: `${srcRect.top}px`,
-      width: `${srcRect.width}px`,
-      height: `${srcRect.height}px`,
-      margin: '0',
-      padding: '0',
-      background: 'transparent',
-      borderRadius: srcCS.borderRadius || '0',
-      zIndex: '10000',
-      pointerEvents: 'none',
-      transition: 'none',
-      display: 'inline-flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      boxSizing: 'border-box',
-      overflow: 'hidden',
-    } as Partial<CSSStyleDeclaration>);
-
-    // Outgoing layer — cloned source. inset:0 fills the wrapper. Padding/bg
-    // forced off so the wrapper owns visual chrome. Flex alignment is left
-    // un-overridden so the cloned element keeps its class-defined layout
-    // (matches what the real source/dest looks like).
-    const outgoing = srcEl.cloneNode(true) as HTMLElement;
-    Object.assign(outgoing.style, {
-      position: 'absolute',
-      inset: '0',
-      margin: '0',
-      padding: '0',
-      background: 'transparent',
-      border: 'none',
-      whiteSpace: 'nowrap',
-      overflow: 'hidden',
-      opacity: '1',
-      transition: 'opacity 0.1s ease 0s',
-    } as Partial<CSSStyleDeclaration>);
-    clone.appendChild(outgoing);
-
-    document.body.appendChild(clone);
-
-    // Hide the real CTA button until landing so the clone owns the visual.
-    this.journeyCtaHidden = true;
+    this.journeyCtaHidden = false;
     this.showJourneyView = true;
     this.cdr.detectChanges();
     this.ionContent?.scrollToTop(0);
-
-    let landed = false;
-    let pulseAnim: Animation | null = null;
-
-    const flyToDestination = (dest: HTMLElement) => {
-      if (landed) return;
-      landed = true;
-      if (pulseAnim) { pulseAnim.cancel(); pulseAnim = null; }
-
-      const destRect = dest.getBoundingClientRect();
-      const destCS = getComputedStyle(dest);
-
-      // Single-text morph: the outgoing source clone fades out fast, the
-      // wrapper morphs as an empty pill (no text overlap during transit),
-      // and at landing the REAL destination button is unhidden — its CSS
-      // opacity transition handles the text reveal. This avoids the
-      // double-text ghosting that came from cross-fading two cloned text
-      // layers with very different shapes (1-line vs 2-line).
-      const morphEase = 'cubic-bezier(0.32, 0.72, 0, 1)';
-      clone.style.transition = [
-        `left 0.4s ${morphEase} 0.06s`,
-        `top 0.4s ${morphEase} 0.06s`,
-        `width 0.4s ${morphEase} 0.06s`,
-        `height 0.4s ${morphEase} 0.06s`,
-        `border-radius 0.4s ${morphEase} 0.06s`,
-        `padding 0.4s ${morphEase} 0.06s`,
-        `background-color 0.32s ease 0.1s`,
-      ].join(', ');
-
-      requestAnimationFrame(() => {
-        clone.style.left = `${destRect.left}px`;
-        clone.style.top = `${destRect.top}px`;
-        clone.style.width = `${destRect.width}px`;
-        clone.style.height = `${destRect.height}px`;
-        clone.style.backgroundColor = destCS.backgroundColor;
-        clone.style.borderRadius = destCS.borderRadius;
-        clone.style.padding = destCS.padding;
-        outgoing.style.opacity = '0';
-      });
-
-      setTimeout(() => {
-        const finalRect = dest.getBoundingClientRect();
-        clone.style.transition = 'none';
-        clone.style.left = `${finalRect.left}px`;
-        clone.style.top = `${finalRect.top}px`;
-        clone.style.width = `${finalRect.width}px`;
-        clone.style.height = `${finalRect.height}px`;
-
-        requestAnimationFrame(() => {
-          this.journeyCtaHidden = false;
-          this.cdr.detectChanges();
-          clone.style.transition = 'opacity 0.18s ease';
-          clone.style.opacity = '0';
-          setTimeout(() => { if (clone.parentNode) clone.remove(); }, 220);
-        });
-      }, 480);
-    };
-
-    const existing = document.querySelector('.journey-inline-panel .jw-primary-cta-btn') as HTMLElement | null;
-    if (existing) { flyToDestination(existing); return; }
-
-    const panelEl = document.querySelector('.journey-inline-panel');
-    if (!panelEl) {
-      clone.style.opacity = '0';
-      setTimeout(() => { if (clone.parentNode) clone.remove(); }, 250);
-      return;
-    }
-
-    const observer = new MutationObserver(() => {
-      const dest = document.querySelector('.journey-inline-panel .jw-primary-cta-btn') as HTMLElement | null;
-      if (dest) { observer.disconnect(); flyToDestination(dest); }
-    });
-    observer.observe(panelEl, { childList: true, subtree: true });
-
-    setTimeout(() => {
-      if (!landed && clone.parentNode) {
-        pulseAnim = clone.animate([
-          { transform: 'scale(1)', opacity: 1 },
-          { transform: 'scale(1.04)', opacity: 0.85 },
-          { transform: 'scale(1)', opacity: 1 }
-        ], { duration: 1600, iterations: Infinity, easing: 'ease-in-out' });
-      }
-    }, 1000);
-
-    setTimeout(() => {
-      if (!landed) {
-        observer.disconnect();
-        if (pulseAnim) { pulseAnim.cancel(); pulseAnim = null; }
-        clone.style.transition = 'opacity 0.3s ease';
-        clone.style.opacity = '0';
-        setTimeout(() => { if (clone.parentNode) clone.remove(); }, 350);
-      }
-    }, 15000);
   }
 
   onJourneyGoBack() {
-    // === FLIP Animation: Inline Journey black pill → Home "View roadmap" ===
-    // We cloneNode the source pill so the initial frame is PIXEL-PERFECT.
-    // Then we transition to match the destination link's computed styles.
-
-    const srcEl = document.querySelector('.journey-inline-panel .jw-primary-cta-btn') as HTMLElement | null;
-    const srcRect = srcEl?.getBoundingClientRect();
-
-    if (!srcEl || !srcRect) {
-      this.showJourneyView = false;
-      this.cdr.detectChanges();
-      return;
-    }
-
-    // Sequential timing: outgoing fades out → wrapper morphs → incoming fades in.
-    const srcCS = getComputedStyle(srcEl);
-
-    const clone = document.createElement('div');
-    Object.assign(clone.style, {
-      position: 'fixed',
-      left: `${srcRect.left}px`,
-      top: `${srcRect.top}px`,
-      width: `${srcRect.width}px`,
-      height: `${srcRect.height}px`,
-      margin: '0',
-      zIndex: '10000',
-      pointerEvents: 'none',
-      transition: 'none',
-      display: 'inline-flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      boxSizing: 'border-box',
-      overflow: 'hidden',
-      backgroundColor: srcCS.backgroundColor,
-      borderRadius: srcCS.borderRadius,
-      padding: srcCS.padding,
-    } as Partial<CSSStyleDeclaration>);
-
-    const outgoing = srcEl.cloneNode(true) as HTMLElement;
-    Object.assign(outgoing.style, {
-      position: 'absolute',
-      inset: '0',
-      margin: '0',
-      padding: '0',
-      background: 'transparent',
-      border: 'none',
-      whiteSpace: 'nowrap',
-      overflow: 'hidden',
-      opacity: '1',
-      transition: 'opacity 0.1s ease 0s',
-    } as Partial<CSSStyleDeclaration>);
-    clone.appendChild(outgoing);
-
-    document.body.appendChild(clone);
-
     this.showJourneyView = false;
+    this.journeyCtaHidden = false;
     this.cdr.detectChanges();
-    this.ionContent?.scrollToTop(0);
-
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        const dest = document.querySelector('.content-wrapper app-journey-widget .jw-cta-link') as HTMLElement | null;
-
-        if (dest) {
-          dest.style.transition = 'none';
-          dest.style.opacity = '0';
-          const destRect = dest.getBoundingClientRect();
-          const destCS = getComputedStyle(dest);
-
-          // Single-text morph (see goToJourney for rationale): the outgoing
-          // source clone fades out fast, the wrapper morphs as an empty
-          // pill, and at landing the real destination element fades in.
-          const morphEase = 'cubic-bezier(0.32, 0.72, 0, 1)';
-          clone.style.transition = [
-            `left 0.4s ${morphEase} 0.06s`,
-            `top 0.4s ${morphEase} 0.06s`,
-            `width 0.4s ${morphEase} 0.06s`,
-            `height 0.4s ${morphEase} 0.06s`,
-            `border-radius 0.4s ${morphEase} 0.06s`,
-            `padding 0.4s ${morphEase} 0.06s`,
-            `background-color 0.32s ease 0.1s`,
-          ].join(', ');
-
-          requestAnimationFrame(() => {
-            clone.style.left = `${destRect.left}px`;
-            clone.style.top = `${destRect.top}px`;
-            clone.style.width = `${destRect.width}px`;
-            clone.style.height = `${destRect.height}px`;
-            clone.style.backgroundColor = destCS.backgroundColor;
-            clone.style.borderRadius = destCS.borderRadius;
-            clone.style.padding = destCS.padding;
-            outgoing.style.opacity = '0';
-          });
-
-          setTimeout(() => {
-            const finalRect = dest.getBoundingClientRect();
-            clone.style.transition = 'none';
-            clone.style.left = `${finalRect.left}px`;
-            clone.style.top = `${finalRect.top}px`;
-            clone.style.width = `${finalRect.width}px`;
-            clone.style.height = `${finalRect.height}px`;
-
-            requestAnimationFrame(() => {
-              clone.style.transition = 'opacity 0.18s ease';
-              clone.style.opacity = '0';
-              dest.style.transition = 'opacity 0.18s ease';
-              dest.style.opacity = '1';
-              setTimeout(() => {
-                if (clone.parentNode) clone.remove();
-                dest.style.transition = '';
-                dest.style.opacity = '';
-              }, 220);
-            });
-          }, 480);
-        } else {
-          clone.style.transition = 'opacity 0.3s ease';
-          clone.style.opacity = '0';
-          setTimeout(() => { if (clone.parentNode) clone.remove(); }, 350);
-        }
-      });
-    });
   }
 
   openSetGoalFlow() {
@@ -5056,7 +5088,10 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     ));
     
     // Show banner if user is NOT fully approved, or if approved but missing critical items
-    const hasAllCritical = this.hasCustomProfilePhoto &&
+    const photoApproved = user.tutorOnboarding?.photoApproved === true || (
+      this.hasCustomProfilePhoto && !(user.onboardingData?.pendingPhoto) && user.tutorOnboarding?.photoRejected !== true
+    );
+    const hasAllCritical = photoApproved &&
       (user.tutorOnboarding?.videoApproved || !!user.onboardingData?.introductionVideo || !!user.onboardingData?.pendingVideo) &&
       this.tutorOnboardingStatus?.stripeComplete;
     this.showOnboardingBanner = !user.tutorApproved || !hasAllCritical;
@@ -5343,13 +5378,15 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       // Default to true (show the row) when status hasn't loaded yet.
       const identityRequired = status?.identityRequired === true;
       const tosComplete = status?.tosComplete ?? !!user?.tosAcceptedAt;
-      const hasPayoutSetup =
-        status?.stripeComplete ?? this.tutorOnboardingStatus?.stripeComplete === true;
+      const stripePendingReview = status?.stripePendingReview === true;
+      const stripeActionRequired = status?.stripeActionRequired === true;
+      const hasPayoutSetup = status?.stripeComplete === true;
       const hasVideo =
         status?.videoComplete ??
         !!(user?.onboardingData?.introductionVideo || user?.onboardingData?.pendingVideo);
       const videoApproved = status?.videoApproved ?? user?.tutorOnboarding?.videoApproved === true;
       const hasCustomPhoto = status?.photoComplete ?? this.hasCustomProfilePhoto;
+      const photoApproved = status?.photoApproved ?? user?.tutorOnboarding?.photoApproved === true;
 
       const ctx: GrowthContext = {
         hasAvailability: this.hasAvailability,
@@ -5378,16 +5415,29 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         activeForumThreadsInLanguage: 0,
         tutorRating: this.tutorRating,
         hasCustomPhoto,
+        photoApproved,
+        photoRejected: status?.photoRejected === true,
+        photoRejectionReason: status?.photoRejectionReason || user?.tutorOnboarding?.photoRejectionReason || null,
         hasVideo,
         videoApproved,
+        videoRejected: status?.videoRejected === true,
+        videoRejectionReason: status?.videoRejectionReason || user?.tutorOnboarding?.videoRejectionReason || null,
         credentialsComplete: status?.credentialsComplete ?? (govIdUploaded && certsUploaded),
         credentialsApproved: status?.credentialsApproved ?? (govIdApproved && certsApproved),
         identityRequired,
         governmentIdUploaded: govIdUploaded,
+        governmentIdRejected: status?.governmentIdRejected === true,
+        governmentIdRejectionReason: status?.governmentIdRejectionReason || user?.tutorCredentials?.governmentId?.rejectionReason || null,
         identitySatisfied,
         certificationsUploaded: certsUploaded,
         certificationsApproved: certsApproved,
+        certificationsRejected: status?.certificationsRejected === true,
+        certificationsRejectionReason: status?.certificationsRejectionReason || null,
+        credentialsRejected: status?.credentialsRejected === true,
+        credentialsRejectionReason: status?.credentialsRejectionReason || null,
         hasPayoutSetup,
+        stripePendingReview,
+        stripeActionRequired,
         tosComplete,
         tutorApproved: status?.fullyApproved ?? user?.tutorApproved === true,
       };
@@ -5491,23 +5541,10 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   private rebuildProfileChecklistFromStatus(status: any): void {
     if (!status) return;
 
-    const checklist = buildTutorProfileChecklist({
-      hasCustomPhoto: status.photoComplete === true,
-      hasVideo: status.videoComplete === true,
-      videoApproved: status.videoApproved === true,
-      identityRequired: status.identityRequired === true,
-      governmentIdUploaded: status.governmentIdUploaded === true,
-      identitySatisfied: status.identitySatisfied === true,
-      certificationsUploaded: status.certificationsUploaded === true,
-      certificationsApproved: status.certificationsApproved === true,
-      hasPayoutSetup: status.stripeComplete === true,
-      tosComplete: status.tosComplete === true,
-    });
+    const checklist = buildTutorProfileChecklistFromStatus(status);
 
     this.profileChecklist = checklist;
-    this.profileChecklistDoneCount = checklist.filter(
-      i => i.done && !i.pendingReview
-    ).length;
+    this.profileChecklistDoneCount = countCompletedProfileChecklistItems(checklist);
     this.profileChecklistTotal = checklist.length;
     // Show the banner whenever any required step is still incomplete; hide
     // it the moment everything is done so the section disappears smoothly.
@@ -5521,6 +5558,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     // Keep the growth-service mirror in sync for any other consumers.
     this.tutorGrowthService.profileChecklist = checklist;
     this.refreshGrowthInsightsFromApprovalStatus(status);
+    this.maybeShowTutorJourneyIntroIfNeeded();
     this.cdr.markForCheck();
   }
 
@@ -5534,6 +5572,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     this._growthContext = {
       ...this._growthContext,
       hasCustomPhoto: status.photoComplete === true,
+      photoApproved: status.photoApproved === true,
       hasVideo: status.videoComplete === true,
       videoApproved: status.videoApproved === true,
       identityRequired: status.identityRequired === true,
@@ -5541,9 +5580,13 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       identitySatisfied: status.identitySatisfied === true,
       certificationsUploaded: status.certificationsUploaded === true,
       certificationsApproved: status.certificationsApproved === true,
+      certificationsRejected: status.certificationsRejected === true,
+      certificationsRejectionReason: status.certificationsRejectionReason || null,
       credentialsComplete: status.credentialsComplete === true,
       credentialsApproved: status.credentialsApproved === true,
       hasPayoutSetup: status.stripeComplete === true,
+      stripePendingReview: status.stripePendingReview === true,
+      stripeActionRequired: status.stripeActionRequired === true,
       tosComplete: status.tosComplete === true,
       tutorApproved: status.fullyApproved === true,
     };
@@ -5705,18 +5748,13 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     const current = this.tutorGrowthService.activeInsight;
     this.growthReloadBurstSrc = current?.lottieSrc || this.growthReloadBurstSrc;
     this.growthReloadState = 'loading';
-    // Fade lesson area out before loading new data.
     this.lessonsRefreshing = true;
     this.cdr.markForCheck();
-    // Let the fade-out transition complete before fetching.
-    await new Promise(resolve => setTimeout(resolve, 200));
     try {
       await this.loadLessons(false);
       this.growthReloadState = 'done';
-      // Fade content back in after data is ready.
       this.lessonsRefreshing = false;
       this.cdr.markForCheck();
-      // Brief green check, then clear
       await new Promise(resolve => setTimeout(resolve, 1200));
     } finally {
       this.growthReloadState = 'idle';
@@ -8093,6 +8131,7 @@ navigateToLessons() {
   // Navigate to lesson details or join
   navigateToLesson(lesson: Lesson) {
     if (lesson?._id) {
+      this.eventDetailsImagePreload.warmForLesson(lesson._id, true, lesson);
       this.router.navigate(['/tabs/lessons', lesson._id]);
     }
   }
@@ -8532,22 +8571,22 @@ navigateToLessons() {
    *  them during idle time so they're cached before the user opens the lessons
    *  list or a lesson detail. Dedupe + null-skipping is handled by the service. */
   private preloadLessonImages(): void {
-    const urls: (string | null | undefined)[] = [];
+    const lessons = [
+      ...(this.lessons || []),
+      ...(this.pastLessons || []),
+      ...(this.cancelledLessons || []),
+    ];
 
-    const pushFromLesson = (lesson: any) => {
-      if (!lesson) return;
-      const tutor = lesson.tutorId;
-      const student = lesson.studentId;
-      if (tutor && typeof tutor === 'object') urls.push(tutor.picture || tutor.profilePicture);
-      if (student && typeof student === 'object') urls.push(student.picture || student.profilePicture);
-      if (lesson.classData?.thumbnail) urls.push(lesson.classData.thumbnail);
-    };
+    for (const lesson of lessons) {
+      if (lesson?._id) {
+        this.eventDetailsImagePreload.warmForLesson(lesson._id, false, lesson);
+      }
+    }
 
-    [...(this.lessons || []), ...(this.pastLessons || []), ...(this.cancelledLessons || [])]
-      .forEach(pushFromLesson);
-    (this.pastTutors || []).forEach(t => urls.push((t as any)?.picture));
-
-    this.imagePreloadService.preloadWhenIdle(urls);
+    (this.pastTutors || []).forEach(t => {
+      const picture = (t as any)?.picture;
+      if (picture) this.imagePreloadService.preload(picture);
+    });
   }
 
   async loadLessons(showSkeleton = true) {
@@ -8885,6 +8924,11 @@ navigateToLessons() {
       this.lessons = [];
     } finally {
       this._isLoadingInProgress = false; // Reset flag
+      // Lesson feed has settled — resolve which language's journey to surface
+      // (most recent lesson's plan wins when active) and refresh the picker.
+      if (this.isStudentUser) {
+        this.refreshStudentJourneyLanguage();
+      }
       if (showSkeleton) {
         this.isLoadingLessons = false;
         this.syncEarningsColumnLoading();
@@ -9768,7 +9812,9 @@ navigateToLessons() {
   }
 
   private invokeOnEarningsComponent(action: (component: EarningsPage) => void): Promise<void> {
-    // Earnings component is always in DOM (hidden) for modal access
+    if (!this.isTutorUser) {
+      return Promise.resolve();
+    }
     this.cdr.detectChanges();
 
     return new Promise((resolve) => {
@@ -10193,6 +10239,20 @@ navigateToLessons() {
     }
     this._earningsOpenedFromOtherTab = false;
 
+    // Transfers/Transactions hide the Details withdraw chrome and may leave the
+    // page scrolled — reset so FLIP rects match the Details → Home path.
+    this.earningsViewComponent?.prepareForGoBackFlip();
+    this.scrollHomeContentToTop();
+    this.cdr.detectChanges();
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        this.runEarningsGoBackFlip();
+      });
+    });
+  }
+
+  private runEarningsGoBackFlip(): void {
     // === FLIP Animation: Earnings → Home ===
 
     // Step 1: Capture source button rects from earnings view
@@ -10411,6 +10471,34 @@ navigateToLessons() {
     void this.router.navigate([], {
       relativeTo: this.activatedRoute,
       queryParams: { openEarnings: null, earningsSection: null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+  }
+
+  /** Open approval wizard from notification deep link (toolbar / notifications page). */
+  private restoreTutorApprovalFromPending(): void {
+    const step = this.homeInlineToolbar.consumePendingOpenTutorApproval();
+    if (!step || !this.isTutorUser) {
+      return;
+    }
+    requestAnimationFrame(() => {
+      this.openTutorApprovalWizardAtStep(step);
+    });
+  }
+
+  private restoreTutorApprovalFromQuery(params: Record<string, unknown>): void {
+    const raw = params['openTutorApproval'];
+    const step = typeof raw === 'string' ? raw.trim() : '';
+    if (!step || !this.isTutorUser) {
+      return;
+    }
+    requestAnimationFrame(() => {
+      this.openTutorApprovalWizardAtStep(step);
+    });
+    void this.router.navigate([], {
+      relativeTo: this.activatedRoute,
+      queryParams: { openTutorApproval: null },
       queryParamsHandling: 'merge',
       replaceUrl: true,
     });
@@ -10841,29 +10929,18 @@ navigateToLessons() {
   async handleStripeConnectReturn(state: StripeConnectReturnState): Promise<void> {
     if (state.success) {
       try {
-        const statusResponse = await firstValueFrom(
-          this.http.get<any>(`${environment.apiUrl}/payments/stripe-connect/status`, {
-            headers: this.userService.getAuthHeadersSync(),
-          })
-        );
-
-        if (statusResponse?.success && statusResponse.onboarded) {
-          const toast = await this.toastController.create({
-            message: '✅ Payout setup complete! Your earnings will be transferred to your bank.',
-            duration: 5000,
-            color: 'success',
-            position: 'top',
-          });
-          await toast.present();
-        } else {
-          const toast = await this.toastController.create({
-            message: 'Stripe setup not completed. Please try again to finish connecting your bank account.',
-            duration: 5000,
-            color: 'warning',
-            position: 'top',
-          });
-          await toast.present();
-        }
+        const statusResponse = await this.userService.refreshStripeConnectStatusFromApi();
+        const kind = classifyStripeReturnStatus(statusResponse);
+        const message = this.translateService.instant(STRIPE_RETURN_TOAST_KEYS[kind]);
+        const color =
+          kind === 'connected' ? 'success' : kind === 'pending_review' ? 'primary' : kind === 'action_required' ? 'warning' : 'warning';
+        const toast = await this.toastController.create({
+          message,
+          duration: 5000,
+          color,
+          position: 'top',
+        });
+        await toast.present();
       } catch {
         // Skip toast if status check fails
       }

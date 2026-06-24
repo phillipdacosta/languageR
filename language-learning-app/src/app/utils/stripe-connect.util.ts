@@ -19,6 +19,51 @@ export interface StripeConnectReturnState {
   tutorApprovalStepId: string | null;
 }
 
+export interface StripeConnectStatusSnapshot {
+  success?: boolean;
+  onboarded?: boolean;
+  detailsSubmitted?: boolean;
+  accountDisabled?: boolean;
+  stripePendingReview?: boolean;
+  stripeActionRequired?: boolean;
+  requirementsCurrentlyDue?: string[];
+}
+
+export type StripeReturnToastKind = 'connected' | 'pending_review' | 'action_required' | 'incomplete';
+
+export function isStripeConnectActionRequired(status: StripeConnectStatusSnapshot | null | undefined): boolean {
+  return status?.stripeActionRequired === true;
+}
+
+/** True when the tutor submitted Stripe Connect info but Stripe has not fully enabled the account. */
+export function isStripeConnectPendingReview(status: StripeConnectStatusSnapshot | null | undefined): boolean {
+  if (!status?.success) return false;
+  if (status.stripePendingReview === true) return true;
+  return !!(
+    status.detailsSubmitted &&
+    !status.onboarded &&
+    !isStripeConnectActionRequired(status) &&
+    !status.accountDisabled
+  );
+}
+
+export function classifyStripeReturnStatus(
+  status: StripeConnectStatusSnapshot | null | undefined
+): StripeReturnToastKind {
+  if (!status?.success) return 'incomplete';
+  if (status.onboarded) return 'connected';
+  if (isStripeConnectActionRequired(status)) return 'action_required';
+  if (isStripeConnectPendingReview(status)) return 'pending_review';
+  return 'incomplete';
+}
+
+export const STRIPE_RETURN_TOAST_KEYS: Record<StripeReturnToastKind, string> = {
+  connected: 'TUTOR_APPROVAL.STRIPE_RETURN_CONNECTED',
+  pending_review: 'TUTOR_APPROVAL.STRIPE_RETURN_PENDING_REVIEW',
+  action_required: 'TUTOR_APPROVAL.STRIPE_RETURN_ACTION_REQUIRED',
+  incomplete: 'TUTOR_APPROVAL.STRIPE_RETURN_INCOMPLETE',
+};
+
 const STRIPE_QUERY_KEYS = [
   'stripe_success',
   'stripe_refresh',

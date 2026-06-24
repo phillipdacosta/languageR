@@ -86,6 +86,31 @@ $pls-viewport-height: calc(100dvh - #{$pls-chrome-height});
   padding: 8px var(--plt-content-inset-right) 8px var(--plt-content-inset-left);
   background: #ffffff;
   box-sizing: border-box;
+
+  &--column-title {
+    @media (min-width: 768px) {
+      grid-template-columns: min(380px, 44%) minmax(0, 1fr);
+
+      .plt-subheader__back {
+        grid-column: 1;
+        grid-row: 1;
+      }
+
+      .plt-subheader__title {
+        grid-column: 2;
+        grid-row: 1;
+        justify-self: center;
+        justify-content: center;
+        width: 100%;
+        max-width: 100%;
+        padding: 0 48px;
+        box-sizing: border-box;
+        white-space: normal;
+        text-align: center;
+        text-wrap: balance;
+      }
+    }
+  }
 }
 
 .plt-subheader__back {
@@ -233,6 +258,26 @@ $pls-viewport-height: calc(100dvh - #{$pls-chrome-height});
   color: $pls-text-primary;
   letter-spacing: -0.5px;
   line-height: 1.15;
+}
+
+.pls-right-column-title {
+  margin: 0 0 8px;
+  padding: 0;
+  font-size: 28px;
+  font-weight: 800;
+  color: $pls-text-primary;
+  letter-spacing: -0.5px;
+  line-height: 1.15;
+  text-align: center;
+  text-wrap: balance;
+
+  &__emoji {
+    display: inline-block;
+    margin-right: 6px;
+    font-size: 1em;
+    line-height: 1;
+    vertical-align: -0.05em;
+  }
 }
 
 .approval-split-guidance__desc {
@@ -518,10 +563,87 @@ $pls-viewport-height: calc(100dvh - #{$pls-chrome-height});
 .pls-right-panel {
   display: flex;
   flex-direction: column;
+
+  &--centered {
+    .plt-actions-scroll {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+
+    .pls-right-column-title {
+      width: 100%;
+      align-self: stretch;
+    }
+
+    .pls-right-step,
+    .pls-rating-step-title,
+    .pls-rating-options,
+    .pls-trial-section,
+    .pls-availability-preview,
+    .pls-availability-preview-loading,
+    .pls-availability-preview-empty,
+    app-trial-lesson-recap-panel:not(.trl-recap-host--flush-back) {
+      width: 100%;
+      max-width: 420px;
+    }
+
+    app-trial-lesson-recap-panel.trl-recap-host--flush-back {
+      width: 100%;
+      max-width: none;
+      align-self: stretch;
+
+      .trl-recap-head {
+        width: 100%;
+        align-self: stretch;
+      }
+    }
+
+    app-trial-lesson-recap-panel.trl-recap-host--full-calendar {
+      max-width: none;
+      width: 100%;
+      align-self: stretch;
+    }
+
+    .pls-section-title,
+    .pls-section-sub {
+      text-align: center;
+    }
+  }
 }
 
 .pls-right-step {
   animation: plsFadeIn 0.35s ease both;
+}
+
+.pls-rating-step-title {
+  margin: 0 0 24px;
+  text-align: center;
+}
+
+.pls-rating-step-question {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.pls-rating-step-tutor {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.pls-rating-step-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 2px solid $pls-border-light;
 }
 
 .pls-rating-options {
@@ -724,6 +846,125 @@ $pls-viewport-height: calc(100dvh - #{$pls-chrome-height});
     display: block;
     width: 100%;
   }
+}
+
+.pls-availability-viewer-wrap {
+  &--hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+  }
+}
+
+.pls-availability-preview {
+  animation: plsFadeIn 0.35s ease both;
+}
+
+.pls-availability-preview-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 24px 8px 32px;
+  text-align: center;
+
+  p {
+    margin: 0;
+    font-size: 14px;
+    color: $pls-text-secondary;
+  }
+}
+
+.pls-availability-preview-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 380px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 24px 12px;
+  text-align: center;
+
+  &__icon {
+    width: 56px;
+    height: 56px;
+    margin: 0 auto 12px;
+    border-radius: 50%;
+    background: #f5f5f5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    ion-icon {
+      font-size: 26px;
+      color: #717171;
+    }
+  }
+
+  &__body {
+    margin: 0 0 20px;
+    font-size: 15px;
+    line-height: 1.55;
+    color: #717171;
+    text-align: center;
+  }
+
+  &__btn {
+    width: auto;
+    min-width: 0;
+    min-height: 44px;
+    padding: 12px 24px;
+    border-radius: 999px;
+    box-shadow: none;
+
+    ion-icon {
+      font-size: 18px;
+    }
+  }
+}
+
+.pls-availability-preview-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  padding: 4px 0 16px;
+}
+
+.pls-availability-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 16px;
+  border: 1px solid #e8e8e8;
+  border-radius: 999px;
+  background: #fff;
+  color: #111;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+
+  &:hover {
+    transform: translateY(-1px);
+    border-color: #d0d0d0;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+}
+
+.pls-availability-preview-more {
+  margin-top: 4px;
 }
 
 // ── Analysis states ─────────────────────────────────────────
@@ -1527,6 +1768,7 @@ $pls-viewport-height: calc(100dvh - #{$pls-chrome-height});
 
   .plt-subheader__title,
   .approval-split-guidance__title,
+  .pls-right-column-title,
   .plt-tutor-card__name,
   .pls-section-title,
   .pls-summary-value,
@@ -1585,6 +1827,31 @@ $pls-viewport-height: calc(100dvh - #{$pls-chrome-height});
 
   .pls-action-btn--primary {
     @include ob-dark-button-primary-native;
+  }
+
+  .pls-availability-preview-empty {
+    &__icon {
+      background: rgba(255, 255, 255, 0.08);
+
+      ion-icon {
+        color: $d-text-2;
+      }
+    }
+
+    &__body {
+      color: $d-text-2;
+    }
+  }
+
+  .pls-availability-pill {
+    background: $d-surface-2;
+    border-color: rgba(255, 255, 255, 0.15);
+    color: $d-text;
+
+    &:hover {
+      border-color: $d-text;
+      background: $d-surface-3;
+    }
   }
 
   .pls-tip-card {

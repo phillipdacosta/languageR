@@ -1,0 +1,109 @@
+<ion-content>
+  <ion-button class="floating-close-button" fill="clear" (click)="dismiss()" [disabled]="isApplying">
+    <ion-icon name="close" slot="icon-only"></ion-icon>
+  </ion-button>
+
+  <div class="lpm-shell">
+    <div class="lpm-icon-wrap" aria-hidden="true">
+      <ion-icon [name]="mode === 'select' ? 'map-outline' : 'layers-outline'"></ion-icon>
+    </div>
+    <h1 class="lpm-title">{{ mode === 'select' ? 'Switch language' : 'Language plans' }}</h1>
+    <p class="lpm-subtitle">{{ subtitle }}</p>
+
+    <div class="lpm-list">
+      <article
+        class="lpm-card"
+        *ngFor="let plan of planItems"
+        [class.lpm-card--selectable]="mode === 'select'"
+        [class.lpm-card--selected]="mode === 'select' && selectedLanguage === plan.language"
+        [attr.role]="mode === 'select' ? 'button' : null"
+        [attr.tabindex]="mode === 'select' ? 0 : null"
+        (click)="mode === 'select' ? selectLanguage(plan.language) : null"
+        (keyup.enter)="mode === 'select' ? selectLanguage(plan.language) : null">
+        <div class="lpm-card__head">
+          <div class="lpm-card__language">
+            <app-flag-icon
+              [language]="plan.language"
+              [size]="22"
+              cssClass="lpm-card__flag">
+            </app-flag-icon>
+            <h2>{{ plan.language }}</h2>
+          </div>
+          <span
+            class="lpm-card__status"
+            [class.lpm-card__status--active]="plan.statusTone === 'active'"
+            [class.lpm-card__status--paused]="plan.statusTone === 'paused'"
+            [class.lpm-card__status--unframed]="plan.statusTone === 'unframed'"
+            [class.lpm-card__status--complete]="plan.statusTone === 'complete'">
+            {{ plan.statusLabel }}
+          </span>
+        </div>
+        <p class="lpm-card__body">{{ plan.description }}</p>
+        <div class="lpm-card__actions" *ngIf="mode === 'manage'">
+          <button
+            class="lpm-action lpm-action--secondary"
+            type="button"
+            *ngIf="plan.canPause"
+            (click)="chooseAction('pause', plan)">
+            <ion-icon name="pause-circle-outline"></ion-icon>
+            <span>Pause plan</span>
+          </button>
+          <button
+            class="lpm-action lpm-action--primary"
+            type="button"
+            *ngIf="plan.canResume"
+            (click)="chooseAction('resume', plan)">
+            <ion-icon name="play-outline"></ion-icon>
+            <span>Resume plan</span>
+          </button>
+          <button
+            class="lpm-action lpm-action--ghost"
+            type="button"
+            *ngIf="plan.canSkip"
+            (click)="chooseAction('skip', plan)">
+            <ion-icon name="leaf-outline"></ion-icon>
+            <span>Own pace</span>
+          </button>
+          <button
+            class="lpm-action lpm-action--primary"
+            type="button"
+            *ngIf="plan.canBuildPlan && plan.hadStructuredPlan"
+            (click)="chooseAction('restore', plan)">
+            <ion-icon name="refresh-outline"></ion-icon>
+            <span>Restore plan</span>
+          </button>
+          <button
+            class="lpm-action lpm-action--primary"
+            type="button"
+            *ngIf="plan.canBuildPlan && !plan.hadStructuredPlan"
+            (click)="chooseAction('promote', plan)">
+            <ion-icon name="map-outline"></ion-icon>
+            <span>Build a plan</span>
+          </button>
+        </div>
+        <div class="lpm-card__select-row" *ngIf="mode === 'select'">
+          <span
+            class="lpm-select-indicator"
+            [class.lpm-select-indicator--active]="selectedLanguage === plan.language"
+            aria-hidden="true">
+            <ion-icon name="checkmark" *ngIf="selectedLanguage === plan.language"></ion-icon>
+          </span>
+          <span class="lpm-select-label">
+            {{ selectedLanguage === plan.language ? 'Selected' : 'Select' }}
+          </span>
+        </div>
+      </article>
+    </div>
+  </div>
+</ion-content>
+
+<div class="lpm-footer" *ngIf="mode === 'select'">
+  <button
+    type="button"
+    class="lpm-done-btn"
+    [disabled]="!canConfirm"
+    (click)="confirmSelection()">
+    <ion-spinner *ngIf="isApplying" name="crescent"></ion-spinner>
+    <span>Done</span>
+  </button>
+</div>

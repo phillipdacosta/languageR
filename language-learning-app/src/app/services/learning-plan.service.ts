@@ -142,6 +142,53 @@ export interface LearningPlan {
   pendingCefrReveal?: boolean;
   /** Server-provided scale visual: A1..C2 with `active` set on the revealed level. */
   cefrScale?: Array<{ level: 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2'; active: boolean }>;
+
+  // Journey-map gamification (treasure chests).
+  journeyXp?: number;
+  claimedChests?: Array<{
+    chestId: string;
+    chapterIndex: number;
+    phaseIndex: number;
+    tier: 'bronze' | 'silver' | 'gold';
+    xp: number;
+    claimedAt: string;
+  }>;
+}
+
+export interface ChestReward {
+  chestId: string;
+  chapterIndex: number;
+  phaseIndex: number;
+  tier: 'bronze' | 'silver' | 'gold';
+  xp: number;
+  claimedAt: string;
+}
+
+export interface RoadblockQuizQuestion {
+  type: 'multiple_choice' | 'fill_blank' | 'translate' | 'listen_select';
+  prompt: string;
+  options?: string[];
+  correctAnswer: string;
+  acceptableAlternatives?: string[];
+  explanation?: string;
+  example?: string;
+}
+
+export interface RoadblockQuiz {
+  _id: string;
+  title: string;
+  description?: string;
+  questions: RoadblockQuizQuestion[];
+}
+
+export interface RoadblockResponse {
+  success: boolean;
+  available: boolean;
+  quiz?: RoadblockQuiz;
+  struggle?: string;
+  struggleLabel?: string;
+  personalizedHeader?: string;
+  reason?: string;
 }
 
 export type CefrLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
@@ -176,6 +223,13 @@ export interface CefrReveal {
   divergence?: CefrDivergence | null;
 }
 
+export interface LearningPlanSummaryPhase {
+  title: string;
+  status: 'locked' | 'active' | 'completed';
+  _isRecovery?: boolean;
+  _isSplit?: boolean;
+}
+
 export interface LearningPlanSummary {
   _id: string;
   language: string;
@@ -190,6 +244,9 @@ export interface LearningPlanSummary {
   nextLessonFocusTutor?: { id: string; name: string } | null;
   tutorOverrides: TutorOverride[];
   selfAssessedLevel: string;
+  chapterTheme?: string;
+  chapterLevel?: string;
+  phases?: LearningPlanSummaryPhase[];
 }
 
 export interface ClientEntitlements {
@@ -377,6 +434,96 @@ export class LearningPlanService {
     this.planCache.delete(language);
   }
 
+  /**
+   * The language whose journey is currently surfaced on Home + the Journey
+   * page. Students can have one plan per language; this is the resolved
+   * "active" one (see resolveActiveJourneyLanguage). Set by tab1 (which has
+   * the lesson feed) and read by the Journey page so both stay in sync.
+   * Single-session, in-memory.
+   */
+  activeJourneyLanguage: string | null = null;
+  private activeJourneyLanguageSubject = new BehaviorSubject<string | null>(null);
+  /** Emits whenever the surfaced journey language changes (Home picker, auto-resolve). */
+  readonly activeJourneyLanguage$ = this.activeJourneyLanguageSubject.asObservable();
+
+  /**
+   * One entry per language plan the student has (active or otherwise), used to
+   * render the journey language picker on Home and the Journey page. Set by
+   * tab1 during resolution so the Journey page can render without refetching.
+   */
+  journeyLanguageOptions: Array<{ language: string; status: string }> = [];
+
+  /** Set the surfaced journey language (called when the user picks one). */
+  setActiveJourneyLanguage(language: string): void {
+    const next = language || null;
+    const prev = this.activeJourneyLanguage;
+    this.activeJourneyLanguage = next;
+    if (next && next.toLowerCase() !== (prev || '').toLowerCase()) {
+      this.activeJourneyLanguageSubject.next(next);
+    }
+  }
+
+  /** Broadcast a plan update after the cache is populated (language switch, etc.). */
+  publishPlanUpdate(
+    language: string,
+    res: { success: boolean; plan: LearningPlan; entitlements?: ClientEntitlements } | null | undefined
+  ): void {
+    this.broadcastPlanUpdate(language, res);
+  }
+
+  /** Plan statuses that have a navigable roadmap (vs paused/unframed/completed). */
+  private readonly JOURNEY_ACTIVE_STATUSES = ['active', 'draft', 'mastery_mode'];
+
+  /**
+   * Lesson subjects are stored as "German Lesson", "Spanish Lesson", etc.
+   * Strip the trailing " Lesson" so the value matches plan.language.
+   */
+  normalizeLessonLanguage(raw: string | null | undefined): string {
+    return String(raw || '').replace(/\s+lesson$/i, '').trim();
+  }
+
+  /**
+   * Decide which language's journey to surface when a student has multiple
+   * language plans. Priority:
+   *   1. The most recent lesson's language, if that plan is active/draft/mastery
+   *   2. Any active/draft/mastery plan
+   *   3. The most recent lesson's language even if paused/unframed
+   *   4. The first plan of any status
+   *   5. The student's first onboarding language (fallback)
+   * Returns the canonical plan language string (or '' when nothing resolves).
+   */
+  resolveActiveJourneyLanguage(opts: {
+    summaries: Array<{ language: string; status: string }>;
+    recentLessonLanguage?: string | null;
+    fallbackLanguages?: string[];
+  }): string {
+    const summaries = opts.summaries || [];
+    const recent = this.normalizeLessonLanguage(opts.recentLessonLanguage).toLowerCase();
+    const fallback = (opts.fallbackLanguages || [])
+      .map((l) => String(l || '').trim())
+      .filter(Boolean);
+
+    const langOf = (s: { language: string }) => (s.language || '').trim().toLowerCase();
+    const isActive = (s: { status: string }) => this.JOURNEY_ACTIVE_STATUSES.includes(s.status);
+
+    if (recent) {
+      const recentActive = summaries.find((s) => langOf(s) === recent && isActive(s));
+      if (recentActive) return recentActive.language;
+    }
+
+    const firstActive = summaries.find(isActive);
+    if (firstActive) return firstActive.language;
+
+    if (recent) {
+      const recentAny = summaries.find((s) => langOf(s) === recent);
+      if (recentAny) return recentAny.language;
+    }
+
+    if (summaries.length) return summaries[0].language;
+
+    return fallback[0] || '';
+  }
+
   constructor(
     private http: HttpClient,
     private userService: UserService
@@ -544,6 +691,65 @@ export class LearningPlanService {
   }
 
   /** Student-driven edit of a single phase's text fields. */
+  /**
+   * Journey-map checkpoint quiz. Pool-first + struggle-targeted, selected
+   * on demand at the gate so phase edits never desync it. May return
+   * `available: false` for new students without enough signal yet.
+   */
+  getRoadblockQuiz(language: string, phaseIndex: number): Observable<RoadblockResponse> {
+    return this.userService.getCurrentUser().pipe(
+      take(1),
+      switchMap(() => {
+        const headers = this.userService.getAuthHeadersSync();
+        return this.http.post<RoadblockResponse>(
+          `${environment.backendUrl}/api/quizzes/roadblock`,
+          { language, phaseIndex },
+          { headers }
+        );
+      })
+    );
+  }
+
+  /** Record completion (and optional rating) of a roadblock/library quiz. */
+  completeQuiz(quizId: string, rating: number = 0): Observable<{ success: boolean }> {
+    return this.userService.getCurrentUser().pipe(
+      take(1),
+      switchMap(() => {
+        const headers = this.userService.getAuthHeadersSync();
+        return this.http.post<{ success: boolean }>(
+          `${environment.backendUrl}/api/quizzes/${quizId}/complete`,
+          { rating },
+          { headers }
+        );
+      })
+    );
+  }
+
+  /**
+   * Open a treasure chest. Performance-gated server-side: phase must be
+   * completed; tier/XP scale with mastery. Idempotent per chestId.
+   */
+  claimChest(language: string, chestId: string, phaseIndex: number): Observable<{
+    success: boolean;
+    reward?: ChestReward;
+    journeyXp?: number;
+    alreadyClaimed?: boolean;
+    locked?: boolean;
+    reason?: string;
+  }> {
+    return this.userService.getCurrentUser().pipe(
+      take(1),
+      switchMap(() => {
+        const headers = this.userService.getAuthHeadersSync();
+        return this.http.post<{ success: boolean; reward?: ChestReward; journeyXp?: number; alreadyClaimed?: boolean; locked?: boolean; reason?: string }>(
+          `${this.apiUrl}/${encodeURIComponent(language)}/chests/claim`,
+          { chestId, phaseIndex },
+          { headers }
+        ).pipe(tap(() => this.invalidatePlanCache(language)));
+      })
+    );
+  }
+
   editPhase(language: string, phaseIndex: number, updates: PhaseEditUpdates): Observable<{ success: boolean; plan: LearningPlan }> {
     return this.userService.getCurrentUser().pipe(
       take(1),
@@ -644,6 +850,25 @@ export class LearningPlanService {
         const headers = this.userService.getAuthHeadersSync();
         return this.http.post<{ success: boolean; plan: LearningPlan; entitlements?: ClientEntitlements }>(
           `${this.apiUrl}/${encodeURIComponent(language)}/resume`,
+          {},
+          { headers }
+        ).pipe(tap(res => this.broadcastPlanUpdate(language, res)));
+      })
+    );
+  }
+
+  /**
+   * Restore a previously-structured plan that was switched to own pace,
+   * reusing the saved goal. Emits a 409 (needsGoal) when there's no usable
+   * saved goal so the caller can fall back to the goal-picker build flow.
+   */
+  restorePlan(language: string): Observable<{ success: boolean; plan: LearningPlan; entitlements?: ClientEntitlements }> {
+    return this.userService.getCurrentUser().pipe(
+      take(1),
+      switchMap(() => {
+        const headers = this.userService.getAuthHeadersSync();
+        return this.http.post<{ success: boolean; plan: LearningPlan; entitlements?: ClientEntitlements }>(
+          `${this.apiUrl}/${encodeURIComponent(language)}/restore`,
           {},
           { headers }
         ).pipe(tap(res => this.broadcastPlanUpdate(language, res)));

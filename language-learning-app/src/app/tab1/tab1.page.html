@@ -1,13 +1,13 @@
 <!-- home.page.html -->
 <ion-content [class.ion-content--earnings-open]="showEarningsView" [class.ion-content--journey-open]="showJourneyView">
-  
-  <!-- Hidden Earnings Component (for modal only) -->
-  <div class="visually-hidden-container">
+
+  <!-- Hidden Earnings Component (tutor-only — withdraw modal host) -->
+  <div class="visually-hidden-container" *ngIf="isTutorUser">
     <app-earnings #earningsComponent [inline]="true" (goBackEvent)="onEarningsGoBack()" (balanceChanged)="onEarningsBalanceChanged($event)"></app-earnings>
   </div>
 
   <!-- Inline Earnings View -->
-  <div class="earnings-inline-panel" *ngIf="showEarningsView">
+  <div class="earnings-inline-panel" *ngIf="isTutorUser && showEarningsView">
     <app-earnings #earningsViewComponent [inline]="true" (goBackEvent)="onEarningsGoBack()" (balanceChanged)="onEarningsBalanceChanged($event)"></app-earnings>
   </div>
 
@@ -438,7 +438,12 @@
                 alt=""
                 aria-hidden="true" />
               <span class="growth-ticker-text-mobile">
-                <span class="growth-ticker-msg">{{ row.insight.messageKey | translate:(row.insight.messageParams || {}) }}</span>
+                <span class="growth-ticker-msg">
+                  <span>{{ row.insight.messageKey | translate:(row.insight.messageParams || {}) }}</span>
+                  <span class="growth-rejection-team-note" *ngIf="row.insight.rejectionTeamNote">
+                    {{ 'HOME.GROWTH.BARNABI_REVIEW_TEAM_NOTE' | translate: { message: row.insight.rejectionTeamNote } }}
+                  </span>
+                </span>
               </span>
                 <button *ngIf="row.insight.actionType === 'reload_lessons'"
                       class="growth-reload-btn growth-reload-btn--mobile growth-reload-btn--with-burst"
@@ -519,7 +524,12 @@
                     (click)="onGrowthInsightClick()">
                 <ng-container *ngFor="let row of growthInsightSlideRow; trackBy: trackGrowthInsightSlide">
                   <span class="growth-ticker-text">
-                    <span class="growth-ticker-msg">{{ row.insight.messageKey | translate:(row.insight.messageParams || {}) }}</span>
+                    <span class="growth-ticker-msg">
+                  <span>{{ row.insight.messageKey | translate:(row.insight.messageParams || {}) }}</span>
+                  <span class="growth-rejection-team-note" *ngIf="row.insight.rejectionTeamNote">
+                    {{ 'HOME.GROWTH.BARNABI_REVIEW_TEAM_NOTE' | translate: { message: row.insight.rejectionTeamNote } }}
+                  </span>
+                </span>
                   </span>
                 </ng-container>
                 <button class="growth-reload-btn growth-reload-btn--with-burst"
@@ -577,7 +587,12 @@
                 [src]="row.insight.iconSrc"
                 alt=""
                 aria-hidden="true" />
-                      <span class="growth-ticker-msg">{{ row.insight.messageKey | translate:(row.insight.messageParams || {}) }}</span>
+                      <span class="growth-ticker-msg">
+                  <span>{{ row.insight.messageKey | translate:(row.insight.messageParams || {}) }}</span>
+                  <span class="growth-rejection-team-note" *ngIf="row.insight.rejectionTeamNote">
+                    {{ 'HOME.GROWTH.BARNABI_REVIEW_TEAM_NOTE' | translate: { message: row.insight.rejectionTeamNote } }}
+                  </span>
+                </span>
                     </span>
                   </ng-container>
                   <button class="growth-dismiss-btn"
@@ -661,7 +676,12 @@
               [src]="item.insight.iconSrc"
               alt=""
               aria-hidden="true" />
-            <span class="growth-modal-item-text">{{ item.insight.messageKey | translate:(item.insight.messageParams || {}) }}</span>
+            <span class="growth-modal-item-text">
+              <span>{{ item.insight.messageKey | translate:(item.insight.messageParams || {}) }}</span>
+              <span class="growth-rejection-team-note" *ngIf="item.insight.rejectionTeamNote">
+                {{ 'HOME.GROWTH.BARNABI_REVIEW_TEAM_NOTE' | translate: { message: item.insight.rejectionTeamNote } }}
+              </span>
+            </span>
             <button *ngIf="item.dismissed"
                     class="growth-modal-restore-btn"
                     (click)="onGrowthInsightRestore(item.insight)">
@@ -697,15 +717,21 @@
           <div class="profile-checklist-items">
             <button type="button" *ngFor="let item of profileChecklist"
                class="pcl-item"
-               [class.pcl-item--done]="item.done && !item.pendingReview"
+               [class.pcl-item--done]="item.done && !item.pendingReview && !item.rejected"
                [class.pcl-item--pending-review]="item.pendingReview"
+               [class.pcl-item--rejected]="item.rejected"
                (click)="openTutorApprovalWizardFromChecklist(item)">
               <ion-icon
                 class="pcl-check"
-                [name]="item.pendingReview ? 'time-outline' : (item.done ? 'checkmark-circle' : 'ellipse-outline')">
+                [name]="item.rejected ? 'close-circle' : (item.pendingReview ? 'time-outline' : (item.done ? 'checkmark-circle' : 'ellipse-outline'))">
               </ion-icon>
-              <span class="pcl-label">{{ item.labelKey | translate:(item.labelParams || {}) }}</span>
-              <ion-icon name="chevron-forward-outline" class="pcl-arrow" *ngIf="!item.done || item.pendingReview"></ion-icon>
+              <span class="pcl-label">
+                <span>{{ item.labelKey | translate:(item.labelParams || {}) }}</span>
+                <span class="pcl-rejection-team-note" *ngIf="item.rejected && item.rejectionTeamNote">
+                  {{ 'HOME.GROWTH.BARNABI_REVIEW_TEAM_NOTE' | translate: { message: item.rejectionTeamNote } }}
+                </span>
+              </span>
+              <ion-icon name="chevron-forward-outline" class="pcl-arrow" *ngIf="!item.done || item.pendingReview || item.rejected"></ion-icon>
             </button>
           </div>
         </div>
@@ -733,10 +759,10 @@
     
     <!-- Tutor Dashboard Grid: 2x2 layout (students share the same shell; tutor-only widgets gated separately) -->
     <div class="tutor-dashboard-grid tutor-dashboard-grid--with-this-week" *ngIf="isTutorUser || isStudentUser">
-      <div class="grid-cell-upnext" [class.lessons-refreshing]="lessonsRefreshing">
+      <div class="grid-cell-upnext">
         <ng-container *ngIf="!isMobile && (isTutorUser || isStudentUser)">
-          <div class="home-widget-skeleton-title skeleton-line" *ngIf="isLoadingLessons" aria-hidden="true"></div>
-          <h2 class="desktop-tutor-section-title" *ngIf="!isLoadingLessons">{{ (nextLesson ? 'HOME.UP_NEXT' : 'HOME.YOUR_SCHEDULE') | translate }}</h2>
+          <div class="home-widget-skeleton-title skeleton-line" *ngIf="isLoadingLessons || lessonsRefreshing" aria-hidden="true"></div>
+          <h2 class="desktop-tutor-section-title" *ngIf="!isLoadingLessons && !lessonsRefreshing">{{ (nextLesson ? 'HOME.UP_NEXT' : 'HOME.YOUR_SCHEDULE') | translate }}</h2>
         </ng-container>
 
         <!-- Upcoming Schedule Section -->
@@ -745,7 +771,7 @@
     <!-- ═══ MOBILE: Meetup-style cards ═══ -->
 
     <!-- Mobile Loading Skeleton -->
-    <div class="m-skel-home" *ngIf="isMobile && isLoadingLessons && (isTutorUser || isStudentUser)">
+    <div class="m-skel-home" *ngIf="isMobile && (isLoadingLessons || lessonsRefreshing) && (isTutorUser || isStudentUser)">
       <div class="m-skel-section">
         <div class="m-skel-line m-skel-section-title"></div>
         <div class="m-skel-card">
@@ -780,7 +806,7 @@
     </div>
 
     <!-- Mobile Up Next — Centered vertical card matching empty state layout -->
-    <div class="mobile-section mobile-section-upnext-filled m-stagger m-stagger-1" *ngIf="isMobile && !isLoadingLessons && nextLesson && (isTutorUser || isStudentUser)" [class.m-stagger-go]="mobileStaggerReady" [class.m-stagger-done]="mobileStaggerDone">
+    <div class="mobile-section mobile-section-upnext-filled m-stagger m-stagger-1" *ngIf="isMobile && !isLoadingLessons && !lessonsRefreshing && nextLesson && (isTutorUser || isStudentUser)" [class.m-stagger-go]="mobileStaggerReady" [class.m-stagger-done]="mobileStaggerDone">
       <h3 class="mobile-section-title">{{ 'HOME.UP_NEXT' | translate }}</h3>
       <div class="m-card-empty-standalone m-card-filled-lesson" *ngIf="nextLesson as nextClass" (click)="onTutorUpNextCardShellClick($event)">
         <span style="display: none;">{{ countdownTick }}</span>
@@ -807,6 +833,12 @@
         <h3 class="m-card-empty-title">
           <span *ngIf="nextClass.lesson?.isClass">{{ nextClass.lesson.className || nextClass.lesson.subject || ('HOME.GROUP_CLASS' | translate) }}</span>
           <span *ngIf="!nextClass.lesson?.isClass">{{ nextClass | displayName }}</span>
+          <span
+            class="m-filled-in-call-inline"
+            *ngIf="nextLessonOtherJoined && nextClass.lesson?.status !== 'cancelled'">
+            <span class="in-call-dot"></span>
+            <span>{{ 'HOME.PARTICIPANT_IN_CALL' | translate:{ name: nextLessonOtherName } }}</span>
+          </span>
         </h3>
 
         <div class="m-upnext-tagline-row" *ngIf="upNextTagline">
@@ -849,11 +881,6 @@
             {{ 'HOME.STARTS_IN_TIME' | translate:{ time: nextClass.countdown } }}
           </p>
 
-        <div class="m-filled-in-call" *ngIf="nextLessonOtherJoined && nextClass.lesson?.status !== 'cancelled'">
-          <span class="in-call-dot"></span>
-          <span>{{ 'HOME.PARTICIPANT_IN_CALL' | translate:{ name: nextLessonOtherName } }}</span>
-        </div>
-
         <button type="button" *ngIf="nextClass.lesson?.status !== 'cancelled'" class="m-card-empty-link m-card-empty-link--as-button" (click)="joinStudentLesson(nextClass); $event.stopPropagation()">
           <span class="button-text-animated">{{ nextClass.joinButtonText || nextClass.joinLabel || ('HOME.JOIN_LESSON' | translate) }}</span>
           <img class="m-card-empty-link-chevron m-card-empty-link-arrow-img" src="assets/setup-availability-arrow.png" alt="" />
@@ -865,7 +892,7 @@
     </div>
 
     <!-- Mobile Empty State -->
-    <div class="mobile-section mobile-section-upnext-empty m-stagger m-stagger-1" *ngIf="!isLoadingLessons && !nextLesson && (isTutorUser || isStudentUser)" [class.m-stagger-go]="mobileStaggerReady" [class.m-stagger-done]="mobileStaggerDone">
+    <div class="mobile-section mobile-section-upnext-empty m-stagger m-stagger-1" *ngIf="!isLoadingLessons && !lessonsRefreshing && !nextLesson && (isTutorUser || isStudentUser)" [class.m-stagger-go]="mobileStaggerReady" [class.m-stagger-done]="mobileStaggerDone">
       <h3 class="mobile-section-title">{{ 'HOME.YOUR_SCHEDULE' | translate }}</h3>
       <div class="m-card-empty-standalone">
         <div class="m-card-empty-calendar-wrap">
@@ -887,7 +914,7 @@
     <!-- ═══ DESKTOP: Original centered cards (unchanged) ═══ -->
 
     <!-- Desktop Loading State -->
-    <div class="empty-state-clean loading-skeleton-state content-crossfade-in" *ngIf="!isMobile && isLoadingLessons && (isTutorUser || isStudentUser)">
+    <div class="empty-state-clean loading-skeleton-state content-crossfade-in" *ngIf="!isMobile && (isLoadingLessons || lessonsRefreshing) && (isTutorUser || isStudentUser)">
       <div class="empty-state-clean-inner">
         <div class="skeleton-icon-circle"></div>
         <div class="skeleton-text-group">
@@ -900,7 +927,7 @@
     </div>
 
     <!-- Desktop Up Next Card -->
-    <div class="empty-state-clean enter-stagger enter-stagger-1" [class.enter-stagger-go]="desktopEnterReady" [class.enter-stagger-done]="desktopEnterDone" *ngIf="!isMobile && !isLoadingLessons && nextLesson && (isTutorUser || isStudentUser)">
+    <div class="empty-state-clean enter-stagger enter-stagger-1" [class.enter-stagger-go]="desktopEnterReady" [class.enter-stagger-done]="desktopEnterDone" *ngIf="!isMobile && !isLoadingLessons && !lessonsRefreshing && nextLesson && (isTutorUser || isStudentUser)">
       <div class="empty-state-clean-inner upnext-filled" *ngIf="nextLesson as nextClass" (click)="onTutorUpNextCardShellClick($event)">
         <span style="display: none;">{{ countdownTick }}</span>
         <div class="upnext-filled-badges">
@@ -942,13 +969,23 @@
               <span *ngIf="nextClass.lesson?.isClass">{{ nextClass.lesson.className || nextClass.lesson.subject || ('HOME.GROUP_CLASS' | translate) }}</span>
               <span *ngIf="!nextClass.lesson?.isClass">{{ nextClass | displayName }}</span>
             </h3>
-            <span
-              class="badge-inline badge-trial upnext-filled-trial-pill"
-              [class.pop-float]="trialBadgePopFloat"
-              *ngIf="nextClass.isTrialLesson && nextClass.lesson?.status !== 'cancelled'">
-              <ion-icon name="star"></ion-icon>
-              <span>{{ 'HOME.TRIAL_LESSON' | translate }}</span>
-            </span>
+            <div
+              class="upnext-filled-name-badges"
+              *ngIf="(nextClass.isTrialLesson && nextClass.lesson?.status !== 'cancelled') || (nextLessonOtherJoined && nextClass.lesson?.status !== 'cancelled')">
+              <span
+                class="badge-inline badge-trial upnext-filled-trial-pill"
+                [class.pop-float]="trialBadgePopFloat"
+                *ngIf="nextClass.isTrialLesson && nextClass.lesson?.status !== 'cancelled'">
+                <ion-icon name="star"></ion-icon>
+                <span>{{ 'HOME.TRIAL_LESSON' | translate }}</span>
+              </span>
+              <span
+                class="upnext-filled-in-call"
+                *ngIf="nextLessonOtherJoined && nextClass.lesson?.status !== 'cancelled'">
+                <span class="in-call-dot"></span>
+                <span class="in-call-text">{{ 'HOME.PARTICIPANT_IN_CALL' | translate:{ name: nextLessonOtherName } }}</span>
+              </span>
+            </div>
           </div>
           <div class="upnext-filled-tagline-row" *ngIf="upNextTagline">
             <div class="upnext-filled-tagline-wrap">
@@ -987,15 +1024,17 @@
           <span class="upnext-filled-schedule-duration">{{ nextClass.durationLabel }}</span>
           <ng-container *ngIf="upNextStatusLabel">
             <span class="upnext-filled-schedule-divider" aria-hidden="true"></span>
-            <span
-              class="upnext-filled-status-chip"
-              [class.upnext-filled-status-chip--ready]="upNextStatusVariant === 'ready'"
-              [class.upnext-filled-status-chip--live]="upNextStatusVariant === 'live'"
-              [class.upnext-filled-status-chip--soon]="upNextStatusVariant === 'soon'">
-              <span class="upnext-filled-status-dot" *ngIf="upNextStatusVariant !== 'later'"></span>
-              <span>{{ upNextStatusLabel }}</span>
-            </span>
-            <span class="upnext-filled-status-hint" *ngIf="upNextStatusHint">{{ upNextStatusHint }}</span>
+            <div class="upnext-filled-schedule-status">
+              <span
+                class="upnext-filled-status-chip"
+                [class.upnext-filled-status-chip--ready]="upNextStatusVariant === 'ready'"
+                [class.upnext-filled-status-chip--live]="upNextStatusVariant === 'live'"
+                [class.upnext-filled-status-chip--soon]="upNextStatusVariant === 'soon'">
+                <span class="upnext-filled-status-dot" *ngIf="upNextStatusVariant !== 'later'"></span>
+                <span>{{ upNextStatusLabel }}</span>
+              </span>
+              <span class="upnext-filled-status-hint" *ngIf="upNextStatusHint">{{ upNextStatusHint }}</span>
+            </div>
           </ng-container>
         </div>
 
@@ -1019,11 +1058,6 @@
             {{ 'HOME.PREVIOUS_NOTES_LINK' | translate }}
           </button>
         </div>
-
-        <div class="participant-in-call" *ngIf="nextLessonOtherJoined && nextClass.lesson?.status !== 'cancelled'">
-          <span class="in-call-dot"></span>
-          <span class="in-call-text">{{ 'HOME.PARTICIPANT_IN_CALL' | translate:{ name: nextLessonOtherName } }}</span>
-        </div>
           </div>
         </div>
         <ion-button *ngIf="!nextClass.isInProgress && nextClass.lesson?.status !== 'cancelled'" [id]="'exp-next-class-menu-' + nextClass.lesson._id" fill="clear" class="upnext-filled-menu" (click)="$event.stopPropagation()">
@@ -1045,7 +1079,7 @@
     </div>
 
     <!-- Desktop Empty State (wide web only; narrow uses m-upnext-empty-block above) -->
-    <div class="empty-state-clean enter-stagger enter-stagger-1" [class.enter-stagger-go]="desktopEnterReady" [class.enter-stagger-done]="desktopEnterDone" *ngIf="!isMobile && !isNarrowTutorHomeViewport && isTutorUser && !isLoadingLessons && !nextLesson">
+    <div class="empty-state-clean enter-stagger enter-stagger-1" [class.enter-stagger-go]="desktopEnterReady" [class.enter-stagger-done]="desktopEnterDone" *ngIf="!isMobile && !isNarrowTutorHomeViewport && isTutorUser && !isLoadingLessons && !lessonsRefreshing && !nextLesson">
       <div class="empty-state-clean-inner">
         <div class="empty-state-clean-icon empty-state-clean-icon--calendar anim-persist">
           <img class="empty-state-clean-calendar-art" src="assets/up-next-empty-light.png" alt="" />
@@ -1061,7 +1095,7 @@
     </div>
 
     <!-- Desktop Empty State — student (matches tutor layout; CTA to find tutors) -->
-    <div class="empty-state-clean enter-stagger enter-stagger-1" [class.enter-stagger-go]="desktopEnterReady" [class.enter-stagger-done]="desktopEnterDone" *ngIf="!isMobile && !isNarrowTutorHomeViewport && isStudentUser && !isLoadingLessons && !nextLesson">
+    <div class="empty-state-clean enter-stagger enter-stagger-1" [class.enter-stagger-go]="desktopEnterReady" [class.enter-stagger-done]="desktopEnterDone" *ngIf="!isMobile && !isNarrowTutorHomeViewport && isStudentUser && !isLoadingLessons && !lessonsRefreshing && !nextLesson">
       <div class="empty-state-clean-inner">
         <div class="empty-state-clean-icon empty-state-clean-icon--calendar anim-persist">
           <img class="empty-state-clean-calendar-art" src="assets/up-next-empty-light.png" alt="" />
@@ -1157,10 +1191,12 @@
           </button>
         </div>
 
+        <!-- Journey language picker — only when the student has 2+ language plans -->
         <app-journey-widget
           *ngIf="isStudentUser"
           variant="full"
           [state]="journeyWidgetState"
+          [showLanguagePicker]="showJourneyLanguagePicker"
           [phaseLabels]="journeyPhaseLabels"
           [currentPhaseIndex]="journeyCurrentPhaseIndex"
           [phaseTitle]="journeyPhaseTitle"
@@ -1180,6 +1216,7 @@
           [chaptersCompletedCount]="journeyChaptersCompletedCount"
           [totalLessonsCompleted]="journeyTotalLessonsCompleted"
           [pausedSinceLabel]="journeyPausedSinceLabel"
+          [hadStructuredPlan]="journeyHadStructuredPlan"
           [earnedBadges]="journeyEarnedBadges"
           [latestLessonHighlight]="journeyLatestLessonHighlight"
           [latestLessonTutor]="journeyLatestLessonTutor"
@@ -1189,7 +1226,8 @@
           (widgetTap)="goToJourney()"
           (setGoalTap)="openSetGoalFlow()"
           (buildPlanTap)="openBuildPlanFlow()"
-          (resumePlanTap)="resumePausedPlan()">
+          (resumePlanTap)="resumePausedPlan()"
+          (languagePickerTap)="openJourneyLanguagePickerModal()">
         </app-journey-widget>
 
         <!-- Premium-when-unframed value reminder. Premium without a plan is

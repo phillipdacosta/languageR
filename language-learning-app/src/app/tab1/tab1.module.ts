@@ -32,6 +32,7 @@ import { JourneyWidgetComponent } from '../components/home/journey-widget.compon
 import { PremiumWhenUnframedComponent } from '../components/home/premium-when-unframed.component';
 import { MeshGradientBackgroundComponent } from '../components/mesh-gradient-background/mesh-gradient-background.component';
 import { JourneyIntroComponent } from '../journey/journey-intro.component';
+import { TutorJourneyIntroComponent } from '../journey/tutor-journey-intro.component';
 import { JourneyPage } from '../journey/journey.page';
 import { TutorOnboardingComponent } from '../components/tutor-onboarding/tutor-onboarding.component';
 import { SiteFooterComponent } from '../components/site-footer/site-footer.component';
@@ -73,6 +74,7 @@ import { Tab1PageRoutingModule } from './tab1-routing.module';
     PremiumWhenUnframedComponent,
     MeshGradientBackgroundComponent,
     JourneyIntroComponent,
+    TutorJourneyIntroComponent,
     JourneyPage,
     TutorOnboardingComponent,
     SiteFooterComponent

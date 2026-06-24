@@ -1,9 +1,9 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef, ChangeDetectionStrategy, Input, Output, EventEmitter, HostBinding } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, ChangeDetectionStrategy, Input, Output, EventEmitter, HostBinding, ElementRef } from '@angular/core';
 import { CommonModule, Location } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { IonicModule } from '@ionic/angular';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
-import { take, Subscription } from 'rxjs';
+import { take, Subscription, firstValueFrom } from 'rxjs';
 
 import { JourneyWidgetComponent } from '../components/home/journey-widget.component';
 import { ReviewDeckService } from '../services/review-deck.service';
@@ -16,19 +16,41 @@ import {
   EditPermissions,
   AiRegenStatus,
   ComingUpItem,
-  CefrReveal
+  CefrReveal,
+  RoadblockQuiz
 } from '../services/learning-plan.service';
 import { UserService } from '../services/user.service';
 import { FormsModule } from '@angular/forms';
-import { AlertController, ModalController } from '@ionic/angular';
+import { AlertController, ModalController, AnimationController } from '@ionic/angular';
 import { ToastService } from '../services/toast.service';
 import { JourneyIntroComponent } from './journey-intro.component';
 import { ChapterCompleteModalComponent } from './chapter-complete-modal/chapter-complete-modal.component';
 import { PastMapsModalComponent } from './past-maps/past-maps-modal.component';
 import { PlanHistoryModalComponent } from './plan-history/plan-history-modal.component';
 import { PlanChatModalComponent } from './plan-chat-modal/plan-chat-modal.component';
+import { JourneyPhaseDetailModalComponent } from './journey-phase-detail-modal.component';
 import { MasteryWeeklyChallenge } from '../services/learning-plan.service';
 import { environment } from '../../environments/environment';
+import {
+  journeyBackgroundSrcSetFromUrl,
+  journeyBackgroundUrlHiRes,
+  journeyBackgroundUrl,
+  MapPhaseVariant,
+  resolveMapVariant,
+  resolvePlatformLayout,
+  resolvePathLayout,
+  resolveJourneyHotspots,
+  resolveRoadblockTravelWaypoints,
+  resolvePostRoadblockTravelWaypoints,
+  resolveRoadblockTravelPathIndices,
+  resolvePostRoadblockPathIndices,
+  mapLayoutKey,
+  chestId as buildChestId,
+  ALL_JOURNEY_CHEST_FRAME_URLS,
+  resolveChestFrameUrls
+} from './journey-map-assets';
+import { RoadblockQuizModalComponent } from './roadblock-quiz-modal/roadblock-quiz-modal.component';
+import { ChestRewardModalComponent } from './chest-reward-modal/chest-reward-modal.component';
 
 interface PhaseRow {
   index: number;
@@ -83,6 +105,10 @@ interface PathWaypoint {
   y: number;
   /** Nearness along the scene: 0 = far/back, 1 = near/front. Drives node scale. */
   z?: number;
+  /** Optional label card anchor override from map-layouts.json. */
+  labelAlign?: 'start' | 'center' | 'end';
+  /** Fine-tune label position (px). Negative shifts the card left. */
+  labelOffsetX?: number;
 }
 
 interface MapNode {
@@ -103,7 +129,36 @@ interface MapNode {
   // default; flips to start/end when the node is near the canvas edge so
   // the (max-width 92px) label can't escape the canvas sideways.
   labelAlign: 'start' | 'center' | 'end';
+  /** Per-node label nudge from map-layouts.json (px). */
+  labelOffsetX: number;
   row: PhaseRow;
+}
+
+interface RoadblockNode {
+  x: number;
+  y: number;
+  afterPhase: number;
+  /** locked = upstream phase not done; active = current gate; cleared = passed. */
+  state: 'locked' | 'active' | 'cleared';
+}
+
+interface ChestNode {
+  x: number;
+  y: number;
+  phaseIndex: number;
+  chestId: string;
+  /** locked = phase not done; claimable = open it; claimed = already opened. */
+  state: 'locked' | 'claimable' | 'claimed';
+  tier: 'bronze' | 'silver' | 'gold' | null;
+  /** Flipbook frame index (0 = closed … last = open). */
+  spriteFrame: number;
+  /** Closed + open URLs for this chest's side. */
+  frameUrls: readonly [string, string];
+  side: 'left' | 'right';
+  /** Painted into the map art — no sprite overlay. */
+  bakedIn: boolean;
+  /** True while the open sequence is playing (pauses idle bob). */
+  opening: boolean;
 }
 
 // Safe-zone thresholds for label placement. Values are in canvas-percent.
@@ -169,10 +224,42 @@ export class JourneyPage implements OnInit, OnDestroy {
   phaseRows: PhaseRow[] = [];
   // The single phase whose detail card is currently shown (null = none).
   selectedRow: PhaseRow | null = null;
+  phaseModalCircleBounds: { x: number; y: number; width: number; height: number } | null = null;
+  private phaseDetailModal: Awaited<ReturnType<ModalController['create']>> | null = null;
+  private phaseDetailModalView: JourneyPhaseDetailModalComponent | null = null;
+  private roadblockModalBounds: { x: number; y: number; width: number; height: number } | null = null;
+  private chestModalBounds: { x: number; y: number; width: number; height: number } | null = null;
 
   // Scenic winding-path map
   mapNodes: MapNode[] = [];
+  private chestFramesReady: Promise<void> | null = null;
+  // Tappable overlays for art baked into the background (roadblocks + chests).
+  roadblockNodes: RoadblockNode[] = [];
+  chestNodes: ChestNode[] = [];
+  private claimedChestIds = new Set<string>();
+  private roadblockBusy = false;
+  private chestBusy = false;
+
+  /** Dev-only: force roadblock gates active + show hitboxes for QA. */
+  devRoadblockForceActive = false;
+  devRoadblockShowHitboxes = false;
+
+  /** Blue traveler dot — rests on active phase; animates for roadblock checkpoints. */
+  travelerVisible = false;
+  travelerXPct = 0;
+  travelerYPct = 0;
+  /** Phase index the traveler is currently on (hides that node's built-in dot). */
+  travelerPhaseIndex: number | null = null;
+  /** Keeps single-dot styling while the traveler dot is hidden (e.g. roadblock modal). */
+  travelerMapMode = false;
+  private travelerAnimating = false;
+  private roadblockTravelQueued = false;
+  /** Rest here after clearing a gate until the plan active phase catches up. */
+  private travelerArrivedPhaseIndex: number | null = null;
+
   mapPathD = '';
+  /** Pixel dash length for the draw-in animation (non-scaling-stroke). */
+  mapPathDashLen = 500;
   // Toggled off → on around `applyPlan` so the path SVG remounts and its
   // CSS draw-in animation replays each time the chapter changes.
   pathReady = true;
@@ -220,6 +307,8 @@ export class JourneyPage implements OnInit, OnDestroy {
   private primaryCtaQueryParams: any = null;
 
   private subs: Subscription[] = [];
+  private mapStageResizeObserver: ResizeObserver | null = null;
+  private mapPathMeasurePending = false;
 
   constructor(
     private learningPlanService: LearningPlanService,
@@ -231,7 +320,9 @@ export class JourneyPage implements OnInit, OnDestroy {
     private cdr: ChangeDetectorRef,
     private alertCtrl: AlertController,
     private toastService: ToastService,
-    private modalCtrl: ModalController
+    private modalCtrl: ModalController,
+    private animationCtrl: AnimationController,
+    private el: ElementRef<HTMLElement>
   ) {}
 
   ngOnInit() {
@@ -241,9 +332,12 @@ export class JourneyPage implements OnInit, OnDestroy {
       this.translate.instant('JOURNEY.EMPTY_PREVIEW_P3'),
       this.translate.instant('JOURNEY.EMPTY_PREVIEW_P4')
     ];
-
+    this.preloadChestFrames();
     const sub = this.userService.getCurrentUser().pipe(take(1)).subscribe(user => {
-      const lang = user?.onboardingData?.languages?.[0];
+      // Prefer the active journey language resolved on Home (most recent
+      // lesson → active plan → paused → onboarding). Falls back to the
+      // first onboarding language when this page is opened cold.
+      const lang = this.learningPlanService.activeJourneyLanguage || user?.onboardingData?.languages?.[0];
       if (!lang) {
         this.widgetState = 'empty-goal';
         this.loading = false;
@@ -264,9 +358,38 @@ export class JourneyPage implements OnInit, OnDestroy {
       this.applyPlan(update.plan, update.entitlements || null);
     });
     this.subs.push(planSub);
+
+    // Keep the inline / pre-mounted journey map in sync when the student
+    // switches languages from the Home widget picker.
+    const langSub = this.learningPlanService.activeJourneyLanguage$.subscribe(lang => {
+      if (!lang) return;
+      this.switchJourneyLanguage(lang);
+    });
+    this.subs.push(langSub);
+  }
+
+  /** Reload the map and ancillary data when the surfaced language changes. */
+  private switchJourneyLanguage(language: string): void {
+    const next = (language || '').trim();
+    if (!next || next.toLowerCase() === (this.language || '').trim().toLowerCase()) return;
+
+    void this.closePhaseModal();
+    this.visitingChapter = null;
+    this.liveChapterSnapshot = null;
+    this.mapVariantPreviewSnapshot = null;
+    this.comingUp = [];
+    this.recommendedMaterials = [];
+    this.showRecommendations = false;
+    this.masteryChallenge = null;
+
+    this.language = next;
+    this.loadPlan();
+    this.loadPracticeDueCount();
+    this.loadEditPermissions();
   }
 
   ngOnDestroy() {
+    this.mapStageResizeObserver?.disconnect();
     this.subs.forEach(s => s.unsubscribe());
   }
 
@@ -283,19 +406,259 @@ export class JourneyPage implements OnInit, OnDestroy {
     }
   }
 
-  togglePhase(i: number) {
+  togglePhase(i: number, event?: Event) {
     const row = this.phaseRows[i];
     if (!row) return;
-    const wasExpanded = row.expanded;
-    // Collapse all rows first.
-    this.phaseRows.forEach(r => { r.expanded = false; });
-    if (!wasExpanded) {
-      row.expanded = true;
-      this.selectedRow = row;
-    } else {
-      this.selectedRow = null;
+
+    const bounds = this.capturePhaseNodeBounds(event);
+
+    if (this.phaseDetailModal && this.selectedRow?.index === i) {
+      void this.closePhaseModal();
+      return;
     }
+
+    void this.presentPhaseDetailModal(row, bounds);
+  }
+
+  private async presentPhaseDetailModal(
+    row: PhaseRow,
+    bounds: { x: number; y: number; width: number; height: number } | null
+  ) {
+    if (this.phaseDetailModal) {
+      await this.phaseDetailModal.dismiss();
+      this.phaseDetailModal = null;
+      this.phaseDetailModalView = null;
+    }
+
+    this.phaseRows.forEach(r => { r.expanded = false; });
+    row.expanded = true;
+    this.selectedRow = row;
+    this.phaseModalCircleBounds = bounds;
+
+    try {
+      const modal = await this.modalCtrl.create({
+        component: JourneyPhaseDetailModalComponent,
+        componentProps: { host: this, selectedRow: row },
+        cssClass: 'journey-phase-modal',
+        backdropDismiss: true,
+        enterAnimation: (baseEl) => this.createPhaseModalEnterAnimation(baseEl, bounds),
+        leaveAnimation: (baseEl) => this.createPhaseModalLeaveAnimation(baseEl, bounds)
+      });
+
+      this.phaseDetailModal = modal;
+      await modal.present();
+      this.phaseDetailModalView = (modal as unknown as { component?: JourneyPhaseDetailModalComponent }).component ?? null;
+
+      void modal.onDidDismiss().then(() => {
+        if (this.phaseDetailModal === modal) {
+          this.onPhaseModalDismiss();
+        }
+      });
+    } catch {
+      this.onPhaseModalDismiss();
+    }
+
     this.cdr.markForCheck();
+  }
+
+  refreshPhaseDetailModal() {
+    this.phaseDetailModalView?.markForCheck();
+    this.cdr.markForCheck();
+  }
+
+  private capturePhaseNodeBounds(event?: Event): { x: number; y: number; width: number; height: number } | null {
+    const btn = event?.currentTarget as HTMLElement | undefined;
+    const dot = btn?.querySelector('.jm-dot') as HTMLElement | null;
+    const target = dot || btn;
+    if (!target) return null;
+    const rect = target.getBoundingClientRect();
+    const safeTop = parseFloat(getComputedStyle(document.documentElement)
+      .getPropertyValue('--ion-safe-area-top')) || 0;
+    return {
+      x: rect.left,
+      y: rect.top - safeTop,
+      width: rect.width,
+      height: rect.height
+    };
+  }
+
+  async closePhaseModal() {
+    if (this.phaseDetailModal) {
+      await this.phaseDetailModal.dismiss();
+    }
+  }
+
+  backToCurrentPhase(event: Event) {
+    const mapStage = (event.target as HTMLElement | null)?.closest('.journey-map-stage');
+    const currentNode = mapStage?.querySelectorAll('.jm-node')?.[this.currentPhaseIndex] as HTMLElement | undefined;
+    if (currentNode) {
+      void this.presentPhaseDetailModal(
+        this.phaseRows[this.currentPhaseIndex],
+        this.capturePhaseNodeBounds({ currentTarget: currentNode } as unknown as Event)
+      );
+      return;
+    }
+    void this.closePhaseModal();
+    void this.presentPhaseDetailModal(this.phaseRows[this.currentPhaseIndex], null);
+  }
+
+  onPhaseModalDismiss() {
+    this.phaseDetailModal = null;
+    this.phaseDetailModalView = null;
+    this.phaseRows.forEach(r => { r.expanded = false; });
+    this.selectedRow = null;
+    this.phaseModalCircleBounds = null;
+    this.cdr.markForCheck();
+  }
+
+  private queryModalElements(baseEl: HTMLElement) {
+    const root = (baseEl as HTMLElement & { shadowRoot?: ShadowRoot }).shadowRoot || baseEl;
+    return {
+      root,
+      backdrop: root.querySelector('ion-backdrop') as HTMLElement | null,
+      wrapper: root.querySelector('.modal-wrapper') as HTMLElement | null
+    };
+  }
+
+  private fadeModalAnimation(baseEl: HTMLElement, from: string, to: string, duration = 200) {
+    return this.animationCtrl.create()
+      .addElement(baseEl)
+      .duration(duration)
+      .fromTo('opacity', from, to);
+  }
+
+  createPhaseModalEnterAnimation = (baseEl: HTMLElement, bounds?: { x: number; y: number; width: number; height: number } | null) => {
+    const circleBounds = bounds ?? this.phaseModalCircleBounds;
+    if (!circleBounds) {
+      return this.fadeModalAnimation(baseEl, '0', '1');
+    }
+    return this.createPhaseZoomEnterAnimation(baseEl, circleBounds);
+  };
+
+  createPhaseModalLeaveAnimation = (baseEl: HTMLElement, bounds?: { x: number; y: number; width: number; height: number } | null) => {
+    const circleBounds = bounds ?? this.phaseModalCircleBounds;
+    if (!circleBounds) {
+      return this.fadeModalAnimation(baseEl, '1', '0');
+    }
+    return this.createPhaseZoomLeaveAnimation(baseEl, circleBounds);
+  };
+
+  private createPhaseZoomEnterAnimation(
+    baseEl: HTMLElement,
+    circleBounds: { x: number; y: number; width: number; height: number },
+    backdropTo = 0.4
+  ) {
+    const { backdrop, wrapper: modalWrapper } = this.queryModalElements(baseEl);
+    if (!modalWrapper) {
+      return this.fadeModalAnimation(baseEl, '0', '1');
+    }
+
+    const animations = [];
+    if (backdrop) {
+      animations.push(this.animationCtrl.create()
+        .addElement(backdrop)
+        .fromTo('opacity', '0', String(backdropTo))
+        .duration(200));
+    }
+
+    modalWrapper.offsetHeight;
+    const modalRect = modalWrapper.getBoundingClientRect();
+    const modalW = Math.max(modalRect.width, 320);
+    const modalH = Math.max(modalRect.height, 400);
+    const modalCenterX = modalRect.width > 0
+      ? modalRect.left + modalRect.width / 2
+      : window.innerWidth / 2;
+    const modalCenterY = modalRect.height > 0
+      ? modalRect.top + modalRect.height / 2
+      : window.innerHeight / 2;
+
+    const circleCenterX = circleBounds.x + circleBounds.width / 2;
+    const circleCenterY = circleBounds.y + circleBounds.height / 2;
+    const safeAreaTop = parseFloat(getComputedStyle(document.documentElement)
+      .getPropertyValue('--ion-safe-area-top')) || 0;
+    const adjustedCircleCenterY = circleCenterY + safeAreaTop;
+    const translateX = circleCenterX - modalCenterX;
+    const translateY = adjustedCircleCenterY - modalCenterY;
+    const extraOffset = window.navigator.userAgent.includes('iPhone') ? 10 : 0;
+    let finalScale = Math.min(
+      circleBounds.width / modalW,
+      circleBounds.height / modalH
+    );
+    if (!Number.isFinite(finalScale) || finalScale <= 0) {
+      finalScale = 0.08;
+    }
+    finalScale = Math.min(finalScale, 1);
+
+    const wrapperAnimation = this.animationCtrl.create()
+      .addElement(modalWrapper)
+      .duration(250)
+      .easing('ease-in-out')
+      .fromTo('transform',
+        `translate(${translateX}px, ${translateY - extraOffset}px) scale(${finalScale})`,
+        'translate(0px, 0px) scale(1)')
+      .fromTo('opacity', '0.3', '1')
+      .afterClearStyles(['transform']);
+    animations.push(wrapperAnimation);
+
+    return this.animationCtrl.create().addAnimation(animations);
+  }
+
+  private createPhaseZoomLeaveAnimation(
+    baseEl: HTMLElement,
+    circleBounds: { x: number; y: number; width: number; height: number },
+    backdropFrom = 0.4
+  ) {
+    const { backdrop, wrapper: modalWrapper } = this.queryModalElements(baseEl);
+    if (!modalWrapper) {
+      return this.fadeModalAnimation(baseEl, '1', '0', 250);
+    }
+
+    const animations = [];
+    if (backdrop) {
+      animations.push(this.animationCtrl.create()
+        .addElement(backdrop)
+        .fromTo('opacity', String(backdropFrom), '0')
+        .duration(250));
+    }
+
+    const modalRect = modalWrapper.getBoundingClientRect();
+    const modalW = Math.max(modalRect.width, 320);
+    const modalH = Math.max(modalRect.height, 400);
+    const modalCenterX = modalRect.width > 0
+      ? modalRect.left + modalRect.width / 2
+      : window.innerWidth / 2;
+    const modalCenterY = modalRect.height > 0
+      ? modalRect.top + modalRect.height / 2
+      : window.innerHeight / 2;
+
+    const circleCenterX = circleBounds.x + circleBounds.width / 2;
+    const circleCenterY = circleBounds.y + circleBounds.height / 2;
+    const safeAreaTop = parseFloat(getComputedStyle(document.documentElement)
+      .getPropertyValue('--ion-safe-area-top')) || 0;
+    const adjustedCircleCenterY = circleCenterY + safeAreaTop;
+    const translateX = circleCenterX - modalCenterX;
+    const translateY = adjustedCircleCenterY - modalCenterY;
+    const extraOffset = window.navigator.userAgent.includes('iPhone') ? 10 : 0;
+    let finalScale = Math.min(
+      circleBounds.width / modalW,
+      circleBounds.height / modalH
+    );
+    if (!Number.isFinite(finalScale) || finalScale <= 0) {
+      finalScale = 0.08;
+    }
+    finalScale = Math.min(finalScale, 1);
+
+    const wrapperAnimation = this.animationCtrl.create()
+      .addElement(modalWrapper)
+      .duration(300)
+      .easing('ease-in-out')
+      .fromTo('transform',
+        'translate(0px, 0px) scale(1)',
+        `translate(${translateX}px, ${translateY - extraOffset}px) scale(${finalScale})`)
+      .fromTo('opacity', '1', '0.3');
+    animations.push(wrapperAnimation);
+
+    return this.animationCtrl.create().addAnimation(animations);
   }
 
   navigateToMaterial(materialId: string) {
@@ -470,7 +833,9 @@ export class JourneyPage implements OnInit, OnDestroy {
     this.chapterTheme = (plan as any).chapterTheme || 'a1-desert';
     this.chapterLevel = (plan as any).chapterLevel || 'A1';
     this.chapterIndex = (plan as any).chapterIndex || 0;
-    this.backgroundUrl = `assets/journey-backgrounds/${this.chapterTheme}.png`;
+    this.claimedChestIds = new Set((plan.claimedChests || []).map(c => c.chestId));
+    this.mapPhaseVariant = resolveMapVariant(phases.length || 4);
+    this.backgroundUrl = journeyBackgroundUrl(this.chapterTheme, phases.length || 4);
     this.backgroundFailed = false;
 
     // Re-pick the smart CTA now that plan + phaseTitle + nextLessonFocus
@@ -541,7 +906,7 @@ export class JourneyPage implements OnInit, OnDestroy {
     // Pre-fetch background for the next chapter so cross-fade is smooth.
     if (this.chapterIndex < 5) {
       const nextThemes = ['a1-desert','a2-coast','b1-lake','b2-snow','c1-cherry','c2-tuscany'];
-      this.prefetchBackground(nextThemes[this.chapterIndex + 1]);
+      this.prefetchBackground(nextThemes[this.chapterIndex + 1], 4);
     }
 
     // CEFR scale + revealed level (Batch 12). Server hides these fields
@@ -779,7 +1144,14 @@ export class JourneyPage implements OnInit, OnDestroy {
   // ── Past Maps + Plan History (Batch 6) ───────────────────────────
 
   /** Snapshot of the live chapter so we can restore after a "visit". */
-  private liveChapterSnapshot: { theme: string; level: string; index: number; backgroundUrl: string; backgroundFailed: boolean } | null = null;
+  private liveChapterSnapshot: {
+    theme: string;
+    level: string;
+    index: number;
+    backgroundUrl: string;
+    backgroundFailed: boolean;
+    mapPhaseVariant: MapPhaseVariant;
+  } | null = null;
   visitingChapter: { index: number; level: string; theme: string } | null = null;
 
   async openPastMaps() {
@@ -1016,6 +1388,176 @@ export class JourneyPage implements OnInit, OnDestroy {
     wrapping_up:     'JOURNEY.PROGRESS_STATE.WRAPPING_UP'
   };
 
+  private static readonly CHAPTER_PREVIEWS: { level: string; theme: string; index: number; label: string }[] = [
+    { level: 'A1', theme: 'a1-desert', index: 0, label: 'A1 · Desert' },
+    { level: 'A2', theme: 'a2-coast', index: 1, label: 'A2 · Coast' },
+    { level: 'B1', theme: 'b1-lake', index: 2, label: 'B1 · Lake' },
+    { level: 'B2', theme: 'b2-snow', index: 3, label: 'B2 · Snow' },
+    { level: 'C1', theme: 'c1-cherry', index: 4, label: 'C1 · Cherry blossom' },
+    { level: 'C2', theme: 'c2-tuscany', index: 5, label: 'C2 · Tuscany' }
+  ];
+
+  async openMapLayoutPreview() {
+    if (!this.isDev) return;
+    const alert = await this.alertCtrl.create({
+      header: 'Preview map — pick chapter',
+      subHeader: 'Local only — does not touch DB',
+      cssClass: 'journey-dev-preview-alert',
+      inputs: [
+        ...JourneyPage.CHAPTER_PREVIEWS.map((c, i) => ({
+          type: 'radio' as const,
+          label: c.label,
+          value: c.theme,
+          checked: c.theme === this.chapterTheme
+        })),
+        { type: 'radio', label: 'Revert to live plan', value: 'revert' }
+      ],
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        {
+          text: 'Next',
+          handler: (theme: string) => {
+            if (theme === 'revert') {
+              this.revertMapVariantPreview();
+              return;
+            }
+            void this.openMapVariantPreview(theme);
+          }
+        }
+      ]
+    });
+    await alert.present();
+  }
+
+  private async openMapVariantPreview(theme: string) {
+    const chapter = JourneyPage.CHAPTER_PREVIEWS.find(c => c.theme === theme);
+    if (!chapter) return;
+    const alert = await this.alertCtrl.create({
+      header: 'Preview map — pick layout',
+      subHeader: chapter.label,
+      cssClass: 'journey-dev-preview-alert',
+      inputs: [
+        { type: 'radio', label: '3-phase map', value: '3', checked: true },
+        { type: 'radio', label: '4-phase map', value: '4' },
+        { type: 'radio', label: '5-phase map', value: '5' }
+      ],
+      buttons: [
+        { text: 'Back', role: 'cancel', handler: () => { void this.openMapLayoutPreview(); } },
+        {
+          text: 'Apply',
+          handler: (variant: string) => {
+            this.previewMapLayout(chapter, Number(variant) as 3 | 4 | 5);
+          }
+        }
+      ]
+    });
+    await alert.present();
+  }
+
+  private mapVariantPreviewSnapshot: {
+    phaseRows: PhaseRow[];
+    selectedRow: PhaseRow | null;
+    backgroundUrl: string;
+    backgroundFailed: boolean;
+    mapPhaseVariant: MapPhaseVariant;
+    chapterTheme: string;
+    chapterLevel: string;
+    chapterIndex: number;
+  } | null = null;
+
+  private previewMapLayout(
+    chapter: { level: string; theme: string; index: number },
+    variant: 3 | 4 | 5
+  ) {
+    if (!this.mapVariantPreviewSnapshot) {
+      this.mapVariantPreviewSnapshot = {
+        phaseRows: this.phaseRows.map(r => ({ ...r })),
+        selectedRow: this.selectedRow,
+        backgroundUrl: this.backgroundUrl,
+        backgroundFailed: this.backgroundFailed,
+        mapPhaseVariant: this.mapPhaseVariant,
+        chapterTheme: this.chapterTheme,
+        chapterLevel: this.chapterLevel,
+        chapterIndex: this.chapterIndex
+      };
+    }
+    this.chapterTheme = chapter.theme;
+    this.chapterLevel = chapter.level;
+    this.chapterIndex = chapter.index;
+    this.phaseRows = this.buildPreviewPhaseRows(variant);
+    this.selectedRow = this.phaseRows[0] || null;
+    this.mapPhaseVariant = variant;
+    this.backgroundUrl = journeyBackgroundUrl(chapter.theme, variant);
+    this.backgroundFailed = false;
+    this.computeMapNodes();
+    this.cdr.markForCheck();
+    this.presentToast(
+      `Preview: ${chapter.theme} · ${variant}-phase. Map icon → Revert.`,
+      'tertiary',
+      3500
+    );
+  }
+
+  private previewMapVariant(variant: 3 | 4 | 5) {
+    this.previewMapLayout(
+      { level: this.chapterLevel, theme: this.chapterTheme, index: this.chapterIndex },
+      variant
+    );
+  }
+
+  private revertMapVariantPreview() {
+    if (!this.mapVariantPreviewSnapshot) {
+      this.presentToast('No map preview active.', 'medium', 2000);
+      return;
+    }
+    this.phaseRows = this.mapVariantPreviewSnapshot.phaseRows;
+    this.selectedRow = this.mapVariantPreviewSnapshot.selectedRow;
+    this.backgroundUrl = this.mapVariantPreviewSnapshot.backgroundUrl;
+    this.backgroundFailed = this.mapVariantPreviewSnapshot.backgroundFailed;
+    this.mapPhaseVariant = this.mapVariantPreviewSnapshot.mapPhaseVariant;
+    this.chapterTheme = this.mapVariantPreviewSnapshot.chapterTheme;
+    this.chapterLevel = this.mapVariantPreviewSnapshot.chapterLevel;
+    this.chapterIndex = this.mapVariantPreviewSnapshot.chapterIndex;
+    this.mapVariantPreviewSnapshot = null;
+    this.computeMapNodes();
+    this.cdr.markForCheck();
+    this.presentToast('Reverted to live plan map.', 'medium', 2500);
+  }
+
+  private buildPreviewPhaseRows(count: 3 | 4 | 5): PhaseRow[] {
+    const titles = [
+      'Foundations of German',
+      'Everyday Conversations',
+      'Social Interactions',
+      'Exploring Culture',
+      'Building Confidence'
+    ].slice(0, count);
+    return titles.map((title, i) => ({
+      index: i,
+      title,
+      description: '',
+      focusAreas: [] as string[],
+      suggestedTopics: [] as string[],
+      exitCriteria: '',
+      status: (i === 0 ? 'active' : 'locked') as PhaseRow['status'],
+      lessonsCompleted: 0,
+      estimatedLessons: 5,
+      masteryAverage: null,
+      windowProgressPercent: 0,
+      progressState: null,
+      progressStateLabel: '',
+      expanded: i === 0,
+      editing: false,
+      saving: false,
+      draftTitle: '',
+      draftDescription: '',
+      draftFocusAreasText: '',
+      isSplit: false,
+      isRecovery: false,
+      previousPhaseTitle: i > 0 ? titles[i - 1] : ''
+    }));
+  }
+
   async openDevPreview() {
     if (!this.isDev) return;
     const alert = await this.alertCtrl.create({
@@ -1112,7 +1654,8 @@ export class JourneyPage implements OnInit, OnDestroy {
     this.chapterTheme = nextTheme;
     this.chapterLevel = toLevel;
     this.chapterIndex = nextChapterIndex;
-    this.backgroundUrl = `assets/journey-backgrounds/${nextTheme}.png`;
+    this.mapPhaseVariant = 4;
+    this.backgroundUrl = journeyBackgroundUrl(nextTheme, 4);
     this.backgroundFailed = false;
     // Rebuild the winding path for the new theme — this also remounts the
     // SVG so the per-chapter draw-in animation replays.
@@ -1189,7 +1732,7 @@ export class JourneyPage implements OnInit, OnDestroy {
     this.cdr.markForCheck();
 
     this.presentToast(
-      'Preview: phase split — badge on map node + callout in card. Reverting in 8s.',
+      'Preview: phase split — extra map node + callout in card. Reverting in 8s.',
       'tertiary',
       3000
     );
@@ -1211,14 +1754,19 @@ export class JourneyPage implements OnInit, OnDestroy {
         level: this.chapterLevel,
         index: this.chapterIndex,
         backgroundUrl: this.backgroundUrl,
-        backgroundFailed: this.backgroundFailed
+        backgroundFailed: this.backgroundFailed,
+        mapPhaseVariant: this.mapPhaseVariant
       };
     }
     this.visitingChapter = { index: c.index, level: c.level, theme: c.theme };
     this.chapterTheme = c.theme;
     this.chapterLevel = c.level;
     this.chapterIndex = c.index;
-    this.backgroundUrl = `assets/journey-backgrounds/${c.theme}.png`;
+    const visitPhaseCount = Array.isArray(c.phaseTitles) && c.phaseTitles.length
+      ? c.phaseTitles.length
+      : 4;
+    this.mapPhaseVariant = resolveMapVariant(visitPhaseCount);
+    this.backgroundUrl = journeyBackgroundUrl(c.theme, visitPhaseCount);
     this.backgroundFailed = false;
     // Replace map nodes with the visited chapter's titles (read-only).
     if (Array.isArray(c.phaseTitles) && c.phaseTitles.length) {
@@ -1259,6 +1807,7 @@ export class JourneyPage implements OnInit, OnDestroy {
     this.chapterIndex = this.liveChapterSnapshot.index;
     this.backgroundUrl = this.liveChapterSnapshot.backgroundUrl;
     this.backgroundFailed = this.liveChapterSnapshot.backgroundFailed;
+    this.mapPhaseVariant = this.liveChapterSnapshot.mapPhaseVariant;
     this.liveChapterSnapshot = null;
     this.visitingChapter = null;
     // Reload the live plan to restore phaseRows.
@@ -1266,85 +1815,28 @@ export class JourneyPage implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
-  // Waypoints per chapter theme. Each background's road has different curves,
-  // so each theme owns its own set of (x%, y%) points. Nodes are sampled
-  // along these curves. Falls back to a generic gentle curve if a theme
-  // doesn't yet have hand-tuned waypoints.
-  // Waypoints per chapter theme. Each chapter gets a *visibly* distinct
-  // winding path — different overall shape, different y-amplitude, and
-  // different start/end heights — so flipping between chapters is an
-  // obvious change, not a subtle one. Y range used: 25 (top) → 95 (bottom).
-  private static readonly THEME_PATH_PTS: { [theme: string]: PathWaypoint[] } = {
-    // A1 — desert trail recedes into the mid-ground, then comes forward
-    //      toward the arch on the right. z tunes to the background art.
-    'a1-desert': [
-      { x:  4, y: 78, z: 1.00 },
-      { x: 28, y: 82, z: 0.88 },
-      { x: 52, y: 88, z: 0.62 },
-      { x: 76, y: 80, z: 0.78 },
-      { x: 96, y: 72, z: 0.68 }
-    ],
-    // A2 — steep coastal climb: clear left-low-to-right-high diagonal.
-    //      "You're climbing now" reads at a glance.
-    'a2-coast': [
-      { x:  4, y: 92, z: 1.00 },
-      { x: 30, y: 76, z: 0.86 },
-      { x: 56, y: 56, z: 0.72 },
-      { x: 78, y: 40, z: 0.58 },
-      { x: 96, y: 28, z: 0.48 }
-    ],
-    // B1 — pronounced S-curve: deep valley → peak → valley.
-    //      Clearly snake-like, distinct from A2's straight climb.
-    'b1-lake': [
-      { x:  4, y: 50, z: 0.72 },
-      { x: 22, y: 88, z: 1.00 },
-      { x: 48, y: 50, z: 0.68 },
-      { x: 74, y: 88, z: 0.96 },
-      { x: 96, y: 50, z: 0.70 }
-    ],
-    // B2 — sharp alpine zigzag: pointy peaks/troughs (six waypoints).
-    //      Reads as switchback / mountain trail.
-    'b2-snow': [
-      { x:  4, y: 88, z: 1.00 },
-      { x: 22, y: 38, z: 0.55 },
-      { x: 38, y: 78, z: 0.90 },
-      { x: 56, y: 32, z: 0.50 },
-      { x: 76, y: 78, z: 0.88 },
-      { x: 96, y: 36, z: 0.52 }
-    ],
-    // C1 — deep central valley: starts and ends high, plunges low in
-    //      the middle. Inverted "U" — distinct from C2's arch.
-    'c1-cherry': [
-      { x:  4, y: 38, z: 0.58 },
-      { x: 26, y: 62, z: 0.72 },
-      { x: 50, y: 90, z: 1.00 },
-      { x: 74, y: 62, z: 0.74 },
-      { x: 96, y: 38, z: 0.56 }
-    ],
-    // C2 — sweeping mountain arc: low → high → low (true arch).
-    //      Mirror image of C1 for nice visual symmetry across mastery.
-    'c2-tuscany': [
-      { x:  4, y: 88, z: 1.00 },
-      { x: 26, y: 62, z: 0.78 },
-      { x: 50, y: 30, z: 0.48 },
-      { x: 74, y: 62, z: 0.76 },
-      { x: 96, y: 88, z: 0.98 }
-    ]
-  };
-
-  private static readonly DEFAULT_PATH_PTS = [
-    { x:  5, y: 72 }, { x: 25, y: 60 }, { x: 45, y: 75 },
-    { x: 65, y: 55 }, { x: 85, y: 70 }
-  ];
+  // Platform-centre waypoints per theme + phase-count variant (from map-layouts.json).
+  // Phase nodes sit only on empty platforms — the badge pedestal is decorative.
+  mapPhaseVariant: MapPhaseVariant = 4;
 
   // Resolved at applyPlan() time from plan.chapterTheme.
   chapterTheme = 'a1-desert';
   chapterLevel = 'A1';
   chapterIndex = 0;
-  // Background asset path. Built from chapterTheme; falls back to a gradient
+  // Background asset path. Built from chapterTheme + phase count; falls back to a gradient
   // when image fails to load (G35) — handled in template via (error).
-  backgroundUrl = 'assets/journey-backgrounds/a1-desert.png';
+  backgroundUrl = journeyBackgroundUrl('a1-desert', 4);
   backgroundFailed = false;
+  /** Accurate rendered width for srcset — updated by ResizeObserver on .journey-map-stage. */
+  backgroundSizes = '100vw';
+
+  get backgroundSrcSet(): string {
+    return journeyBackgroundSrcSetFromUrl(this.backgroundUrl);
+  }
+
+  get backgroundSrcHiRes(): string {
+    return journeyBackgroundUrlHiRes(this.backgroundUrl);
+  }
 
   // ── Pending transition state (Batch 4) ──────────────────────────────
   // Tracks whether we already showed the corresponding transition this
@@ -1378,8 +1870,41 @@ export class JourneyPage implements OnInit, OnDestroy {
     return 0.55 + ((pt.y - minY) / (maxY - minY)) * 0.4;
   }
 
+  private themePlatformPts(phaseCount: number): PathWaypoint[] {
+    return resolvePlatformLayout(this.chapterTheme, phaseCount);
+  }
+
+  /** Platform centres for node badges (pedestal excluded). */
+  private resolveNodePts(phaseCount: number): PathWaypoint[] {
+    return this.resolvePlatformPts(phaseCount);
+  }
+
+  /** Waypoints the dust trail follows — platforms + path kinks (roadblocks). */
+  private resolvePathPts(phaseCount: number): PathWaypoint[] {
+    return resolvePathLayout(this.chapterTheme, phaseCount);
+  }
+
+  private resolvePlatformPts(phaseCount: number): PathWaypoint[] {
+    const platforms = this.themePlatformPts(phaseCount);
+    const count = Math.max(1, phaseCount);
+    if (count <= platforms.length) {
+      return platforms.slice(0, count);
+    }
+    // Adaptive split can briefly exceed the baked platform count — interpolate.
+    return Array.from({ length: count }, (_, i) =>
+      this.sampleJourneyPathFromPts(platforms, count > 1 ? i / (count - 1) : 0.5)
+    );
+  }
+
+  private themePathPts(): PathWaypoint[] {
+    return this.themePlatformPts(this.phaseRows.length || 4);
+  }
+
   private sampleJourneyPath(t: number): { x: number; y: number; z: number } {
-    const pts = JourneyPage.THEME_PATH_PTS[this.chapterTheme] || JourneyPage.DEFAULT_PATH_PTS;
+    return this.sampleJourneyPathFromPts(this.resolveNodePts(this.phaseRows.length || 4), t);
+  }
+
+  private sampleJourneyPathFromPts(pts: PathWaypoint[], t: number): { x: number; y: number; z: number } {
     if (t <= 0) {
       const z0 = this.waypointDepth(pts[0], pts);
       return { x: pts[0].x, y: pts[0].y, z: z0 };
@@ -1406,19 +1931,42 @@ export class JourneyPage implements OnInit, OnDestroy {
     const n = rows.length;
     if (n === 0) { this.mapNodes = []; this.mapPathD = ''; return; }
 
+    const variant = resolveMapVariant(n);
+    if (this.mapPhaseVariant !== variant) {
+      this.mapPhaseVariant = variant;
+      if (!this.visitingChapter) {
+        const nextUrl = journeyBackgroundUrl(this.chapterTheme, n);
+        if (this.backgroundUrl !== nextUrl) {
+          this.backgroundUrl = nextUrl;
+          this.backgroundFailed = false;
+        }
+      }
+    }
+
+    const pathPts = this.resolvePathPts(n);
+    const nodePts = this.resolveNodePts(n);
+
     this.mapNodes = rows.map((row, i) => {
-      const t = n > 1 ? i / (n - 1) : 0.5;
-      const pt = this.sampleJourneyPath(t);
-      // Choose label placement so it never escapes the canvas. The canonical
-      // position is above the dot; flip below when the node is in the top
-      // safe-zone. Horizontal alignment defaults to centered; anchors to a
-      // side when the node is near a canvas edge.
-      const labelPlacement: 'above' | 'below' =
-        pt.y < LABEL_FLIP_TOP_THRESHOLD ? 'below' : 'above';
-      const labelAlign: 'start' | 'center' | 'end' =
-        pt.x < LABEL_EDGE_LEFT_THRESHOLD ? 'start' :
-        pt.x > LABEL_EDGE_RIGHT_THRESHOLD ? 'end' :
-        'center';
+      const layoutPt = n === nodePts.length ? nodePts[i] : null;
+      const pt = layoutPt
+        ? {
+            x: layoutPt.x,
+            y: layoutPt.y,
+            z: typeof layoutPt.z === 'number'
+              ? layoutPt.z!
+              : this.waypointDepth(layoutPt, nodePts)
+          }
+        : this.sampleJourneyPathFromPts(nodePts, n > 1 ? i / (n - 1) : 0.5);
+      const labelPlacement: 'above' | 'below' = pt.y < LABEL_FLIP_TOP_THRESHOLD
+        ? 'below'
+        : 'above';
+      const labelAlign: 'start' | 'center' | 'end' = layoutPt?.labelAlign ?? (
+        pt.x < LABEL_EDGE_LEFT_THRESHOLD
+          ? 'start'
+          : pt.x > LABEL_EDGE_RIGHT_THRESHOLD
+            ? 'end'
+            : 'center'
+      );
       const depthScale = JourneyPage.depthToScale(pt.z);
       const depthOpacity = JourneyPage.depthToOpacity(pt.z);
       const depthZIndex =
@@ -1434,38 +1982,1022 @@ export class JourneyPage implements OnInit, OnDestroy {
         depthZIndex,
         labelPlacement,
         labelAlign,
+        labelOffsetX: layoutPt?.labelOffsetX ?? 0,
         row
       };
     });
 
-    const nextD = this.buildSvgPathD();
+    this.computeHotspots();
+
+    const nextD = this.buildSvgPathD(pathPts);
     if (nextD !== this.mapPathD) {
-      // Remount the SVG so its CSS draw-in animation replays.
-      this.mapPathD = nextD;
-      this.pathReady = false;
-      // requestAnimationFrame ensures the *ngIf=false reaches the DOM
-      // before we flip back to true — guarantees re-creation.
-      requestAnimationFrame(() => {
-        this.pathReady = true;
-        this.cdr.markForCheck();
+      this.revealMapPath(nextD);
+    } else {
+      this.ensureMapStageResizeObserver();
+    }
+
+    this.scheduleRoadblockTravelCheck();
+  }
+
+  /** Build roadblock + chest overlays from the current map art and phase state. */
+  private computeHotspots(): void {
+    const n = this.phaseRows.length;
+    const hotspots = resolveJourneyHotspots(this.chapterTheme, n);
+    if (!hotspots) {
+      this.roadblockNodes = [];
+      this.chestNodes = [];
+      return;
+    }
+
+    const statusAt = (i: number): 'completed' | 'active' | 'locked' | null =>
+      (i >= 0 && i < n) ? this.phaseRows[i].status : null;
+
+    this.roadblockNodes = (hotspots.roadblocks || [])
+      .filter(rb => rb.afterPhase < n - 1) // a gate needs a phase after it
+      .map(rb => {
+        const upstreamDone = statusAt(rb.afterPhase) === 'completed';
+        const nextDone = statusAt(rb.afterPhase + 1) === 'completed';
+        let state: RoadblockNode['state'] = nextDone ? 'cleared' : upstreamDone ? 'active' : 'locked';
+        if (this.isDev && this.devRoadblockForceActive && state !== 'cleared') {
+          state = 'active';
+        }
+        return { x: rb.x, y: rb.y, afterPhase: rb.afterPhase, state };
+      });
+
+    this.chestNodes = (hotspots.chests || [])
+      .filter(c => c.phaseIndex < n)
+      .map(c => {
+        const id = buildChestId(this.chapterTheme, n, c.phaseIndex);
+        const claimed = this.claimedChestIds.has(id);
+        const phaseDone = statusAt(c.phaseIndex) === 'completed';
+        const state: ChestNode['state'] = claimed
+          ? 'claimed'
+          : (phaseDone || this.isDev)
+            ? 'claimable'
+            : 'locked';
+        const tier = claimed
+          ? ((this.plan?.claimedChests || []).find(cc => cc.chestId === id)?.tier ?? null)
+          : null;
+        const frameUrls = resolveChestFrameUrls(c.side);
+        const spriteFrame = claimed ? frameUrls.length - 1 : 0;
+        return {
+          x: c.x, y: c.y, phaseIndex: c.phaseIndex, chestId: id, state, tier,
+          spriteFrame, frameUrls, side: c.side, bakedIn: !!c.bakedIn, opening: false
+        };
+      });
+  }
+
+  /** Warm + decode all chest frames before the first open. */
+  private preloadChestFrames(): void {
+    if (typeof Image === 'undefined') return;
+    this.chestFramesReady = Promise.all(
+      ALL_JOURNEY_CHEST_FRAME_URLS.map(src => {
+        const img = new Image();
+        img.src = src;
+        return img.decode?.() ?? Promise.resolve();
+      })
+    ).then(() => undefined).catch(() => undefined);
+  }
+
+  trackByFrameIndex(index: number): number { return index; }
+  trackByChestId(_i: number, node: ChestNode): string { return node.chestId; }
+  trackByRoadblock(_i: number, node: RoadblockNode): number { return node.afterPhase; }
+
+  /** Tap an active roadblock → pull a struggle-targeted checkpoint quiz. */
+  async onRoadblockTap(node: RoadblockNode, devOpts?: { mock?: boolean; skipStateCheck?: boolean }): Promise<void> {
+    if (this.roadblockBusy || this.travelerAnimating) return;
+    if (node.state !== 'active' && !(this.isDev && (devOpts?.skipStateCheck || this.devRoadblockForceActive))) {
+      return;
+    }
+
+    this.roadblockBusy = true;
+    this.updateTravelerMapMode();
+    try {
+      if (devOpts?.mock) {
+        await this.presentRoadblockQuizModal({
+          quiz: this.buildMockRoadblockQuiz(),
+          struggleLabel: 'greetings',
+          personalizedHeader: 'Dev preview — quick check on greetings.'
+        }, node);
+        return;
+      }
+
+      const res = await firstValueFrom(
+        this.learningPlanService.getRoadblockQuiz(this.language, node.afterPhase + 1).pipe(take(1))
+      );
+
+      if (!res?.available || !res.quiz) {
+        if (this.isDev) {
+          this.showToast('No live quiz — opening mock (dev)', 'warning');
+          await this.presentRoadblockQuizModal({
+            quiz: this.buildMockRoadblockQuiz(),
+            struggleLabel: res?.struggleLabel || 'checkpoint',
+            personalizedHeader: res?.personalizedHeader || 'Dev fallback quiz.'
+          }, node);
+          return;
+        }
+        this.showToast(this.translate.instant('JOURNEY.ROADBLOCK.ALL_CLEAR'), 'success');
+        return;
+      }
+
+      await this.presentRoadblockQuizModal({
+        quiz: res.quiz,
+        struggleLabel: res.struggleLabel || '',
+        personalizedHeader: res.personalizedHeader || ''
+      }, node);
+    } catch {
+      if (this.isDev) {
+        this.showToast('API failed — opening mock (dev)', 'warning');
+        await this.presentRoadblockQuizModal({
+          quiz: this.buildMockRoadblockQuiz(),
+          struggleLabel: 'checkpoint',
+          personalizedHeader: 'Dev fallback after API error.'
+        }, node);
+        return;
+      }
+      this.showToast(this.translate.instant('COMMON.ERROR_GENERIC') || 'Something went wrong', 'danger');
+    } finally {
+      this.roadblockBusy = false;
+      this.updateTravelerMapMode();
+    }
+  }
+
+  private async presentRoadblockQuizModal(
+    props: {
+      quiz: RoadblockQuiz;
+      struggleLabel: string;
+      personalizedHeader: string;
+    },
+    roadblockNode?: RoadblockNode
+  ): Promise<void> {
+    this.hideTravelerDot();
+    const bounds = roadblockNode ? this.captureRoadblockBounds(roadblockNode) : null;
+    this.roadblockModalBounds = bounds;
+
+    const modal = await this.modalCtrl.create({
+      component: RoadblockQuizModalComponent,
+      componentProps: props,
+      cssClass: 'journey-roadblock-modal',
+      backdropDismiss: false,
+      enterAnimation: (baseEl) => this.createRoadblockModalEnterAnimation(baseEl),
+      leaveAnimation: (baseEl) => this.createRoadblockModalLeaveAnimation(baseEl)
+    });
+    await modal.present();
+    const { data, role } = await modal.onDidDismiss();
+    this.roadblockModalBounds = null;
+    if (role === 'completed' && data?.quizId) {
+      this.learningPlanService.completeQuiz(data.quizId, 0).pipe(take(1)).subscribe({ error: () => {} });
+      this.showToast(this.translate.instant('JOURNEY.ROADBLOCK.PASSED_TOAST'), 'success');
+      if (roadblockNode) {
+        await this.playPostRoadblockTravelSequence(roadblockNode);
+        return;
+      }
+    }
+    this.syncTravelerRestingPosition();
+  }
+
+  createRoadblockModalEnterAnimation = (baseEl: HTMLElement) => {
+    const bounds = this.roadblockModalBounds;
+    if (!bounds) return this.fadeModalAnimation(baseEl, '0', '1');
+    return this.createPhaseZoomEnterAnimation(baseEl, bounds, 1);
+  };
+
+  createRoadblockModalLeaveAnimation = (baseEl: HTMLElement) => {
+    const bounds = this.roadblockModalBounds;
+    if (!bounds) return this.fadeModalAnimation(baseEl, '1', '0', 250);
+    return this.createPhaseZoomLeaveAnimation(baseEl, bounds, 1);
+  };
+
+  private captureRoadblockBounds(node: RoadblockNode): { x: number; y: number; width: number; height: number } | null {
+    const hotspot = this.el.nativeElement.querySelector(
+      `[data-rb-phase="${node.afterPhase}"]`
+    ) as HTMLElement | null;
+
+    const safeTop = parseFloat(getComputedStyle(document.documentElement)
+      .getPropertyValue('--ion-safe-area-top')) || 0;
+
+    if (hotspot) {
+      const rect = hotspot.getBoundingClientRect();
+      const size = Math.max(rect.width, rect.height, 44);
+      return {
+        x: rect.left + rect.width / 2 - size / 2,
+        y: rect.top - safeTop + rect.height / 2 - size / 2,
+        width: size,
+        height: size
+      };
+    }
+
+    const stage = this.el.nativeElement.querySelector('.journey-map-stage') as HTMLElement | null;
+    if (!stage) return null;
+    const rect = stage.getBoundingClientRect();
+    const size = 44;
+    const cx = rect.left + (node.x / 100) * rect.width;
+    const cy = rect.top + (node.y / 100) * rect.height;
+    return {
+      x: cx - size / 2,
+      y: cy - safeTop - size / 2,
+      width: size,
+      height: size
+    };
+  }
+
+  private buildMockRoadblockQuiz(): RoadblockQuiz {
+    return {
+      _id: 'dev-roadblock-mock',
+      title: 'Roadblock checkpoint (dev)',
+      description: 'Local preview — not saved unless you complete via live API.',
+      questions: [
+        {
+          type: 'multiple_choice',
+          prompt: 'What does "hola" mean?',
+          options: ['Hello', 'Goodbye', 'Please', 'Thank you'],
+          correctAnswer: 'Hello',
+          explanation: '"Hola" is the most common Spanish greeting.'
+        },
+        {
+          type: 'multiple_choice',
+          prompt: 'Which word means "thank you"?',
+          options: ['Por favor', 'De nada', 'Gracias', 'Perdón'],
+          correctAnswer: 'Gracias',
+          explanation: '"Gracias" means thank you.'
+        }
+      ]
+    };
+  }
+
+  /** Dev-only: test roadblock travel + quiz without map pan. */
+  async openRoadblockDevTools(): Promise<void> {
+    if (!this.isDev) return;
+
+    const mapKey = mapLayoutKey(this.chapterTheme, this.phaseRows.length);
+    const gateCount = this.roadblockNodes.length;
+
+    const alert = await this.alertCtrl.create({
+      header: 'Roadblock debug',
+      subHeader: gateCount
+        ? `${gateCount} gate(s) on ${mapKey} · local only`
+        : `No gates on ${mapKey} — try A1 with 3, 4, or 5 phases`,
+      cssClass: 'journey-dev-preview-alert',
+      inputs: [
+        { type: 'radio', label: 'Full flow: travel → quiz → phase 2', value: 'full-mock', checked: true },
+        { type: 'radio', label: 'Travel dot only (replay)', value: 'travel' },
+        { type: 'radio', label: 'Mock quiz only', value: 'mock' },
+        { type: 'radio', label: 'Live API quiz', value: 'live' },
+        { type: 'radio', label: 'Clear travel seen flags', value: 'clear-seen' },
+        { type: 'radio', label: 'Toggle force-active gates', value: 'toggle-force' },
+        { type: 'radio', label: 'Toggle hitbox outlines', value: 'toggle-hitboxes' }
+      ],
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        {
+          text: 'Run',
+          handler: (mode: string) => { void this.runRoadblockDevTool(mode); }
+        }
+      ]
+    });
+    await alert.present();
+  }
+
+  private async runRoadblockDevTool(mode: string): Promise<void> {
+    if (mode === 'toggle-force') {
+      this.devRoadblockForceActive = !this.devRoadblockForceActive;
+      this.computeHotspots();
+      this.cdr.markForCheck();
+      this.showToast(
+        this.devRoadblockForceActive ? 'Roadblocks forced active' : 'Roadblocks back to live state',
+        'success'
+      );
+      return;
+    }
+
+    if (mode === 'toggle-hitboxes') {
+      this.devRoadblockShowHitboxes = !this.devRoadblockShowHitboxes;
+      this.cdr.markForCheck();
+      this.showToast(
+        this.devRoadblockShowHitboxes ? 'Roadblock hitboxes visible' : 'Roadblock hitboxes hidden',
+        'success'
+      );
+      return;
+    }
+
+    if (mode === 'clear-seen') {
+      this.clearRoadblockTravelSeenFlags();
+      this.roadblockTravelQueued = false;
+      this.showToast('Roadblock travel flags cleared', 'success');
+      return;
+    }
+
+    const node = this.pickRoadblockForDev();
+    if (!node) {
+      this.showToast('No roadblock on this map variant', 'warning');
+      return;
+    }
+
+    if (mode === 'travel') {
+      await this.playRoadblockTravelSequence(node, { force: true, openQuiz: false });
+      return;
+    }
+
+    if (mode === 'mock') {
+      await this.onRoadblockTap(node, { mock: true, skipStateCheck: true });
+      return;
+    }
+
+    if (mode === 'live') {
+      await this.onRoadblockTap(node, { skipStateCheck: true });
+      return;
+    }
+
+    if (mode === 'full-mock') {
+      this.devRoadblockForceActive = true;
+      this.computeHotspots();
+      this.cdr.markForCheck();
+      const gate = this.pickRoadblockForDev();
+      if (gate) {
+        await this.playRoadblockTravelSequence(gate, { force: true, openQuiz: true, mockQuiz: true });
+      }
+    }
+  }
+
+  private pickRoadblockForDev(): RoadblockNode | null {
+    if (!this.roadblockNodes.length) return null;
+    return this.roadblockNodes.find(rb => rb.state !== 'cleared') || this.roadblockNodes[0];
+  }
+
+  private roadblockTravelStorageKey(afterPhase: number): string {
+    const key = mapLayoutKey(this.chapterTheme, this.phaseRows.length);
+    return `journey_rb_travel_v1_${this.language}_${key}_${afterPhase}`;
+  }
+
+  private hasSeenRoadblockTravel(afterPhase: number): boolean {
+    try {
+      return localStorage.getItem(this.roadblockTravelStorageKey(afterPhase)) === '1';
+    } catch {
+      return false;
+    }
+  }
+
+  private markRoadblockTravelSeen(afterPhase: number): void {
+    try {
+      localStorage.setItem(this.roadblockTravelStorageKey(afterPhase), '1');
+    } catch { /* ignore */ }
+  }
+
+  private clearRoadblockTravelSeenFlags(): void {
+    try {
+      for (const rb of this.roadblockNodes) {
+        localStorage.removeItem(this.roadblockTravelStorageKey(rb.afterPhase));
+      }
+    } catch { /* ignore */ }
+  }
+
+  /** Once per gate: animate the blue dot along the path, then open the quiz. */
+  private scheduleRoadblockTravelCheck(): void {
+    if (this.roadblockTravelQueued || this.travelerAnimating || this.visitingChapter) return;
+    const gate = this.roadblockNodes.find(rb => rb.state === 'active' && !this.devRoadblockForceActive);
+    if (!gate || this.hasSeenRoadblockTravel(gate.afterPhase)) {
+      this.syncTravelerRestingPosition();
+      return;
+    }
+
+    this.roadblockTravelQueued = true;
+    const waitForPath = () => {
+      if (!this.pathReady) {
+        requestAnimationFrame(waitForPath);
+        return;
+      }
+      void this.playRoadblockTravelSequence(gate, { openQuiz: true });
+    };
+    requestAnimationFrame(waitForPath);
+  }
+
+  private async playRoadblockTravelSequence(
+    node: RoadblockNode,
+    opts?: { force?: boolean; openQuiz?: boolean; mockQuiz?: boolean }
+  ): Promise<void> {
+    if (this.travelerAnimating) return;
+    if (!opts?.force && this.hasSeenRoadblockTravel(node.afterPhase)) {
+      this.roadblockTravelQueued = false;
+      this.syncTravelerRestingPosition();
+      return;
+    }
+
+    const pathIndices = resolveRoadblockTravelPathIndices(
+      this.chapterTheme,
+      this.phaseRows.length,
+      node.afterPhase
+    );
+    const waypoints = resolveRoadblockTravelWaypoints(
+      this.chapterTheme,
+      this.phaseRows.length,
+      node.afterPhase
+    );
+    if (!pathIndices && (!waypoints || waypoints.length < 2)) {
+      this.roadblockTravelQueued = false;
+      if (opts?.openQuiz) {
+        await this.onRoadblockTap(node, opts.mockQuiz ? { mock: true, skipStateCheck: true } : undefined);
+      } else {
+        this.syncTravelerRestingPosition();
+      }
+      return;
+    }
+
+    await this.animateTravelerToPathIndicesOrWaypoints(pathIndices, waypoints);
+    this.markRoadblockTravelSeen(node.afterPhase);
+    this.roadblockTravelQueued = false;
+    this.cdr.markForCheck();
+
+    if (opts?.openQuiz) {
+      await this.onRoadblockTap(
+        node,
+        opts.mockQuiz ? { mock: true, skipStateCheck: true } : undefined
+      );
+      return;
+    }
+
+    this.syncTravelerRestingPosition();
+  }
+
+  /** After clearing a gate: animate the blue dot from the gate to the next platform. */
+  private async playPostRoadblockTravelSequence(node: RoadblockNode): Promise<void> {
+    if (this.travelerAnimating) return;
+
+    const waypoints = resolvePostRoadblockTravelWaypoints(
+      this.chapterTheme,
+      this.phaseRows.length,
+      node.afterPhase
+    );
+    const pathIndices = resolvePostRoadblockPathIndices(
+      this.chapterTheme,
+      this.phaseRows.length,
+      node.afterPhase
+    );
+    if (!waypoints && !pathIndices) return;
+
+    if (!this.pathReady) {
+      await new Promise<void>(resolve => {
+        const wait = () => {
+          if (this.pathReady) {
+            resolve();
+            return;
+          }
+          requestAnimationFrame(wait);
+        };
+        requestAnimationFrame(wait);
       });
     }
+
+    await this.animateTravelerToPathIndicesOrWaypoints(pathIndices, waypoints);
+    this.travelerArrivedPhaseIndex = node.afterPhase + 1;
+    this.restTravelerAtPhase(this.travelerArrivedPhaseIndex);
+  }
+
+  private setTravelerVisible(visible: boolean): void {
+    this.travelerVisible = visible;
+    if (!visible) {
+      this.travelerPhaseIndex = null;
+    }
+    this.updateTravelerMapMode();
+  }
+
+  private hideTravelerDot(): void {
+    this.travelerVisible = false;
+    this.updateTravelerMapMode();
+  }
+
+  private updateTravelerMapMode(): void {
+    this.travelerMapMode = this.travelerVisible || this.roadblockBusy || this.travelerAnimating;
+  }
+
+  /** Rest the dot on a phase platform (used after animations + on page load). */
+  private restTravelerAtPhase(phaseIndex: number): void {
+    const node = this.mapNodes[phaseIndex];
+    if (!node) {
+      this.setTravelerVisible(false);
+      this.cdr.markForCheck();
+      return;
+    }
+    this.travelerXPct = node.xPct;
+    this.travelerYPct = node.yPct;
+    this.travelerPhaseIndex = phaseIndex;
+    this.travelerVisible = true;
+    this.updateTravelerMapMode();
+    this.cdr.markForCheck();
+  }
+
+  /** Show the dot on the student's current phase whenever the map is idle. */
+  private syncTravelerRestingPosition(): void {
+    if (this.travelerAnimating || this.visitingChapter || this.roadblockBusy || this.roadblockTravelQueued) {
+      return;
+    }
+    const idx = this.resolveTravelerRestPhaseIndex();
+    if (idx == null) {
+      this.setTravelerVisible(false);
+      this.cdr.markForCheck();
+      return;
+    }
+    this.restTravelerAtPhase(idx);
+  }
+
+  private resolveTravelerRestPhaseIndex(): number | null {
+    if (!this.phaseRows.length) return null;
+    const activeIdx = this.phaseRows.findIndex(r => r.status === 'active');
+    if (activeIdx >= 0) {
+      if (this.travelerArrivedPhaseIndex != null && this.travelerArrivedPhaseIndex > activeIdx) {
+        return this.travelerArrivedPhaseIndex;
+      }
+      if (activeIdx >= (this.travelerArrivedPhaseIndex ?? -1)) {
+        this.travelerArrivedPhaseIndex = null;
+      }
+      return activeIdx;
+    }
+    if (this.travelerArrivedPhaseIndex != null) {
+      return this.travelerArrivedPhaseIndex;
+    }
+    const lastCompleted = this.phaseRows.reduce(
+      (acc, row, i) => (row.status === 'completed' ? i : acc),
+      -1
+    );
+    if (lastCompleted >= 0) return lastCompleted;
+    return 0;
+  }
+
+  private async animateTravelerToPathIndicesOrWaypoints(
+    pathIndices: { fromIndex: number; toIndex: number } | null,
+    waypoints: { x: number; y: number }[] | null
+  ): Promise<void> {
+    if (pathIndices) {
+      await this.animateTravelerPathIndices(pathIndices.fromIndex, pathIndices.toIndex);
+      return;
+    }
+    if (waypoints && waypoints.length >= 2) {
+      await this.animateTravelerThrough(waypoints);
+    }
+  }
+
+  private async animateTravelerPathIndices(fromIndex: number, toIndex: number): Promise<void> {
+    const pathPts = this.resolvePathPts(this.phaseRows.length);
+    const from = pathPts[fromIndex];
+    const to = pathPts[toIndex];
+    if (!from || !to || toIndex <= fromIndex) return;
+
+    this.travelerVisible = true;
+    this.travelerPhaseIndex = null;
+    this.travelerXPct = from.x;
+    this.travelerYPct = from.y;
+    this.travelerAnimating = true;
+    this.updateTravelerMapMode();
+    this.cdr.markForCheck();
+
+    const durationMs = 1100 + Math.max(0, toIndex - fromIndex - 1) * 350;
+    const path = this.el.nativeElement.querySelector('.journey-map-path-line') as SVGPathElement | null;
+
+    try {
+      if (path && this.mapPathD) {
+        const lenStart = this.findPathLengthAtLayoutWaypoint(path, pathPts, fromIndex);
+        const lenEnd = this.findPathLengthAtLayoutWaypoint(path, pathPts, toIndex);
+        if (lenEnd > lenStart) {
+          await this.animateTravelerPathLength(path, lenStart, lenEnd, durationMs);
+          return;
+        }
+      }
+      await this.animateTravelerSegment(from, to, durationMs);
+    } finally {
+      this.travelerAnimating = false;
+      this.updateTravelerMapMode();
+    }
+  }
+
+  private findPathLengthAtLayoutWaypoint(
+    path: SVGPathElement,
+    pathPts: PathWaypoint[],
+    index: number
+  ): number {
+    const minLen = index > 0
+      ? this.findPathLengthAtLayoutWaypoint(path, pathPts, index - 1) + 0.001
+      : 0;
+    const pt = pathPts[index];
+    return this.findPathLengthAtPoint(path, pt.x, pt.y, minLen);
+  }
+
+  private animateTravelerPathLength(
+    path: SVGPathElement,
+    lenStart: number,
+    lenEnd: number,
+    durationMs: number
+  ): Promise<void> {
+    return new Promise(resolve => {
+      const t0 = performance.now();
+      const step = (now: number) => {
+        const raw = Math.min(1, (now - t0) / durationMs);
+        const eased = raw * (2 - raw);
+        const len = lenStart + (lenEnd - lenStart) * eased;
+        const p = path.getPointAtLength(len);
+        this.travelerXPct = p.x;
+        this.travelerYPct = p.y;
+        this.cdr.markForCheck();
+        if (raw < 1) {
+          requestAnimationFrame(step);
+        } else {
+          resolve();
+        }
+      };
+      requestAnimationFrame(step);
+    });
+  }
+
+  private animateTravelerThrough(waypoints: { x: number; y: number }[]): Promise<void> {
+    const start = waypoints[0];
+    const end = waypoints[waypoints.length - 1];
+    this.travelerVisible = true;
+    this.travelerPhaseIndex = null;
+    this.travelerXPct = start.x;
+    this.travelerYPct = start.y;
+    this.travelerAnimating = true;
+    this.updateTravelerMapMode();
+    this.cdr.markForCheck();
+
+    const durationMs = 1100 + Math.max(0, waypoints.length - 2) * 350;
+    return this.animateTravelerSegment(start, end, durationMs).finally(() => {
+      this.travelerAnimating = false;
+      this.updateTravelerMapMode();
+    });
+  }
+
+  /** Closest path-length sample to a viewBox coordinate (0–100). */
+  private findPathLengthAtPoint(
+    path: SVGPathElement,
+    x: number,
+    y: number,
+    minLength = 0
+  ): number {
+    const total = path.getTotalLength();
+    if (!total) return 0;
+
+    const steps = Math.max(240, Math.ceil(total * 10));
+    let bestLen = 0;
+    let bestDist = Infinity;
+
+    for (let i = 0; i <= steps; i++) {
+      const len = (total * i) / steps;
+      if (len < minLength) continue;
+      const p = path.getPointAtLength(len);
+      const dist = (p.x - x) ** 2 + (p.y - y) ** 2;
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestLen = len;
+      }
+    }
+    if (bestDist === Infinity && minLength > 0) {
+      return this.findPathLengthAtPoint(path, x, y, 0);
+    }
+    return bestLen;
+  }
+
+  /** Straight-line fallback when the SVG path is not mounted yet. */
+  private animateTravelerSegment(
+    from: { x: number; y: number },
+    to: { x: number; y: number },
+    durationMs: number
+  ): Promise<void> {
+    return new Promise(resolve => {
+      const start = performance.now();
+      const step = (now: number) => {
+        const raw = Math.min(1, (now - start) / durationMs);
+        const t = raw * (2 - raw);
+        this.travelerXPct = from.x + (to.x - from.x) * t;
+        this.travelerYPct = from.y + (to.y - from.y) * t;
+        this.cdr.markForCheck();
+        if (raw < 1) {
+          requestAnimationFrame(step);
+        } else {
+          resolve();
+        }
+      };
+      requestAnimationFrame(step);
+    });
+  }
+
+  /** Tap a chest → animate open, claim (if eligible), reveal reward. */
+  async onChestTap(node: ChestNode): Promise<void> {
+    if (this.chestBusy) return;
+
+    if (node.state === 'locked' && !this.isDev) {
+      this.showToast(this.translate.instant('JOURNEY.CHEST.LOCKED_TOAST'), 'warning');
+      return;
+    }
+
+    this.chestBusy = true;
+    try {
+      // Already opened — show reward again, no re-animation.
+      if (node.state === 'claimed') {
+        const existing = (this.plan?.claimedChests || []).find(c => c.chestId === node.chestId);
+        if (existing) {
+          await this.presentChestRewardModal({
+            tier: existing.tier,
+            xp: existing.xp,
+            totalXp: this.plan?.journeyXp ?? existing.xp,
+            alreadyClaimed: true,
+            chestSide: node.side
+          }, node);
+        }
+        return;
+      }
+
+      if (!node.bakedIn) {
+        await this.playChestOpenAnimation(node);
+      }
+
+      let reward: { tier: 'bronze' | 'silver' | 'gold'; xp: number; chestId: string; phaseIndex: number; chapterIndex: number; claimedAt: string } | null = null;
+      let journeyXp = this.plan?.journeyXp ?? 0;
+      let alreadyClaimed = false;
+
+      try {
+        const res = await firstValueFrom(
+          this.learningPlanService.claimChest(this.language, node.chestId, node.phaseIndex).pipe(take(1))
+        );
+        if (res?.reward) {
+          reward = res.reward;
+          journeyXp = res.journeyXp ?? journeyXp;
+          alreadyClaimed = !!res.alreadyClaimed;
+        } else if (this.isDev) {
+          reward = this.mockChestReward(node);
+          journeyXp += reward.xp;
+        } else if (res?.locked) {
+          node.spriteFrame = 0;
+          node.opening = false;
+          node.state = 'locked';
+          this.cdr.markForCheck();
+          this.showToast(this.translate.instant('JOURNEY.CHEST.LOCKED_TOAST'), 'warning');
+          return;
+        }
+      } catch {
+        if (!this.isDev) throw new Error('chest_claim_failed');
+        reward = this.mockChestReward(node);
+        journeyXp += reward.xp;
+      }
+
+      if (!reward) return;
+
+      this.claimedChestIds.add(node.chestId);
+      node.state = 'claimed';
+      node.tier = reward.tier;
+      node.spriteFrame = node.frameUrls.length - 1;
+      node.opening = false;
+      if (this.plan) {
+        this.plan.journeyXp = journeyXp;
+        if (!alreadyClaimed) {
+          this.plan.claimedChests = [...(this.plan.claimedChests || []), reward];
+        }
+      }
+      this.cdr.markForCheck();
+
+      await this.presentChestRewardModal({
+        tier: reward.tier,
+        xp: reward.xp,
+        totalXp: journeyXp,
+        alreadyClaimed,
+        chestSide: node.side
+      }, node);
+    } catch {
+      node.spriteFrame = 0;
+      node.opening = false;
+      this.cdr.markForCheck();
+      this.showToast(this.translate.instant('COMMON.ERROR_GENERIC') || 'Something went wrong', 'danger');
+    } finally {
+      this.chestBusy = false;
+    }
+  }
+
+  private async presentChestRewardModal(
+    props: {
+      tier: 'bronze' | 'silver' | 'gold';
+      xp: number;
+      totalXp: number;
+      alreadyClaimed: boolean;
+      chestSide: 'left' | 'right';
+    },
+    chestNode?: ChestNode
+  ): Promise<void> {
+    const bounds = chestNode ? this.captureChestBounds(chestNode) : null;
+    this.chestModalBounds = bounds;
+
+    const modal = await this.modalCtrl.create({
+      component: ChestRewardModalComponent,
+      componentProps: props,
+      cssClass: 'journey-chest-modal',
+      backdropDismiss: true,
+      enterAnimation: (baseEl) => this.createChestModalEnterAnimation(baseEl),
+      leaveAnimation: (baseEl) => this.createChestModalLeaveAnimation(baseEl)
+    });
+    await modal.present();
+    await modal.onDidDismiss();
+    this.chestModalBounds = null;
+  }
+
+  createChestModalEnterAnimation = (baseEl: HTMLElement) => {
+    const bounds = this.chestModalBounds;
+    if (!bounds) return this.fadeModalAnimation(baseEl, '0', '1');
+    return this.createPhaseZoomEnterAnimation(baseEl, bounds, 1);
+  };
+
+  createChestModalLeaveAnimation = (baseEl: HTMLElement) => {
+    const bounds = this.chestModalBounds;
+    if (!bounds) return this.fadeModalAnimation(baseEl, '1', '0', 250);
+    return this.createPhaseZoomLeaveAnimation(baseEl, bounds, 1);
+  };
+
+  private captureChestBounds(node: ChestNode): { x: number; y: number; width: number; height: number } | null {
+    const hotspot = this.el.nativeElement.querySelector(
+      `[data-chest-id="${node.chestId}"]`
+    ) as HTMLElement | null;
+
+    const safeTop = parseFloat(getComputedStyle(document.documentElement)
+      .getPropertyValue('--ion-safe-area-top')) || 0;
+
+    if (hotspot) {
+      const rect = hotspot.getBoundingClientRect();
+      const size = Math.max(rect.width, rect.height, 44);
+      return {
+        x: rect.left + rect.width / 2 - size / 2,
+        y: rect.top - safeTop + rect.height / 2 - size / 2,
+        width: size,
+        height: size
+      };
+    }
+
+    const stage = this.el.nativeElement.querySelector('.journey-map-stage') as HTMLElement | null;
+    if (!stage) return null;
+    const rect = stage.getBoundingClientRect();
+    const size = 44;
+    const cx = rect.left + (node.x / 100) * rect.width;
+    const cy = rect.top + (node.y / 100) * rect.height;
+    return {
+      x: cx - size / 2,
+      y: cy - safeTop - size / 2,
+      width: size,
+      height: size
+    };
+  }
+
+  /** Local-only reward when testing chest UX without a completed phase. */
+  private mockChestReward(node: ChestNode) {
+    return {
+      chestId: node.chestId,
+      chapterIndex: this.chapterIndex,
+      phaseIndex: node.phaseIndex,
+      tier: 'gold' as const,
+      xp: 100,
+      claimedAt: new Date().toISOString()
+    };
+  }
+
+  /** Flip through preloaded frames (no src swapping — avoids decode jank). */
+  private async playChestOpenAnimation(node: ChestNode): Promise<void> {
+    if (this.chestFramesReady) await this.chestFramesReady;
+    node.opening = true;
+    const last = node.frameUrls.length - 1;
+    const frameMs = 180;
+    for (let f = 0; f <= last; f++) {
+      node.spriteFrame = f;
+      this.cdr.markForCheck();
+      if (f < last) {
+        await new Promise<void>(r => setTimeout(r, frameMs));
+      }
+    }
+    node.opening = false;
+    this.cdr.markForCheck();
+  }
+
+  private revealMapPath(nextD: string): void {
+    this.mapPathD = nextD;
+    this.pathReady = false;
+    this.mapPathMeasurePending = true;
+
+    const mount = () => {
+      this.mapPathDashLen = this.measurePathDashForD(nextD);
+      this.pathReady = true;
+      this.mapPathMeasurePending = false;
+      this.ensureMapStageResizeObserver();
+      this.cdr.markForCheck();
+    };
+
+    const stage = this.el.nativeElement.querySelector('.journey-map-stage') as HTMLElement | null;
+    const rect = stage?.getBoundingClientRect();
+    if (!rect?.width || !rect?.height) {
+      requestAnimationFrame(() => requestAnimationFrame(mount));
+      return;
+    }
+    mount();
+  }
+
+  private ensureMapStageResizeObserver(): void {
+    const stage = this.el.nativeElement.querySelector('.journey-map-stage') as HTMLElement | null;
+    if (!stage || typeof ResizeObserver === 'undefined') return;
+
+    if (!this.mapStageResizeObserver) {
+      this.mapStageResizeObserver = new ResizeObserver((entries) => {
+        const entry = entries[0];
+        if (entry?.contentRect.width) {
+          const w = Math.ceil(entry.contentRect.width);
+          if (w > 0) {
+            const next = `${w}px`;
+            if (this.backgroundSizes !== next) {
+              this.backgroundSizes = next;
+              this.cdr.markForCheck();
+            }
+          }
+        }
+        if (!this.mapPathD || this.mapPathMeasurePending) return;
+        const measured = this.measurePathDashForD(this.mapPathD);
+        if (measured > this.mapPathDashLen + 4) {
+          this.mapPathDashLen = measured;
+          this.pathReady = false;
+          requestAnimationFrame(() => {
+            this.pathReady = true;
+            this.cdr.markForCheck();
+          });
+        }
+      });
+    }
+
+    if (!this.mapStageResizeObserver) return;
+    try {
+      this.mapStageResizeObserver.disconnect();
+      this.mapStageResizeObserver.observe(stage);
+    } catch {
+      // Stage may be mid-unmount.
+    }
+  }
+
+  /** Measure the rendered pixel length of a path `d` on the live map stage. */
+  private measurePathDashForD(d: string): number {
+    if (!d) return 500;
+    const stage = this.el.nativeElement.querySelector('.journey-map-stage') as HTMLElement | null;
+    if (!stage) return 500;
+
+    const rect = stage.getBoundingClientRect();
+    if (!rect.width || !rect.height) return this.mapPathDashLen || 500;
+
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 100 100');
+    svg.setAttribute('preserveAspectRatio', 'none');
+    svg.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;visibility:hidden;pointer-events:none;';
+
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', d);
+    svg.appendChild(path);
+    stage.appendChild(svg);
+
+    const pxLen = this.samplePathScreenPixelLength(path);
+    stage.removeChild(svg);
+    return Math.max(500, Math.ceil(pxLen + 24));
+  }
+
+  private samplePathScreenPixelLength(path: SVGPathElement): number {
+    const total = path.getTotalLength();
+    if (!total) return 0;
+
+    const svg = path.ownerSVGElement;
+    const ctm = path.getScreenCTM();
+    if (!svg || !ctm) return 0;
+
+    const pt = svg.createSVGPoint();
+    const toScreen = (x: number, y: number) => {
+      pt.x = x;
+      pt.y = y;
+      const s = pt.matrixTransform(ctm);
+      return { x: s.x, y: s.y };
+    };
+
+    const steps = Math.max(48, Math.ceil(total * 3));
+    let len = 0;
+    const start = path.getPointAtLength(0);
+    let prev = toScreen(start.x, start.y);
+
+    for (let i = 1; i <= steps; i++) {
+      const p = path.getPointAtLength((total * i) / steps);
+      const s = toScreen(p.x, p.y);
+      len += Math.hypot(s.x - prev.x, s.y - prev.y);
+      prev = s;
+    }
+    return len;
   }
 
   /** Build a smooth winding SVG path string from the active theme's
    *  waypoints using a Catmull-Rom → cubic-Bezier conversion. The path
    *  is drawn in the same 100×100 viewBox as the map canvas so node
    *  positions and the path stay perfectly in sync. */
-  private buildSvgPathD(): string {
-    const pts = JourneyPage.THEME_PATH_PTS[this.chapterTheme] || JourneyPage.DEFAULT_PATH_PTS;
-    if (pts.length < 2) return '';
+  private buildSvgPathD(pts?: PathWaypoint[]): string {
+    const pathPts = pts ?? this.resolvePathPts(this.phaseRows.length || 4);
+    if (pathPts.length < 2) return '';
     const tension = 0.5; // 0.5 ≈ Catmull-Rom; lower = tighter curve
-    let d = `M ${pts[0].x} ${pts[0].y}`;
-    for (let i = 0; i < pts.length - 1; i++) {
-      const p0 = pts[i - 1] || pts[i];
-      const p1 = pts[i];
-      const p2 = pts[i + 1];
-      const p3 = pts[i + 2] || p2;
+    let d = `M ${pathPts[0].x} ${pathPts[0].y}`;
+    for (let i = 0; i < pathPts.length - 1; i++) {
+      const p0 = pathPts[i - 1] || pathPts[i];
+      const p1 = pathPts[i];
+      const p2 = pathPts[i + 1];
+      const p3 = pathPts[i + 2] || p2;
       const c1x = p1.x + (p2.x - p0.x) * (tension / 3);
       const c1y = p1.y + (p2.y - p0.y) * (tension / 3);
       const c2x = p2.x - (p3.x - p1.x) * (tension / 3);
@@ -1477,10 +3009,10 @@ export class JourneyPage implements OnInit, OnDestroy {
 
   /** Pre-fetch the next chapter's background so the cross-fade in Batch 4
    *  doesn't flash an unloaded image. Cheap, idempotent. */
-  private prefetchBackground(theme: string) {
+  private prefetchBackground(theme: string, phaseCount = 4) {
     if (!theme) return;
     const img = new Image();
-    img.src = `assets/journey-backgrounds/${theme}.png`;
+    img.src = journeyBackgroundUrl(theme, phaseCount);
   }
 
   /** Called from template (img error) when a background asset 404s.
@@ -1527,13 +3059,13 @@ export class JourneyPage implements OnInit, OnDestroy {
     row.draftFocusAreasText = (row.focusAreas || []).join('\n');
     row.editing = true;
     row.expanded = true;
-    this.cdr.markForCheck();
+    this.refreshPhaseDetailModal();
   }
 
   cancelEdit(row: PhaseRow, event?: Event) {
     event?.stopPropagation();
     row.editing = false;
-    this.cdr.markForCheck();
+    this.refreshPhaseDetailModal();
   }
 
   saveEdit(row: PhaseRow, event?: Event) {
@@ -1549,7 +3081,7 @@ export class JourneyPage implements OnInit, OnDestroy {
       .filter(Boolean);
 
     row.saving = true;
-    this.cdr.markForCheck();
+    this.refreshPhaseDetailModal();
 
     const sub = this.learningPlanService.editPhase(this.language, row.index, {
       title,
@@ -1562,12 +3094,12 @@ export class JourneyPage implements OnInit, OnDestroy {
           this.showToast(this.translate.instant('JOURNEY.EDIT.SAVED'), 'success');
         }
         row.saving = false;
-        this.cdr.markForCheck();
+        this.refreshPhaseDetailModal();
       },
       error: (err) => {
         row.saving = false;
         this.showToast(err?.error?.message || this.translate.instant('JOURNEY.EDIT.SAVE_FAILED'), 'danger');
-        this.cdr.markForCheck();
+        this.refreshPhaseDetailModal();
       }
     });
     this.subs.push(sub);

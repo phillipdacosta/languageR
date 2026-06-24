@@ -14,6 +14,7 @@ export interface Notification {
     | 'office_hours_booking' | 'office_hours_starting' | 'office_hours_accepted'
     | 'lesson_analysis_ready' | 'class_cancelled' | 'class_auto_cancelled' | 'class_invitation_cancelled'
     | 'tutor_video_approved' | 'tutor_video_rejected'
+    | 'tutor_photo_approved' | 'tutor_photo_rejected'
     | 'payment_received' | 'lesson_refunded' | 'lesson_partial_refund' | 'payment_cancelled' | 'payment_reduced'
     | 'investigation_resolved' | 'dispute_submitted'
     | 'feedback_required' | 'tip_sent' | 'tip_received' | 'withdrawal_initiated'

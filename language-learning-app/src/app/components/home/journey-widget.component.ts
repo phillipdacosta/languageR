@@ -43,6 +43,8 @@ export class JourneyWidgetComponent implements OnChanges {
   @Input() nextLessonFocus = '';
   @Input() goalLabel = '';
   @Input() languageLabel = '';
+  /** When true, show a compact language picker in the top-right corner. */
+  @Input() showLanguagePicker = false;
 
   /** Rolling-window mastery average for the current phase (0–100), null if no lessons yet.
    *  Kept *internal*: drives the bar fill % only. We never display the number — see
@@ -89,6 +91,10 @@ export class JourneyWidgetComponent implements OnChanges {
   @Input() totalLessonsCompleted = 0;
   /** Human label like "Paused 3 days ago". Empty when unknown. */
   @Input() pausedSinceLabel = '';
+  /** True when an unframed plan was a structured plan before going own pace.
+   *  Suppresses the "Build me a plan" CTA — restoring is handled in Settings,
+   *  not by building a brand-new plan. */
+  @Input() hadStructuredPlan = false;
   /** Earned gamification badges to surface in the paused/unframed
    *  card's badge stack. Source of truth is `GamificationService`;
    *  parent passes the pre-filtered "earned only" subset. Each entry
@@ -118,6 +124,7 @@ export class JourneyWidgetComponent implements OnChanges {
   @Output() buildPlanTap = new EventEmitter<void>();
   /** Emitted from the paused-state CTA ("Resume my plan"). */
   @Output() resumePlanTap = new EventEmitter<void>();
+  @Output() languagePickerTap = new EventEmitter<void>();
 
   phaseNodes: Array<{ label: string; status: 'completed' | 'active' | 'locked' | 'destination'; index: number }> = [];
 
@@ -136,11 +143,17 @@ export class JourneyWidgetComponent implements OnChanges {
   visibleEarnedBadges: Array<{ id: string; icon: string; color: string; name: string }> = [];
   earnedBadgesOverflow = 0;
 
+  /** Whether the card responds to taps. False for unframed plans that had a
+   *  prior structure (informational only — restore lives in Settings). */
+  cardInteractive = false;
+
   ngOnChanges(_changes: SimpleChanges) {
     this.recomputePhaseNodes();
     this.recomputeMastery();
     this.recomputePhaseProgress();
     this.recomputeBadgeStack();
+    this.cardInteractive = this.state !== 'loading'
+      && !(this.state === 'unframed' && this.hadStructuredPlan);
   }
 
   private recomputePhaseNodes() {
@@ -225,6 +238,9 @@ export class JourneyWidgetComponent implements OnChanges {
     if (this.state === 'empty-goal') {
       this.setGoalTap.emit();
     } else if (this.state === 'unframed') {
+      // A plan that previously had structure shouldn't push "build me a
+      // plan" — restoring it lives in Settings. Keep the card informational.
+      if (this.hadStructuredPlan) return;
       this.buildPlanTap.emit();
     } else if (this.state === 'paused') {
       this.resumePlanTap.emit();

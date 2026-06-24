@@ -1,0 +1,28 @@
+<div class="journey-chest-modal-content">
+  <div class="rbq-card jmc-card" (click)="$event.stopPropagation()">
+    <div class="rbq-header">
+      <img [src]="revealed ? chestIconOpen : chestIconClosed" alt="" class="rbq-icon jmc-icon" />
+      <div class="rbq-header-copy">
+        <p class="rbq-kicker">{{ headerTitle }}</p>
+        <p class="rbq-header-sub" *ngIf="!revealed">{{ 'JOURNEY.CHEST.TAP_TO_OPEN' | translate }}</p>
+        <span class="jmc-tier" *ngIf="revealed" [attr.data-tier]="tier">{{ tierLabel }}</span>
+      </div>
+    </div>
+
+    <div class="rbq-scroll jmc-scroll">
+      <div class="jmc-burst" [class.jmc-burst--show]="revealed" [attr.data-tier]="tier" aria-hidden="true"></div>
+
+      <div class="rbq-pane rbq-pane--done jmc-pane" *ngIf="revealed">
+        <h2 class="rbq-title">{{ titleText }}</h2>
+        <p class="jmc-xp">+{{ xp }} XP</p>
+        <p class="jmc-total">{{ totalLabel }}</p>
+      </div>
+    </div>
+
+    <div class="rbq-footer">
+      <button type="button" class="rbq-btn rbq-btn--primary" (click)="onFooterPrimary()">
+        {{ footerLabelKey | translate }}
+      </button>
+    </div>
+  </div>
+</div>

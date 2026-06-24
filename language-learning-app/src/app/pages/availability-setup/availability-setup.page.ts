@@ -6,7 +6,7 @@ import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { AvailabilitySetupComponent } from '../../components/availability-setup/availability-setup.component';
 import { UserService } from '../../services/user.service';
-import { buildTutorProfileChecklist } from '../../services/tutor-growth.service';
+import { buildTutorProfileChecklistFromStatus, countCompletedProfileChecklistItems } from '../../services/tutor-growth.service';
 import { HasUnsavedChanges } from '../../guards/unsaved-changes.guard';
 
 @Component({
@@ -59,20 +59,9 @@ export class AvailabilitySetupPage implements OnInit, OnDestroy, ViewWillEnter, 
       return;
     }
 
-    const checklist = buildTutorProfileChecklist({
-      hasCustomPhoto: status.photoComplete === true,
-      hasVideo: status.videoComplete === true,
-      videoApproved: status.videoApproved === true,
-      identityRequired: status.identityRequired === true,
-      governmentIdUploaded: status.governmentIdUploaded === true,
-      identitySatisfied: status.identitySatisfied === true,
-      certificationsUploaded: status.certificationsUploaded === true,
-      certificationsApproved: status.certificationsApproved === true,
-      hasPayoutSetup: status.stripeComplete === true,
-      tosComplete: status.tosComplete === true,
-    });
+    const checklist = buildTutorProfileChecklistFromStatus(status);
 
-    const doneCount = checklist.filter(i => i.done && !i.pendingReview).length;
+    const doneCount = countCompletedProfileChecklistItems(checklist);
     this.profileBlocked = checklist.length > 0 && doneCount < checklist.length;
   }
 

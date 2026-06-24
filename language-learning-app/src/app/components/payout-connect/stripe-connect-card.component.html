@@ -1,6 +1,8 @@
 <div
   class="stripe-connect-card"
   [class.stripe-connect-card--connected]="connected"
+  [class.stripe-connect-card--pending]="pendingReview"
+  [class.stripe-connect-card--action-required]="actionRequired"
   [class.stripe-connect-card--compact]="compactLayout"
   [class.stripe-connect-card--hero]="connectedHeroLayout">
   <img
@@ -11,7 +13,7 @@
     height="30"
     decoding="async" />
 
-  <ng-container *ngIf="connected; else stripeSetup">
+  <ng-container *ngIf="connected; else stripeActionPendingOrSetup">
     <div class="stripe-connect-card__connected-badge">
       <ion-icon name="checkmark-circle" color="success"></ion-icon>
       <span>{{ 'TUTOR_APPROVAL.PAYMENT_VIA_STRIPE' | translate }}</span>
@@ -28,6 +30,45 @@
       <span *ngIf="!loading">{{ secondaryActionLabelKey | translate }}</span>
     </button>
   </ng-container>
+
+  <ng-template #stripeActionPendingOrSetup>
+    <ng-container *ngIf="actionRequired; else stripePendingOrSetup">
+      <div class="stripe-connect-card__action-badge">
+        <ion-icon name="alert-circle-outline" color="warning"></ion-icon>
+        <span>{{ 'TUTOR_APPROVAL.STRIPE_ACTION_BADGE' | translate }}</span>
+      </div>
+      <p class="stripe-connect-card__action-headline">{{ 'TUTOR_APPROVAL.STRIPE_ACTION_HEADLINE' | translate }}</p>
+      <p class="stripe-connect-card__action-desc">{{ actionRequiredDetailText || ('TUTOR_APPROVAL.STRIPE_ACTION_DESC' | translate) }}</p>
+      <button
+        type="button"
+        class="stripe-connect-card__cta"
+        [disabled]="loading"
+        (click)="connectClick.emit()">
+        <ion-spinner *ngIf="loading" name="crescent"></ion-spinner>
+        <span *ngIf="!loading">{{ 'TUTOR_APPROVAL.STRIPE_ACTION_CTA' | translate }}</span>
+      </button>
+    </ng-container>
+  </ng-template>
+
+  <ng-template #stripePendingOrSetup>
+    <ng-container *ngIf="pendingReview; else stripeSetup">
+      <div class="stripe-connect-card__pending-badge">
+        <ion-icon name="time-outline" color="warning"></ion-icon>
+        <span>{{ 'TUTOR_APPROVAL.STRIPE_PENDING_BADGE' | translate }}</span>
+      </div>
+      <p class="stripe-connect-card__pending-headline">{{ 'TUTOR_APPROVAL.STRIPE_PENDING_HEADLINE' | translate }}</p>
+      <p class="stripe-connect-card__pending-desc">{{ 'TUTOR_APPROVAL.STRIPE_PENDING_DESC' | translate }}</p>
+      <button
+        *ngIf="showSecondaryAction"
+        type="button"
+        class="stripe-connect-card__cta stripe-connect-card__cta--secondary"
+        [disabled]="loading"
+        (click)="secondaryActionClick.emit()">
+        <ion-spinner *ngIf="loading" name="crescent"></ion-spinner>
+        <span *ngIf="!loading">{{ secondaryActionLabelKey | translate }}</span>
+      </button>
+    </ng-container>
+  </ng-template>
 
   <ng-template #stripeSetup>
     <h2 class="stripe-connect-card__title">
@@ -89,13 +130,13 @@
           <span *ngIf="hasUSBankAccount">{{ 'TUTOR_APPROVAL.SUMMARY_US_BANK' | translate }}</span>
           <span *ngIf="!hasUSBankAccount">{{ 'TUTOR_APPROVAL.SUMMARY_NO_US_BANK' | translate }}</span>
         </div>
-        <ion-button fill="clear" size="small" (click)="editTaxInfoClick.emit()">
+        <ion-button *ngIf="showLegacyEdit" fill="clear" size="small" (click)="editTaxInfoClick.emit()">
           <ion-icon name="create-outline" slot="start"></ion-icon>
           {{ 'COMMON.EDIT' | translate }}
         </ion-button>
       </div>
 
-      <div class="button-row">
+      <div class="button-row" *ngIf="showLegacyBack">
         <ion-button fill="outline" (click)="backClick.emit()">
           <ion-icon name="arrow-back" slot="start"></ion-icon>
           {{ 'COMMON.BACK' | translate }}

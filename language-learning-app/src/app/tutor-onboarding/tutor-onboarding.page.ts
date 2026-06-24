@@ -1216,6 +1216,7 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewInit, Af
   }
 
   navigateToHome() {
+    try { sessionStorage.setItem('showTutorJourneyIntro', 'true'); } catch (_) {}
     const returnUrl = localStorage.getItem('returnUrl');
     if (returnUrl) {
       console.log('🔄 Tutor onboarding complete, returning to saved URL:', returnUrl);

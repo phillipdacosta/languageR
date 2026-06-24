@@ -26,12 +26,12 @@ interface EditablePhase {
 }
 
 /**
- * Post-onboarding "Your roadmap is ready" intro.
+ * Post-onboarding "Here's your first chapter" intro.
  *
  * Triggered from the home page (tab1) or journey page after onboarding.
- * Three slides explain the plan, then an optional inline edit wizard
- * (expands the modal to full-screen) lets the student personalise phases
- * before committing.
+ * Five slides explain the provisional first chapter, calibration, and the
+ * full journey map. An optional inline edit wizard lets the student
+ * personalise phases before committing.
  */
 @Component({
   selector: 'app-journey-intro',
@@ -117,7 +117,7 @@ interface EditablePhase {
 
       <ion-content>
 
-        <!-- ── Slide 0: actual plan phases ── -->
+        <!-- ── Slide 0: first-chapter intro (provisional) ── -->
         <div *ngIf="step === 0" class="ji-body ji-body--plan">
 
           <div class="ji-dots" aria-hidden="true">
@@ -126,6 +126,8 @@ interface EditablePhase {
                   [class.ji-dot--active]="i === step"
                   [class.ji-dot--done]="i < step"></span>
           </div>
+
+          <p class="ji-eyebrow">{{ 'JOURNEY.INTRO.S1_EYEBROW' | translate }}</p>
 
           <div class="ji-plan-header">
             <img
@@ -141,7 +143,44 @@ interface EditablePhase {
             </div>
           </div>
 
-          <div class="ji-phases" *ngIf="phaseLabels.length">
+          <p *ngIf="selfLevelLabel" class="ji-self-level">
+            {{ 'JOURNEY.INTRO.S1_SELF_LEVEL' | translate:{ level: selfLevelLabel } }}
+          </p>
+
+          <div class="ji-callout">
+            <ion-icon name="information-circle-outline" aria-hidden="true"></ion-icon>
+            <p>{{ 'JOURNEY.INTRO.S1_CALLOUT' | translate:{ language: languageDisplay } }}</p>
+          </div>
+        </div>
+
+        <!-- ── Slide 1: starting chapter map + phase steps ── -->
+        <div *ngIf="step === 1" class="ji-body ji-body--phases">
+          <div class="ji-dots ji-animate-in ji-animate-in--1" aria-hidden="true">
+            <span *ngFor="let _ of slides; let i = index"
+                  class="ji-dot"
+                  [class.ji-dot--active]="i === step"
+                  [class.ji-dot--done]="i < step"></span>
+          </div>
+
+          <div class="ji-chapter-hero-wrap ji-animate-in ji-animate-in--2" *ngIf="startingChapterPreview">
+            <div class="ji-chapter-hero" [style.background-image]="'url(' + startingChapterPreview.imageUrl + ')'"></div>
+            <div class="ji-chapter-meta">
+              <span class="ji-chapter-level">{{ startingChapterPreview.level }}</span>
+              <span class="ji-chapter-rung">{{ startingChapterPreview.rungKey | translate }}</span>
+            </div>
+          </div>
+
+          <div class="ji-callout ji-animate-in ji-animate-in--3">
+            <ion-icon name="information-circle-outline" aria-hidden="true"></ion-icon>
+            <p>{{ 'JOURNEY.INTRO.S1B_CALLOUT' | translate }}</p>
+          </div>
+
+          <p class="ji-phases-label ji-animate-in ji-animate-in--4">
+            {{ 'JOURNEY.INTRO.S1B_PHASES_LABEL' | translate }}
+          </p>
+          <p class="ji-desc ji-desc--sm ji-animate-in ji-animate-in--4">{{ 'JOURNEY.INTRO.S1B_BODY' | translate }}</p>
+
+          <div class="ji-phases ji-animate-in ji-animate-in--5" *ngIf="phaseLabels.length">
             <div *ngFor="let label of phaseLabels; let i = index" class="ji-phase-row">
               <div class="ji-phase-num">{{ i + 1 }}</div>
               <div class="ji-phase-label">{{ label }}</div>
@@ -150,8 +189,8 @@ interface EditablePhase {
           </div>
         </div>
 
-        <!-- ── Slide 1: adapts ── -->
-        <div *ngIf="step === 1" class="ji-body ji-body--explain">
+        <!-- ── Slide 2: adapts ── -->
+        <div *ngIf="step === 2" class="ji-body ji-body--explain">
           <div class="ji-dots ji-animate-in ji-animate-in--1" aria-hidden="true">
             <span *ngFor="let _ of slides; let i = index"
                   class="ji-dot"
@@ -173,11 +212,12 @@ interface EditablePhase {
             </div>
           </div>
           <p class="ji-desc ji-animate-in ji-animate-in--4">{{ 'JOURNEY.INTRO.S2_BODY' | translate }}</p>
-          <p class="ji-desc ji-desc--hint ji-animate-in ji-animate-in--5">{{ 'JOURNEY.INTRO.S2_HINT' | translate }}</p>
+          <p class="ji-desc ji-desc--hint ji-animate-in ji-animate-in--5">{{ 'JOURNEY.INTRO.S2_GUIDE' | translate }}</p>
+          <p class="ji-desc ji-desc--hint ji-animate-in ji-animate-in--6">{{ 'JOURNEY.INTRO.S2_HINT' | translate }}</p>
         </div>
 
-        <!-- ── Slide 2: journey maps glimpse ── -->
-        <div *ngIf="step === 2" class="ji-body ji-body--maps">
+        <!-- ── Slide 3: journey maps glimpse ── -->
+        <div *ngIf="step === 3" class="ji-body ji-body--maps">
           <div class="ji-dots ji-animate-in ji-animate-in--1" aria-hidden="true">
             <span *ngFor="let _ of slides; let i = index"
                   class="ji-dot"
@@ -193,10 +233,13 @@ interface EditablePhase {
               <div class="ji-maps-track">
                 <div *ngFor="let map of journeyMapPreviews; let i = index"
                      class="ji-map-card"
-                     [class.ji-map-card--start]="i === 0"
+                     [class.ji-map-card--start]="i === startingChapterIndex"
                      [class.ji-map-card--summit]="i === journeyMapPreviews.length - 1"
                      [style.--map-index]="i">
-                  <div class="ji-map-thumb" [style.background-image]="'url(' + map.imageUrl + ')'"></div>
+                  <div class="ji-map-thumb-wrap">
+                    <span *ngIf="i === startingChapterIndex" class="ji-map-start-badge">{{ 'JOURNEY.INTRO.MAP_START_HERE' | translate }}</span>
+                    <div class="ji-map-thumb" [style.background-image]="'url(' + map.imageUrl + ')'"></div>
+                  </div>
                   <div class="ji-map-meta">
                     <span class="ji-map-level">{{ map.level }}</span>
                     <span class="ji-map-rung">{{ map.rungKey | translate }}</span>
@@ -204,12 +247,12 @@ interface EditablePhase {
                 </div>
               </div>
             </div>
-            <p class="ji-desc ji-maps-caption">{{ 'JOURNEY.INTRO.S3_BODY' | translate }}</p>
+            <p class="ji-desc ji-maps-caption">{{ 'JOURNEY.INTRO.S3_BODY' | translate:{ chapter: startingChapterRungLabel } }}</p>
           </div>
         </div>
 
-        <!-- ── Slide 3: control ── -->
-        <div *ngIf="step === 3" class="ji-body ji-body--explain">
+        <!-- ── Slide 4: control ── -->
+        <div *ngIf="step === 4" class="ji-body ji-body--explain">
           <div class="ji-dots ji-animate-in ji-animate-in--1" aria-hidden="true">
             <span *ngFor="let _ of slides; let i = index"
                   class="ji-dot"
@@ -329,6 +372,48 @@ interface EditablePhase {
       padding-top: 116px;
     }
 
+    .ji-body--phases {
+      align-items: flex-start;
+      text-align: left;
+      justify-content: flex-start;
+      padding-top: 48px;
+    }
+
+    .ji-chapter-hero-wrap {
+      width: 100%;
+      margin-bottom: 20px;
+    }
+
+    .ji-chapter-hero {
+      width: 100%;
+      height: 148px;
+      border-radius: 16px;
+      background-size: cover;
+      background-position: center;
+      border: 2px solid #222222;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    }
+
+    .ji-chapter-meta {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .ji-chapter-level {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.2px;
+      color: #222222;
+    }
+
+    .ji-chapter-rung {
+      font-size: 14px;
+      font-weight: 500;
+      color: #717171;
+    }
+
     .ji-icon {
       width: 64px; height: 64px;
       border-radius: 18px;
@@ -348,7 +433,64 @@ interface EditablePhase {
 
     .ji-plan-header {
       display: flex; align-items: center; gap: 16px;
-      margin-bottom: 24px; width: 100%;
+      margin-bottom: 16px; width: 100%;
+    }
+
+    .ji-eyebrow {
+      margin: 0 0 12px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+      color: #717171;
+    }
+
+    .ji-self-level {
+      margin: 0 0 14px;
+      font-size: 14px;
+      font-weight: 500;
+      color: #484848;
+      letter-spacing: -0.1px;
+    }
+
+    .ji-callout {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      width: 100%;
+      margin-bottom: 20px;
+      padding: 14px 16px;
+      border-radius: 14px;
+      background: #f7f7f7;
+      border: 1px solid #ebebeb;
+
+      ion-icon {
+        font-size: 20px;
+        color: #717171;
+        flex-shrink: 0;
+        margin-top: 1px;
+      }
+
+      p {
+        margin: 0;
+        font-size: 14px;
+        line-height: 1.5;
+        color: #484848;
+        letter-spacing: -0.1px;
+      }
+    }
+
+    .ji-phases-label {
+      margin: 0 0 8px;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+      color: #717171;
+    }
+
+    .ji-body--phases .ji-desc--sm {
+      margin-bottom: 16px;
     }
 
     .ji-hero-mascot {
@@ -427,6 +569,7 @@ interface EditablePhase {
     .ji-animate-in--3 { animation-delay: 0.2s; }
     .ji-animate-in--4 { animation-delay: 0.28s; }
     .ji-animate-in--5 { animation-delay: 0.36s; }
+    .ji-animate-in--6 { animation-delay: 0.44s; }
 
     .ji-body--explain {
       justify-content: flex-start;
@@ -656,6 +799,7 @@ interface EditablePhase {
       bottom: 64px;
       opacity: 0;
       animation: jiSoftRise 0.55s cubic-bezier(0.32, 0.72, 0, 1) 0.42s forwards;
+      overflow: visible;
     }
 
     .ji-maps-track {
@@ -665,11 +809,12 @@ interface EditablePhase {
       justify-content: center;
       flex-wrap: nowrap;
       overflow-x: auto;
+      overflow-y: visible;
       scroll-snap-type: x mandatory;
       -webkit-overflow-scrolling: touch;
       scrollbar-width: none;
       height: 100%;
-      padding: 20px 24px 8px;
+      padding: 32px 24px 8px;
       mask-image: linear-gradient(to right, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
 
       &::-webkit-scrollbar {
@@ -698,6 +843,7 @@ interface EditablePhase {
       align-items: center;
       position: relative;
       z-index: 1;
+      overflow: visible;
       opacity: 0;
       transform: translateY(10px);
       animation: jiMapChipIn 0.42s cubic-bezier(0.32, 0.72, 0, 1) forwards;
@@ -713,6 +859,11 @@ interface EditablePhase {
         opacity: 1;
         transform: translateY(0);
       }
+    }
+
+    .ji-map-thumb-wrap {
+      position: relative;
+      flex-shrink: 0;
     }
 
     .ji-map-thumb {
@@ -752,6 +903,23 @@ interface EditablePhase {
 
     .ji-map-card--start .ji-map-thumb {
       border-color: #222222;
+    }
+
+    .ji-map-start-badge {
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: #222222;
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+      white-space: nowrap;
+      z-index: 2;
+      pointer-events: none;
     }
 
     .ji-map-card--summit .ji-map-thumb {
@@ -966,6 +1134,19 @@ interface EditablePhase {
       .ji-phase-line { background: #3a3a3c; }
       .ji-phase-label { color: #f5f5f7; }
       .ji-title { color: #f5f5f7; }
+      .ji-eyebrow { color: #8e8e93; }
+      .ji-self-level { color: #98989d; }
+      .ji-callout {
+        background: #2c2c2e;
+        border-color: rgba(255,255,255,.08);
+        ion-icon { color: #8e8e93; }
+        p { color: #98989d; }
+      }
+      .ji-phases-label { color: #8e8e93; }
+      .ji-chapter-hero { border-color: #f5f5f7; }
+      .ji-chapter-level { color: #f5f5f7; }
+      .ji-chapter-rung { color: #8e8e93; }
+      .ji-map-start-badge { background: #f5f5f7; color: #000000; }
       .ji-empty-title { color: #f5f5f7; }
       .ji-empty-title-tail { color: #98989d; }
       .ji-desc { color: #8e8e93; }
@@ -1000,6 +1181,22 @@ interface EditablePhase {
   `]
 })
 export class JourneyIntroComponent implements OnInit {
+  private static readonly SELF_LEVEL_KEYS: Record<string, string> = {
+    complete_beginner: 'ONBOARDING.STUDENT.LEVEL_OPTION_COMPLETE_BEGINNER',
+    some_basics: 'ONBOARDING.STUDENT.LEVEL_OPTION_SOME_BASICS',
+    simple_conversations: 'ONBOARDING.STUDENT.LEVEL_OPTION_SIMPLE_CONVERSATIONS',
+    intermediate: 'ONBOARDING.STUDENT.LEVEL_OPTION_INTERMEDIATE',
+    advanced: 'ONBOARDING.STUDENT.LEVEL_OPTION_ADVANCED',
+  };
+
+  private static readonly SELF_ASSESSED_TO_CHAPTER_INDEX: Record<string, number> = {
+    complete_beginner: 0,
+    some_basics: 0,
+    simple_conversations: 1,
+    intermediate: 2,
+    advanced: 4,
+  };
+
   @Input() phaseLabels: string[] = [];
   /** Full plan object — needed to populate the edit wizard */
   @Input() plan: any = null;
@@ -1013,7 +1210,7 @@ export class JourneyIntroComponent implements OnInit {
   @Output() done = new EventEmitter<'done' | 'edit' | 'skip'>();
 
   step = 0;
-  slides = [0, 1, 2, 3];
+  slides = [0, 1, 2, 3, 4];
 
   readonly journeyMapPreviews: JourneyMapPreview[] = [
     { level: 'A1', theme: 'a1-desert', imageUrl: 'assets/journey-backgrounds/a1-desert.png', rungKey: 'JOURNEY.INTRO.MAP_RUNG_START' },
@@ -1033,6 +1230,11 @@ export class JourneyIntroComponent implements OnInit {
   expanded = false;
   editPhases: EditablePhase[] = [];
   isSaving = false;
+  languageDisplay = '';
+  selfLevelLabel = '';
+  startingChapterIndex = 0;
+  startingChapterPreview: JourneyMapPreview | null = null;
+  startingChapterRungLabel = '';
 
   constructor(
     private modalCtrl: ModalController,
@@ -1044,6 +1246,18 @@ export class JourneyIntroComponent implements OnInit {
   ) {}
 
   ngOnInit() {
+    this.languageDisplay = (this.language || '').trim() || 'your target language';
+    const levelKey = JourneyIntroComponent.SELF_LEVEL_KEYS[this.plan?.selfAssessedLevel || ''];
+    this.selfLevelLabel = levelKey ? this.translate.instant(levelKey) : '';
+
+    const planChapterIndex = typeof this.plan?.chapterIndex === 'number'
+      ? this.plan.chapterIndex
+      : null;
+    const selfChapterIndex = JourneyIntroComponent.SELF_ASSESSED_TO_CHAPTER_INDEX[this.plan?.selfAssessedLevel || ''];
+    this.startingChapterIndex = Math.max(0, Math.min(5, planChapterIndex ?? selfChapterIndex ?? 0));
+    this.startingChapterPreview = this.journeyMapPreviews[this.startingChapterIndex] || this.journeyMapPreviews[0];
+    this.startingChapterRungLabel = this.translate.instant(this.startingChapterPreview.rungKey);
+
     if (this.plan?.phases) {
       this.editPhases = this.plan.phases.map((p: any) => ({
         title: p.title || '',

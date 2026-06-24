@@ -25,6 +25,7 @@ export class ImageCropperComponent implements OnInit {
   containWithinAspectRatio = false;
   transform: any = {};
   cropReady = false;
+  isCropping = false;
 
   constructor(private modalController: ModalController) {}
 
@@ -94,7 +95,10 @@ export class ImageCropperComponent implements OnInit {
   }
 
   async crop() {
-    if (!this.cropper) return;
+    if (!this.cropper || this.isCropping) {
+      return;
+    }
+    this.isCropping = true;
     try {
       const result = await this.cropper.crop('blob');
       if (result?.blob) {
@@ -102,6 +106,8 @@ export class ImageCropperComponent implements OnInit {
       }
     } catch {
       await this.modalController.dismiss(null, 'cancel');
+    } finally {
+      this.isCropping = false;
     }
   }
 }

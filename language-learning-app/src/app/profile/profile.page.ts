@@ -21,21 +21,47 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { environment } from '../../environments/environment';
 import {
   buildStripeConnectPayloadForProfilePayout,
+  classifyStripeReturnStatus,
   openStripeExternalUrl,
   parseStripeConnectReturnParams,
   stripStripeConnectQueryParams,
   StripeConnectReturnState,
+  STRIPE_RETURN_TOAST_KEYS,
 } from '../utils/stripe-connect.util';
+import { TranslateService } from '@ngx-translate/core';
 import { isStripeSupportedCountry } from '../data/stripe-supported-countries';
 import { TutorFeedbackService } from '../services/tutor-feedback.service';
 import { LearningPlanService } from '../services/learning-plan.service';
 import { SetGoalComponent } from '../modals/set-goal/set-goal.component';
 import {
+  LanguagePlanManageItem,
+  LanguagePlanManageModalComponent,
+} from '../components/language-plan-manage-modal/language-plan-manage-modal.component';
+import {
   TutorGrowthService,
   ProfileChecklistItem,
-  buildTutorProfileChecklist,
+  buildTutorProfileChecklistFromStatus,
+  countCompletedProfileChecklistItems,
   mapProfileChecklistIdToApprovalWizardStepId
 } from '../services/tutor-growth.service';
+
+type ProfilePlanStatus = 'draft' | 'active' | 'completed' | 'paused' | 'mastery_mode' | 'unframed';
+
+interface ProfileLanguagePlanItem extends LanguagePlanManageItem {
+  status: ProfilePlanStatus | null;
+  isPremium: boolean;
+  hasStructuredPlan: boolean;
+  isPaused: boolean;
+  isUnframed: boolean;
+  goalTypeKey: string;
+  goalCustomDesc: string;
+  goalIcon: string;
+  goalLevelKey: string;
+  goalTimelineKey: string;
+  goalTimelineDate: string;
+  goalCooldownActive: boolean;
+  goalCooldownDateDisplay: string;
+}
 
 @Component({
   selector: 'app-profile',
@@ -79,6 +105,9 @@ export class ProfilePage implements OnInit, ViewWillEnter {
 
   // Stripe Connect (for tutors)
   stripeConnectOnboarded = false;
+  stripePayoutPendingReview = false;
+  stripePayoutActionRequired = false;
+  stripeRequirementsCurrentlyDue: string[] = [];
   isLoadingStripeConnect = false;
   private destroy$ = new Subject<void>();
 
@@ -148,6 +177,9 @@ export class ProfilePage implements OnInit, ViewWillEnter {
   isUnframed: boolean = false;
   isPaused: boolean = false;
   hasStructuredPlan: boolean = false;
+  languagePlanItems: ProfileLanguagePlanItem[] = [];
+  hasMultiplePlanLanguages = false;
+  planPickerSubtitle = '';
 
   // CEFR estimate (Batch 12). Populated from the same /learning-plan/:lang
   // endpoint we already call for the goal display.
@@ -205,6 +237,7 @@ export class ProfilePage implements OnInit, ViewWillEnter {
     private tutorFeedbackService: TutorFeedbackService,
     private learningPlanService: LearningPlanService,
     private tutorGrowthService: TutorGrowthService,
+    private translateService: TranslateService,
     private cdr: ChangeDetectorRef
   ) {
     this.user$ = this.authService.user$;
@@ -239,11 +272,11 @@ export class ProfilePage implements OnInit, ViewWillEnter {
       .subscribe(status => {
         this.tutorApprovalStatusSnapshot = status;
         if (status) {
-          // Note: stripeComplete now includes PayPal and Manual methods too (confusingly named)
-          // But we should NOT overwrite hasPayoutSetup here - let checkPayoutStatus() handle it
-          // to avoid confusion between payout providers
-          this.stripeConnectOnboarded = status.stripeComplete;
-          console.log(`💰 [PROFILE] Payment status from service: ${this.stripeConnectOnboarded}`);
+          this.stripeConnectOnboarded = status.stripeConnectOnboarded === true;
+          this.stripePayoutPendingReview = status.stripePendingReview === true;
+          this.stripePayoutActionRequired = status.stripeActionRequired === true;
+          this.stripeRequirementsCurrentlyDue = status.stripeRequirementsCurrentlyDue || [];
+          console.log(`💰 [PROFILE] Payment status from service: onboarded=${this.stripeConnectOnboarded}, pending=${this.stripePayoutPendingReview}`);
           this.applyProfileChecklistFromStatus(status);
         }
       });
@@ -253,6 +286,8 @@ export class ProfilePage implements OnInit, ViewWillEnter {
       if (this.isTutor()) {
         this.payoutProvider = payoutStatus.provider;
         this.hasPayoutSetup = payoutStatus.hasPayoutSetup;
+        this.stripePayoutPendingReview = payoutStatus.stripePendingReview === true;
+        this.stripePayoutActionRequired = payoutStatus.stripeActionRequired === true;
         this.payoutOptions = payoutStatus.options;
         
         if (this.payoutProvider === 'stripe') {
@@ -520,13 +555,17 @@ export class ProfilePage implements OnInit, ViewWillEnter {
       missingItems.push('Complete onboarding');
     }
     
-    // Check 2: Custom profile photo uploaded (not just Google/Auth0 default)
-    const hasCustomPhoto = !!(user.picture && (
+    // Check 2: Custom profile photo uploaded and admin-approved
+    const hasPendingPhoto = !!(user.onboardingData?.pendingPhoto && user.onboardingData.pendingPhoto.trim());
+    const hasApprovedCustomPhoto = !!(user.picture && (
       user.picture.includes('storage.googleapis.com') ||
       (user.auth0Picture && user.picture !== user.auth0Picture)
     ));
-    if (!hasCustomPhoto) {
-      missingItems.push('Upload profile photo');
+    const photoApproved = user.tutorOnboarding?.photoApproved === true || (
+      hasApprovedCustomPhoto && !hasPendingPhoto && user.tutorOnboarding?.photoRejected !== true
+    );
+    if (!photoApproved) {
+      missingItems.push(hasPendingPhoto || hasApprovedCustomPhoto ? 'Photo pending approval' : 'Upload profile photo');
     }
     
     // Check 3: Tutor fully approved (video + credentials all approved by admin)
@@ -558,7 +597,7 @@ export class ProfilePage implements OnInit, ViewWillEnter {
     }
     
     // All conditions must be met
-    this.isTutorVisible = onboardingCompleted && hasCustomPhoto && tutorApproved && hasPayoutMethod && !hasPendingFeedback;
+    this.isTutorVisible = onboardingCompleted && photoApproved && tutorApproved && hasPayoutMethod && !hasPendingFeedback;
     this.visibilityMissingItems = missingItems;
     this.visibilityMissingText = missingItems.join(' · ');
     
@@ -628,23 +667,10 @@ export class ProfilePage implements OnInit, ViewWillEnter {
       return;
     }
 
-    const checklist = buildTutorProfileChecklist({
-      hasCustomPhoto: status.photoComplete === true,
-      hasVideo: status.videoComplete === true,
-      videoApproved: status.videoApproved === true,
-      identityRequired: status.identityRequired === true,
-      governmentIdUploaded: status.governmentIdUploaded === true,
-      identitySatisfied: status.identitySatisfied === true,
-      certificationsUploaded: status.certificationsUploaded === true,
-      certificationsApproved: status.certificationsApproved === true,
-      hasPayoutSetup: status.stripeComplete === true,
-      tosComplete: status.tosComplete === true,
-    });
+    const checklist = buildTutorProfileChecklistFromStatus(status);
 
     this.profileChecklist = checklist;
-    this.profileChecklistDoneCount = checklist.filter(
-      (i) => i.done && !i.pendingReview
-    ).length;
+    this.profileChecklistDoneCount = countCompletedProfileChecklistItems(checklist);
     this.profileChecklistTotal = checklist.length;
     this.hasProfileCriticalInsights = this.profileChecklistDoneCount < checklist.length;
     this.tutorGrowthService.profileChecklist = checklist;
@@ -853,29 +879,7 @@ export class ProfilePage implements OnInit, ViewWillEnter {
       this.learningGoalTimelineDate = '';
     }
 
-    // Check cooldown from any existing plan
-    if (user?.onboardingData?.languages?.length) {
-      this.planLanguage = user.onboardingData.languages[0];
-      this.learningPlanService.getPlan(this.planLanguage)
-        .pipe(take(1)).subscribe({
-          next: (res: any) => {
-            if (res.plan?.lastGoalChangedAt) {
-              const lastChanged = new Date(res.plan.lastGoalChangedAt);
-              const daysSince = (Date.now() - lastChanged.getTime()) / (1000 * 60 * 60 * 24);
-              if (daysSince < 7) {
-                this.goalCooldownActive = true;
-                const nextDate = new Date(lastChanged.getTime() + 7 * 24 * 60 * 60 * 1000);
-                this.goalCooldownDateDisplay = nextDate.toLocaleDateString('en-US', {
-                  month: 'short', day: 'numeric', year: 'numeric'
-                });
-              }
-            }
-            this.applyPlanLifecycleFromPlan(res?.plan, res?.entitlements);
-            this.applyCefrFromPlan(res?.plan);
-          },
-          error: () => {}
-        });
-    }
+    this.loadProfileLanguagePlans(user);
   }
 
   /**
@@ -883,8 +887,9 @@ export class ProfilePage implements OnInit, ViewWillEnter {
    * response. Drives the visibility of the Pause / Resume / Skip actions and
    * the tier-aware copy that surrounds them.
    */
-  private applyPlanLifecycleFromPlan(plan: any, entitlements: any) {
+  private applyPlanLifecycleFromPlan(plan: any, entitlements: any, language?: string) {
     this.planStatus = plan?.status || null;
+    this.planLanguage = language || plan?.language || this.planLanguage;
     this.planIsPremium = entitlements?.tier === 'premium';
     this.isUnframed = plan?.status === 'unframed';
     this.isPaused = plan?.status === 'paused';
@@ -892,6 +897,356 @@ export class ProfilePage implements OnInit, ViewWillEnter {
       && plan.status !== 'unframed'
       && plan.status !== 'paused'
       && (plan.phases?.length || 0) > 0;
+  }
+
+  private extractStudentPlanLanguages(user: any): string[] {
+    const rawLanguages = [
+      ...(user?.onboardingData?.languages || []),
+      ...(user?.languagesLearning || []),
+      ...(user?.onboardingData?.languagesLearning || [])
+    ];
+    return this.uniqueLanguages(rawLanguages);
+  }
+
+  private async loadProfileLanguagePlans(user: any): Promise<void> {
+    const profileLanguages = this.extractStudentPlanLanguages(user);
+    const studentId = (user as any)?._id || user?.id;
+    let summaryLanguages: string[] = [];
+    if (studentId) {
+      try {
+        const summaryRes: any = await firstValueFrom(
+          this.learningPlanService.getStudentPlanSummary(String(studentId)).pipe(take(1))
+        );
+        summaryLanguages = (summaryRes?.summaries || [])
+          .map((summary: any) => String(summary?.language || '').trim())
+          .filter(Boolean);
+      } catch (_) {
+        summaryLanguages = [];
+      }
+    }
+
+    const languages = this.uniqueLanguages([...summaryLanguages, ...profileLanguages]);
+    this.languagePlanItems = [];
+    this.hasMultiplePlanLanguages = languages.length > 1;
+    this.planPickerSubtitle = this.hasMultiplePlanLanguages
+      ? 'Choose which language plan you want to pause, resume, or switch to your own pace.'
+      : '';
+
+    this.goalCooldownActive = false;
+    this.goalCooldownDateDisplay = '';
+
+    if (!languages.length) {
+      this.applyPlanLifecycleFromPlan(null, null, '');
+      this.applyCefrFromPlan(null);
+      return;
+    }
+
+    const results = await Promise.all(languages.map(async (language) => {
+      try {
+        const res: any = await firstValueFrom(this.learningPlanService.getPlan(language).pipe(take(1)));
+        return { language, res };
+      } catch (_) {
+        return { language, res: null };
+      }
+    }));
+
+    this.languagePlanItems = results
+      .filter(({ res }) => !!res?.plan)
+      .map(({ language, res }) => this.buildLanguagePlanItem(language, res.plan, res.entitlements));
+
+    const primary = results.find(({ res }) => !!res?.plan && res.plan.status !== 'unframed') || results.find(({ res }) => !!res?.plan);
+    if (primary?.res?.plan) {
+      this.applyPlanLifecycleFromPlan(primary.res.plan, primary.res.entitlements, primary.language);
+      this.applyCefrFromPlan(primary.res.plan);
+      this.syncPrimaryGoalDisplayFromPlan(primary.res.plan);
+    } else {
+      this.applyPlanLifecycleFromPlan(null, null, languages[0]);
+      this.applyCefrFromPlan(null);
+    }
+    this.cdr.markForCheck();
+  }
+
+  /** Mirror the primary plan's per-language goal into legacy single-plan fields. */
+  private syncPrimaryGoalDisplayFromPlan(plan: any): void {
+    const display = this.buildGoalDisplayFromPlan(plan);
+    this.learningGoalTypeKey = display.goalTypeKey;
+    this.learningGoalCustomDesc = display.goalCustomDesc;
+    this.learningGoalIcon = display.goalIcon;
+    this.learningGoalLevelKey = display.goalLevelKey;
+    this.learningGoalTimelineKey = display.goalTimelineKey;
+    this.learningGoalTimelineDate = display.goalTimelineDate;
+    this.goalCooldownActive = display.goalCooldownActive;
+    this.goalCooldownDateDisplay = display.goalCooldownDateDisplay;
+  }
+
+  private uniqueLanguages(languages: string[]): string[] {
+    const seen = new Set<string>();
+    return languages
+      .map((lang: string) => String(lang || '').trim())
+      .filter((lang: string) => {
+        const key = lang.toLowerCase();
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+  }
+
+  private applyGoalCooldownFromPlan(plan: any): void {
+    const cooldown = this.computeGoalCooldownFields(plan?.lastGoalChangedAt);
+    this.goalCooldownActive = cooldown.active;
+    this.goalCooldownDateDisplay = cooldown.dateDisplay;
+  }
+
+  private static readonly GOAL_ICONS: Record<string, string> = {
+    conversational: 'chatbubbles-outline',
+    exam_prep: 'school-outline',
+    professional: 'briefcase-outline',
+    travel: 'airplane-outline',
+    relocation: 'home-outline',
+    other: 'sparkles-outline',
+  };
+
+  private static readonly GOAL_LEVEL_KEY_MAP: Record<string, string> = {
+    complete_beginner: 'ONBOARDING.STUDENT.LEVEL_OPTION_COMPLETE_BEGINNER',
+    some_basics: 'ONBOARDING.STUDENT.LEVEL_OPTION_SOME_BASICS',
+    simple_conversations: 'ONBOARDING.STUDENT.LEVEL_OPTION_SIMPLE_CONVERSATIONS',
+    intermediate: 'ONBOARDING.STUDENT.LEVEL_OPTION_INTERMEDIATE',
+    advanced: 'ONBOARDING.STUDENT.LEVEL_OPTION_ADVANCED',
+  };
+
+  private buildGoalDisplayFromPlan(plan: any): Pick<
+    ProfileLanguagePlanItem,
+    | 'goalTypeKey'
+    | 'goalCustomDesc'
+    | 'goalIcon'
+    | 'goalLevelKey'
+    | 'goalTimelineKey'
+    | 'goalTimelineDate'
+    | 'goalCooldownActive'
+    | 'goalCooldownDateDisplay'
+  > {
+    const goal = plan?.goal;
+    const empty = {
+      goalTypeKey: '',
+      goalCustomDesc: '',
+      goalIcon: 'rocket-outline',
+      goalLevelKey: '',
+      goalTimelineKey: '',
+      goalTimelineDate: '',
+      goalCooldownActive: false,
+      goalCooldownDateDisplay: '',
+    };
+    if (!goal?.type) return empty;
+
+    let goalTypeKey = '';
+    let goalCustomDesc = '';
+    if (goal.type === 'other') {
+      goalCustomDesc = goal.description || 'LEARNING_PLAN.GOAL_LABEL_OTHER';
+    } else {
+      goalTypeKey = `LEARNING_PLAN.GOAL_LABEL_${String(goal.type).toUpperCase()}`;
+    }
+
+    const selfLevel = goal.selfAssessedLevel || plan?.selfAssessedLevel || '';
+    let goalTimelineKey = 'ONBOARDING.STUDENT.TIMELINE_OPTION_NO_RUSH';
+    let goalTimelineDate = '';
+    if (goal.timeline === 'specific_date' && goal.targetDate) {
+      goalTimelineKey = 'ONBOARDING.STUDENT.PREVIEW_TIMELINE_BY_DATE';
+      goalTimelineDate = new Date(goal.targetDate).toLocaleDateString();
+    } else if (goal.timeline === 'few_months') {
+      goalTimelineKey = 'ONBOARDING.STUDENT.TIMELINE_OPTION_FEW_MONTHS';
+    }
+
+    const cooldown = this.computeGoalCooldownFields(plan?.lastGoalChangedAt);
+
+    return {
+      goalTypeKey,
+      goalCustomDesc,
+      goalIcon: ProfilePage.GOAL_ICONS[goal.type] || 'rocket-outline',
+      goalLevelKey: selfLevel
+        ? (ProfilePage.GOAL_LEVEL_KEY_MAP[selfLevel] || '')
+        : '',
+      goalTimelineKey,
+      goalTimelineDate,
+      goalCooldownActive: cooldown.active,
+      goalCooldownDateDisplay: cooldown.dateDisplay,
+    };
+  }
+
+  private computeGoalCooldownFields(lastGoalChangedAt?: string | Date | null): {
+    active: boolean;
+    dateDisplay: string;
+  } {
+    if (!lastGoalChangedAt) return { active: false, dateDisplay: '' };
+    const lastChanged = new Date(lastGoalChangedAt);
+    const daysSince = (Date.now() - lastChanged.getTime()) / (1000 * 60 * 60 * 24);
+    if (daysSince >= 7) return { active: false, dateDisplay: '' };
+    const nextDate = new Date(lastChanged.getTime() + 7 * 24 * 60 * 60 * 1000);
+    return {
+      active: true,
+      dateDisplay: nextDate.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      }),
+    };
+  }
+
+  private buildLanguagePlanItem(language: string, plan: any, entitlements: any): ProfileLanguagePlanItem {
+    const status = (plan?.status || null) as ProfilePlanStatus | null;
+    const hasStructuredPlan = !!plan
+      && status !== 'unframed'
+      && status !== 'paused'
+      && (plan.phases?.length || 0) > 0;
+    const statusLabelMap: Record<ProfilePlanStatus, string> = {
+      draft: 'Initial plan',
+      active: 'Active plan',
+      completed: 'Completed',
+      paused: 'Paused',
+      mastery_mode: 'Mastery mode',
+      unframed: 'Own pace'
+    };
+    const statusToneMap: Record<ProfilePlanStatus, ProfileLanguagePlanItem['statusTone']> = {
+      draft: 'active',
+      active: 'active',
+      completed: 'complete',
+      paused: 'paused',
+      mastery_mode: 'active',
+      unframed: 'unframed'
+    };
+    const descriptionMap: Record<ProfilePlanStatus, string> = {
+      draft: 'Your roadmap is ready and will tune itself after lessons.',
+      active: 'Your roadmap is adapting after each lesson.',
+      completed: 'This roadmap is complete.',
+      paused: 'Progress is saved. Resume when you want to continue this roadmap.',
+      mastery_mode: 'You are reviewing and strengthening advanced skills.',
+      unframed: 'You are learning without a structured roadmap.'
+    };
+
+    return {
+      language,
+      status,
+      statusLabel: status ? statusLabelMap[status] : 'No plan',
+      statusTone: status ? statusToneMap[status] : 'neutral',
+      description: status ? descriptionMap[status] : 'No learning plan has been created for this language yet.',
+      isPremium: entitlements?.tier === 'premium',
+      hasStructuredPlan,
+      isPaused: status === 'paused',
+      isUnframed: status === 'unframed',
+      canPause: hasStructuredPlan,
+      canResume: status === 'paused',
+      canSkip: !!plan && status !== 'unframed' && status !== 'completed',
+      canBuildPlan: status === 'unframed',
+      hadStructuredPlan: status === 'unframed' && (
+        !!plan?.hadStructuredPlan
+        || (plan?.lessonsAtUnframed || 0) > 0
+        || (Array.isArray(plan?.chaptersCompleted) && plan.chaptersCompleted.length > 0)
+        || !!plan?.revealedCefrLevel?.level
+        || (!!plan?.goal?.type && plan.goal.type !== 'other')
+      ),
+      ...this.buildGoalDisplayFromPlan(plan),
+    };
+  }
+
+  /** Opens the goal editor scoped to one language plan (multi-plan profile). */
+  async openGoalEditorForPlan(plan: ProfileLanguagePlanItem): Promise<void> {
+    this.planLanguage = plan.language;
+    this.isUnframed = plan.isUnframed;
+    await this.openGoalEditor();
+  }
+
+  async openPlanPickerModal(): Promise<void> {
+    const modal = await this.modalController.create({
+      component: LanguagePlanManageModalComponent,
+      componentProps: {
+        subtitle: this.planPickerSubtitle,
+        planItems: this.languagePlanItems,
+      },
+      cssClass: 'language-plan-modal',
+      backdropDismiss: true,
+    });
+    await modal.present();
+    const { data } = await modal.onDidDismiss();
+    if (!data?.action || !data?.language) return;
+
+    const plan = this.languagePlanItems.find(
+      (item) => item.language.toLowerCase() === String(data.language).toLowerCase()
+    );
+    if (!plan) return;
+
+    if (data.action === 'pause') {
+      await this.pauseLanguagePlan(plan);
+    } else if (data.action === 'resume') {
+      await this.resumeLanguagePlan(plan);
+    } else if (data.action === 'skip') {
+      await this.skipLanguagePlan(plan);
+    } else if (data.action === 'promote') {
+      await this.promoteLanguagePlan(plan);
+    } else if (data.action === 'restore') {
+      await this.restoreLanguagePlan(plan);
+    }
+  }
+
+  /** Revert a "learn at own pace" plan back to a structured plan by setting a
+   *  goal. Opens the same goal-picker used by the single-plan unframed flow. */
+  async promoteLanguagePlan(plan: ProfileLanguagePlanItem) {
+    if (!plan.canBuildPlan) return;
+    await this.openGoalEditorForLanguage(plan.language);
+  }
+
+  /** Restore a previously-structured own-pace plan, reusing its saved goal so
+   *  the student picks up their roadmap instead of starting over. Falls back
+   *  to the goal-picker build flow if the server has no usable saved goal. */
+  async restoreLanguagePlan(plan: ProfileLanguagePlanItem) {
+    if (!plan.canBuildPlan) return;
+    const language = plan.language;
+    const loading = await this.loadingController.create({ message: `Restoring ${language}...` });
+    await loading.present();
+    this.learningPlanService.restorePlan(language).pipe(take(1)).subscribe({
+      next: async (res: any) => {
+        await loading.dismiss();
+        if (res?.success && res.plan) {
+          this.refreshLanguagePlanItem(language, res.plan, res.entitlements);
+          const toast = await this.toastController.create({
+            message: `Your ${language} plan is back. Welcome back.`,
+            duration: 2500, position: 'top'
+          });
+          await toast.present();
+        }
+      },
+      error: async (err: any) => {
+        await loading.dismiss();
+        // No saved goal to restore — fall back to building a fresh plan.
+        if (err?.status === 409 || err?.error?.needsGoal) {
+          await this.openGoalEditorForLanguage(language);
+          return;
+        }
+        const toast = await this.toastController.create({
+          message: 'Could not restore your plan. Please try again.',
+          duration: 2500, color: 'danger', position: 'top'
+        });
+        await toast.present();
+      }
+    });
+  }
+
+  private async openGoalEditorForLanguage(language: string) {
+    const modal = await this.modalController.create({
+      component: SetGoalComponent,
+      cssClass: 'set-goal-modal',
+      backdropDismiss: true,
+      componentProps: { language }
+    });
+    await modal.present();
+    const result = await modal.onDidDismiss();
+    if (result?.data?.saved) {
+      // Re-pull the promoted plan so its profile card flips from "Own pace"
+      // to the structured state. The goal modal already broadcasts via
+      // planUpdates$, so the home journey widget refreshes independently.
+      this.learningPlanService.getPlan(language).pipe(take(1)).subscribe({
+        next: (res: any) => this.refreshLanguagePlanItem(language, res?.plan, res?.entitlements),
+        error: () => {}
+      });
+    }
   }
 
   private applyCefrFromPlan(plan: any) {
@@ -934,10 +1289,23 @@ export class ProfilePage implements OnInit, ViewWillEnter {
    * the simpler "we'll save your progress" copy.
    */
   async pauseMyPlan() {
+    if (this.hasMultiplePlanLanguages) {
+      this.openPlanPickerModal();
+      return;
+    }
     if (!this.planLanguage || !this.hasStructuredPlan) return;
-    const message = this.planIsPremium
+    await this.confirmPauseLanguagePlan(this.planLanguage, this.planIsPremium);
+  }
+
+  async pauseLanguagePlan(plan: ProfileLanguagePlanItem) {
+    if (!plan.canPause) return;
+    await this.confirmPauseLanguagePlan(plan.language, plan.isPremium);
+  }
+
+  private async confirmPauseLanguagePlan(language: string, isPremium: boolean) {
+    const message = isPremium
       ? `<p style="margin:0 0 12px;font-size:14px;line-height:1.55;color:#222;">
-           Pausing keeps everything as-is. Your phases, chapter history, and
+           Pausing your <strong>${language}</strong> plan keeps everything as-is. Your phases, chapter history, and
            CEFR estimate are preserved.
          </p>
          <p style="margin:0;font-size:13px;line-height:1.5;color:#555;">
@@ -946,29 +1314,29 @@ export class ProfilePage implements OnInit, ViewWillEnter {
            running. Resume any time.
          </p>`
       : `<p style="margin:0 0 12px;font-size:14px;line-height:1.55;color:#222;">
-           Pausing keeps everything as-is. Your phases and history are
+           Pausing your <strong>${language}</strong> plan keeps everything as-is. Your phases and history are
            preserved.
          </p>
          <p style="margin:0;font-size:13px;line-height:1.5;color:#555;">
            Resume any time — we'll pick up right where you left off.
          </p>`;
     const alert = await this.alertController.create({
-      header: 'Pause my plan?',
+      header: `Pause ${language} plan?`,
       message,
       buttons: [
         { text: 'Cancel', role: 'cancel' },
         {
           text: 'Pause',
           handler: async () => {
-            const loading = await this.loadingController.create({ message: 'Pausing...' });
+            const loading = await this.loadingController.create({ message: `Pausing ${language}...` });
             await loading.present();
-            this.learningPlanService.pausePlan(this.planLanguage).pipe(take(1)).subscribe({
+            this.learningPlanService.pausePlan(language).pipe(take(1)).subscribe({
               next: async (res: any) => {
                 await loading.dismiss();
                 if (res?.success && res.plan) {
-                  this.applyPlanLifecycleFromPlan(res.plan, res.entitlements);
+                  this.refreshLanguagePlanItem(language, res.plan, res.entitlements);
                   const toast = await this.toastController.create({
-                    message: 'Your plan is paused.',
+                    message: `${language} plan is paused.`,
                     duration: 2500, position: 'top'
                   });
                   await toast.present();
@@ -992,16 +1360,29 @@ export class ProfilePage implements OnInit, ViewWillEnter {
 
   /** Resume a paused plan in place. */
   async resumeMyPlan() {
+    if (this.hasMultiplePlanLanguages) {
+      this.openPlanPickerModal();
+      return;
+    }
     if (!this.planLanguage || !this.isPaused) return;
-    const loading = await this.loadingController.create({ message: 'Resuming...' });
+    await this.resumeLanguagePlanByLanguage(this.planLanguage);
+  }
+
+  async resumeLanguagePlan(plan: ProfileLanguagePlanItem) {
+    if (!plan.canResume) return;
+    await this.resumeLanguagePlanByLanguage(plan.language);
+  }
+
+  private async resumeLanguagePlanByLanguage(language: string) {
+    const loading = await this.loadingController.create({ message: `Resuming ${language}...` });
     await loading.present();
-    this.learningPlanService.resumePlan(this.planLanguage).pipe(take(1)).subscribe({
+    this.learningPlanService.resumePlan(language).pipe(take(1)).subscribe({
       next: async (res: any) => {
         await loading.dismiss();
         if (res?.success && res.plan) {
-          this.applyPlanLifecycleFromPlan(res.plan, res.entitlements);
+          this.refreshLanguagePlanItem(language, res.plan, res.entitlements);
           const toast = await this.toastController.create({
-            message: 'Your plan is back. Welcome back.',
+            message: `${language} plan is back. Welcome back.`,
             duration: 2500, position: 'top'
           });
           await toast.present();
@@ -1024,10 +1405,23 @@ export class ProfilePage implements OnInit, ViewWillEnter {
    * setting a new goal — see promoteUnframedPlan on the backend.
    */
   async skipMyPlan() {
+    if (this.hasMultiplePlanLanguages) {
+      this.openPlanPickerModal();
+      return;
+    }
     if (!this.planLanguage) return;
-    const message = this.planIsPremium
+    await this.confirmSkipLanguagePlan(this.planLanguage, this.planIsPremium);
+  }
+
+  async skipLanguagePlan(plan: ProfileLanguagePlanItem) {
+    if (!plan.canSkip) return;
+    await this.confirmSkipLanguagePlan(plan.language, plan.isPremium);
+  }
+
+  private async confirmSkipLanguagePlan(language: string, isPremium: boolean) {
+    const message = isPremium
       ? `<p style="margin:0 0 12px;font-size:14px;line-height:1.55;color:#222;">
-           You'll learn without a structured roadmap. Past chapters and
+           Your <strong>${language}</strong> lessons will continue without a structured roadmap. Past chapters and
            your CEFR history are kept.
          </p>
          <p style="margin:0;font-size:13px;line-height:1.5;color:#555;">
@@ -1036,29 +1430,29 @@ export class ProfilePage implements OnInit, ViewWillEnter {
            Add a goal any time to get a fresh roadmap.
          </p>`
       : `<p style="margin:0 0 12px;font-size:14px;line-height:1.55;color:#222;">
-           You'll learn without a structured roadmap. Past lessons and
+           Your <strong>${language}</strong> lessons will continue without a structured roadmap. Past lessons and
            CEFR estimate are kept.
          </p>
          <p style="margin:0;font-size:13px;line-height:1.5;color:#555;">
            Add a goal any time to get a roadmap built for you.
          </p>`;
     const alert = await this.alertController.create({
-      header: 'Learn at my own pace?',
+      header: `Learn ${language} at your own pace?`,
       message,
       buttons: [
         { text: 'Cancel', role: 'cancel' },
         {
           text: 'Switch to free pace',
           handler: async () => {
-            const loading = await this.loadingController.create({ message: 'Switching...' });
+            const loading = await this.loadingController.create({ message: `Switching ${language}...` });
             await loading.present();
-            this.learningPlanService.skipPlan(this.planLanguage).pipe(take(1)).subscribe({
+            this.learningPlanService.skipPlan(language).pipe(take(1)).subscribe({
               next: async (res: any) => {
                 await loading.dismiss();
                 if (res?.success && res.plan) {
-                  this.applyPlanLifecycleFromPlan(res.plan, res.entitlements);
+                  this.refreshLanguagePlanItem(language, res.plan, res.entitlements);
                   const toast = await this.toastController.create({
-                    message: 'You\'re now learning at your own pace.',
+                    message: `You're now learning ${language} at your own pace.`,
                     duration: 2500, position: 'top'
                   });
                   await toast.present();
@@ -1078,6 +1472,24 @@ export class ProfilePage implements OnInit, ViewWillEnter {
       ]
     });
     await alert.present();
+  }
+
+  private refreshLanguagePlanItem(language: string, plan: any, entitlements: any): void {
+    const updated = this.buildLanguagePlanItem(language, plan, entitlements);
+    const idx = this.languagePlanItems.findIndex(item => item.language.toLowerCase() === language.toLowerCase());
+    if (idx >= 0) {
+      this.languagePlanItems[idx] = updated;
+    } else {
+      this.languagePlanItems = [...this.languagePlanItems, updated];
+    }
+
+    if (!this.planLanguage || this.planLanguage.toLowerCase() === language.toLowerCase() || !this.hasMultiplePlanLanguages) {
+      this.applyPlanLifecycleFromPlan(plan, entitlements, language);
+      this.applyCefrFromPlan(plan);
+      this.syncPrimaryGoalDisplayFromPlan(plan);
+    }
+
+    this.cdr.markForCheck();
   }
 
   async openGoalEditor() {
@@ -1400,6 +1812,11 @@ export class ProfilePage implements OnInit, ViewWillEnter {
   private syncProfilePayoutMethod(): void {
     if (!this.isTutorUser || this.isViewingOtherUser) {
       this.profileDeterminedPayoutMethod = null;
+      return;
+    }
+
+    if (this.stripePayoutActionRequired || this.stripePayoutPendingReview) {
+      this.profileDeterminedPayoutMethod = 'stripe';
       return;
     }
 
@@ -2190,47 +2607,28 @@ export class ProfilePage implements OnInit, ViewWillEnter {
 
   // Handle return from Stripe Connect onboarding
   async handleStripeConnectReturn(state: StripeConnectReturnState) {
-    const success = state.success;
-    if (success) {
-      // Verify with backend that Stripe Connect is actually complete
-      // (user may have pressed back without finishing)
+    if (state.success) {
       try {
-        const statusResponse = await firstValueFrom(
-          this.http.get<any>(`${environment.apiUrl}/payments/stripe-connect/status`, {
-            headers: this.userService.getAuthHeadersSync()
-          })
-        );
-        
-        if (statusResponse?.success && statusResponse.onboarded) {
-          // Stripe is actually onboarded — show success toast
-          const toast = await this.toastController.create({
-            message: '✅ Payout setup complete! Your earnings will be transferred to your bank.',
-            duration: 5000,
-            color: 'success',
-            position: 'top'
-          });
-          await toast.present();
-        } else {
-          // User returned but didn't finish Stripe setup
-          console.log('⚠️ Returned from Stripe but onboarding not complete:', statusResponse);
-          const toast = await this.toastController.create({
-            message: 'Stripe setup not completed. Please try again to finish connecting your bank account.',
-            duration: 5000,
-            color: 'warning',
-            position: 'top'
-          });
-          await toast.present();
-        }
+        const statusResponse = await this.userService.refreshStripeConnectStatusFromApi();
+        const kind = classifyStripeReturnStatus(statusResponse);
+        const message = this.translateService.instant(STRIPE_RETURN_TOAST_KEYS[kind]);
+        const color =
+          kind === 'connected' ? 'success' : kind === 'pending_review' ? 'primary' : kind === 'action_required' ? 'warning' : 'warning';
+        const toast = await this.toastController.create({
+          message,
+          duration: 5000,
+          color,
+          position: 'top',
+        });
+        await toast.present();
       } catch (error) {
         console.error('❌ Error verifying Stripe status:', error);
-        // Don't show any toast if we can't verify
       }
     }
     
-    // Refresh payout status in UserService (will update profile via subscription)
     setTimeout(() => {
       this.userService.loadPayoutStatus();
-      this.loadEarnings(); // Also refresh earnings
+      this.loadEarnings();
     }, 1000);
 
     if (
@@ -2426,10 +2824,10 @@ export class ProfilePage implements OnInit, ViewWillEnter {
     // Handle based on selected provider
     switch (data.provider) {
       case 'stripe':
-        await this.setupStripeConnect();
+        await this.setupStripeConnect(data.residenceCountry);
         break;
       case 'paypal':
-        await this.setupPayPal(data.paypalEmail);
+        await this.setupPayPal(data.paypalEmail, data.residenceCountry);
         break;
       case 'manual':
         await this.setupManualPayout();
@@ -2438,17 +2836,22 @@ export class ProfilePage implements OnInit, ViewWillEnter {
   }
 
   // Setup Stripe Connect
-  private async setupStripeConnect() {
+  private async setupStripeConnect(residenceCountry?: string | null) {
     const loading = await this.loadingController.create({
       message: 'Setting up Stripe...'
     });
     await loading.present();
 
     try {
+      const extra: Record<string, unknown> = {};
+      if (residenceCountry?.trim()) {
+        extra['residenceCountry'] = residenceCountry.trim();
+      }
+
       const response = await firstValueFrom(
         this.http.post<any>(
           `${environment.apiUrl}/payments/stripe-connect/onboard`,
-          buildStripeConnectPayloadForProfilePayout(),
+          buildStripeConnectPayloadForProfilePayout(extra),
           { headers: this.userService.getAuthHeadersSync() }
         )
       );
@@ -2481,7 +2884,7 @@ export class ProfilePage implements OnInit, ViewWillEnter {
   }
 
   // Setup PayPal
-  private async setupPayPal(email: string) {
+  private async setupPayPal(email: string, residenceCountry?: string | null) {
     console.log('💳 [PROFILE] Setting up PayPal with email:', email);
     
     const loading = await this.loadingController.create({
@@ -2494,7 +2897,10 @@ export class ProfilePage implements OnInit, ViewWillEnter {
       const response = await firstValueFrom(
         this.http.post<any>(
           `${environment.apiUrl}/payments/setup-paypal`,
-          { paypalEmail: email },
+          {
+            paypalEmail: email,
+            ...(residenceCountry?.trim() ? { residenceCountry: residenceCountry.trim() } : {}),
+          },
           { headers: this.userService.getAuthHeadersSync() }
         )
       );
@@ -2640,6 +3046,16 @@ export class ProfilePage implements OnInit, ViewWillEnter {
 
   // NEW: Edit existing Stripe Connect account
   async editStripeConnectAccount() {
+    if (this.stripePayoutActionRequired) {
+      this.isLoadingStripeConnect = true;
+      try {
+        await this.setupStripeConnect();
+      } finally {
+        this.isLoadingStripeConnect = false;
+      }
+      return;
+    }
+
     this.isLoadingStripeConnect = true;
 
     try {

@@ -304,6 +304,7 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       this.lastUnreadMessages = next;
       this.messageCountInitialized = true;
       this.cdr.markForCheck();
+      setTimeout(() => this.updateUnderline(), 50);
     });
 
     // Add window resize listener for reactive viewport detection
@@ -1023,6 +1024,10 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       'invitation_cancelled': 'videocam',
       'message': 'chatbubbles',
       'progress_milestone': 'trophy',
+      'tutor_video_approved': 'checkmark-circle',
+      'tutor_video_rejected': 'close-circle',
+      'tutor_photo_approved': 'checkmark-circle',
+      'tutor_photo_rejected': 'close-circle',
       'credential_approved': 'shield-checkmark',
       'credential_rejected': 'shield',
       'stripe_account_updated': 'card'
@@ -1054,6 +1059,8 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     const systemTypes = [
       'tutor_video_approved',
       'tutor_video_rejected',
+      'tutor_photo_approved',
+      'tutor_photo_rejected',
       'lesson_analysis_ready',
       'credential_approved',
       'credential_rejected',
@@ -1175,6 +1182,13 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     if (target.kind === 'earnings') {
       this.closeNotificationDropdown();
       this.onToolbarEarningsTap();
+      return;
+    }
+
+    if (target.kind === 'tutor_approval') {
+      this.homeInlineToolbar.pendingOpenTutorApprovalStep = target.stepId;
+      this.closeNotificationDropdown();
+      void this.router.navigate(['/tabs/home']);
       return;
     }
 

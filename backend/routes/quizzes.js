@@ -2,7 +2,9 @@ const express = require('express');
 const router = express.Router();
 const { verifyToken } = require('../middleware/videoUploadMiddleware');
 const User = require('../models/User');
+const LearningPlan = require('../models/LearningPlan');
 const quizService = require('../services/quizService');
+const struggleAggregator = require('../services/struggleAggregator');
 
 /**
  * GET /api/quizzes/me
@@ -89,6 +91,71 @@ router.post('/manual', verifyToken, async (req, res) => {
     res.json({ success: r.pushed, ...r });
   } catch (err) {
     console.error('POST /quizzes/manual failed:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+/**
+ * POST /api/quizzes/roadblock
+ * Journey-map checkpoint gate. Selects a quiz targeted at the student's
+ * current top struggle (pool-first, so cost is amortized across students).
+ * On-demand selection means tutor/student phase edits never desync it.
+ *
+ * Body: { language, phaseIndex? }
+ * Returns:
+ *   - { success: true, available: true, quiz, struggle, personalizedHeader }
+ *   - { success: true, available: false, reason } when there isn't enough
+ *     signal yet (new student) — the frontend lets them cross with a
+ *     friendly note instead of blocking.
+ */
+router.post('/roadblock', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    const { language } = req.body || {};
+    if (!language) return res.status(400).json({ success: false, message: 'language required' });
+
+    const plan = await LearningPlan.findOne({ studentId: user._id, language })
+      .select('chapterLevel goal')
+      .lean();
+    const level = plan?.chapterLevel || 'A1';
+
+    // Pull the student's aggregated struggles from recent lesson analyses.
+    const agg = await struggleAggregator.aggregateStruggles({
+      studentId: user._id,
+      language,
+      plan
+    });
+
+    const topStruggle = (agg.struggles || [])[0] || null;
+    if (!topStruggle) {
+      // Not enough signal yet — don't fabricate a gate for a brand-new student.
+      return res.json({ success: true, available: false, reason: 'no_struggle_data' });
+    }
+
+    const result = await quizService.selectAndPushQuiz({
+      userId: user._id,
+      language,
+      struggle: topStruggle.skillId,
+      level,
+      trigger: 'roadblock'
+    });
+
+    if (!result.pushed) {
+      return res.json({ success: true, available: false, reason: result.reason });
+    }
+
+    res.json({
+      success: true,
+      available: true,
+      quiz: result.quiz,
+      struggle: topStruggle.skillId,
+      struggleLabel: topStruggle.displayName || topStruggle.skillId,
+      personalizedHeader: result.personalizedHeader
+    });
+  } catch (err) {
+    console.error('POST /quizzes/roadblock failed:', err);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });

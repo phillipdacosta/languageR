@@ -5,7 +5,8 @@
  * is complete *and* every admin-reviewed step is approved.
  *
  * Required steps:
- *   - photo:           custom profile picture uploaded (`user.picture`)
+ *   - photo:           custom profile picture uploaded AND admin-approved
+ *                      (`tutorOnboarding.photoApproved === true`)
  *   - video:           introduction video uploaded AND admin-approved
  *                      (`tutorOnboarding.videoApproved === true`)
  *   - payout:          Stripe Connect / PayPal / Manual payout configured
@@ -20,10 +21,124 @@
  * everything is satisfied.
  */
 
+/** Custom GCS upload or non-Auth0-default picture — mirrors frontend checklist. */
+function hasCustomProfilePhoto(user) {
+  if (!user?.picture) return false;
+  return (
+    user.picture.includes('storage.googleapis.com') ||
+    (user.auth0Picture && user.picture !== user.auth0Picture)
+  );
+}
+
+function hasPendingProfilePhoto(user) {
+  const pending = user?.onboardingData?.pendingPhoto;
+  return !!(pending && String(pending).trim());
+}
+
+/** Admin-approved profile photo (grandfathers tutors who uploaded before photo review existed). */
+function isPhotoApproved(user) {
+  const onboarding = user?.tutorOnboarding || {};
+  if (onboarding.photoApproved === true) return true;
+  if (onboarding.photoRejected === true || hasPendingProfilePhoto(user)) return false;
+  return hasCustomProfilePhoto(user);
+}
+
+function hasPhotoSubmission(user) {
+  return hasPendingProfilePhoto(user) || hasCustomProfilePhoto(user);
+}
+
+function hasPendingPhotoReview(user) {
+  if (hasPendingProfilePhoto(user)) return true;
+
+  const onboarding = user?.tutorOnboarding || {};
+  if (
+    onboarding.photoUploaded === true &&
+    onboarding.photoApproved !== true &&
+    onboarding.photoRejected !== true
+  ) {
+    return hasCustomProfilePhoto(user) || hasPendingProfilePhoto(user);
+  }
+
+  return false;
+}
+
+function hasPendingVideoReview(user) {
+  const pendingVideo = user?.onboardingData?.pendingVideo;
+  if (pendingVideo && String(pendingVideo).trim()) return true;
+
+  if (user?.tutorOnboarding?.videoRejected === true) return false;
+
+  const introVideo = user?.onboardingData?.introductionVideo;
+  if (introVideo && String(introVideo).trim() && user?.tutorOnboarding?.videoApproved !== true) {
+    return true;
+  }
+
+  return false;
+}
+
+function hasPendingCredentialReview(user) {
+  const creds = user?.tutorCredentials || {};
+  if (creds.governmentId?.status === 'pending') return true;
+  if (creds.teachingCertifications?.some((c) => c.status === 'pending')) return true;
+  if (creds.additionalDocuments?.some((d) => d.status === 'pending')) return true;
+  return false;
+}
+
+function tutorHasVideoRejected(user) {
+  return user?.tutorOnboarding?.videoRejected === true;
+}
+
+function tutorNeedsAdminReview(user) {
+  if (!user) return false;
+  if (user.userType != null && user.userType !== 'tutor') return false;
+  return (
+    hasPendingPhotoReview(user) ||
+    hasPendingVideoReview(user) ||
+    hasPendingCredentialReview(user)
+  );
+}
+
+function getTutorPendingReviewItems(user) {
+  const items = [];
+  if (hasPendingPhotoReview(user)) items.push('photo');
+  if (hasPendingVideoReview(user)) items.push('video');
+  if (hasPendingCredentialReview(user)) items.push('credentials');
+  return items;
+}
+
+function getLatestReviewActivityAt(user) {
+  const dates = [];
+
+  if (user?.tutorOnboarding?.photoUploadedAt) {
+    dates.push(new Date(user.tutorOnboarding.photoUploadedAt));
+  }
+  if (user?.tutorOnboarding?.videoUploadedAt) {
+    dates.push(new Date(user.tutorOnboarding.videoUploadedAt));
+  }
+
+  const creds = user?.tutorCredentials || {};
+  if (creds.governmentId?.uploadedAt) {
+    dates.push(new Date(creds.governmentId.uploadedAt));
+  }
+  creds.teachingCertifications?.forEach((cert) => {
+    if (cert.uploadedAt) dates.push(new Date(cert.uploadedAt));
+  });
+  creds.additionalDocuments?.forEach((doc) => {
+    if (doc.uploadedAt) dates.push(new Date(doc.uploadedAt));
+  });
+
+  if (dates.length === 0) {
+    return user?.createdAt ? new Date(user.createdAt) : new Date(0);
+  }
+
+  return new Date(Math.max(...dates.map((d) => d.getTime())));
+}
+
 function evaluateTutorApproval(user) {
   if (!user || user.userType !== 'tutor') {
     return {
       photoComplete: false,
+      photoApproved: false,
       videoApproved: false,
       payoutComplete: false,
       identitySatisfied: false,
@@ -33,7 +148,8 @@ function evaluateTutorApproval(user) {
     };
   }
 
-  const photoComplete = !!user.picture;
+  const photoApproved = isPhotoApproved(user);
+  const photoComplete = hasPhotoSubmission(user);
 
   const videoApproved = user.tutorOnboarding?.videoApproved === true;
 
@@ -56,7 +172,7 @@ function evaluateTutorApproval(user) {
   const tosComplete = !!user.tosAcceptedAt;
 
   const isFullyApproved =
-    photoComplete &&
+    photoApproved &&
     videoApproved &&
     payoutComplete &&
     identitySatisfied &&
@@ -65,6 +181,7 @@ function evaluateTutorApproval(user) {
 
   return {
     photoComplete,
+    photoApproved,
     videoApproved,
     payoutComplete,
     identitySatisfied,
@@ -99,7 +216,43 @@ function applyApprovalIfReady(user) {
   return snapshot;
 }
 
+/**
+ * Tutors may only persist availability once every onboarding gate is satisfied
+ * (same bar as search visibility / tutorApproved).
+ */
+function canTutorSetAvailability(user) {
+  if (!user || user.userType !== 'tutor') return false;
+  const snapshot = evaluateTutorApproval(user);
+  return isPhotoApproved(user) && snapshot.isFullyApproved;
+}
+
+/** Which gates still block availability — for API error payloads. */
+function getTutorAvailabilityBlockReasons(user) {
+  const snapshot = evaluateTutorApproval(user);
+  const missing = [];
+  if (!isPhotoApproved(user)) missing.push('photo');
+  if (!snapshot.videoApproved) missing.push('video');
+  if (!snapshot.payoutComplete) missing.push('payout');
+  if (!snapshot.identitySatisfied) missing.push('identity');
+  if (!snapshot.qualificationsApproved) missing.push('qualifications');
+  if (!snapshot.tosComplete) missing.push('tos');
+  return missing;
+}
+
 module.exports = {
   evaluateTutorApproval,
   applyApprovalIfReady,
+  hasCustomProfilePhoto,
+  hasPendingProfilePhoto,
+  hasPendingPhotoReview,
+  hasPendingVideoReview,
+  hasPendingCredentialReview,
+  tutorHasVideoRejected,
+  tutorNeedsAdminReview,
+  getTutorPendingReviewItems,
+  getLatestReviewActivityAt,
+  isPhotoApproved,
+  hasPhotoSubmission,
+  canTutorSetAvailability,
+  getTutorAvailabilityBlockReasons,
 };

@@ -67,6 +67,22 @@ export class WebSocketService {
   private tutorVideoRejectedSubject = new Subject<{ message: string; reason: string; timestamp: Date }>();
   public tutorVideoRejected$ = this.tutorVideoRejectedSubject.asObservable();
 
+  private tutorPhotoApprovedSubject = new Subject<{ message: string; timestamp: Date; approved: boolean }>();
+  public tutorPhotoApproved$ = this.tutorPhotoApprovedSubject.asObservable();
+
+  private tutorPhotoRejectedSubject = new Subject<{ message: string; reason: string; timestamp: Date }>();
+  public tutorPhotoRejected$ = this.tutorPhotoRejectedSubject.asObservable();
+
+  // Tutor photo upload subject (for admin notifications)
+  private tutorPhotoUploadedSubject = new Subject<{
+    tutorId: string;
+    tutorName: string;
+    tutorEmail: string;
+    photoUrl: string;
+    timestamp: Date;
+  }>();
+  public tutorPhotoUploaded$ = this.tutorPhotoUploadedSubject.asObservable();
+
   // Tutor video upload subject (for admin notifications)
   private tutorVideoUploadedSubject = new Subject<{ 
     tutorId: string; 
@@ -202,6 +218,9 @@ export class WebSocketService {
     this.socket.off('message_deleted');
     this.socket.off('tutor_video_approved');
     this.socket.off('tutor_video_rejected');
+    this.socket.off('tutor_photo_approved');
+    this.socket.off('tutor_photo_rejected');
+    this.socket.off('tutor_photo_uploaded');
     this.socket.off('tutor_video_uploaded');
     this.socket.off('tutor_credential_uploaded');
     this.socket.off('credential_approved');
@@ -331,6 +350,36 @@ export class WebSocketService {
     this.socket.on('tutor_video_rejected', (data: { message: string; reason: string; timestamp: Date }) => {
       console.log('❌ Tutor video rejected:', data);
       this.tutorVideoRejectedSubject.next(data);
+    });
+
+    // Listen for tutor photo approval
+    this.socket.on('tutor_photo_approved', (data: { message: string; timestamp: Date; approved: boolean }) => {
+      console.log('🎉 Tutor photo approved:', data);
+      this.tutorPhotoApprovedSubject.next(data);
+      this.userService.getCurrentUser(true).subscribe(() => {
+        this.userService.refreshTutorApprovalStatus();
+      });
+    });
+
+    // Listen for tutor photo rejection
+    this.socket.on('tutor_photo_rejected', (data: { message: string; reason: string; timestamp: Date }) => {
+      console.log('❌ Tutor photo rejected:', data);
+      this.tutorPhotoRejectedSubject.next(data);
+      this.userService.getCurrentUser(true).subscribe(() => {
+        this.userService.refreshTutorApprovalStatus();
+      });
+    });
+
+    // Listen for tutor photo uploads (for admins)
+    this.socket.on('tutor_photo_uploaded', (data: {
+      tutorId: string;
+      tutorName: string;
+      tutorEmail: string;
+      photoUrl: string;
+      timestamp: Date;
+    }) => {
+      console.log('📸 Tutor photo uploaded (admin notification):', data);
+      this.tutorPhotoUploadedSubject.next(data);
     });
 
     // Listen for tutor video uploads (for admins)

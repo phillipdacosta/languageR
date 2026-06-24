@@ -6,7 +6,7 @@ import { Router, RouterModule, NavigationEnd, ActivatedRoute } from '@angular/ro
 import { UserService, User } from '../services/user.service';
 import { LessonService, Lesson } from '../services/lesson.service';
 import { ClassService } from '../services/class.service';
-import { buildTutorProfileChecklist, ProfileChecklistItem, mapProfileChecklistIdToApprovalWizardStepId } from '../services/tutor-growth.service';
+import { buildTutorProfileChecklistFromStatus, countCompletedProfileChecklistItems, ProfileChecklistItem, mapProfileChecklistIdToApprovalWizardStepId } from '../services/tutor-growth.service';
 import { WebSocketService } from '../services/websocket.service';
 import { Calendar, EventInput } from '@fullcalendar/core';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -28,7 +28,7 @@ import { App as CapacitorApp } from '@capacitor/app';
 import { Haptics, NotificationType } from '@capacitor/haptics';
 import { Browser } from '@capacitor/browser';
 import { environment } from '../../environments/environment';
-import { parseStripeConnectReturnParams, stripStripeConnectQueryParams, StripeConnectReturnState } from '../utils/stripe-connect.util';
+import { classifyStripeReturnStatus, parseStripeConnectReturnParams, stripStripeConnectQueryParams, StripeConnectReturnState, STRIPE_RETURN_TOAST_KEYS } from '../utils/stripe-connect.util';
 import { TutorFeedbackService } from '../services/tutor-feedback.service';
 import { LearningPlanService, LearningPlanSummary } from '../services/learning-plan.service';
 import { getHoursInTz, getMinutesInTz, formatTimeInTz, formatDateInTz } from '../shared/timezone.utils';
@@ -190,24 +190,10 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       return;
     }
 
-    const checklist = buildTutorProfileChecklist({
-      hasCustomPhoto: status.photoComplete === true,
-      hasVideo: status.videoComplete === true,
-      videoApproved: status.videoApproved === true,
-      // Strict === true so Stripe-handled KYC hides the row (same as approval wizard).
-      identityRequired: status.identityRequired === true,
-      governmentIdUploaded: status.governmentIdUploaded === true,
-      identitySatisfied: status.identitySatisfied === true,
-      certificationsUploaded: status.certificationsUploaded === true,
-      certificationsApproved: status.certificationsApproved === true,
-      hasPayoutSetup: status.stripeComplete === true,
-      tosComplete: status.tosComplete === true,
-    });
+    const checklist = buildTutorProfileChecklistFromStatus(status);
 
     this.profileChecklist = checklist;
-    this.profileChecklistDoneCount = checklist.filter(
-      (i) => i.done && !i.pendingReview
-    ).length;
+    this.profileChecklistDoneCount = countCompletedProfileChecklistItems(checklist);
     this.profileChecklistTotal = checklist.length;
     this.hasProfileCriticalInsights =
       this.profileChecklistTotal > 0 &&
@@ -4588,29 +4574,18 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   async handleStripeConnectReturn(state: StripeConnectReturnState): Promise<void> {
     if (state.success) {
       try {
-        const statusResponse = await firstValueFrom(
-          this.http.get<any>(`${environment.apiUrl}/payments/stripe-connect/status`, {
-            headers: this.userService.getAuthHeadersSync(),
-          })
-        );
-
-        if (statusResponse?.success && statusResponse.onboarded) {
-          const toast = await this.toastController.create({
-            message: '✅ Payout setup complete! Your earnings will be transferred to your bank.',
-            duration: 5000,
-            color: 'success',
-            position: 'top',
-          });
-          await toast.present();
-        } else {
-          const toast = await this.toastController.create({
-            message: 'Stripe setup not completed. Please try again to finish connecting your bank account.',
-            duration: 5000,
-            color: 'warning',
-            position: 'top',
-          });
-          await toast.present();
-        }
+        const statusResponse = await this.userService.refreshStripeConnectStatusFromApi();
+        const kind = classifyStripeReturnStatus(statusResponse);
+        const message = this.translate.instant(STRIPE_RETURN_TOAST_KEYS[kind]);
+        const color =
+          kind === 'connected' ? 'success' : kind === 'pending_review' ? 'primary' : kind === 'action_required' ? 'warning' : 'warning';
+        const toast = await this.toastController.create({
+          message,
+          duration: 5000,
+          color,
+          position: 'top',
+        });
+        await toast.present();
       } catch {
         // Skip toast if status check fails
       }

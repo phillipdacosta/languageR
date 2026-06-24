@@ -24,6 +24,20 @@ interface AvailabilityBlock {
   absoluteEnd?: string;
 }
 
+export interface BookableSlotPreview {
+  date: Date;
+  dateIso: string;
+  time: string;
+  timeLabel: string;
+  dateLabel: string;
+  pillLabel: string;
+}
+
+export interface BookableSlotsScanResult {
+  slots: BookableSlotPreview[];
+  hasMore: boolean;
+}
+
 @Component({
   selector: 'app-tutor-availability-viewer',
   templateUrl: './tutor-availability-viewer.component.html',
@@ -610,9 +624,6 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
       
       try {
         const slots = this.computeAvailableTimeLabelsForDate(date);
-        if (slots.length > 0) {
-          console.log(`📅 [Slots] ${dateKey}: ${slots.map(s => `${s.time}${s.booked ? '(B)' : ''}${s.isPast ? '(P)' : ''}`).join(', ')}`);
-        }
         this.dateSlotsMap.set(dateKey, slots);
         
         // Build weekDateSlots array for direct template iteration (avoids function calls)
@@ -824,10 +835,6 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
         return tutorTimeMinutes >= blockStart && tutorTimeMinutes < blockEnd;
       });
 
-      // Debug logging for early morning slots to trace filtering
-      const viewerHour = parseInt(viewerTime.split(':')[0]);
-      const debugSlot = viewerHour >= 5 && viewerHour <= 8;
-
       if (hasAvailability) {
         // Booked check uses date-specific key in viewer timezone
         const bookedKey = `${viewerDateStr}-${viewerTime}`;
@@ -841,15 +848,9 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
           ? this.hasEnoughConsecutiveTime(date, viewerTime, dayIndex)
           : true;
 
-        if (debugSlot) {
-          console.log(`🔍 [Slot] ${viewerDateStr} ${viewerTime}: avail=✓ booked=${isBooked} past=${isPast} studentBusy=${isStudentBusy} enoughTime=${hasEnoughTime} → ${(!isStudentBusy && hasEnoughTime) ? 'INCLUDED' : 'FILTERED'}`);
-        }
-
         if (!isStudentBusy && hasEnoughTime) {
           slots.push({ label: this.timeLabels[i], time: viewerTime, booked: isBooked, isPast: isPast });
         }
-      } else if (debugSlot) {
-        console.log(`🔍 [Slot] ${viewerDateStr} ${viewerTime}: avail=✗ (no matching availability block)`);
       }
     }
 
@@ -1286,6 +1287,105 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
       this.isCheckingTrial = false;
       this.cdr.detectChanges();
     }
+  }
+
+  /** Collect the next N bookable slots by scanning forward day-by-day (no week reloads). */
+  async scanBookableSlots(previewLimit = 3, maxDays = 42): Promise<BookableSlotsScanResult> {
+    if (this.tutorBlocked || this.availability.length === 0) {
+      return { slots: [], hasMore: false };
+    }
+
+    const collected: BookableSlotPreview[] = [];
+    let hasMore = false;
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+
+    for (let offset = 0; offset < maxDays && !hasMore; offset++) {
+      const date = new Date(start);
+      date.setDate(start.getDate() + offset);
+
+      const slots = this.computeAvailableTimeLabelsForDate(date);
+      for (const slot of slots) {
+        if (slot.booked || slot.isPast) continue;
+
+        collected.push({
+          date: new Date(date),
+          dateIso: this.toDateIso(date),
+          time: slot.time,
+          timeLabel: slot.label,
+          dateLabel: this.formatPreviewDate(date),
+          pillLabel: `${this.formatPreviewDate(date)} · ${slot.label}`,
+        });
+
+        if (collected.length > previewLimit) {
+          hasMore = true;
+          break;
+        }
+      }
+    }
+
+    return {
+      slots: collected.slice(0, previewLimit),
+      hasMore,
+    };
+  }
+
+  /** Move the 7-day window to the week that contains the first bookable slot. */
+  async jumpToFirstAvailableWeek(maxDays = 90): Promise<boolean> {
+    const result = await this.scanBookableSlots(1, maxDays);
+    if (result.slots.length === 0) {
+      return false;
+    }
+    await this.jumpToWeekContaining(result.slots[0].date);
+    return true;
+  }
+
+  /** Align the 7-day window so it starts on the given date. */
+  async jumpToWeekContaining(date: Date): Promise<void> {
+    const target = new Date(date);
+    target.setHours(0, 0, 0, 0);
+    this.currentWeekStart = target;
+    this.recomputeWeekDates();
+    this.updateWeekRangeDisplay();
+    await this.loadBookedLessons().catch(() => {});
+    this.buildAvailabilitySet();
+    this.precomputeDateSlots();
+    this.cdr.markForCheck();
+  }
+
+  /** Programmatically open the booking confirmation for a preview pill. */
+  openBookableSlot(preview: BookableSlotPreview): void {
+    if (this.tutorBlocked) return;
+    this.onSelectSlot(
+      preview.date,
+      { label: preview.timeLabel, time: preview.time, booked: false, isPast: false },
+      undefined
+    );
+  }
+
+  private toDateIso(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  private formatPreviewDate(date: Date): string {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const target = new Date(date);
+    target.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    if (target.getTime() === today.getTime()) {
+      return 'Today';
+    }
+    if (target.getTime() === tomorrow.getTime()) {
+      return 'Tomorrow';
+    }
+
+    return date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
   }
   
 }

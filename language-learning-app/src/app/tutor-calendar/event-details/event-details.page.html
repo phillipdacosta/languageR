@@ -30,17 +30,11 @@
                   <div class="skeleton-badge ed-skeleton-status"></div>
                 </div>
               </div>
-              <div class="ed-skeleton-schedule">
+              <div class="ed-skeleton-schedule ed-skeleton-schedule--compact">
                 <div class="ed-skeleton-detail-row">
                   <div class="skeleton-icon"></div>
                   <div class="skeleton-text-group">
                     <div class="skeleton-text"></div>
-                    <div class="skeleton-text short"></div>
-                  </div>
-                </div>
-                <div class="ed-skeleton-detail-row">
-                  <div class="skeleton-icon"></div>
-                  <div class="skeleton-text-group">
                     <div class="skeleton-text short"></div>
                   </div>
                 </div>
@@ -93,47 +87,49 @@
                   <h3 class="ed-sidebar-head__name">{{ edSidebarTitle }}</h3>
                   <p
                     class="ed-sidebar-head__meta"
-                    *ngIf="participantMetaLine || participantMetaPending"
-                    [class.ed-sidebar-head__meta--pending]="participantMetaPending && !participantMetaLine">
-                    {{ participantMetaLine }}
+                    *ngIf="participantMetaLine || participantMetaPending || edSidebarShowTrialLabel"
+                    [class.ed-sidebar-head__meta--pending]="participantMetaPending && !participantMetaLine && !edSidebarShowTrialLabel">
+                    <span *ngIf="participantMetaLine">{{ participantMetaLine }}</span><span class="ed-sidebar-head__trial" *ngIf="edSidebarShowTrialLabel"><span class="ed-sidebar-head__trial-sep" *ngIf="participantMetaLine" aria-hidden="true"> · </span><ion-icon name="star" aria-hidden="true"></ion-icon>{{ 'HOME.TRIAL_LESSON' | translate }}</span>
                   </p>
                   <div class="ed-sidebar-head__badges">
                     <span class="ed-status" [ngClass]="statusClass">{{ statusLabel }}</span>
-                    <span class="ed-trial-badge badge-inline badge-trial" *ngIf="lesson?.isTrialLesson && lesson?.status !== 'cancelled' && !(edHasPlan && edPlanIsTrial)">
-                      <ion-icon name="star" aria-hidden="true"></ion-icon>
-                      <span>{{ 'HOME.TRIAL_LESSON' | translate }}</span>
-                    </span>
                   </div>
                 </div>
               </div>
 
-              <div class="ed-sidebar-schedule">
-                <div class="ed-sidebar-schedule__row">
-                  <ion-icon name="calendar-outline" aria-hidden="true"></ion-icon>
-                  <div class="ed-sidebar-schedule__text">
-                    <span class="ed-sidebar-schedule__primary">{{ formattedDate }}</span>
-                    <span class="ed-sidebar-schedule__secondary">{{ formattedTimeRange }}</span>
+              <div class="ed-lesson-schedule">
+                <div class="ed-lesson-schedule-col ed-lesson-schedule-col--date">
+                  <div
+                    class="tw-date-badge"
+                    [class.tw-date-badge--today]="edScheduleIsToday"
+                    [class.tw-date-badge--today-word]="edScheduleIsToday">
+                    <span class="tw-date-badge__today-label" *ngIf="edScheduleIsToday">{{ 'HOME.TODAY' | translate }}</span>
+                    <ng-container *ngIf="!edScheduleIsToday">
+                      <span class="tw-date-badge__month">{{ edScheduleDateBadgeMonth }}</span>
+                      <span class="tw-date-badge__day">{{ edScheduleDateBadgeDay }}</span>
+                      <span class="tw-date-badge__weekday">{{ edScheduleDateBadgeWeekday }}</span>
+                    </ng-container>
                   </div>
                 </div>
-                <div class="ed-sidebar-schedule__divider" aria-hidden="true"></div>
-                <div class="ed-sidebar-schedule__row">
-                  <ion-icon name="time-outline" aria-hidden="true"></ion-icon>
-                  <div class="ed-sidebar-schedule__text">
-                    <span class="ed-sidebar-schedule__primary">{{ formattedDuration }}</span>
-                    <span class="ed-sidebar-schedule__secondary" *ngIf="lessonBookingTypeLabel">{{ lessonBookingTypeLabel }}</span>
-                  </div>
+                <span class="ed-lesson-schedule-divider" aria-hidden="true"></span>
+                <div class="ed-lesson-schedule-primary-line">
+                  <img
+                    class="ed-lesson-schedule-icon"
+                    src="assets/upnext-schedule-clock.png"
+                    alt=""
+                    aria-hidden="true" />
+                  <span class="ed-lesson-schedule-time">{{ formattedTimeRange }}</span>
                 </div>
+                <span class="ed-lesson-schedule-duration">{{ edScheduleDurationLabel }}</span>
               </div>
-
-              <p class="ed-sidebar-bio" *ngIf="participantBio">{{ participantBio }}</p>
 
             <!-- Quick actions (consolidated: join/rebook/message in one row) -->
-            <div class="ed-sidebar-actions ed-pc-actions" [class.ed-pc-actions--row]="showJoinButton || (isCancelled && isStudentUser && tutorId)">
+            <div class="ed-sidebar-actions ed-pc-actions" [class.ed-pc-actions--row]="showSidebarActionsRow">
               <button class="ed-pc-btn ed-pc-btn--primary" *ngIf="showJoinButton" [disabled]="!canJoinLesson" (click)="joinLesson()">
                 {{ joinLabel }}
               </button>
-              <button class="ed-pc-btn ed-pc-btn--primary" *ngIf="!showJoinButton && isCancelled && isStudentUser && tutorId" (click)="bookLesson()">
-                {{ 'EVENT_DETAILS.LESSON_SCREEN.REBOOK' | translate }}
+              <button class="ed-pc-btn ed-pc-btn--primary" *ngIf="showStudentRebookButton" (click)="bookLesson()">
+                {{ 'EVENT_DETAILS.LESSON_SCREEN.BOOK_AGAIN' | translate }}
               </button>
               <button class="ed-pc-btn ed-pc-btn--outline" *ngIf="participantId" (click)="messageParticipant()">
                 {{ 'EVENT_DETAILS.LESSON_SCREEN.MESSAGE' | translate }}
@@ -142,29 +138,56 @@
             <button class="ed-pc-link" *ngIf="canCancelLesson" (click)="openRescheduleModal()">
               {{ 'EVENT_DETAILS.LESSON_SCREEN.RESCHEDULE_OR_CANCEL' | translate }}
             </button>
+            <button class="ed-pc-link ed-pc-link--issue" *ngIf="edShowReportIssueButton" type="button" (click)="onReportIssueClick()">
+              {{ 'LESSONS_PAGE.REPORT_ISSUE' | translate }}
+            </button>
+            <div class="ed-issue-status ed-issue-status--pending" *ngIf="edShowIssueReportedChip">
+              <ion-icon name="flag-outline" aria-hidden="true"></ion-icon>
+              <span>{{ 'LESSONS_PAGE.ISSUE_REPORTED' | translate }}</span>
+            </div>
+            <div class="ed-issue-status ed-issue-status--resolved" *ngIf="edShowIssueResolvedChip">
+              <ion-icon name="checkmark-circle-outline" aria-hidden="true"></ion-icon>
+              <span>{{ 'LESSONS_PAGE.ISSUE_RESOLVED' | translate }}</span>
+            </div>
+
+            <div
+              class="ed-pc-divider"
+              *ngIf="isTutorUser && edShowGoalSidebarSection">
+            </div>
 
             <!-- Student learning goal (tutor view — compact, no edit) -->
-            <ng-container *ngIf="isTutorUser && !edPlanIsTrial && (edPlanShowGoalCard || edPlanPhaseLabel)">
-              <div class="ed-pc-divider"></div>
+            <ng-container *ngIf="isTutorUser && edShowGoalSidebarSection">
               <div class="ed-pc-student-goal">
-                <h3 class="ed-pc-section-title">{{ 'PRE_CALL.STUDENT_GOAL' | translate }}</h3>
-                <div class="ed-goal-card ed-goal-card--compact" *ngIf="edPlanShowGoalCard">
-                  <div class="ed-goal-card-main">
-                    <div class="ed-goal-icon">
-                      <ion-icon [name]="edPlanGoalIcon"></ion-icon>
-                    </div>
-                    <div class="ed-goal-info">
-                      <span class="ed-goal-type">{{ edPlanGoalLabel }}</span>
-                      <div class="ed-goal-meta">
-                        <span class="ed-goal-level" *ngIf="edPlanGoalLevelKey">{{ edPlanGoalLevelKey | translate }}</span>
-                        <span class="ed-meta-dot" *ngIf="edPlanGoalLevelKey && edPlanGoalTimelineKey"></span>
-                        <span class="ed-goal-timeline" *ngIf="edPlanGoalTimelineKey && !edPlanGoalTimelineDate">{{ edPlanGoalTimelineKey | translate }}</span>
-                        <span class="ed-goal-timeline" *ngIf="edPlanGoalTimelineKey && edPlanGoalTimelineDate">{{ edPlanGoalTimelineKey | translate : { date: edPlanGoalTimelineDate } }}</span>
-                      </div>
-                    </div>
+                <div class="ed-goal-line" *ngIf="edPlanShowGoalCard">
+                  <div class="ed-goal-line-primary">
+                    <span class="ed-goal-line-label">{{ 'PRE_CALL.STUDENT_GOAL' | translate }}:</span>
+                    <span class="ed-goal-type ed-goal-type--inline">{{ edPlanGoalLabel }}</span>
+                  </div>
+                  <div class="ed-goal-meta ed-goal-line-meta" *ngIf="edPlanGoalLevelKey || edPlanGoalTimelineKey">
+                    <span class="ed-goal-level" *ngIf="edPlanGoalLevelKey">{{ edPlanGoalLevelKey | translate }}</span>
+                    <span class="ed-meta-dot" *ngIf="edPlanGoalLevelKey && edPlanGoalTimelineKey" aria-hidden="true"></span>
+                    <span class="ed-goal-timeline" *ngIf="edPlanGoalTimelineKey && !edPlanGoalTimelineDate">{{ edPlanGoalTimelineKey | translate }}</span>
+                    <span class="ed-goal-timeline" *ngIf="edPlanGoalTimelineKey && edPlanGoalTimelineDate">{{ edPlanGoalTimelineKey | translate : { date: edPlanGoalTimelineDate } }}</span>
                   </div>
                 </div>
-                <p class="ed-goal-phase" *ngIf="edPlanPhaseLabel">{{ edPlanPhaseLabel }}</p>
+                <h3 class="ed-pc-section-title" *ngIf="!edPlanShowGoalCard && edJourneyIllustration">{{ 'EVENT_DETAILS.LESSON_SCREEN.STUDENT_JOURNEY' | translate }}</h3>
+                <p class="ed-goal-phase" *ngIf="edPlanPhaseLabel && !showJourneyMapPreview && !edJourneyIllustration">{{ edPlanPhaseLabel }}</p>
+                <app-journey-map-preview
+                  *ngIf="edJourneyIllustration"
+                  class="ed-journey-map-preview"
+                  size="sidebar"
+                  [illustration]="edJourneyIllustration"
+                  [caption]="edJourneyStatusNote" />
+                <app-journey-map-preview
+                  *ngIf="showJourneyMapPreview"
+                  class="ed-journey-map-preview"
+                  size="sidebar"
+                  [chapterTheme]="edJourneyChapterTheme"
+                  [chapterLevel]="edJourneyChapterLevel"
+                  [phases]="edJourneyPhases"
+                  [currentPhaseIndex]="edJourneyCurrentPhaseIndex"
+                  [caption]="edJourneyCaption"
+                  [planStateLabel]="edPlanStateLabel" />
               </div>
             </ng-container>
 
@@ -176,19 +199,10 @@
             </div>
 
             <div class="ed-pc-details-grid">
-              <div class="ed-pc-detail" *ngIf="formattedPrice && !hasPaymentStatus">
+              <div class="ed-pc-detail" *ngIf="formattedPrice && !hasPaymentStatus && isTutorUser">
                 <ion-icon name="card-outline"></ion-icon>
                 <div>
                   <span class="ed-pc-detail-primary">{{ formattedPrice }}</span>
-                </div>
-              </div>
-
-              <div class="ed-pc-detail" *ngIf="isStudentUser && paymentMethodLabel">
-                <img *ngIf="paymentMethodIcon === 'logo-google'" src="assets/google.png" alt="Google Pay" class="ed-payment-method-google" />
-                <ion-icon *ngIf="paymentMethodIcon !== 'logo-google'" [name]="paymentMethodIcon"></ion-icon>
-                <div>
-                  <span class="ed-pc-detail-primary">{{ paymentMethodLabel }}</span>
-                  <span class="ed-pc-detail-secondary">{{ 'EVENT_DETAILS.LESSON_SCREEN.PAYMENT_METHOD' | translate }}</span>
                 </div>
               </div>
 
@@ -208,6 +222,29 @@
                 </div>
               </div>
             </div>
+            </ng-container>
+
+            <ng-container *ngIf="isStudentUser && edShowGoalSidebarSection">
+              <div class="ed-pc-divider"></div>
+              <div class="ed-journey-map-section">
+                <h3 class="ed-pc-section-title">{{ 'EVENT_DETAILS.LESSON_SCREEN.YOUR_JOURNEY' | translate }}</h3>
+                <app-journey-map-preview
+                  *ngIf="edJourneyIllustration"
+                  class="ed-journey-map-preview"
+                  size="sidebar"
+                  [illustration]="edJourneyIllustration"
+                  [caption]="edJourneyStatusNote" />
+                <app-journey-map-preview
+                  *ngIf="showJourneyMapPreview"
+                  class="ed-journey-map-preview"
+                  size="sidebar"
+                  [chapterTheme]="edJourneyChapterTheme"
+                  [chapterLevel]="edJourneyChapterLevel"
+                  [phases]="edJourneyPhases"
+                  [currentPhaseIndex]="edJourneyCurrentPhaseIndex"
+                  [caption]="edJourneyCaption"
+                  [planStateLabel]="edPlanStateLabel" />
+              </div>
             </ng-container>
 
             </aside>
@@ -236,7 +273,7 @@
           <div class="ed-focus-card-head">
             <span class="ed-focus-card-eyebrow">{{ (edPlanIsTrial ? 'EVENT_DETAILS.LESSON_SCREEN.TRIAL_EYEBROW' : edPlanEyebrowKey) | translate }}</span>
             <div class="ed-focus-card-head-actions" *ngIf="!mcLearningFocusEmpty">
-              <span class="ed-focus-card-state" *ngIf="edPlanStateLabel">{{ edPlanStateLabel }}</span>
+              <span class="ed-focus-card-state" *ngIf="edPlanStateLabel && !showJourneyMapPreview">{{ edPlanStateLabel }}</span>
               <button
                 type="button"
                 class="ed-focus-card-edit"
@@ -258,8 +295,8 @@
           <ng-container *ngIf="!mcLearningFocusEmpty">
           <div class="ed-focus-card-body-wrap" #focusBodyWrap [style.minHeight.px]="edFocusBodyMinHeight || null">
             <div class="ed-focus-card-view" [class.is-hidden]="edFocusEditing">
-              <p class="ed-focus-card-body">{{ edPlanIsTrial ? edPlanTrialBody : edPlanNextFocus }}</p>
-              <p class="ed-focus-card-advisory" *ngIf="!edPlanIsTrial && edPlanAdvisoryNote">{{ edPlanAdvisoryNote }}</p>
+              <p class="ed-focus-card-body">{{ edPlanFocusBody }}</p>
+              <p class="ed-focus-card-advisory" *ngIf="!edPlanIsTrial && !edPlanIsPaused && edPlanAdvisoryNote">{{ edPlanAdvisoryNote }}</p>
             </div>
 
             <div class="ed-focus-editor" [class.is-hidden]="!edFocusEditing">
@@ -278,15 +315,33 @@
               </div>
             </div>
           </div>
-          <div class="ed-topics" *ngIf="edShowPlanExpanded && !edPlanIsTrial && edPlanTopicChips.length">
+          <div class="ed-topics" *ngIf="edShowPlanExpanded && !edPlanIsTrial && !edPlanIsPaused && edPlanTopicChips.length">
             <span class="ed-topic" *ngFor="let topic of edPlanTopicChips">{{ topic }}</span>
           </div>
-          <ul class="ed-focus-agenda" *ngIf="edShowPlanExpanded && !edPlanIsTrial && edPlanAgenda.length && isStudentUser">
+          <ul class="ed-focus-agenda" *ngIf="edShowPlanExpanded && !edPlanIsTrial && !edPlanIsPaused && edPlanAgenda.length && isStudentUser">
             <li *ngFor="let item of edPlanAgenda">{{ item }}</li>
           </ul>
           </ng-container>
 
           <p class="ed-section-empty" *ngIf="mcLearningFocusEmpty">{{ mcLearningFocusEmptyKey | translate }}</p>
+        </div>
+      </section>
+    </ng-container>
+
+    <!-- ── Trial lesson insights placeholder (upcoming or completed) ── -->
+    <ng-container *ngIf="showMcTrialInsightsPlaceholder">
+      <div class="ed-divider"></div>
+      <section class="ed-row ed-trial-insights-placeholder">
+        <div class="ed-trial-insights-placeholder__inner">
+          <img
+            class="ed-trial-insights-placeholder__art"
+            src="assets/trial-insights-empty.png"
+            alt=""
+            width="200"
+            height="200"
+            decoding="async" />
+          <h2 class="ed-trial-insights-placeholder__title">{{ 'EVENT_DETAILS.LESSON_SCREEN.TRIAL_INSIGHTS_TITLE' | translate }}</h2>
+          <p class="ed-trial-insights-placeholder__body">{{ mcTrialInsightsBodyKey | translate }}</p>
         </div>
       </section>
     </ng-container>

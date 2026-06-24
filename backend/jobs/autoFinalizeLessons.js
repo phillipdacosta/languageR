@@ -380,58 +380,63 @@ async function finalizeLesson(lesson, endTime = new Date()) {
           const tutorName = tutor.firstName || tutor.name?.split(' ')[0] || 'Your tutor';
           const studentName = student.firstName || student.name?.split(' ')[0] || 'Your student';
           
-          // Notification for STUDENT - Analysis is available
-          await Notification.create({
-            userId: student._id,
-            type: 'lesson_completed',
-            title: '📊 Lesson Completed',
-            message: `Your lesson with ${tutorName} has ended. View your lesson analysis and leave a tip!`,
-            relatedUserPicture: tutor.picture || null,
-            data: {
-              lessonId: lesson._id.toString(),
-              action: 'view_analysis',
-              tutorName: tutorName
-            }
-          });
-          console.log(`📬 [AutoFinalize] Sent completion notification to student ${student._id}`);
-          
-          // Notification for TUTOR - Leave feedback
-          await Notification.create({
-            userId: tutor._id,
-            type: 'feedback_reminder',
-            title: '📝 Leave Feedback',
-            message: `Your lesson with ${studentName} has ended. Leave feedback for your student!`,
-            relatedUserPicture: student.picture || null,
-            data: {
-              lessonId: lesson._id.toString(),
-              action: 'add_note',
-              studentName: studentName
-            }
-          });
-          console.log(`📬 [AutoFinalize] Sent feedback reminder to tutor ${tutor._id}`);
-          
-          // Emit WebSocket notifications
-          try {
-            const io = require('../server').getIO();
-            if (io) {
-              // Notify student (room-based, reaches all devices)
-              io.to(`mongo:${student._id.toString()}`).emit('lesson_completed_notification', {
+          // Trial lessons have no AI analysis or tipping — skip completion nudges.
+          if (!populatedLesson.isTrialLesson) {
+            // Notification for STUDENT - Analysis is available
+            await Notification.create({
+              userId: student._id,
+              type: 'lesson_completed',
+              title: '📊 Lesson Completed',
+              message: `Your lesson with ${tutorName} has ended. View your lesson analysis and leave a tip!`,
+              relatedUserPicture: tutor.picture || null,
+              data: {
                 lessonId: lesson._id.toString(),
-                tutorName: tutorName,
-                action: 'view_analysis'
-              });
-              
-              // Notify tutor
-              io.to(`mongo:${tutor._id.toString()}`).emit('feedback_reminder', {
+                action: 'view_analysis',
+                tutorName: tutorName
+              }
+            });
+            console.log(`📬 [AutoFinalize] Sent completion notification to student ${student._id}`);
+
+            // Notification for TUTOR - Leave feedback
+            await Notification.create({
+              userId: tutor._id,
+              type: 'feedback_reminder',
+              title: '📝 Leave Feedback',
+              message: `Your lesson with ${studentName} has ended. Leave feedback for your student!`,
+              relatedUserPicture: student.picture || null,
+              data: {
                 lessonId: lesson._id.toString(),
-                studentName: studentName,
-                action: 'add_note'
-              });
+                action: 'add_note',
+                studentName: studentName
+              }
+            });
+            console.log(`📬 [AutoFinalize] Sent feedback reminder to tutor ${tutor._id}`);
+
+            // Emit WebSocket notifications
+            try {
+              const io = require('../server').getIO();
+              if (io) {
+                // Notify student (room-based, reaches all devices)
+                io.to(`mongo:${student._id.toString()}`).emit('lesson_completed_notification', {
+                  lessonId: lesson._id.toString(),
+                  tutorName: tutorName,
+                  action: 'view_analysis'
+                });
+
+                // Notify tutor
+                io.to(`mongo:${tutor._id.toString()}`).emit('feedback_reminder', {
+                  lessonId: lesson._id.toString(),
+                  studentName: studentName,
+                  action: 'add_note'
+                });
+              }
+            } catch (wsError) {
+              console.warn('⚠️ [AutoFinalize] WebSocket notification failed:', wsError.message);
             }
-          } catch (wsError) {
-            console.warn('⚠️ [AutoFinalize] WebSocket notification failed:', wsError.message);
+          } else {
+            console.log(`⏭️ [AutoFinalize] Skipping completion notifications — trial lesson ${lesson._id}`);
           }
-          
+
           // 📝 CREATE PENDING TUTOR FEEDBACK FOR ALL COMPLETED LESSONS
           // Skip for trial lessons
           if (!populatedLesson.isTrialLesson) {

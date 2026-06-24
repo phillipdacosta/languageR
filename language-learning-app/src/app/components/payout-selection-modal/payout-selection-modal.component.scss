@@ -24,6 +24,17 @@ ion-content {
   background: #ffffff;
   height: 100%;
   overflow: hidden;
+
+  &::part(scroll) {
+    height: 100%;
+  }
+}
+
+.payout-modal-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
 }
 
 // ─── Current method notice ───
@@ -31,13 +42,14 @@ ion-content {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 56px 24px 0;
-  padding: 10px 14px;
+  margin: 52px 24px 0;
+  padding: 8px 12px;
   background: #f0faf0;
   border: 1px solid #d4edda;
   border-radius: 10px;
-  font-size: 13px;
+  font-size: 12px;
   color: #2d8a4e;
+  flex-shrink: 0;
 
   &__icon {
     font-size: 16px;
@@ -52,6 +64,40 @@ ion-content {
 }
 
 // ─── Close Button (Airbnb circle) ───
+.modal-back-button {
+  position: absolute;
+  top: 50%;
+  left: 16px;
+  z-index: 100;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 32px;
+  padding: 0 10px 0 6px;
+  background: #f7f7f7;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  transform: translateY(-50%);
+  transition: background 0.2s ease, transform 0.15s ease;
+  font-size: 14px;
+  font-weight: 600;
+  color: $text-primary;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+
+  &:hover {
+    background: $bg-hover;
+  }
+
+  &:active {
+    transform: translateY(-50%) scale(0.97);
+  }
+
+  ion-icon {
+    font-size: 18px;
+  }
+}
+
 .close-button {
   position: absolute;
   top: 16px;
@@ -112,13 +158,14 @@ ion-content {
 .wizard-container {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   padding: 0;
 }
 
 // ─── Progress Bar ───
 .progress-bar-container {
-  padding: 20px 64px 0 24px; // right padding avoids close button
+  padding: 16px 56px 0 24px;
   flex-shrink: 0;
 }
 
@@ -143,12 +190,14 @@ ion-content {
   position: relative;
   overflow: hidden;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .step-content {
   width: 100%;
   height: 100%;
-  padding: 32px 40px 40px;
+  padding: 24px 32px 28px;
   overflow-y: auto;
   overflow-x: hidden;
 
@@ -166,8 +215,78 @@ ion-content {
   }
 
   @media (max-width: 768px) {
-    padding: 24px 20px 32px;
+    padding: 20px 16px 24px;
   }
+
+  &--payment {
+    padding: 8px 20px 24px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+
+    @media (max-width: 768px) {
+      padding: 4px 12px 20px;
+    }
+  }
+}
+
+.payment-connect-shell {
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto;
+
+  &.profile-payout-panel {
+    padding: 0;
+    background: transparent;
+    box-shadow: none;
+    border: none;
+  }
+
+  .profile-payout-provider {
+    width: 100%;
+  }
+}
+
+.stored-country-flag {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.residence-country-button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 14px;
+  margin: -4px 0 12px;
+  background: #ffffff;
+  border: 1px solid $border;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: $text-primary;
+  font-family: inherit;
+  text-align: left;
+
+  &:hover {
+    border-color: $text-secondary;
+  }
+
+  ion-icon {
+    font-size: 18px;
+    color: $text-secondary;
+    flex-shrink: 0;
+  }
+}
+
+.residence-country-display {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
 }
 
 // ─── Step Layout (two-column) ───
@@ -432,46 +551,81 @@ ion-content {
   }
 }
 
-// ─── Payment Centered Layout (Step 3) ───
-.payment-centered-layout {
+// ─── Payment step layout (sticky footer) ───
+.payment-step-layout {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  max-width: 560px;
+  height: 100%;
+  max-width: 520px;
   margin: 0 auto;
-  min-height: 100%;
+  width: 100%;
+  min-height: 0;
+}
+
+.payment-step-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 8px;
+
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: $border-light;
+    border-radius: 2px;
+  }
+}
+
+.payment-step-footer {
+  flex-shrink: 0;
+  padding: 12px 0 20px;
+  background: #ffffff;
+  border-top: 1px solid $border-light;
 }
 
 .payment-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
   text-align: center;
-  margin-bottom: 32px;
+  margin-bottom: 16px;
+
+  .step-icon-circle {
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    margin: 0 auto 12px;
+
+    ion-icon {
+      font-size: 26px;
+    }
+  }
 }
 
 .payment-title {
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 700;
   color: $text-primary;
-  margin: 0 0 8px 0;
+  margin: 0 0 6px 0;
   letter-spacing: -0.5px;
   line-height: 1.2;
 }
 
 .payment-subtitle {
-  font-size: 15px;
-  line-height: 1.6;
+  font-size: 14px;
+  line-height: 1.5;
   color: $text-secondary;
-  margin: 0;
-  max-width: 400px;
-  margin-left: auto;
-  margin-right: auto;
+  margin: 0 auto;
+  max-width: 360px;
 }
 
 .payment-method-area {
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  margin-bottom: 24px;
+  gap: 12px;
 }
 
 // ─── Payment Method Card ───
@@ -485,6 +639,10 @@ ion-content {
               background 0.25s ease,
               box-shadow 0.25s ease,
               transform 0.15s ease;
+
+  &--solo {
+    cursor: default;
+  }
 
   &:hover {
     border-color: #bdbdbd;
@@ -509,8 +667,8 @@ ion-content {
 .pmc-header {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 20px 24px;
+  gap: 14px;
+  padding: 16px 18px;
 }
 
 .pmc-icon {
@@ -579,9 +737,33 @@ ion-content {
   border-top: 1px solid $border-light;
   background: $bg-subtle;
 
+  &--compact {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    padding: 10px 16px 12px;
+
+    .pmc-feature {
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 4px;
+      font-size: 11px;
+      line-height: 1.25;
+
+      ion-icon {
+        font-size: 15px;
+      }
+    }
+  }
+
   @media (max-width: 520px) {
     flex-direction: column;
     gap: 10px;
+
+    &--compact {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
   }
 }
 
@@ -616,12 +798,13 @@ ion-content {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 16px;
-  padding: 10px 20px;
+  gap: 12px;
+  padding: 8px 14px;
   background: $bg-subtle;
   border-radius: 100px;
-  margin-bottom: 28px;
-  width: auto;
+  margin-bottom: 12px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .tax-pill-items {
@@ -670,25 +853,25 @@ ion-content {
 // ─── Payment Action Buttons ───
 .payment-actions {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   width: 100%;
-  margin-top: auto;
-  padding-top: 20px;
-  border-top: 1px solid $border-light;
 
   .secondary-btn {
     flex: 0 0 auto;
-    min-width: 100px;
+    min-width: 96px;
+    padding: 12px 18px;
   }
 
   .primary-btn {
     flex: 1;
+    padding: 12px 18px;
+    min-height: 46px;
   }
 }
 
 // ─── PayPal Input Section ───
 .paypal-input-section {
-  padding: 16px 20px 20px;
+  padding: 12px 16px 14px;
   background: $bg-subtle;
   border-top: 1px solid $border-light;
 }
@@ -739,11 +922,12 @@ ion-content {
 
 .field-hint {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 6px;
-  margin-top: 8px;
-  font-size: 13px;
+  margin: 6px 0 0;
+  font-size: 12px;
   color: $text-secondary;
+  line-height: 1.35;
 
   ion-icon {
     font-size: 16px;
@@ -897,10 +1081,10 @@ ion-content {
   }
 
   .step-icon-circle {
-    width: 56px;
-    height: 56px;
+    width: 52px;
+    height: 52px;
     border-radius: 16px;
-    margin-bottom: 16px;
+    margin-bottom: 12px;
 
     ion-icon {
       font-size: 26px;
@@ -967,6 +1151,15 @@ ion-content {
 
     ion-icon {
       color: #f5f5f7;
+    }
+  }
+
+  .modal-back-button {
+    background: rgba(255, 255, 255, 0.1);
+    color: #f5f5f7;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.16);
     }
   }
 
@@ -1096,6 +1289,11 @@ ion-content {
 
   .field-error {
     color: #ff6961;
+  }
+
+  .payment-step-footer {
+    background: #242426;
+    border-top-color: rgba(255, 255, 255, 0.08);
   }
 
   .payment-actions,

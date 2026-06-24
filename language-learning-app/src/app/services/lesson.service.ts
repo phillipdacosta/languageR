@@ -173,9 +173,18 @@ export interface Lesson {
   actualDurationMinutes?: number;
   actualPrice?: number;
   billingStatus?: 'pending' | 'authorized' | 'charged' | 'refunded' | null;
+  revenueRecognized?: boolean;
   studentLessonIntent?: string;
   /** Net to tutor after platform fee */
   tutorPayout?: number;
+  /** Populated by GET /my-lessons for tutor fund-status labels on lesson cards */
+  paymentSnapshot?: {
+    status?: string | null;
+    transferStatus?: string | null;
+    tutorPayout?: number;
+    refundAmount?: number;
+    revenueRecognized?: boolean;
+  };
 }
 
 export interface LessonCreateRequest {
@@ -882,6 +891,11 @@ export class LessonService {
       return null;
     }
     return entry;
+  }
+
+  /** Best-effort lookup from the in-memory lessons feed (for image warm-up). */
+  findLessonInFeed(id: string): Lesson | undefined {
+    return this.lessonsSubject.value.find((l) => l._id === id);
   }
 
   /**

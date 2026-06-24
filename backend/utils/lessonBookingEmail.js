@@ -3,7 +3,7 @@ const path = require('path');
 const axios = require('axios');
 const emailService = require('../services/emailService');
 const { formatNameWithInitial, formatFirstName } = require('./nameFormatter');
-const { resolveEmailFrontendUrl, resolveEmailAssetBaseUrl } = require('./appUrl');
+const { resolveEmailFrontendUrl } = require('./appUrl');
 
 const I18N_PATH = path.join(__dirname, 'lessonBookingEmail.i18n.json');
 const TUTOR_I18N_PATH = path.join(__dirname, 'lessonBookingTutorEmail.i18n.json');
@@ -40,14 +40,7 @@ function resolveEmailAssetUrl(filename) {
   const bucket = process.env.GOOGLE_CLOUD_BUCKET_NAME || 'languager-videos-2025';
   const gcsBase = process.env.EMAIL_MASCOT_GCS_BASE?.trim().replace(/\/$/, '')
     || `https://storage.googleapis.com/${bucket}/email-assets`;
-  const gcsUrl = `${gcsBase}/${filename}`;
-
-  // Card mascots are public on GCS; brand header assets may not be — use API /email-assets.
-  if (filename.startsWith('mascot-email-')) {
-    return gcsUrl;
-  }
-
-  return `${resolveEmailAssetBaseUrl().replace(/\/$/, '')}/${filename}`;
+  return `${gcsBase}/${filename}`;
 }
 
 function resolveMascotCardImageUrl(isTrialLesson) {
@@ -673,8 +666,8 @@ async function getLessonBookedEmailDebugForLessonId(lessonId) {
       'SendGrid template Subject must be set to {{subject}} (or {{{subject}}}).',
       'Email links use FRONTEND_URL_DEV on Render unless EMAIL_PUBLIC_FRONTEND_URL is set.',
       'Set EMAIL_PUBLIC_FRONTEND_URL when your custom app domain (e.g. app.barnabi.ai) is live.',
-      'Gmail cannot load localhost image URLs — use public /email-assets or GCS URLs.',
-      'Brand header images are served from the API /email-assets path, not frontend /assets.',
+      'Gmail cannot load localhost image URLs — all email images use public GCS email-assets URLs.',
+      'Set EMAIL_ASSET_BASE_URL or EMAIL_MASCOT_GCS_BASE to override the default GCS asset host.',
       'Set SENDGRID_LESSON_BOOKED_TUTOR_TEMPLATE_ID only if tutors use a separate template.'
     ]
   };

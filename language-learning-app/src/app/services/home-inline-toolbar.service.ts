@@ -74,4 +74,13 @@ export class HomeInlineToolbarService {
     }
     return false;
   }
+
+  /** Approval wizard step to open when home loads (notification deep link). */
+  pendingOpenTutorApprovalStep: string | null = null;
+
+  consumePendingOpenTutorApproval(): string | null {
+    const step = this.pendingOpenTutorApprovalStep;
+    this.pendingOpenTutorApprovalStep = null;
+    return step;
+  }
 }

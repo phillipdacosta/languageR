@@ -1,6 +1,6 @@
-<!-- Standalone mode: full ion-header. Skipped in inline mode so the host
-     (tab1) can render its own short-distance "Back" affordance. -->
-<ion-header class="ion-no-border journey-header" *ngIf="!inline">
+<!-- Standalone mode: full ion-header. Hidden when the immersive map is shown —
+     title/back live on the map overlay instead. -->
+<ion-header class="ion-no-border journey-header" *ngIf="!inline && !phaseRows.length">
   <ion-toolbar>
     <ion-buttons slot="start">
       <ion-button class="journey-back-btn" (click)="goBack()" aria-label="Back">
@@ -15,17 +15,21 @@
 <!-- Inline mode: render content directly without ion-content; host owns the
      scroll context. Title row mirrors the earnings inline pattern; the
      `.go-back-link` is the FLIP-animation destination from the home widget. -->
-<div class="journey-inline-wrapper" *ngIf="inline">
-  <div class="inline-journey-header">
+<div class="journey-inline-wrapper" [class.journey-inline-wrapper--immersive]="phaseRows.length" *ngIf="inline">
+  <div class="inline-journey-header" *ngIf="!phaseRows.length">
     <h2 class="inline-journey-title">{{ 'JOURNEY.TITLE' | translate }}</h2>
     <button class="go-back-link" (click)="goBack()">{{ 'JOURNEY.BACK' | translate }}</button>
   </div>
-  <ng-container *ngTemplateOutlet="cefrChip"></ng-container>
+  <ng-container *ngIf="!phaseRows.length">
+    <ng-container *ngTemplateOutlet="cefrChip"></ng-container>
+  </ng-container>
   <ng-container *ngTemplateOutlet="journeyBody"></ng-container>
 </div>
 
-<ion-content class="journey-content" *ngIf="!inline">
-  <ng-container *ngTemplateOutlet="cefrChip"></ng-container>
+<ion-content class="journey-content" [class.journey-content--immersive]="phaseRows.length" [scrollY]="!phaseRows.length" *ngIf="!inline">
+  <ng-container *ngIf="!phaseRows.length">
+    <ng-container *ngTemplateOutlet="cefrChip"></ng-container>
+  </ng-container>
   <ng-container *ngTemplateOutlet="journeyBody"></ng-container>
 </ion-content>
 
@@ -88,7 +92,7 @@
   <!-- ── Mastery Mode banner (Batch 13) — only when post-C2 ─────── -->
   <section
     class="journey-section journey-mastery-section"
-    *ngIf="isMasteryMode">
+    *ngIf="isMasteryMode && !phaseRows.length">
     <div class="journey-mastery-card">
       <div class="journey-mastery-eyebrow">
         <ion-icon name="trophy-outline"></ion-icon>
@@ -130,11 +134,13 @@
     </div>
   </section>
 
-  <!-- ── Roadmap — scenic map + single phase detail card ─────────── -->
+  <!-- ── Roadmap — full-screen scenic map with overlay chrome ─────── -->
   <section class="journey-section journey-section--roadmap" *ngIf="phaseRows.length">
 
     <!-- Sticky "visiting past chapter" badge — shown only while exploring history. -->
-    <div *ngIf="visitingChapter" class="journey-visit-badge">
+    <div
+      *ngIf="visitingChapter"
+      class="journey-visit-badge journey-visit-badge--overlay">
       <span class="journey-visit-badge-text">
         {{ 'JOURNEY.PAST_MAPS.VISITING' | translate }} {{ 'JOURNEY.PAST_MAPS.CHAPTER' | translate }} {{ visitingChapter.index + 1 }} · {{ visitingChapter.level }}
         <span class="journey-visit-badge-readonly">{{ 'JOURNEY.PAST_MAPS.READ_ONLY' | translate }}</span>
@@ -144,33 +150,59 @@
       </button>
     </div>
 
-    <!-- Scenic winding-path map. Spans the full section content width
-         so it visually matches the detail card below it. The vertical
-         action dock sits OUTSIDE the canvas, in the section's right
-         gutter (see .journey-map-actions--dock below). -->
     <div
       class="journey-map-canvas"
       *ngIf="mapNodes.length"
       [class.journey-map-canvas--fallback]="backgroundFailed"
-      [attr.data-theme]="chapterTheme"
-      [style.background-image]="backgroundFailed ? null : 'url(' + backgroundUrl + ')'">
-      <!-- Hidden img solely to detect 404 → triggers gradient fallback. -->
-      <img class="journey-map-bg-probe" [src]="backgroundUrl" alt="" (error)="onBackgroundError()" />
+      [attr.data-theme]="chapterTheme">
+      <!-- Blurred cover fill behind the sharp map (fills pillar/letterbox gaps). -->
+      <img
+        class="journey-map-bg journey-map-bg--blur"
+        [src]="backgroundUrl"
+        alt=""
+        aria-hidden="true"
+        decoding="async" />
 
-      <!-- Overlay winding path. Drawn in the same 100×100 viewBox as the
-           node coordinates so nodes sit on the curve. preserveAspectRatio
-           is "none" so the path stretches with the canvas. Two strokes:
-           a soft outer halo for legibility on any background, then the
-           dashed inner stroke for the "trail" feel. -->
+      <div class="journey-map-stage" [class.journey-map-stage--has-traveler]="travelerMapMode">
+        <img
+          class="journey-map-bg journey-map-bg--sharp"
+          [src]="backgroundSrcHiRes"
+          [srcset]="backgroundSrcSet"
+          [sizes]="backgroundSizes"
+          alt=""
+          decoding="sync"
+          (error)="onBackgroundError()" />
+
+      <!-- Overlay winding path — same 100×100 viewBox as node coordinates.
+           Three strokes: wide dust glow → tight halo → dashed inner line. -->
       <svg
         *ngIf="pathReady && mapPathD"
         class="journey-map-path"
         viewBox="0 0 100 100"
         preserveAspectRatio="none"
         aria-hidden="true">
-        <path class="journey-map-path-halo" [attr.d]="mapPathD" />
+        <path
+          class="journey-map-path-dust"
+          [style.stroke-dasharray.px]="mapPathDashLen"
+          [style.stroke-dashoffset.px]="mapPathDashLen"
+          [attr.d]="mapPathD" />
+        <path
+          class="journey-map-path-halo"
+          [style.stroke-dasharray.px]="mapPathDashLen"
+          [style.stroke-dashoffset.px]="mapPathDashLen"
+          [attr.d]="mapPathD" />
         <path class="journey-map-path-line" [attr.d]="mapPathD" />
       </svg>
+
+      <!-- Traveler dot — rests on the active phase; animates for roadblock checkpoints. -->
+      <div
+        *ngIf="travelerVisible"
+        class="jm-traveler"
+        [style.left.%]="travelerXPct"
+        [style.top.%]="travelerYPct"
+        aria-hidden="true">
+        <span class="jm-traveler-dot"></span>
+      </div>
 
       <button
         *ngFor="let node of mapNodes; trackBy: trackByMapNode"
@@ -185,13 +217,15 @@
         [class.jm-node--label-below]="node.labelPlacement === 'below'"
         [class.jm-node--label-start]="node.labelAlign === 'start'"
         [class.jm-node--label-end]="node.labelAlign === 'end'"
+        [class.jm-node--traveler-here]="travelerVisible && travelerPhaseIndex === node.index"
+        [style.--jm-label-x-offset.px]="node.labelOffsetX"
         [style.left.%]="node.xPct"
         [style.top.%]="node.yPct"
         [style.--jm-depth-scale]="node.depthScale"
         [style.--jm-depth-opacity]="node.depthOpacity"
         [style.z-index]="node.depthZIndex"
         [attr.aria-label]="('JOURNEY.PHASE' | translate) + ' ' + (node.index + 1) + ': ' + node.row.title + (node.row.isSplit ? ' (' + ('JOURNEY.SPLIT.NODE_BADGE' | translate) + ')' : '') + (node.row.isRecovery ? ' (' + ('JOURNEY.RECOVERY.NODE_BADGE' | translate) + ')' : '')"
-        (click)="togglePhase(node.index)">
+        (click)="togglePhase(node.index, $event)">
         <span
           *ngIf="node.row.isSplit"
           class="jm-split-badge"
@@ -208,7 +242,7 @@
         </span>
         <span class="jm-dot">
           <ion-icon *ngIf="node.row.status === 'completed'" name="checkmark"></ion-icon>
-          <span *ngIf="node.row.status === 'active'" class="jm-pulse-ring"></span>
+          <span *ngIf="node.row.status === 'active' && !travelerMapMode" class="jm-pulse-ring"></span>
           <ion-icon *ngIf="node.row.status === 'locked'" name="lock-closed-outline"></ion-icon>
         </span>
         <span class="jm-label">
@@ -216,348 +250,177 @@
           <span class="jm-label-title">{{ node.row.title }}</span>
         </span>
       </button>
-    </div>
 
-      <!-- Vertical action dock — sits OFF the canvas, in its own column
-           to the right of the map. Icon-only frosted-glass buttons. Each
-           keeps a title/aria-label so the hidden text label is recoverable
-           on hover and via assistive tech. -->
-      <div class="journey-map-actions journey-map-actions--dock">
+      <!-- Roadblock checkpoints (baked into art; invisible tap target + glow). -->
+      <button
+        *ngFor="let rb of roadblockNodes; trackBy: trackByRoadblock"
+        type="button"
+        class="jm-hotspot jm-hotspot--roadblock"
+        [class.jm-hotspot--active]="rb.state === 'active'"
+        [class.jm-hotspot--done]="rb.state === 'cleared'"
+        [class.jm-hotspot--dev-visible]="isDev && devRoadblockShowHitboxes"
+        [style.left.%]="rb.x"
+        [style.top.%]="rb.y"
+        [attr.data-rb-phase]="rb.afterPhase"
+        [disabled]="rb.state !== 'active' && !(isDev && devRoadblockForceActive)"
+        [attr.aria-label]="'JOURNEY.ROADBLOCK.TITLE' | translate"
+        (click)="onRoadblockTap(rb)">
+        <span class="jm-hotspot-glow"></span>
+      </button>
+
+      <!-- Treasure chest tap targets (invisible when baked into the art). -->
+      <ng-container *ngFor="let chest of chestNodes; trackBy: trackByChestId">
         <button
-          *ngIf="phaseRows.length"
-          class="journey-dock-btn"
+          *ngIf="chest.bakedIn"
           type="button"
-          [title]="'JOURNEY.WHY_THIS_PLAN' | translate"
-          [attr.aria-label]="'JOURNEY.WHY_THIS_PLAN' | translate"
-          (click)="openIntroSheet(false)">
-          <ion-icon name="information-circle-outline"></ion-icon>
-        </button>
-        <button
-          class="journey-dock-btn"
-          type="button"
-          [title]="'JOURNEY.PAST_MAPS.OPEN' | translate"
-          [attr.aria-label]="'JOURNEY.PAST_MAPS.OPEN' | translate"
-          (click)="openPastMaps()">
-          <ion-icon name="map-outline"></ion-icon>
-        </button>
-        <button
-          *ngIf="hasCelebrationToReplay"
-          class="journey-dock-btn journey-dock-btn--milestone"
-          type="button"
-          [title]="'JOURNEY.MILESTONE.REOPEN' | translate"
-          [attr.aria-label]="'JOURNEY.MILESTONE.REOPEN' | translate"
-          (click)="replayLatestCelebration()">
-          <ion-icon name="trophy-outline"></ion-icon>
-        </button>
-        <button
-          class="journey-dock-btn"
-          type="button"
-          [title]="'JOURNEY.PLAN_HISTORY.OPEN' | translate"
-          [attr.aria-label]="'JOURNEY.PLAN_HISTORY.OPEN' | translate"
-          (click)="openPlanHistory()">
-          <ion-icon name="time-outline"></ion-icon>
-        </button>
-        <button
-          *ngIf="isPremium && plan"
-          class="journey-dock-btn"
-          type="button"
-          [title]="'JOURNEY.CHAT.OPEN' | translate"
-          [attr.aria-label]="'JOURNEY.CHAT.OPEN' | translate"
-          (click)="openPlanChat()">
-          <ion-icon name="chatbubbles-outline"></ion-icon>
-        </button>
-        <button
-          *ngIf="permissions"
-          class="journey-dock-btn journey-dock-btn--ai"
-          type="button"
-          [class.journey-dock-btn--locked]="!permissions.canRegenWithAi"
-          [attr.aria-label]="regenTooltip"
-          [title]="regenTooltip"
-          (click)="askAiToRegenerate($event)">
-          <ion-icon name="sparkles-outline"></ion-icon>
-          <span class="journey-dock-counter" *ngIf="permissions.isPremium && regen">
-            {{ regen.remaining }}
+          class="jm-hotspot jm-hotspot--chest"
+          [class.jm-hotspot--active]="chest.state === 'claimable' && !chest.opening"
+          [class.jm-hotspot--done]="chest.state === 'claimed'"
+          [style.left.%]="chest.x"
+          [style.top.%]="chest.y"
+          [attr.data-chest-id]="chest.chestId"
+          [attr.aria-label]="(chest.state === 'claimed' ? 'JOURNEY.CHEST.ALREADY_COLLECTED' : 'JOURNEY.CHEST.OPEN') | translate"
+          (click)="onChestTap(chest)">
+          <span class="jm-hotspot-glow"></span>
+          <span class="jm-chest-collected-badge" *ngIf="chest.state === 'claimed'" aria-hidden="true">
+            <ion-icon name="checkmark"></ion-icon>
           </span>
         </button>
-        <!-- Dev-only: preview chapter transition modals. Hidden in prod. -->
+
         <button
-          *ngIf="isDev"
-          class="journey-dock-btn journey-dock-btn--dev"
+          *ngIf="!chest.bakedIn"
           type="button"
-          title="Preview chapter transitions (dev only)"
-          aria-label="Preview chapter transitions (dev only)"
-          (click)="openDevPreview()">
-          <ion-icon name="bug-outline"></ion-icon>
+          class="jm-chest"
+          [class.jm-chest--left]="chest.side === 'left'"
+          [class.jm-chest--right]="chest.side === 'right'"
+          [class.jm-chest--claimable]="chest.state === 'claimable'"
+          [class.jm-chest--claimed]="chest.state === 'claimed'"
+          [class.jm-chest--locked]="chest.state === 'locked'"
+          [class.jm-chest--opening]="chest.opening"
+          [style.left.%]="chest.x"
+          [style.top.%]="chest.y"
+          [attr.data-chest-id]="chest.chestId"
+          [attr.aria-label]="(chest.state === 'claimed' ? 'JOURNEY.CHEST.ALREADY_COLLECTED' : 'JOURNEY.CHEST.OPEN') | translate"
+          (click)="onChestTap(chest)">
+          <span class="jm-chest-frames">
+            <img
+              *ngFor="let frameUrl of chest.frameUrls; let fi = index; trackBy: trackByFrameIndex"
+              class="jm-chest-sprite"
+              [class.jm-chest-sprite--active]="chest.spriteFrame === fi"
+              [src]="frameUrl"
+              alt=""
+              decoding="async"
+              draggable="false" />
+          </span>
+          <span class="jm-chest-glow" *ngIf="chest.state === 'claimable' && !chest.opening"></span>
+          <span class="jm-chest-collected-badge" *ngIf="chest.state === 'claimed'" aria-hidden="true">
+            <ion-icon name="checkmark"></ion-icon>
+          </span>
         </button>
+      </ng-container>
       </div>
 
-    <!-- Single phase detail card — compact, mirrors the home journey widget -->
-    <div class="jpcd-card" *ngIf="selectedRow" (click)="$event.stopPropagation()">
-
-      <!-- ── Read mode ─────────────────────────────────────────── -->
-      <ng-container *ngIf="!selectedRow.editing">
-
-        <!-- Top row: phase pill + action icons -->
-        <div class="jpcd-top-row">
-          <span class="jpcd-pill"
-            [class.jpcd-pill--active]="selectedRow.status === 'active'"
-            [class.jpcd-pill--completed]="selectedRow.status === 'completed'">
-            <img src="assets/journey-phase.png" alt="" class="jpcd-pill-phase-icon" />
-            {{ 'JOURNEY.PHASE' | translate }} {{ selectedRow.index + 1 }} / {{ phaseRows.length }}
-          </span>
-          <div class="jpcd-actions">
-            <button
-              *ngIf="selectedRow.status !== 'completed' && permissions?.canEditPhases"
-              class="jpcd-icon-btn"
-              type="button"
-              [attr.aria-label]="'JOURNEY.EDIT.EDIT_PHASE' | translate"
-              (click)="startEdit(selectedRow, $event)">
-              <ion-icon name="create-outline"></ion-icon>
-            </button>
-            <button
-              class="jpcd-icon-btn jpcd-icon-btn--close"
-              type="button"
-              aria-label="Close"
-              (click)="togglePhase(selectedRow.index)">
-              <ion-icon name="close-outline"></ion-icon>
-            </button>
-          </div>
-        </div>
-
-        <!-- Phase title -->
-        <h3 class="jpcd-title">{{ selectedRow.title }}</h3>
-
-        <!-- Locked-phase preview. Reframes the empty card into a "what's
-             coming" disclosure: lets the student see the phase content
-             before they get there without making it feel like a checklist
-             of requirements. No estimated lesson count (varies wildly per
-             phase); no progress bar; no primary CTA — see
-             docs/learning-journey/voice-and-framing.md. -->
-        <ng-container *ngIf="selectedRow.status === 'locked'">
-          <div class="jpcd-locked-eyebrow">
-            <ion-icon name="lock-closed-outline" aria-hidden="true"></ion-icon>
-            <span>{{ 'JOURNEY.LOCKED.EYEBROW' | translate }}</span>
-          </div>
-
-          <p class="jpcd-locked-desc" *ngIf="selectedRow.description">
-            {{ selectedRow.description }}
-          </p>
-
-          <div class="jpcd-locked-section" *ngIf="selectedRow.focusAreas?.length">
-            <span class="jpcd-locked-key">{{ 'JOURNEY.LOCKED.FOCUS_LABEL' | translate }}</span>
-            <div class="jpcd-locked-chips">
-              <span class="jpcd-locked-chip" *ngFor="let f of selectedRow.focusAreas">{{ f }}</span>
-            </div>
-          </div>
-
-          <!-- Goal-flavored scenario hints. These differ from focusAreas
-               (which are skill-flavored) — they're the one place the
-               student's goal type ("Use it for work", "Travel") visibly
-               shapes a phase. Hidden when the generator didn't attach any. -->
-          <div class="jpcd-locked-section jpcd-locked-section--goal" *ngIf="selectedRow.suggestedTopics?.length">
-            <span class="jpcd-locked-key">{{ 'JOURNEY.LOCKED.GOAL_TOPICS_LABEL' | translate }}</span>
-            <div class="jpcd-locked-chips">
-              <span class="jpcd-locked-chip jpcd-locked-chip--goal"
-                *ngFor="let t of selectedRow.suggestedTopics">{{ t }}</span>
-            </div>
-          </div>
-
-          <div class="jpcd-locked-section" *ngIf="selectedRow.exitCriteria">
-            <span class="jpcd-locked-key">{{ 'JOURNEY.LOCKED.OUTCOME_LABEL' | translate }}</span>
-            <p class="jpcd-locked-outcome">{{ selectedRow.exitCriteria }}</p>
-          </div>
-
-          <p class="jpcd-locked-anchor" *ngIf="selectedRow.previousPhaseTitle">
-            {{ 'JOURNEY.LOCKED.CONTINUES_FROM' | translate }}
-            <strong>{{ selectedRow.previousPhaseTitle }}</strong>
-          </p>
-
-          <button
-            type="button"
-            class="jpcd-locked-back"
-            (click)="togglePhase(currentPhaseIndex)">
-            <ion-icon name="arrow-back-outline" aria-hidden="true"></ion-icon>
-            {{ 'JOURNEY.LOCKED.BACK_TO_CURRENT' | translate }}
-          </button>
-        </ng-container>
-
-        <!-- Adaptive-split explainer. Renders for both halves of a split phase
-             so the student understands why their plan now has a sub-section.
-             Inline rather than a separate sheet — the card itself is already
-             the explainer surface for the tapped node. -->
-        <div class="jpcd-split-callout" *ngIf="selectedRow.isSplit">
-          <div class="jpcd-split-icon" aria-hidden="true">
-            <ion-icon name="cut-outline"></ion-icon>
-          </div>
-          <div class="jpcd-split-text">
-            <span class="jpcd-split-eyebrow">{{ 'JOURNEY.SPLIT.CARD_EYEBROW' | translate }}</span>
-            <p class="jpcd-split-body">{{ 'JOURNEY.SPLIT.CARD_BODY' | translate }}</p>
-            <button
-              type="button"
-              class="jpcd-split-why"
-              (click)="openSplitExplainer($event)">
-              {{ 'JOURNEY.SPLIT.WHY' | translate }}
-              <ion-icon name="chevron-forward-outline" aria-hidden="true"></ion-icon>
-            </button>
-          </div>
-        </div>
-
-        <!-- Recovery-bridge callout. Renders only on the recovery phase
-             (last phase of the demoted-to chapter). Voice: positive
-             reinforcement, never "you failed" — see
-             docs/learning-journey/voice-and-framing.md. -->
-        <div class="jpcd-recovery-callout" *ngIf="selectedRow.isRecovery">
-          <div class="jpcd-recovery-icon" aria-hidden="true">
-            <ion-icon name="leaf-outline"></ion-icon>
-          </div>
-          <div class="jpcd-recovery-text">
-            <span class="jpcd-recovery-eyebrow">{{ 'JOURNEY.RECOVERY.CARD_EYEBROW' | translate }}</span>
-            <p class="jpcd-recovery-body">{{ 'JOURNEY.RECOVERY.CARD_BODY' | translate }}</p>
-          </div>
-        </div>
-
-        <!-- Progress (active only). Deliberately *qualitative* — we never
-             show the raw mastery score or the 70 threshold to the student.
-             The pill copy is driven by `progressState` from the server
-             (see backend masteryService.phaseProgressState). The "How do
-             I move on?" link opens an honest explainer that talks about
-             cadence without putting a number on it. -->
-        <div class="jpcd-progress" *ngIf="selectedRow.status === 'active'">
-          <div class="jpcd-progress-row">
-            <span class="jpcd-progress-key">{{ 'HOME.JOURNEY_PHASE_PROGRESS' | translate }}</span>
-            <span
-              class="jpcd-progress-pill"
-              *ngIf="selectedRow.progressState"
-              [class.jpcd-progress-pill--ready]="selectedRow.progressState === 'ready_soon'"
-              [class.jpcd-progress-pill--wrap]="selectedRow.progressState === 'wrapping_up'">
-              {{ selectedRow.progressStateLabel }}
-            </span>
-          </div>
-          <div class="jpcd-progress-track">
-            <div class="jpcd-progress-fill" [style.width.%]="selectedRow.windowProgressPercent"></div>
-          </div>
-          <button
-            type="button"
-            class="jpcd-progress-explain"
-            (click)="openProgressionExplainer($event)">
-            {{ 'JOURNEY.PROGRESSION.HOW' | translate }}
-            <ion-icon name="information-circle-outline" aria-hidden="true"></ion-icon>
+      <!-- Title, back, and action dock — overlaid on the map. -->
+      <div class="journey-map-chrome">
+        <div class="journey-map-chrome-start">
+          <button type="button" class="journey-map-chrome-back" (click)="goBack()" [attr.aria-label]="'JOURNEY.BACK' | translate">
+            <ion-icon name="chevron-back-outline" aria-hidden="true"></ion-icon>
+            <span>{{ 'JOURNEY.BACK' | translate }}</span>
           </button>
         </div>
 
-        <!-- Next lesson focus.
-             When the literal next event is a trial (incl. a returning
-             student's first booking with a new tutor), swap in trial
-             framing. The plan-level `nextLessonFocus` is unchanged — we
-             just stop surfacing it as "what happens next" right before
-             a meet-and-greet. -->
-        <div class="jpcd-focus jpcd-focus--trial" *ngIf="pendingTrial && selectedRow.status === 'active'">
-          <span class="jpcd-focus-icon-wrap">
-            <img src="assets/journey-focus.png" alt="" class="jpcd-focus-img" />
-          </span>
-          <div class="jpcd-focus-text">
-            <span class="jpcd-focus-eyebrow" *ngIf="nextTrialTutorFirstName">
-              {{ 'HOME.JOURNEY_TRIAL_FOCUS_EYEBROW_WITH_TUTOR' | translate:{ tutor: nextTrialTutorFirstName } }}
-            </span>
-            <span class="jpcd-focus-eyebrow" *ngIf="!nextTrialTutorFirstName">
-              {{ 'HOME.JOURNEY_TRIAL_FOCUS_EYEBROW' | translate }}
-            </span>
-            <p class="jpcd-focus-body">{{ 'HOME.JOURNEY_TRIAL_FOCUS_BODY' | translate }}</p>
-          </div>
-        </div>
-
-        <div class="jpcd-focus" *ngIf="!pendingTrial && nextLessonFocus && selectedRow.status === 'active'">
-          <span class="jpcd-focus-icon-wrap">
-            <img src="assets/journey-focus.png" alt="" class="jpcd-focus-img" />
-          </span>
-          <div class="jpcd-focus-text">
-            <span class="jpcd-focus-eyebrow">{{ 'HOME.JOURNEY_NEXT_FOCUS' | translate }}</span>
-            <p class="jpcd-focus-body">{{ nextLessonFocus }}</p>
-          </div>
-        </div>
-
-        <!-- Goal-flavored scenarios for the active phase. Same data
-             surfaced on locked phases, but rendered as a single
-             discreet row under the goal label so it doesn't fight the
-             "next lesson focus" card for attention. -->
-        <div class="jpcd-active-goal-topics"
-          *ngIf="selectedRow.status === 'active' && selectedRow.suggestedTopics?.length">
-          <span class="jpcd-active-goal-topics-key">
-            {{ 'JOURNEY.ACTIVE_TOPICS_LABEL' | translate }}
-          </span>
-          <div class="jpcd-active-goal-topics-chips">
-            <span class="jpcd-active-goal-topics-chip"
-              *ngFor="let t of selectedRow.suggestedTopics">{{ t }}</span>
-          </div>
-        </div>
-
-        <!-- Goal -->
-        <div class="jpcd-goal" *ngIf="goalLabel && selectedRow.status === 'active'">
-          <img src="assets/journey-goal.png" alt="" class="jpcd-goal-icon" />
-          <span class="jpcd-goal-label">{{ 'HOME.JOURNEY_GOAL' | translate }}:</span>
-          <span class="jpcd-goal-value">{{ goalLabel }}</span>
-        </div>
-
-        <!-- CTA pill — same black pill as home widget, FLIP animation target -->
-        <div class="jw-primary-cta-row" *ngIf="primaryCtaLabel">
+        <div class="journey-map-actions journey-map-actions--dock">
           <button
+            *ngIf="phaseRows.length"
+            class="journey-dock-btn"
             type="button"
-            class="jw-primary-cta-btn"
-            (click)="onPrimaryCtaTap()">
-            <span class="jw-primary-cta-content">
-              <span class="jw-primary-cta-label">{{ primaryCtaLabel }}</span>
-              <span class="jw-primary-cta-sub" *ngIf="primaryCtaSubLabel">{{ primaryCtaSubLabel }}</span>
+            [title]="'JOURNEY.WHY_THIS_PLAN' | translate"
+            [attr.aria-label]="'JOURNEY.WHY_THIS_PLAN' | translate"
+            (click)="openIntroSheet(false)">
+            <ion-icon name="information-circle-outline"></ion-icon>
+          </button>
+          <button
+            class="journey-dock-btn"
+            type="button"
+            [title]="'JOURNEY.PAST_MAPS.OPEN' | translate"
+            [attr.aria-label]="'JOURNEY.PAST_MAPS.OPEN' | translate"
+            (click)="openPastMaps()">
+            <ion-icon name="map-outline"></ion-icon>
+          </button>
+          <button
+            *ngIf="hasCelebrationToReplay"
+            class="journey-dock-btn journey-dock-btn--milestone"
+            type="button"
+            [title]="'JOURNEY.MILESTONE.REOPEN' | translate"
+            [attr.aria-label]="'JOURNEY.MILESTONE.REOPEN' | translate"
+            (click)="replayLatestCelebration()">
+            <ion-icon name="trophy-outline"></ion-icon>
+          </button>
+          <button
+            class="journey-dock-btn"
+            type="button"
+            [title]="'JOURNEY.PLAN_HISTORY.OPEN' | translate"
+            [attr.aria-label]="'JOURNEY.PLAN_HISTORY.OPEN' | translate"
+            (click)="openPlanHistory()">
+            <ion-icon name="time-outline"></ion-icon>
+          </button>
+          <button
+            *ngIf="isPremium && plan"
+            class="journey-dock-btn"
+            type="button"
+            [title]="'JOURNEY.CHAT.OPEN' | translate"
+            [attr.aria-label]="'JOURNEY.CHAT.OPEN' | translate"
+            (click)="openPlanChat()">
+            <ion-icon name="chatbubbles-outline"></ion-icon>
+          </button>
+          <button
+            *ngIf="permissions"
+            class="journey-dock-btn journey-dock-btn--ai"
+            type="button"
+            [class.journey-dock-btn--locked]="!permissions.canRegenWithAi"
+            [attr.aria-label]="regenTooltip"
+            [title]="regenTooltip"
+            (click)="askAiToRegenerate($event)">
+            <ion-icon name="sparkles-outline"></ion-icon>
+            <span class="journey-dock-counter" *ngIf="permissions.isPremium && regen">
+              {{ regen.remaining }}
             </span>
-            <ion-icon *ngIf="primaryCtaIcon" [name]="primaryCtaIcon"></ion-icon>
+          </button>
+          <button
+            *ngIf="isDev"
+            class="journey-dock-btn journey-dock-btn--dev"
+            type="button"
+            title="Test roadblock flow (dev only)"
+            aria-label="Test roadblock flow (dev only)"
+            (click)="openRoadblockDevTools()">
+            <ion-icon name="construct-outline"></ion-icon>
+          </button>
+          <button
+            *ngIf="isDev"
+            class="journey-dock-btn journey-dock-btn--dev"
+            type="button"
+            title="Preview map layouts (dev only)"
+            aria-label="Preview map layouts (dev only)"
+            (click)="openMapLayoutPreview()">
+            <ion-icon name="map-outline"></ion-icon>
+          </button>
+          <button
+            *ngIf="isDev"
+            class="journey-dock-btn journey-dock-btn--dev"
+            type="button"
+            title="Preview chapter transitions (dev only)"
+            aria-label="Preview chapter transitions (dev only)"
+            (click)="openDevPreview()">
+            <ion-icon name="bug-outline"></ion-icon>
           </button>
         </div>
-
-      </ng-container>
-
-      <!-- ── Edit mode ─────────────────────────────────────────── -->
-      <ng-container *ngIf="selectedRow.editing">
-        <div class="journey-phase-edit" (click)="$event.stopPropagation()">
-          <label class="journey-phase-edit-label">
-            <span>{{ 'JOURNEY.EDIT.FIELD_TITLE' | translate }}</span>
-            <input type="text" class="journey-phase-edit-input"
-              [(ngModel)]="selectedRow.draftTitle" maxlength="60"
-              [disabled]="selectedRow.saving" />
-          </label>
-          <label class="journey-phase-edit-label">
-            <span>{{ 'JOURNEY.EDIT.FIELD_DESCRIPTION' | translate }}</span>
-            <textarea class="journey-phase-edit-textarea" rows="3" maxlength="300"
-              [(ngModel)]="selectedRow.draftDescription"
-              [disabled]="selectedRow.saving"></textarea>
-          </label>
-          <label class="journey-phase-edit-label">
-            <span>{{ 'JOURNEY.EDIT.FIELD_FOCUS' | translate }}</span>
-            <textarea class="journey-phase-edit-textarea" rows="3"
-              [placeholder]="'JOURNEY.EDIT.FIELD_FOCUS_PLACEHOLDER' | translate"
-              [(ngModel)]="selectedRow.draftFocusAreasText"
-              [disabled]="selectedRow.saving"></textarea>
-          </label>
-          <div class="journey-phase-edit-actions">
-            <button type="button" class="journey-phase-edit-btn-cancel"
-              [disabled]="selectedRow.saving"
-              (click)="cancelEdit(selectedRow, $event)">
-              {{ 'COMMON.CANCEL' | translate }}
-            </button>
-            <button type="button" class="journey-phase-edit-btn-save"
-              [disabled]="selectedRow.saving || !selectedRow.draftTitle?.trim()"
-              (click)="saveEdit(selectedRow, $event)">
-              <ion-spinner *ngIf="selectedRow.saving" name="dots"></ion-spinner>
-              <span *ngIf="!selectedRow.saving">{{ 'COMMON.SAVE' | translate }}</span>
-            </button>
-          </div>
-        </div>
-      </ng-container>
-
+      </div>
     </div>
 
   </section>
 
   <!-- Coming Up -->
-  <section class="journey-section journey-section--coming-up" *ngIf="comingUp.length">
+  <section class="journey-section journey-section--coming-up" *ngIf="comingUp.length && !phaseRows.length">
     <header class="journey-section-header">
       <h2 class="journey-section-title">{{ 'JOURNEY.COMING_UP_TITLE' | translate }}</h2>
       <p class="journey-section-sub">{{ 'JOURNEY.COMING_UP_SUB' | translate }}</p>
@@ -593,7 +456,7 @@
   </section>
 
   <!-- Recommended materials -->
-  <section class="journey-section journey-section--materials" *ngIf="showRecommendations && recommendedMaterials.length">
+  <section class="journey-section journey-section--materials" *ngIf="showRecommendations && recommendedMaterials.length && !phaseRows.length">
     <header class="journey-section-header">
       <h2 class="journey-section-title">{{ 'JOURNEY.RECOMMENDED_TITLE' | translate }}</h2>
       <p class="journey-section-sub">{{ 'JOURNEY.RECOMMENDED_SUB' | translate }}</p>
@@ -624,7 +487,7 @@
 
   <!-- Premium teaser (free only) -->
   <section class="journey-section journey-section--premium-teaser"
-           *ngIf="!isPremium && widgetState !== 'loading' && widgetState !== 'empty-goal'">
+           *ngIf="!isPremium && widgetState !== 'loading' && widgetState !== 'empty-goal' && !phaseRows.length">
     <div class="jpt-card" role="button" tabindex="0"
          (click)="goToUpgrade()" (keyup.enter)="goToUpgrade()">
       <div class="jpt-icon" aria-hidden="true"><ion-icon name="sparkles-outline"></ion-icon></div>

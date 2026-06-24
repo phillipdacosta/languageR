@@ -7,7 +7,7 @@ const { upload, uploadImage, uploadDocument, uploadVideoWithCompression, uploadI
 const TutorMaterial = require('../models/TutorMaterial');
 const { initializeGCS } = require('../config/gcs');
 const rateLimit = require('express-rate-limit');
-const { applyApprovalIfReady } = require('../utils/tutorApproval');
+const { applyApprovalIfReady, canTutorSetAvailability, getTutorAvailabilityBlockReasons, hasCustomProfilePhoto } = require('../utils/tutorApproval');
 
 /**
  * UI interface language codes accepted on POST /, PUT /profile, PUT /onboarding.
@@ -314,6 +314,9 @@ router.get('/me', verifyToken, async (req, res) => {
         isUSPersonForTax: user.isUSPersonForTax,
         hasUSBankAccount: user.hasUSBankAccount,
         stripeConnectOnboarded: user.stripeConnectOnboarded,
+        stripeDetailsSubmitted: user.stripeDetailsSubmitted,
+        stripeActionRequired: user.stripeActionRequired,
+        stripeRequirementsCurrentlyDue: user.stripeRequirementsCurrentlyDue || [],
         stripePayoutsEnabled: user.stripePayoutsEnabled,
         stripeCustomerId: user.stripeCustomerId, // ADD THIS - Critical for saved card payments!
         payoutProvider: user.payoutProvider, // ADD THIS
@@ -499,6 +502,9 @@ router.post('/', verifyToken, async (req, res) => {
         tutorCredentials: user.tutorCredentials,
         tutorApproved: user.tutorApproved,
         stripeConnectOnboarded: user.stripeConnectOnboarded,
+        stripeDetailsSubmitted: user.stripeDetailsSubmitted,
+        stripeActionRequired: user.stripeActionRequired,
+        stripeRequirementsCurrentlyDue: user.stripeRequirementsCurrentlyDue || [],
         payoutProvider: user.payoutProvider,
         payoutDetails: user.payoutDetails,
         profile: user.profile,
@@ -1020,6 +1026,9 @@ router.put('/profile', verifyToken, async (req, res) => {
         tutorOnboarding: user.tutorOnboarding,
         tutorCredentials: user.tutorCredentials,
         stripeConnectOnboarded: user.stripeConnectOnboarded,
+        stripeDetailsSubmitted: user.stripeDetailsSubmitted,
+        stripeActionRequired: user.stripeActionRequired,
+        stripeRequirementsCurrentlyDue: user.stripeRequirementsCurrentlyDue || [],
         stripeIdentityVerified: user.stripeIdentityVerified,
         stripeAccountDisabled: user.stripeAccountDisabled,
         payoutProvider: user.payoutProvider,
@@ -1842,26 +1851,65 @@ router.put('/profile-picture', verifyToken, async (req, res) => {
       console.log('💾 Saving original Auth0 picture:', user.auth0Picture);
     }
 
-    // Update picture
-    user.picture = imageUrl;
+    if (user.userType === 'tutor') {
+      const wasPhotoApproved = user.tutorOnboarding?.photoApproved === true || (
+        hasCustomProfilePhoto(user) && !user.onboardingData?.pendingPhoto
+      );
 
-    // For tutors: re-evaluate approval after photo change. Promote to
-    // fully-approved only when every gate passes (photo, video-approved,
-    // payout, identity, qualifications, TOS).
-    if (user.userType === 'tutor' && !user.tutorApproved) {
+      if (!user.onboardingData) {
+        user.onboardingData = {};
+      }
+
+      // Store new photo as pending until admin approves (mirrors intro video flow).
+      user.onboardingData.pendingPhoto = imageUrl;
+
       user.tutorOnboarding = user.tutorOnboarding || {};
       user.tutorOnboarding.photoUploaded = true;
-      applyApprovalIfReady(user);
+      user.tutorOnboarding.photoUploadedAt = new Date();
+      user.tutorOnboarding.photoApproved = false;
+      user.tutorOnboarding.photoRejected = false;
+      user.tutorOnboarding.photoRejectionReason = null;
+
+      if (!wasPhotoApproved) {
+        user.tutorApproved = false;
+        console.log('🆕 Tutor photo submitted for admin review (profile hidden until fully approved)');
+      } else {
+        console.log('✅ Existing tutor: approved photo remains live while new photo is reviewed');
+      }
+    } else {
+      // Students / non-tutors: apply immediately
+      user.picture = imageUrl;
     }
 
     await user.save();
 
     console.log('✅ Profile picture updated for user:', user.email);
 
+    // Notify admins when a tutor submits a photo for review
+    if (user.userType === 'tutor') {
+      try {
+        if (req.io) {
+          req.io.emit('tutor_photo_uploaded', {
+            tutorId: user._id,
+            tutorName: user.name || user.email,
+            tutorEmail: user.email,
+            photoUrl: user.onboardingData?.pendingPhoto,
+            timestamp: new Date(),
+          });
+          console.log('📬 Notified admins of new photo upload from:', user.email);
+        }
+      } catch (socketError) {
+        console.warn('⚠️ Could not send WebSocket notification to admins:', socketError.message);
+      }
+    }
+
     res.json({
       success: true,
-      message: 'Profile picture updated successfully',
-      picture: imageUrl
+      message: user.userType === 'tutor'
+        ? 'Profile photo submitted for review'
+        : 'Profile picture updated successfully',
+      picture: user.userType === 'tutor' ? (user.onboardingData?.pendingPhoto || user.picture) : user.picture,
+      pendingPhoto: user.onboardingData?.pendingPhoto || null,
     });
   } catch (error) {
     console.error('❌ Error updating profile picture:', error);
@@ -1883,22 +1931,53 @@ router.delete('/profile-picture', verifyToken, async (req, res) => {
     }
 
     const oldPictureUrl = user.picture;
+    const pendingPhotoUrl = user.onboardingData?.pendingPhoto;
     let restoredPicture = null;
 
-    // Try to restore from saved auth0Picture
-    if (user.auth0Picture) {
-      restoredPicture = user.auth0Picture;
-      console.log('🔄 Restoring from saved Auth0 picture:', restoredPicture);
-    } else if (req.user && req.user.picture) {
-      // Fallback: try to get from token
-      restoredPicture = req.user.picture;
-      console.log('🔄 Restoring Auth0 picture from token:', restoredPicture);
+    if (user.userType === 'tutor') {
+      user.tutorOnboarding = user.tutorOnboarding || {};
+      if (!user.onboardingData) {
+        user.onboardingData = {};
+      }
+
+      if (pendingPhotoUrl) {
+        user.onboardingData.pendingPhoto = '';
+        user.tutorOnboarding.photoUploaded = hasCustomProfilePhoto(user);
+        user.tutorOnboarding.photoApproved = user.tutorOnboarding.photoApproved === true && hasCustomProfilePhoto(user);
+        user.tutorOnboarding.photoRejected = false;
+        user.tutorOnboarding.photoRejectionReason = null;
+        restoredPicture = user.picture || user.auth0Picture || null;
+      } else if (hasCustomProfilePhoto(user)) {
+        if (user.auth0Picture) {
+          restoredPicture = user.auth0Picture;
+        } else if (req.user && req.user.picture) {
+          restoredPicture = req.user.picture;
+        }
+        user.picture = restoredPicture;
+        user.tutorOnboarding.photoUploaded = false;
+        user.tutorOnboarding.photoApproved = false;
+        user.tutorOnboarding.photoRejected = false;
+        user.tutorOnboarding.photoRejectionReason = null;
+        user.tutorOnboarding.photoUploadedAt = null;
+        user.tutorApproved = false;
+      } else {
+        restoredPicture = user.picture;
+      }
     } else {
-      console.warn('⚠️ No Auth0 picture to restore - user will see initials');
+      // Try to restore from saved auth0Picture
+      if (user.auth0Picture) {
+        restoredPicture = user.auth0Picture;
+        console.log('🔄 Restoring from saved Auth0 picture:', restoredPicture);
+      } else if (req.user && req.user.picture) {
+        restoredPicture = req.user.picture;
+        console.log('🔄 Restoring Auth0 picture from token:', restoredPicture);
+      } else {
+        console.warn('⚠️ No Auth0 picture to restore - user will see initials');
+      }
+
+      user.picture = restoredPicture;
     }
 
-    // Update picture in database (restore to Auth0 picture or null)
-    user.picture = restoredPicture;
     await user.save();
 
     console.log('✅ Profile picture removed for user:', user.email);
@@ -1907,11 +1986,13 @@ router.delete('/profile-picture', verifyToken, async (req, res) => {
     }
 
     // Try to delete custom picture from GCS if it's a GCS URL
-    if (oldPictureUrl && oldPictureUrl.includes('storage.googleapis.com') && oldPictureUrl.includes('profile-pictures')) {
+    const urlsToDelete = [oldPictureUrl, pendingPhotoUrl].filter(
+      (url) => url && url.includes('storage.googleapis.com') && url.includes('profile-pictures')
+    );
+    for (const urlToDelete of urlsToDelete) {
+      if (!urlToDelete) continue;
       try {
-        // Extract bucket name and file path from URL
-        // Format: https://storage.googleapis.com/bucket-name/path/to/file
-        const urlParts = oldPictureUrl.replace('https://storage.googleapis.com/', '').split('/');
+        const urlParts = urlToDelete.replace('https://storage.googleapis.com/', '').split('/');
         const bucketName = urlParts[0];
         const filePath = urlParts.slice(1).join('/');
 
@@ -1995,6 +2076,18 @@ router.put('/availability', verifyToken, async (req, res) => {
 
     if (user.userType !== 'tutor') {
       return res.status(403).json({ message: 'Only tutors can set availability' });
+    }
+
+    if (!canTutorSetAvailability(user)) {
+      console.log('❌ Availability rejected: tutor profile incomplete', {
+        tutorId: user._id,
+        missing: getTutorAvailabilityBlockReasons(user),
+      });
+      return res.status(403).json({
+        message: 'Complete your profile setup before adding availability.',
+        code: 'PROFILE_INCOMPLETE',
+        missing: getTutorAvailabilityBlockReasons(user),
+      });
     }
 
     // Merge new availability blocks with existing ones

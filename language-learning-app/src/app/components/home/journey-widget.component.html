@@ -9,10 +9,20 @@
   [class.journey-widget--completed]="state === 'completed'"
   [class.journey-widget--unframed]="state === 'unframed'"
   [class.journey-widget--paused]="state === 'paused'"
-  [attr.role]="state === 'loading' ? null : 'button'"
-  [attr.tabindex]="state === 'loading' ? null : 0"
+  [class.journey-widget--static]="!cardInteractive"
+  [attr.role]="cardInteractive ? 'button' : null"
+  [attr.tabindex]="cardInteractive ? 0 : null"
   (click)="onCardClick()"
   (keyup.enter)="onCardClick()">
+
+  <button
+    type="button"
+    class="jw-lang-picker-btn"
+    *ngIf="showLanguagePicker && state !== 'loading'"
+    aria-label="Switch journey language"
+    (click)="$event.stopPropagation(); languagePickerTap.emit()">
+    <ion-icon name="ellipsis-horizontal" aria-hidden="true"></ion-icon>
+  </button>
 
   <!-- ─────────────────────────────────────────────────────────────
        COMPACT VARIANT — single line, mirrors the tutor compact
@@ -39,7 +49,7 @@
         <span class="jwc-eyebrow">{{ 'HOME.JOURNEY_TITLE' | translate }}</span>
         <span class="jwc-title">{{ 'HOME.JOURNEY_UNFRAMED_COMPACT' | translate }}</span>
       </span>
-      <ion-icon class="jwc-chevron" name="chevron-forward-outline"></ion-icon>
+      <ion-icon class="jwc-chevron" name="chevron-forward-outline" *ngIf="!hadStructuredPlan"></ion-icon>
     </ng-container>
 
     <ng-container *ngIf="state === 'paused'">
@@ -169,7 +179,7 @@
           </div>
         </div>
 
-        <span class="jw-paused-cta">
+        <span class="jw-paused-cta" *ngIf="!hadStructuredPlan">
           {{ 'HOME.JOURNEY_UNFRAMED_CTA' | translate }}
           <ion-icon name="arrow-forward-outline" aria-hidden="true"></ion-icon>
         </span>

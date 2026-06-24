@@ -15,7 +15,7 @@
   cursor: pointer;
   transition: box-shadow 0.2s ease, border-color 0.2s ease;
 
-  &:hover:not(.journey-widget--loading) {
+  &:hover:not(.journey-widget--loading):not(.journey-widget--static) {
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
     border-color: rgba(0, 0, 0, 0.09);
   }
@@ -28,6 +28,40 @@
   &.journey-widget--loading {
     cursor: default;
     pointer-events: none;
+  }
+
+  // Informational unframed card (had a prior plan): no tap affordance.
+  // The language picker button keeps its own pointer events.
+  &.journey-widget--static {
+    cursor: default;
+  }
+}
+
+.jw-lang-picker-btn {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #717171;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+
+  ion-icon {
+    font-size: 20px;
+  }
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.06);
+    color: #222;
   }
 }
 
@@ -981,6 +1015,15 @@ html.ion-palette-dark {
 
     &:focus-visible {
       box-shadow: 0 0 0 3px rgba(76, 126, 244, 0.4);
+    }
+  }
+
+  .jw-lang-picker-btn {
+    color: #a1a1aa;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: #f5f5f7;
     }
   }
 

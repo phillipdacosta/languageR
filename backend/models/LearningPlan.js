@@ -420,6 +420,24 @@ const learningPlanSchema = new mongoose.Schema({
   // lessons. Populated for free students after each lesson analysis.
   recommendedMaterials: [recommendedMaterialSchema],
   recommendedMaterialsUpdatedAt: { type: Date, default: null },
+
+  // ── Journey-map gamification (treasure chests) ──────────────────────
+  // Cumulative XP earned from opening map treasure chests. Chests are
+  // performance-gated: a chest unlocks when its phase is completed, and the
+  // reward tier (and XP) scales with that phase's mastery — so coasting
+  // students get less, and not everyone earns the top tier by just tapping.
+  journeyXp: { type: Number, default: 0 },
+  // One entry per opened chest. `chestId` is map-stable
+  // (`${chapterTheme}-${variant}-chest-${i}`) so a chest can only be
+  // claimed once, ever.
+  claimedChests: [{
+    chestId: { type: String, required: true },
+    chapterIndex: { type: Number, default: 0 },
+    phaseIndex: { type: Number, default: 0 },
+    tier: { type: String, enum: ['bronze', 'silver', 'gold'], default: 'bronze' },
+    xp: { type: Number, default: 0 },
+    claimedAt: { type: Date, default: Date.now }
+  }],
   lastUpdatedAt: {
     type: Date,
     default: Date.now

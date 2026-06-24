@@ -1285,24 +1285,62 @@ $dk-accent: #4298d2;
 }
 
 .calendar-step--card {
+  width: 100%;
+
   .header-controls {
-    margin-bottom: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .week-navigation {
+    flex-shrink: 0;
+  }
+
+  .week-display {
+    order: -1;
+    width: 100%;
+    flex: none;
+    text-align: center;
   }
 
   .week-display h2 {
-    font-size: 16px;
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: -0.2px;
+    margin: 0;
+    color: #111;
   }
 
   .timezone-selector {
-    margin-bottom: 12px;
-    padding: 8px 10px;
-    border-radius: 10px;
+    margin-bottom: 14px;
+    padding: 10px 12px;
+    border-radius: 12px;
     background: #fafafa;
     border: 1px solid #ebebeb;
   }
 
   .legend {
-    margin-bottom: 10px;
+    margin-bottom: 12px;
+  }
+
+  .calendar-grid--card {
+    width: 100%;
+    min-width: 0;
+    grid-template-columns: repeat(7, minmax(108px, 1fr));
+    border-radius: 16px;
+    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.06);
+  }
+
+  .day-header {
+    padding: 16px 10px 12px;
+  }
+
+  .day-slots .slot {
+    min-height: var(--slot-height, 40px);
+    font-size: 13px;
   }
 
   &.calendar-step--ready .calendar-grid--card {

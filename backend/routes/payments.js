@@ -27,6 +27,7 @@ const Message = require('../models/Message');
 const { buildSystemMessage } = require('../utils/systemMessages');
 const { formatNameWithInitial } = require('../utils/nameFormatter');
 const { applyApprovalIfReady } = require('../utils/tutorApproval');
+const { collectStripeRequirements, requirementsArraysEqual } = require('../utils/stripeRequirements');
 const {
   getStripeCountryCode,
   isStripeSupportedCountry
@@ -1857,11 +1858,9 @@ router.get('/stripe-connect/status', verifyToken, async (req, res) => {
     // Stripe-disabled signal: Stripe rejected the account, blocked it, or has
     // overdue requirements. Used to re-show the manual gov-ID fallback step.
     const disabledReason = account.requirements?.disabled_reason || null;
-    const accountDisabled = !!(
-      disabledReason ||
-      pastDue > 0 ||
-      (account.details_submitted && account.charges_enabled === false)
-    );
+    const accountDisabled = !!(disabledReason || pastDue > 0);
+    const stripeActionRequired = !onboarded && (requirementsDue > 0 || pastDue > 0);
+    const requirementsCurrentlyDue = collectStripeRequirements(account);
 
     // Update user if onboarding completed
     if (wasJustOnboarded) {
@@ -1943,6 +1942,26 @@ router.get('/stripe-connect/status', verifyToken, async (req, res) => {
 
     // Always sync stripePayoutsEnabled + stripeIdentityVerified + stripeAccountDisabled with Stripe's current status
     let needsSave = false;
+    const detailsSubmitted = account.details_submitted === true;
+    if (user.stripeDetailsSubmitted !== detailsSubmitted) {
+      user.stripeDetailsSubmitted = detailsSubmitted;
+      needsSave = true;
+      console.log(`🔄 Synced stripeDetailsSubmitted to ${detailsSubmitted} for ${user.email}`);
+    }
+    if (user.stripeActionRequired !== stripeActionRequired) {
+      user.stripeActionRequired = stripeActionRequired;
+      needsSave = true;
+      console.log(`🔄 Synced stripeActionRequired to ${stripeActionRequired} for ${user.email}`);
+    }
+    if (!requirementsArraysEqual(user.stripeRequirementsCurrentlyDue, requirementsCurrentlyDue)) {
+      user.stripeRequirementsCurrentlyDue = requirementsCurrentlyDue;
+      needsSave = true;
+      console.log(`🔄 Synced stripeRequirementsCurrentlyDue for ${user.email}:`, requirementsCurrentlyDue);
+    }
+    if (detailsSubmitted && user.payoutProvider === 'none') {
+      user.payoutProvider = 'stripe';
+      needsSave = true;
+    }
     if (user.stripePayoutsEnabled !== account.payouts_enabled) {
       user.stripePayoutsEnabled = account.payouts_enabled;
       needsSave = true;
@@ -1967,13 +1986,19 @@ router.get('/stripe-connect/status', verifyToken, async (req, res) => {
       await user.save();
     }
 
+    const stripePendingReview =
+      detailsSubmitted && !onboarded && !stripeActionRequired && !accountDisabled;
+
     res.json({
       success: true,
       onboarded,
+      stripePendingReview,
+      stripeActionRequired,
+      requirementsCurrentlyDue,
       accountId: user.stripeConnectAccountId,
       chargesEnabled: account.charges_enabled,
       payoutsEnabled: account.payouts_enabled,
-      detailsSubmitted: account.details_submitted,
+      detailsSubmitted,
       identityVerified: stripeIdentityVerified,
       accountDisabled,
       disabledReason,
@@ -2238,10 +2263,14 @@ router.post('/setup-paypal', verifyToken, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Only tutors can setup payout methods' });
     }
 
-    const { paypalEmail, isUSPersonForTax, hasUSBankAccount } = req.body;
-    
+    const { paypalEmail, isUSPersonForTax, hasUSBankAccount, residenceCountry } = req.body;
+
     if (!paypalEmail || !paypalEmail.includes('@')) {
       return res.status(400).json({ success: false, message: 'Valid PayPal email required' });
+    }
+
+    if (residenceCountry && typeof residenceCountry === 'string' && residenceCountry.trim()) {
+      user.residenceCountry = residenceCountry.trim();
     }
 
     // Save tax classification info if provided

@@ -7,8 +7,9 @@ import { TranslateModule } from '@ngx-translate/core';
 import { take } from 'rxjs/operators';
 
 import { LearningPlanService } from '../../services/learning-plan.service';
+import { journeyBackgroundUrl } from '../journey-map-assets';
 
-interface CompletedChapter {
+interface CompletedChapterRow {
   index: number;
   level: string;
   theme: string;
@@ -16,6 +17,10 @@ interface CompletedChapter {
   masteryAtCompletion: number | null;
   exitReason: 'graduated' | 'demoted' | 'calibrated';
   phaseTitles: string[];
+}
+
+interface CompletedChapter extends CompletedChapterRow {
+  thumbUrl: string;
   /** Pre-computed in `ngOnInit` so the template can `| translate` it directly
    *  (no template function calls per AGENTS.md). Null when no mastery score
    *  is available — the template skips the line in that case. */
@@ -71,7 +76,7 @@ interface CompletedChapter {
           type="button"
           class="pm-card"
           (click)="visit(c)">
-          <div class="pm-thumb" [style.background-image]="'url(assets/journey-backgrounds/' + c.theme + '.png)'">
+          <div class="pm-thumb" [style.background-image]="'url(' + c.thumbUrl + ')'">
             <span class="pm-level-pill">{{ c.level }}</span>
           </div>
           <div class="pm-meta">
@@ -195,8 +200,9 @@ export class PastMapsModalComponent implements OnInit {
   ngOnInit() {
     this.learningPlanService.getChapterHistory(this.language).pipe(take(1)).subscribe({
       next: (res) => {
-        this.completed = (res.completed || []).map((c: CompletedChapter) => ({
+        this.completed = (res.completed || []).map((c: CompletedChapterRow) => ({
           ...c,
+          thumbUrl: journeyBackgroundUrl(c.theme, c.phaseTitles?.length || 4),
           masteryLabelKey: this.toMasteryLabelKey(c.masteryAtCompletion)
         }));
         this.loading = false;

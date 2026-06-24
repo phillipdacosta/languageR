@@ -1,8 +1,8 @@
-import { Component, Input, OnChanges, OnInit, SimpleChanges } from '@angular/core';
+import { Component, Input, OnChanges, OnInit, SimpleChanges, AfterViewInit, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, ModalController, ToastController } from '@ionic/angular';
-import { TranslateModule } from '@ngx-translate/core';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { MessagingService } from '../../services/messaging.service';
 import { firstValueFrom } from 'rxjs';
 
@@ -13,7 +13,8 @@ import { firstValueFrom } from 'rxjs';
   standalone: true,
   imports: [CommonModule, IonicModule, FormsModule, TranslateModule],
 })
-export class ClassGoingMessageModalComponent implements OnInit, OnChanges {
+export class ClassGoingMessageModalComponent implements OnInit, OnChanges, AfterViewInit {
+  @ViewChild('messageTextarea') messageTextarea?: ElementRef<HTMLTextAreaElement>;
   @Input() attendees: any[] = [];
   /** Single recipient (student → tutor case). */
   @Input() receiverId = '';
@@ -29,6 +30,8 @@ export class ClassGoingMessageModalComponent implements OnInit, OnChanges {
   @Input() classId = '';
   @Input() minChars = 20;
   @Input() maxChars = 2000;
+  @Input() subtitleKey = 'EVENT_DETAILS.GOING_MESSAGE_SUBTITLE';
+  @Input() placeholderKey = 'EVENT_DETAILS.GOING_MESSAGE_PLACEHOLDER';
 
   messageText = '';
   messageCharCount = 0;
@@ -37,16 +40,30 @@ export class ClassGoingMessageModalComponent implements OnInit, OnChanges {
   attendeeDisplays: { imageUrl: string | null; initials: string }[] = [];
   extraAttendeeCount = 0;
   hasRecipients = false;
+  messagePlaceholder = '';
 
   constructor(
     private readonly modalController: ModalController,
     private readonly messagingService: MessagingService,
     private readonly toastController: ToastController,
+    private readonly translate: TranslateService,
   ) {}
 
   ngOnInit(): void {
     this.rebuildAttendeeRow();
+    this.syncMessagePlaceholder();
     this.onMessageTextChange();
+  }
+
+  ngAfterViewInit(): void {
+    // Wait for modal enter animation before focusing (iOS/Safari caret visibility).
+    setTimeout(() => {
+      const el = this.messageTextarea?.nativeElement;
+      if (!el) return;
+      el.focus();
+      const len = el.value.length;
+      el.setSelectionRange(len, len);
+    }, 280);
   }
 
   dismiss(): void {
@@ -76,7 +93,14 @@ export class ClassGoingMessageModalComponent implements OnInit, OnChanges {
 
   ngOnChanges(_changes: SimpleChanges): void {
     this.rebuildAttendeeRow();
+    this.syncMessagePlaceholder();
     this.onMessageTextChange();
+  }
+
+  private syncMessagePlaceholder(): void {
+    this.messagePlaceholder = this.placeholderKey
+      ? this.translate.instant(this.placeholderKey)
+      : '';
   }
 
   private rebuildAttendeeRow(): void {

@@ -74,6 +74,26 @@ const userSchema = new mongoose.Schema({
       type: Boolean,
       default: false
     },
+    photoApproved: {
+      type: Boolean,
+      default: false
+    },
+    photoRejected: {
+      type: Boolean,
+      default: false
+    },
+    photoRejectionReason: {
+      type: String,
+      default: null
+    },
+    photoUploadedAt: {
+      type: Date,
+      default: null
+    },
+    photoApprovedAt: {
+      type: Date,
+      default: null
+    },
     videoUploaded: {
       type: Boolean,
       default: false
@@ -275,6 +295,11 @@ const userSchema = new mongoose.Schema({
       enum: ['upload', 'youtube', 'vimeo'],
       default: 'upload'
     },
+    pendingPhoto: {
+      type: String,
+      trim: true,
+      default: ''
+    },
     completedAt: {
       type: Date,
       default: Date.now
@@ -413,6 +438,21 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
     comment: 'Whether tutor has completed Stripe Connect onboarding'
+  },
+  stripeDetailsSubmitted: {
+    type: Boolean,
+    default: false,
+    comment: 'True when the tutor finished the Stripe Connect onboarding form but Stripe has not yet fully enabled the account'
+  },
+  stripeActionRequired: {
+    type: Boolean,
+    default: false,
+    comment: 'True when Stripe has currently_due or past_due requirements — tutor must return to Stripe to finish (e.g. verify representative)'
+  },
+  stripeRequirementsCurrentlyDue: {
+    type: [String],
+    default: [],
+    comment: 'Stripe Connect requirement field names currently blocking activation (from requirements.currently_due + past_due)'
   },
   stripeConnectOnboardedAt: {
     type: Date,

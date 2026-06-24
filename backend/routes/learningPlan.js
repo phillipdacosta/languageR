@@ -400,7 +400,15 @@ router.get('/student/:studentId/summary', verifyToken, async (req, res) => {
         nextLessonFocusSource,
         nextLessonFocusTutor,
         tutorOverrides: (plan.tutorOverrides || []).slice(-5),
-        selfAssessedLevel: plan.selfAssessedLevel
+        selfAssessedLevel: plan.selfAssessedLevel,
+        chapterTheme: plan.chapterTheme || 'a1-desert',
+        chapterLevel: plan.chapterLevel || 'A1',
+        phases: (plan.phases || []).map((p, i) => ({
+          title: p?.title || '',
+          status: p?.status || (i < plan.currentPhaseIndex ? 'completed' : i === plan.currentPhaseIndex ? 'active' : 'locked'),
+          _isRecovery: !!p?._isRecovery,
+          _isSplit: !!p?._isSplit,
+        })),
       };
     });
 
@@ -1666,6 +1674,68 @@ router.post('/:language/chat/apply', verifyToken, async (req, res) => {
       return res.status(error.statusCode).json({ success: false, message: error.message });
     }
     console.error('Error applying chat edits:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+/**
+ * POST /api/learning-plan/:language/chests/claim
+ * Open a journey-map treasure chest. Performance-gated: the chest's
+ * phase must be completed, and the reward tier (and XP) scales with
+ * that phase's mastery — so not everyone earns the top tier by just
+ * tapping. Idempotent per chestId (a chest opens once, ever).
+ * Body: { chestId, phaseIndex }
+ */
+router.post('/:language/chests/claim', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    const { chestId, phaseIndex } = req.body || {};
+    if (!chestId || !Number.isInteger(phaseIndex)) {
+      return res.status(400).json({ success: false, message: 'chestId and phaseIndex required' });
+    }
+
+    const plan = await LearningPlan.findOne({ studentId: user._id, language: req.params.language });
+    if (!plan) return res.status(404).json({ success: false, message: 'Plan not found' });
+
+    // Already opened? Return the existing reward (idempotent).
+    const existing = (plan.claimedChests || []).find(c => c.chestId === chestId);
+    if (existing) {
+      return res.json({ success: true, alreadyClaimed: true, reward: existing, journeyXp: plan.journeyXp || 0 });
+    }
+
+    const phase = plan.phases?.[phaseIndex];
+    if (!phase) return res.status(400).json({ success: false, message: 'Invalid phaseIndex' });
+
+    // Performance gate #1: you must have finished the phase to earn its chest.
+    if (phase.status !== 'completed') {
+      return res.json({ success: true, locked: true, reason: 'phase_not_completed' });
+    }
+
+    // Performance gate #2: reward tier scales with phase mastery.
+    const mastery = typeof phase.masteryAverage === 'number' ? phase.masteryAverage : 0;
+    let tier = 'bronze';
+    let xp = 30;
+    if (mastery >= 85) { tier = 'gold'; xp = 100; }
+    else if (mastery >= 70) { tier = 'silver'; xp = 60; }
+
+    const reward = {
+      chestId,
+      chapterIndex: plan.chapterIndex || 0,
+      phaseIndex,
+      tier,
+      xp,
+      claimedAt: new Date()
+    };
+
+    plan.claimedChests.push(reward);
+    plan.journeyXp = (plan.journeyXp || 0) + xp;
+    await plan.save();
+
+    res.json({ success: true, reward, journeyXp: plan.journeyXp });
+  } catch (error) {
+    console.error('Error claiming chest:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });

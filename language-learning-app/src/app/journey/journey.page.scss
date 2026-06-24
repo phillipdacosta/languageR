@@ -1,6 +1,17 @@
 // ── Journey full page ────────────────────────────────────────────
 // Airbnb-style: #fff / #f7f7f7 / #222 / #717171 — no blue tints.
 
+:host {
+  // Pin immersive map below the global app toolbar and above the mobile tab bar.
+  --journey-toolbar-offset: var(--app-toolbar-height, calc(env(safe-area-inset-top, 0px) + 56px));
+  --journey-tabbar-offset: var(--app-tabbar-height, calc(50px + env(safe-area-inset-bottom, 0px)));
+
+  &.inline {
+    display: block;
+    height: 100%;
+  }
+}
+
 .journey-header {
   ion-toolbar {
     --background: #fff;
@@ -37,7 +48,13 @@
   --padding-bottom: calc(140px + env(safe-area-inset-bottom, 0px));
   --padding-start: 0;
   --padding-end: 0;
-  --background: #f7f7f7;
+  --background: #000;
+
+  &--immersive {
+    --padding-top: 0;
+    --padding-bottom: 0;
+    --overflow: hidden;
+  }
 }
 
 // ── Inline mode (embedded in tab1) ───────────────────────────────
@@ -46,7 +63,13 @@
 // destination from the home widget's "View roadmap" CTA.
 .journey-inline-wrapper {
   padding: 76px 0 calc(120px + env(safe-area-inset-bottom, 0px));
-  background: #f7f7f7;
+  background: #000;
+
+  &--immersive {
+    padding: 0;
+    height: 100%;
+    overflow: hidden;
+  }
 }
 
 .inline-journey-header {
@@ -84,7 +107,7 @@
 // agreement. Tappable → opens details alert.
 .cefr-chip-wrap {
   max-width: 1080px;
-  margin: 0 auto 16px;
+  margin: 0 auto 8px;
   padding: 0 20px;
   display: flex;
   justify-content: flex-start;
@@ -164,13 +187,39 @@
   // width (visually equal). Section is `position: relative` so the
   // dock can absolutely pin to the right gutter.
   &.journey-section--roadmap {
-    position: relative;
-    padding-right: 84px;
-
-    @media (max-width: 600px) {
-      padding-right: 60px;
-    }
+    position: fixed;
+    top: var(--journey-toolbar-offset);
+    left: 0;
+    right: 0;
+    bottom: var(--journey-tabbar-offset);
+    max-width: none;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    z-index: 50;
+    overflow: hidden;
+    container-type: size;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
   }
+}
+
+// Inline panel already pins below toolbar — section just fills the panel.
+:host(.inline) .journey-section--roadmap {
+  position: relative;
+  top: auto;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  height: 100%;
+  z-index: auto;
+  container-type: size;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
 }
 
 // ── Mastery Mode (Batch 13) ────────────────────────────────────────
@@ -577,6 +626,15 @@
   margin: 0 0 12px;
   font-size: 13px;
   font-weight: 500;
+
+  &--overlay {
+    position: absolute;
+    top: 56px;
+    left: 12px;
+    right: 12px;
+    z-index: 12;
+    margin: 0;
+  }
 }
 .journey-visit-badge-text {
   display: inline-flex;
@@ -615,34 +673,347 @@
 .journey-map-canvas {
   position: relative;
   width: 100%;
-  margin-bottom: 14px;
-  // Sized adaptively so the canvas + the detail card BOTH fit on the
-  // fold. The chrome reserved (header, padding, card, tab bar) is ~390px;
-  // the canvas takes whatever remains, clamped to a sane min/max so it
-  // never collapses or grows past a comfortable ceiling on huge monitors.
-  height: clamp(350px, calc(100dvh - 390px), 730px);
-  background-position: center;
-  background-size: cover;
-  background-repeat: no-repeat;
-  border-radius: 18px;
-  overflow: visible; // labels on edge nodes can poke out
-  // Smooth cross-fade when chapterTheme changes (Batch 4 also relies on this).
-  transition: background-image 1.2s ease-in-out, background-color 1.2s ease-in-out;
+  height: 100%;
+  flex: 1 1 auto;
+  align-self: stretch;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+  border-radius: 0;
+  overflow: hidden;
+  transition: background-color 1.2s ease-in-out;
 
-  // Phone — slightly smaller min/max so the card stays above the tab bar.
-  @media (max-width: 600px) {
-    height: clamp(310px, calc(100dvh - 350px), 470px);
+  // Soft vignette hides the seam between sharp map and blurred fill.
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+    box-shadow: inset 0 0 100px rgba(0, 0, 0, 0.45);
+  }
+
+  .journey-map-bg--blur {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    filter: blur(32px) saturate(1.2) brightness(0.85);
+    transform: scale(1.12);
+    pointer-events: none;
+    z-index: 0;
+    user-select: none;
+    -webkit-user-drag: none;
+  }
+
+  // Full viewport 16:9 — @4x asset downscales cleanly on retina.
+  .journey-map-stage {
+    position: relative;
+    width: min(100cqw, calc(100cqh * 16 / 9));
+    height: min(100cqh, calc(100cqw * 9 / 16));
+    flex: 0 0 auto;
+    z-index: 3;
+    overflow: visible;
+  }
+
+  .journey-map-bg--sharp {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: fill;
+    object-position: center;
+    pointer-events: none;
+    z-index: 0;
+    user-select: none;
+    -webkit-user-drag: none;
+  }
+
+  // ── Map hotspots (roadblocks + chests baked into the art) ────────
+  // Transparent tap targets layered over the painted objects. We can't
+  // animate the pixels, so an overlaid glow signals "interactive".
+  .jm-hotspot {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    width: 9%;
+    aspect-ratio: 1;
+    min-width: 40px;
+    min-height: 40px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    border-radius: 50%;
+    cursor: pointer;
+    z-index: 22;
+    -webkit-tap-highlight-color: transparent;
+
+    &:disabled { cursor: default; }
+  }
+
+  .jm-hotspot-glow {
+    position: absolute;
+    inset: -10%;
+    border-radius: 50%;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+  }
+
+  // Active chest: pulse a soft halo so the user notices it.
+  .jm-hotspot--chest.jm-hotspot--active .jm-hotspot-glow {
+    opacity: 1;
+    animation: jm-hotspot-pulse 1.9s ease-in-out infinite;
+    background: radial-gradient(circle, rgba(255, 205, 60, 0.6), transparent 66%);
+  }
+
+  // Roadblocks are baked into the map art — no overlay glow (invisible tap target only).
+  .jm-hotspot--roadblock .jm-hotspot-glow {
+    display: none;
+  }
+
+  // Claimed/cleared: badge is the primary signal; keep roadblock ring subtle.
+  .jm-hotspot--done .jm-hotspot-glow {
+    opacity: 0.5;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.35), transparent 70%);
+  }
+
+  .jm-hotspot--chest.jm-hotspot--done .jm-hotspot-glow {
+    opacity: 0;
+  }
+
+  // Dev-only: show tap target rings while QA-ing roadblocks.
+  .jm-hotspot--dev-visible {
+    outline: 2px dashed rgba(255, 120, 60, 0.85);
+    outline-offset: 2px;
+    background: rgba(255, 120, 60, 0.12);
+  }
+
+  @keyframes jm-hotspot-pulse {
+    0%, 100% { transform: scale(0.92); opacity: 0.55; }
+    50%       { transform: scale(1.12); opacity: 1; }
+  }
+
+  // Blue dot — rests on the active phase; animates for roadblock checkpoints.
+  .jm-traveler {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    z-index: 26;
+    pointer-events: none;
+  }
+
+  // One dot only: hide the phase-node marker while the traveler is showing.
+  .journey-map-stage--has-traveler {
+    .jm-node--active .jm-dot {
+      width: 34px;
+      height: 34px;
+      background: #deffd9;
+      border: 3px solid #fff;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18);
+    }
+
+    .jm-node--traveler-here .jm-dot {
+      visibility: hidden;
+    }
+  }
+
+  .jm-traveler-dot {
+    display: block;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: #42aceb;
+    border: 4px solid #fff;
+    box-shadow:
+      0 0 0 5px rgba(76, 126, 244, 0.22),
+      0 4px 14px rgba(76, 126, 244, 0.35);
+  }
+
+  // ── Treasure chest sprites ───────────────────────────────────────
+  .jm-chest {
+    position: absolute;
+    // Anchor bottom of sprite on the hotspot so chests sit on the ground plane.
+    transform: translate(-50%, -92%);
+    width: 5.5%;
+    min-width: 32px;
+    max-width: 62px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    z-index: 21;
+    -webkit-tap-highlight-color: transparent;
+
+    &--left {
+      transform: translate(-50%, -90%);
+    }
+
+    &--right {
+      transform: translate(-50%, -94%);
+    }
+
+    &:active:not(.jm-chest--locked):not(.jm-chest--opening) .jm-chest-sprite--active {
+      transform: scale(0.96);
+    }
+  }
+
+  .jm-chest-frames {
+    position: relative;
+    display: block;
+    width: 100%;
+    aspect-ratio: 1;
+  }
+
+  .jm-chest-sprite {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    opacity: 0;
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-drag: none;
+    filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.22));
+    transition: opacity 0.2s ease, transform 0.15s ease;
+    will-change: opacity;
+
+    &--active {
+      opacity: 1;
+    }
+  }
+
+  .jm-chest--opening .jm-chest-sprite {
+    animation: none !important;
+    transform: none !important;
+    transition: none;
+  }
+
+  .jm-chest--locked .jm-chest-sprite--active {
+    opacity: 0.45;
+    filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.12)) grayscale(0.25);
+  }
+
+  .jm-chest-glow {
+    position: absolute;
+    inset: -18%;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255, 210, 60, 0.55), transparent 68%);
+    pointer-events: none;
+    animation: jm-hotspot-pulse 1.9s ease-in-out infinite;
+    z-index: -1;
+  }
+
+  .jm-chest--claimed .jm-chest-sprite--active {
+    filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.1)) saturate(0.78) brightness(1.04);
+    opacity: 0.9;
+  }
+
+  // Collected badge — mirrors phase-node completion language.
+  .jm-chest-collected-badge {
+    position: absolute;
+    top: -2px;
+    right: -8px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #fff;
+    border: 2px solid #22a06b;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 3;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.16);
+    pointer-events: none;
+
+    ion-icon {
+      font-size: 13px;
+      color: #22a06b;
+      font-weight: 700;
+    }
+  }
+
+  .jm-hotspot--chest .jm-chest-collected-badge {
+    top: 8%;
+    right: 8%;
+    width: 24px;
+    height: 24px;
+
+    ion-icon {
+      font-size: 14px;
+    }
+  }
+
+  // ── Overlay chrome (title, back, dock) ─────────────────────────
+  .journey-map-chrome {
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    pointer-events: none;
+  }
+
+  .journey-map-chrome-start {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 72px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 16px 16px 12px;
+    pointer-events: auto;
+  }
+
+  .journey-map-chrome-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+    padding: 8px 12px 8px 8px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.97);
+    color: #111;
+    font-size: 13.5px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+
+    ion-icon {
+      font-size: 18px;
+    }
+  }
+
+  .journey-map-chrome-title {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -0.015em;
+    color: #111;
+    padding: 8px 14px;
+    border-radius: 999px;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    background: rgba(255, 255, 255, 0.97);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .journey-map-actions--dock {
+    position: absolute;
+    top: 16px;
+    right: 10px;
+    pointer-events: auto;
   }
 
   // Hidden img used only to detect image load failure → we set
   // backgroundFailed in TS, which adds the fallback class below.
-  .journey-map-bg-probe {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    opacity: 0;
-    pointer-events: none;
-  }
+  // (Probe removed — .journey-map-bg handles load/error now.)
 
   // ── Winding path SVG overlay ───────────────────────────────────
   // Stretches edge-to-edge in the same 100×100 viewBox the node
@@ -653,31 +1024,31 @@
     width: 100%;
     height: 100%;
     pointer-events: none;
-    z-index: 1; // under the dots (which are higher in the DOM order anyway)
+    z-index: 1;
     overflow: visible;
   }
 
-  // Outer halo — wider, soft, semi-transparent white so the path
-  // reads on dark/saturated backgrounds without a hard edge.
-  // Animated draw-in via stroke-dashoffset. CSS custom properties
-  // (--draw-duration, --draw-ease, --draw-delay) are overridden per
-  // theme below for visual variation between chapters.
-  .journey-map-path-halo {
+  // Widest layer — the "dust cloud" atmospheric glow.
+  .journey-map-path-dust {
     fill: none;
-    stroke: rgba(255, 255, 255, 0.55);
-    stroke-width: 4;            // viewBox units (≈ 4% of canvas width)
+    stroke: rgba(255, 255, 255, 0.45);
+    stroke-width: 32;
     stroke-linecap: round;
     vector-effect: non-scaling-stroke;
-    filter: blur(0.6px);
-    stroke-dasharray: 250;       // big enough to cover the longest path
-    stroke-dashoffset: 250;
+    animation: jm-path-draw var(--draw-duration, 1.5s) var(--draw-ease, cubic-bezier(0.65, 0, 0.35, 1)) var(--draw-delay, 0.1s) forwards;
+  }
+
+  // Mid halo — bright white core of the trail.
+  .journey-map-path-halo {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.92);
+    stroke-width: 8;
+    stroke-linecap: round;
+    vector-effect: non-scaling-stroke;
     animation: jm-path-draw var(--draw-duration, 1.5s) var(--draw-ease, cubic-bezier(0.65, 0, 0.35, 1)) var(--draw-delay, 0.2s) forwards;
   }
 
-  // Inner line — dashed, charcoal, slightly translucent. Reads as a
-  // hand-drawn trail on every theme. Fades in once the halo finishes
-  // drawing, then a continuous slow "march" of the dashes makes the
-  // path feel alive.
+  // Inner dashed line — fades in after the glow, then marches continuously.
   .journey-map-path-line {
     fill: none;
     stroke: rgba(20, 20, 24, 0.65);
@@ -694,7 +1065,7 @@
 
   // ── Per-chapter animation feel ──────────────────────────────────
   // Same draw-in, different mood. The shape variation already comes
-  // from THEME_PATH_PTS in journey.page.ts.
+  // from THEME_PLATFORM_PTS in journey.page.ts.
   &[data-theme="a1-desert"] {
     --draw-duration: 1.6s;     --draw-ease: ease-out;
     --line-delay: 1.6s;        --march-speed: 22s;          // slow, warm
@@ -724,6 +1095,11 @@
   // Each theme has a tasteful gradient that hints at the scene even
   // when the image hasn't loaded.
   &--fallback {
+    .journey-map-bg--blur,
+    .journey-map-bg--sharp {
+      display: none;
+    }
+
     &[data-theme="a1-desert"]    { background: linear-gradient(180deg, #f8d7a4 0%, #e6a86a 50%, #b07842 100%); }
     &[data-theme="a2-coast"]     { background: linear-gradient(180deg, #aee3f5 0%, #6ec3e3 50%, #2c83a8 100%); }
     &[data-theme="b1-lake"]      { background: linear-gradient(180deg, #cfead3 0%, #88b893 50%, #4a7a5a 100%); }
@@ -751,16 +1127,24 @@
   border: none;
   cursor: pointer;
   padding: 0;
-  z-index: 2;
+  z-index: 12;
   opacity: var(--jm-depth-opacity, 1);
   transition:
     transform 0.2s ease,
-    opacity 0.2s ease;
+    opacity 0.2s ease,
+    z-index 0s;
   -webkit-tap-highlight-color: transparent;
 
   &.jm-node--active,
   &.jm-node--selected {
     opacity: 1;
+  }
+
+  // Lift hovered/focused locked nodes so their popup label sits above neighbors.
+  &.jm-node--locked:hover,
+  &.jm-node--locked:focus-visible,
+  &.jm-node--locked.jm-node--selected {
+    z-index: 30;
   }
 }
 
@@ -925,7 +1309,7 @@ $jm-label-gap: 4px;
   position: absolute;
   bottom: calc(100% + #{$jm-label-gap});
   left: 50%;
-  transform: translateX(-50%);
+  transform: translateX(calc(-50% + var(--jm-label-x-offset, 0px)));
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -933,13 +1317,27 @@ $jm-label-gap: 4px;
   max-width: 92px;
   text-align: center;
   pointer-events: none;
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  background: rgba(255, 255, 255, 0.96);
   border-radius: 8px;
   padding: 3px 7px 4px;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
   white-space: normal;
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.18s ease, visibility 0.18s ease, transform 0.18s ease;
+}
+
+// Future (locked) stages: label pops up on hover/focus/tap only.
+.jm-node--locked:not(:hover):not(:focus-visible):not(.jm-node--selected) .jm-label {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.jm-node--locked:hover .jm-label,
+.jm-node--locked:focus-visible .jm-label,
+.jm-node--locked.jm-node--selected .jm-label {
+  opacity: 1;
+  visibility: visible;
 }
 
 // Top-edge nodes: flip the label below the dot so it never escapes the
@@ -957,16 +1355,46 @@ $jm-label-gap: 4px;
 .jm-node--label-start .jm-label {
   left: 50%;
   right: auto;
-  transform: translateX(-12px);   // small inset so label doesn't sit *exactly* on dot's centre
+  transform: translateX(calc(-12px + var(--jm-label-x-offset, 0px)));   // small inset so label doesn't sit *exactly* on dot's centre
   align-items: flex-start;
   text-align: left;
 }
 .jm-node--label-end .jm-label {
   left: auto;
   right: 50%;
-  transform: translateX(12px);
+  transform: translateX(calc(12px + var(--jm-label-x-offset, 0px)));
   align-items: flex-end;
   text-align: right;
+}
+
+// Goal node — label sits to the left of the dot so the artwork badge
+// (medal/trophy) stays fully visible above the platform.
+.jm-node--goal .jm-label {
+  bottom: auto;
+  top: 50%;
+  left: auto;
+  right: calc(100% + 8px);
+  transform: translateY(-50%);
+  align-items: flex-end;
+  text-align: right;
+}
+
+.jm-node--goal.jm-node--locked .jm-dot {
+  width: 30px;
+  height: 30px;
+  background: rgba(255, 255, 255, 0.22);
+  border: 2.5px solid rgba(255, 255, 255, 0.95);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.14);
+
+  ion-icon {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.92);
+  }
+}
+
+.jm-node--goal.jm-node--active .jm-dot,
+.jm-node--goal.jm-node--selected .jm-dot {
+  background: rgba(66, 172, 235, 0.88);
 }
 
 // Combined edge + top-flip cases need no extra rules — the orthogonal
@@ -1010,10 +1438,6 @@ $jm-label-gap: 4px;
 // each keeping a title + aria-label so the hidden label is still
 // recoverable on hover and via assistive tech.
 .journey-map-actions--dock {
-  position: absolute;
-  top: 0;
-  right: 18px;
-  z-index: 4;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1021,7 +1445,7 @@ $jm-label-gap: 4px;
   width: 48px;
 
   @media (max-width: 600px) {
-    right: 12px;
+    right: 8px;
     width: 36px;
     gap: 8px;
   }
@@ -1159,6 +1583,297 @@ $jm-label-gap: 4px;
   }
 }
 
+// ── Roadblock checkpoint modal (inline card, zooms from map gate) ─
+.rbq-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: min(560px, 78vh);
+  max-height: min(640px, 88vh);
+  background: #fff;
+  border-radius: 18px;
+}
+
+.rbq-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 22px 24px 18px;
+  border-bottom: 1px solid #f0f0f0;
+  flex-shrink: 0;
+}
+
+.rbq-icon {
+  width: auto;
+  height: 48px;
+  max-width: 128px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.rbq-header-copy {
+  min-width: 0;
+  text-align: left;
+}
+
+.rbq-kicker {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  color: #111;
+  letter-spacing: -0.02em;
+}
+
+.rbq-header-sub {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: #666;
+  line-height: 1.45;
+}
+
+.rbq-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 20px 24px;
+}
+
+.rbq-pane {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.rbq-pane--done {
+  align-items: center;
+  text-align: center;
+  padding-top: 12px;
+}
+
+.rbq-icon--done {
+  width: auto;
+  height: 56px;
+  max-width: 148px;
+  margin-bottom: 8px;
+}
+
+.rbq-done-emoji {
+  font-size: 40px;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.rbq-footer {
+  flex-shrink: 0;
+  padding: 16px 24px calc(16px + env(safe-area-inset-bottom));
+  border-top: 1px solid #f0f0f0;
+  background: #fff;
+  border-radius: 0 0 18px 18px;
+}
+
+.rbq-body {
+  padding: 28px 24px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.rbq-emoji { font-size: 44px; margin-bottom: 8px; line-height: 1; }
+.rbq-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: #111;
+  margin: 0 0 8px;
+  letter-spacing: -0.02em;
+}
+.rbq-sub { font-size: 15px; color: #555; line-height: 1.5; margin: 0 0 6px; }
+.rbq-hint { font-size: 15px; color: #666; line-height: 1.55; margin: 0; text-align: left; }
+
+.rbq-progress {
+  width: 100%;
+  height: 6px;
+  background: #eee;
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 18px;
+}
+.rbq-progress-bar {
+  display: block;
+  height: 100%;
+  background: #111;
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+.rbq-count {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #999;
+  margin: 4px 0 0;
+}
+.rbq-prompt {
+  font-size: 18px;
+  font-weight: 700;
+  color: #111;
+  line-height: 1.45;
+  margin: 0 0 20px;
+  text-align: left;
+  align-self: stretch;
+}
+.rbq-options { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+.rbq-option {
+  width: 100%;
+  text-align: left;
+  padding: 14px 16px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #222;
+  background: #fff;
+  border: 1.5px solid #e5e5e5;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.1s ease;
+}
+.rbq-option:hover:not(:disabled) { border-color: #bbb; }
+.rbq-option:active:not(:disabled) { transform: scale(0.99); }
+.rbq-option--selected { border-color: #111; }
+.rbq-option--correct { border-color: #1a7f37; background: #e9f7ee; color: #11632b; }
+.rbq-option--wrong { border-color: #d6336c; background: #fdeaf1; color: #9d174d; }
+
+.rbq-text { display: flex; gap: 8px; width: 100%; }
+.rbq-input {
+  flex: 1;
+  width: 100%;
+  padding: 14px 16px;
+  font-size: 15px;
+  border: 1.5px solid #e5e5e5;
+  border-radius: 12px;
+  outline: none;
+}
+.rbq-input:focus { border-color: #111; }
+
+.rbq-feedback {
+  width: 100%;
+  text-align: left;
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-size: 14px;
+  line-height: 1.5;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.rbq-feedback strong { font-weight: 700; }
+.rbq-feedback--ok { background: #e9f7ee; color: #11632b; }
+.rbq-feedback--retry { background: #fff6e6; color: #8a5a00; }
+
+.rbq-btn {
+  margin-top: 0;
+  width: 100%;
+  padding: 15px;
+  font-size: 16px;
+  font-weight: 700;
+  border-radius: 14px;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+.rbq-btn:active:not(:disabled) { transform: scale(0.99); }
+.rbq-btn:disabled { opacity: 0.5; cursor: default; }
+.rbq-btn--primary { background: #111; color: #fff; }
+.rbq-btn--primary:hover:not(:disabled) { background: #000; }
+.rbq-btn--check {
+  margin-top: 0;
+  width: auto;
+  padding: 13px 18px;
+  background: #111;
+  color: #fff;
+}
+
+// ── Treasure chest modal (reuses rbq card shell) ───────────────────
+.jmc-card.rbq-card {
+  min-height: min(400px, 68vh);
+  max-height: min(480px, 82vh);
+}
+
+.jmc-icon {
+  height: 52px;
+  max-width: 72px;
+}
+
+.jmc-scroll {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.jmc-burst {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 220px;
+  height: 220px;
+  transform: translate(-50%, -50%) scale(0.4);
+  opacity: 0;
+  background: radial-gradient(circle, rgba(255, 215, 0, 0.45), transparent 65%);
+  transition: transform 0.5s ease, opacity 0.5s ease;
+  pointer-events: none;
+}
+
+.jmc-burst--show {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.jmc-burst[data-tier='silver'] {
+  background: radial-gradient(circle, rgba(180, 200, 220, 0.45), transparent 65%);
+}
+
+.jmc-burst[data-tier='bronze'] {
+  background: radial-gradient(circle, rgba(205, 140, 90, 0.42), transparent 65%);
+}
+
+.jmc-tier {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 4px 12px;
+  border-radius: 999px;
+}
+
+.jmc-tier[data-tier='gold'] { background: #fff4d6; color: #9a6a00; }
+.jmc-tier[data-tier='silver'] { background: #eef1f5; color: #5a6675; }
+.jmc-tier[data-tier='bronze'] { background: #f6e7da; color: #8a5326; }
+
+.jmc-pane {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+}
+
+.jmc-xp {
+  margin: 0 0 6px;
+  font-size: 32px;
+  font-weight: 900;
+  color: #111;
+  letter-spacing: -0.02em;
+}
+
+.jmc-total {
+  margin: 0;
+  font-size: 15px;
+  color: #666;
+  line-height: 1.45;
+}
+
 // ── Single phase detail card — mirrors home journey widget ────────
 .jpcd-card {
   position: relative;
@@ -1169,6 +1884,11 @@ $jm-label-gap: 4px;
   padding: 10px 16px 48px;   // bottom pad reserves space for the abs CTA
   margin-top: 0;
   animation: jpcd-enter 0.22s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+
+  &--modal {
+    animation: none;
+    margin: 0;
+  }
 }
 
 @keyframes jpcd-enter {
@@ -2385,6 +3105,13 @@ $jm-label-gap: 4px;
   .inline-journey-title { color: #fff; }
   .inline-journey-header .go-back-link { color: #4c7ef4; }
 
+  .journey-map-chrome-back,
+  .journey-map-chrome-title {
+    background: rgba(28, 28, 30, 0.96);
+    color: #fff;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
+  }
+
   .cefr-chip {
     background: #1c1c1e;
     border-color: rgba(84, 84, 88, 0.65);
@@ -2600,6 +3327,12 @@ $jm-label-gap: 4px;
     ion-icon { color: #8e8e93; }
   }
 
+  .jm-node--goal.jm-node--locked .jm-dot {
+    background: rgba(28, 28, 30, 0.35);
+    border-color: rgba(255, 255, 255, 0.85);
+    ion-icon { color: rgba(255, 255, 255, 0.88); }
+  }
+
   .jm-node--active .jm-dot {
     border-color: #1c1c1e;
     box-shadow:
@@ -2616,7 +3349,7 @@ $jm-label-gap: 4px;
   }
 
   .jm-label {
-    background: rgba(28, 28, 30, 0.9);
+    background: rgba(28, 28, 30, 0.96);
     color: #e5e5e7;
     border: 1px solid rgba(84, 84, 88, 0.48);
     box-shadow:

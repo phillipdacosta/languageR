@@ -1,4 +1,14 @@
 // Platform-specific styling
+ion-tabs {
+  --app-toolbar-height: calc(env(safe-area-inset-top, 0px) + 56px);
+  --app-tabbar-height: calc(50px + env(safe-area-inset-bottom, 0px));
+
+  @media (min-width: 769px) {
+    --app-toolbar-height: 56px;
+    --app-tabbar-height: 0px;
+  }
+}
+
 .platform-ios {
   --ion-tab-bar-background: #ffffff;
   --ion-tab-bar-border-color: #e0e0e0;
@@ -496,46 +506,31 @@
           pointer-events: none !important;
         }
 
-        // Messages button
+        // Messages button — reserve space for NEW badge so layout never shifts
         &.messages-button {
           position: relative;
-          margin-right: 0;
-          transition: margin-right 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+          padding-right: 34px;
 
-          &:has(.new-badge) {
-            margin-right: 28px;
+          .new-badge {
+            position: absolute;
+            right: 4px;
+            top: 50%;
+            left: auto;
+            transform: translateY(-50%);
+            margin-left: 0;
+            font-size: 9px;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+            color: #ff3b30;
+            background: rgba(255, 59, 48, 0.1);
+            padding: 2px 5px;
+            border-radius: 4px;
+            line-height: 1;
+            pointer-events: none;
+            white-space: nowrap;
+            animation: newBadgeSlideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
           }
-
-          &.active:has(.new-badge) {
-            margin-right: 36px;
-          }
-        }
-
-        // "new" badge — desktop only (min-width: 992px); mobile uses .message-tab-notification-dot
-        &.messages-button .new-badge {
-          position: absolute;
-          left: 100%;
-          top: 50%;
-          transform: translateY(-50%);
-          // Slightly overlaps the pill when inactive; slides clear when selected.
-          margin-left: -8px;
-          font-size: 9px;
-          font-weight: 600;
-          letter-spacing: 0.02em;
-          text-transform: uppercase;
-          color: #ff3b30;
-          background: rgba(255, 59, 48, 0.1);
-          padding: 2px 5px;
-          border-radius: 4px;
-          line-height: 1;
-          pointer-events: none;
-          white-space: nowrap;
-          transition: margin-left 0.38s cubic-bezier(0.4, 0, 0.2, 1);
-          animation: newBadgeSlideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        &.messages-button.active .new-badge {
-          margin-left: 10px;
         }
       }
 

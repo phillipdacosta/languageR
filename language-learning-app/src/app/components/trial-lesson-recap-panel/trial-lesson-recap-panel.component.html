@@ -1,0 +1,154 @@
+<div class="trl-recap" [class.trl-recap--full-calendar]="showFullCalendarView">
+  <div class="trl-recap-head" *ngIf="hideTrialTitle && (headTitle || headShowEmoji)">
+    <button
+      type="button"
+      class="trl-recap-back trl-recap-back--inline-head"
+      *ngIf="showRatingStep && canRightPanelGoBack"
+      (click)="rightPanelGoBack()">
+      <ion-icon name="chevron-back-outline" aria-hidden="true"></ion-icon>
+      <span>{{ stepBackLabel }}</span>
+    </button>
+    <h2 class="trl-recap-head__title">
+      <span class="trl-recap-head__emoji" *ngIf="headShowEmoji" aria-hidden="true">🎉</span>
+      <span *ngIf="headTitle">{{ headTitle }}</span>
+    </h2>
+  </div>
+
+  <button
+    type="button"
+    class="trl-recap-back"
+    *ngIf="showRatingStep && canRightPanelGoBack && !hideTrialTitle"
+    (click)="rightPanelGoBack()">
+    <ion-icon name="chevron-back-outline" aria-hidden="true"></ion-icon>
+    <span>{{ stepBackLabel }}</span>
+  </button>
+
+  <div class="trl-recap-body">
+    <!-- Rating -->
+    <div class="trl-step" *ngIf="showRatingStep && currentRightPanelStep === 'rating'">
+      <h2 class="trl-title">
+        <span class="trl-rating-question">
+          {{ ratingQuestionLead }}
+          <span class="trl-rating-tutor">
+            <img
+              class="trl-rating-avatar"
+              [src]="tutor.picture || 'assets/default-avatar.png'"
+              [alt]="tutorFirstName" />
+            <span>{{ tutorFirstName }}</span>
+          </span>?
+        </span>
+      </h2>
+      <div class="trl-rating-options">
+        <button
+          type="button"
+          class="trl-rating-option trl-rating-option--great"
+          [class.trl-rating-option--selected]="selectedLessonRating === 'great'"
+          (click)="selectLessonRating('great')">
+          <ion-icon name="thumbs-up-outline" aria-hidden="true"></ion-icon>
+          <span>{{ ratingGreatLabel }}</span>
+        </button>
+        <button
+          type="button"
+          class="trl-rating-option trl-rating-option--okay"
+          [class.trl-rating-option--selected]="selectedLessonRating === 'okay'"
+          (click)="selectLessonRating('okay')">
+          <ion-icon name="happy-outline" aria-hidden="true"></ion-icon>
+          <span>{{ ratingOkayLabel }}</span>
+        </button>
+        <button
+          type="button"
+          class="trl-rating-option trl-rating-option--bad"
+          [class.trl-rating-option--selected]="selectedLessonRating === 'not_so_good'"
+          (click)="selectLessonRating('not_so_good')">
+          <ion-icon name="thumbs-down-outline" aria-hidden="true"></ion-icon>
+          <span>{{ ratingNotGoodLabel }}</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Sorry -->
+    <div class="trl-step" *ngIf="currentRightPanelStep === 'sorry'">
+      <div class="trl-sorry">
+        <div class="trl-sorry__icon" aria-hidden="true">
+          <ion-icon name="heart-dislike-outline"></ion-icon>
+        </div>
+        <h2 class="trl-title">{{ sorryTitle }}</h2>
+        <p class="trl-sub">{{ sorryBody }}</p>
+        <div class="trl-sorry__actions">
+          <button type="button" class="trl-btn trl-btn--primary" (click)="findNewTutors()">
+            <ion-icon name="search-outline"></ion-icon>
+            <span>{{ findNewTutorsLabel }}</span>
+          </button>
+          <button type="button" class="trl-btn trl-btn--secondary" (click)="giveTutorAnotherShot()">
+            <ion-icon name="refresh-outline"></ion-icon>
+            <span>{{ giveAnotherShotLabel }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Book -->
+    <div
+      class="trl-availability-host"
+      *ngIf="tutor?._id"
+      [class.trl-availability-host--active]="currentRightPanelStep === 'book'">
+      <div class="trl-trial-head" *ngIf="currentRightPanelStep === 'book' && (showTrialNextTitle || showTrialNextSub)">
+        <h2 class="trl-title" *ngIf="showTrialNextTitle && !hideTrialTitle">{{ trialNextTitle }}</h2>
+        <p class="trl-sub" *ngIf="showTrialNextSub">{{ trialNextSub }}</p>
+      </div>
+
+      <div
+        class="trl-availability-preview"
+        *ngIf="showAvailabilityPreviewPanel">
+        <div class="trl-availability-preview-loading" *ngIf="availabilityPreviewLoading">
+          <ion-spinner name="crescent"></ion-spinner>
+          <p>{{ availPreviewLoadingLabel }}</p>
+        </div>
+
+        <div class="trl-availability-preview-empty" *ngIf="!availabilityPreviewLoading && availabilityPreviewEmpty">
+          <div class="trl-availability-preview-empty__icon" aria-hidden="true">
+            <ion-icon name="chatbubble-ellipses-outline"></ion-icon>
+          </div>
+          <p class="trl-availability-preview-empty__body">{{ availNoSlotsBody }}</p>
+          <button type="button" class="trl-btn trl-btn--primary trl-availability-preview-empty__btn" (click)="openAskTutorForTimesMessage()">
+            <ion-icon name="chatbubble-outline"></ion-icon>
+            <span>{{ availSendMessageLabel }}</span>
+          </button>
+        </div>
+
+        <ng-container *ngIf="!availabilityPreviewLoading && !availabilityPreviewEmpty && useAvailabilityPreview">
+          <div class="trl-availability-preview-pills">
+            <button
+              type="button"
+              class="trl-availability-pill"
+              *ngFor="let slot of availabilityPreviewSlots"
+              (click)="onAvailabilityPreviewSlotClick(slot)">
+              {{ slot.pillLabel }}
+            </button>
+          </div>
+          <button
+            type="button"
+            class="trl-btn trl-btn--secondary trl-btn--full"
+            *ngIf="availabilityPreviewHasMore"
+            (click)="openFullAvailabilityViewer()">
+            <ion-icon name="calendar-outline"></ion-icon>
+            <span>{{ viewAvailabilityLabel }}</span>
+          </button>
+        </ng-container>
+      </div>
+
+      <div
+        class="trl-availability-viewer-wrap"
+        [class.trl-availability-viewer-wrap--hidden]="!showFullCalendarView">
+        <app-tutor-availability-viewer
+          #availabilityViewer
+          [tutorId]="tutor._id"
+          [tutorName]="tutorDisplayName"
+          [inline]="true"
+          embedStyle="card"
+          (availabilityLoaded)="onAvailabilityPreloaded()">
+        </app-tutor-availability-viewer>
+      </div>
+    </div>
+  </div>
+</div>

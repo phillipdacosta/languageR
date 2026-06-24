@@ -3,7 +3,8 @@ import { Notification } from '../services/notification.service';
 export type NotificationNavTarget =
   | { kind: 'route'; commands: any[]; queryParams?: Record<string, string | null> }
   | { kind: 'class_invitation'; classId: string }
-  | { kind: 'earnings' };
+  | { kind: 'earnings' }
+  | { kind: 'tutor_approval'; stepId: string };
 
 function asString(value: unknown): string | null {
   if (value == null) {
@@ -11,6 +12,10 @@ function asString(value: unknown): string | null {
   }
   const normalized = String(value).trim();
   return normalized || null;
+}
+
+function asBool(value: unknown): boolean {
+  return value === true || value === 'true' || value === 1 || value === '1';
 }
 
 function lessonIdFrom(notification: Notification): string | null {
@@ -35,6 +40,14 @@ function messagePeerIdFrom(notification: Notification): string | null {
     asString(data.tutorId) ||
     relatedUserId
   );
+}
+
+/** Map admin credential review payload → approval wizard step id. */
+export function credentialTypeToApprovalStep(credentialType: string | null): string {
+  if (credentialType === 'governmentId') {
+    return 'identity';
+  }
+  return 'qualifications';
 }
 
 export function getNotificationNavigationTarget(
@@ -144,15 +157,43 @@ export function getNotificationNavigationTarget(
     case 'payment_reduced':
     case 'investigation_resolved':
     case 'dispute_submitted':
+    case 'payout_paused':
       return { kind: 'earnings' };
 
     case 'tutor_video_approved':
       return { kind: 'route', commands: ['/tabs/availability-setup'] };
 
+    case 'tutor_photo_approved':
+      return { kind: 'route', commands: ['/tabs/availability-setup'] };
+
     case 'tutor_video_rejected':
-    case 'credential_approved':
+      return { kind: 'tutor_approval', stepId: 'video' };
+
+    case 'tutor_photo_rejected':
+      return { kind: 'tutor_approval', stepId: 'photo' };
+
+    case 'credential_approved': {
+      if (asBool(data.tutorApproved)) {
+        return { kind: 'route', commands: ['/tabs/availability-setup'] };
+      }
+      return {
+        kind: 'tutor_approval',
+        stepId: credentialTypeToApprovalStep(asString(data.credentialType)),
+      };
+    }
+
     case 'credential_rejected':
-      return { kind: 'route', commands: ['/tabs/profile'] };
+      return {
+        kind: 'tutor_approval',
+        stepId: credentialTypeToApprovalStep(asString(data.credentialType)),
+      };
+
+    case 'stripe_account_updated':
+      return {
+        kind: 'route',
+        commands: ['/tabs/profile'],
+        queryParams: { section: 'payments' },
+      };
 
     case 'material_approved':
     case 'material_rejected': {

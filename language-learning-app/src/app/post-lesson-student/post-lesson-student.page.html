@@ -10,26 +10,14 @@
       </div>
     </header>
 
-    <div class="plt-subheader">
+    <div class="plt-subheader" [class.plt-subheader--column-title]="subheaderAlignToRightColumn">
       <button type="button" class="plt-subheader__back" (click)="goBack()">
         <ion-icon name="close-outline" aria-hidden="true"></ion-icon>
         <span>{{ 'COMMON.CLOSE' | translate }}</span>
       </button>
-      <h1 class="plt-subheader__title" [class.plt-subheader__title--rating]="showSubheaderRatingLayout">
+      <h1 class="plt-subheader__title" *ngIf="(subheaderTitle || showSubheaderEmoji) && !subheaderAlignToRightColumn">
         <span class="plt-subheader__emoji" *ngIf="showSubheaderEmoji" aria-hidden="true">🎉</span>
-        <ng-container *ngIf="showSubheaderRatingLayout && tutor">
-          <span class="pls-subheader-rating">
-            {{ ratingQuestionLead }}
-            <span class="pls-subheader-tutor">
-              <img
-                class="pls-subheader-avatar"
-                [src]="tutor.picture || 'assets/default-avatar.png'"
-                [alt]="tutorFirstName" />
-              <span>{{ tutorFirstName }}</span>
-            </span>?
-          </span>
-        </ng-container>
-        <ng-container *ngIf="!showSubheaderRatingLayout">{{ subheaderTitle }}</ng-container>
+        <ng-container *ngIf="subheaderTitle">{{ subheaderTitle }}</ng-container>
       </h1>
     </div>
 
@@ -104,12 +92,17 @@
           </div>
 
           <div class="pls-actions" *ngIf="lesson && tutor">
+            <button type="button" class="pls-action-btn pls-action-btn--secondary" (click)="leaveReview()" *ngIf="!isTrialLesson">
+              <ion-icon name="star-outline"></ion-icon>
+              <span>{{ reviewLabel }}</span>
+            </button>
+
             <button
               type="button"
               class="pls-action-btn pls-action-btn--primary pls-tip-trigger"
               [class.pls-tip-trigger--hidden]="showTipSection"
               (click)="toggleTipSection()"
-              *ngIf="!tipSubmitted && !isTrialLesson">
+              *ngIf="!tipSubmitted">
               <ion-icon name="heart-outline"></ion-icon>
               <span>{{ tipCtaLabel }}</span>
             </button>
@@ -118,93 +111,93 @@
               <ion-icon name="checkmark-circle"></ion-icon>
               <span>{{ tipSentLabel }}</span>
             </div>
-
-            <button type="button" class="pls-action-btn pls-action-btn--secondary" (click)="leaveReview()" *ngIf="!isTrialLesson">
-              <ion-icon name="star-outline"></ion-icon>
-              <span>{{ reviewLabel }}</span>
-            </button>
-
-            <button type="button" class="pls-action-btn pls-action-btn--secondary" (click)="bookAgain()">
-              <ion-icon name="person-outline"></ion-icon>
-              <span>{{ seeProfileLabel }}</span>
-            </button>
           </div>
         </aside>
 
         <!-- ── Right: rating flow, booking, analysis ── -->
-        <div class="plt-actions approval-split-main approval-split-main--scroll pls-right-panel" *ngIf="lesson && tutor">
+        <div
+          class="plt-actions approval-split-main approval-split-main--scroll pls-right-panel"
+          [class.pls-right-panel--centered]="centerRightPanelContent"
+          *ngIf="lesson && tutor">
           <div class="plt-actions-scroll">
 
-            <!-- Step 1: How was your lesson? -->
-            <div class="pls-right-step" *ngIf="showLessonRatingOptions && currentRightPanelStep === 'rating'">
-              <div class="pls-rating-options">
-                <button
-                  type="button"
-                  class="pls-rating-option pls-rating-option--great"
-                  [class.pls-rating-option--selected]="selectedLessonRating === 'great'"
-                  (click)="selectLessonRating('great')">
-                  <ion-icon name="thumbs-up-outline" aria-hidden="true"></ion-icon>
-                  <span>{{ ratingGreatLabel }}</span>
-                </button>
-                <button
-                  type="button"
-                  class="pls-rating-option pls-rating-option--okay"
-                  [class.pls-rating-option--selected]="selectedLessonRating === 'okay'"
-                  (click)="selectLessonRating('okay')">
-                  <ion-icon name="happy-outline" aria-hidden="true"></ion-icon>
-                  <span>{{ ratingOkayLabel }}</span>
-                </button>
-                <button
-                  type="button"
-                  class="pls-rating-option pls-rating-option--bad"
-                  [class.pls-rating-option--selected]="selectedLessonRating === 'not_so_good'"
-                  (click)="selectLessonRating('not_so_good')">
-                  <ion-icon name="thumbs-down-outline" aria-hidden="true"></ion-icon>
-                  <span>{{ ratingNotGoodLabel }}</span>
-                </button>
-              </div>
-            </div>
+            <!-- Trial lesson: shared recap panel (matches lessons/:id) -->
+            <app-trial-lesson-recap-panel
+              class="trl-recap-host--flush-back"
+              *ngIf="isTrialLesson && trialRecapTutor"
+              [lessonId]="lessonId"
+              [tutor]="trialRecapTutor"
+              [showRatingStep]="showLessonRatingOptions"
+              [hideTrialTitle]="subheaderAlignToRightColumn"
+              [headTitle]="subheaderAlignToRightColumn ? subheaderTitle : ''"
+              [headShowEmoji]="subheaderAlignToRightColumn && showSubheaderEmoji"
+              (layoutChange)="onTrialRecapLayoutChange($event)">
+            </app-trial-lesson-recap-panel>
 
-            <!-- Step: Sorry to hear that -->
-            <div class="pls-right-step" *ngIf="currentRightPanelStep === 'sorry'">
-              <div class="pls-sorry">
-                <div class="pls-sorry__icon">
-                  <ion-icon name="heart-dislike-outline" aria-hidden="true"></ion-icon>
-                </div>
-                <h2 class="pls-section-title">{{ sorryTitle }}</h2>
-                <p class="pls-section-sub">{{ sorryBody }}</p>
-                <div class="pls-sorry__actions">
-                  <button type="button" class="pls-action-btn pls-action-btn--primary" (click)="findNewTutors()">
-                    <ion-icon name="search-outline"></ion-icon>
-                    <span>{{ findNewTutorsLabel }}</span>
-                  </button>
-                  <button type="button" class="pls-action-btn pls-action-btn--secondary" (click)="giveTutorAnotherShot()">
-                    <ion-icon name="refresh-outline"></ion-icon>
-                    <span>{{ giveAnotherShotLabel }}</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <!-- Availability: preload while rating/sorry, reveal on book step -->
+            <!-- Non-trial: book again availability -->
             <div
               class="pls-availability-host"
-              *ngIf="tutor"
-              [class.pls-availability-host--active]="currentRightPanelStep === 'book'">
-              <div class="pls-trial-section" *ngIf="currentRightPanelStep === 'book'">
-                <h2 class="pls-section-title">{{ trialNextTitle }}</h2>
-                <p class="pls-section-sub">{{ trialNextSub }}</p>
+              *ngIf="!isTrialLesson && tutor"
+              [class.pls-availability-host--active]="true">
+              <div
+                class="pls-availability-preview"
+                *ngIf="useAvailabilityPreview && !showFullAvailabilityViewer">
+                <div class="pls-availability-preview-loading" *ngIf="availabilityPreviewLoading">
+                  <ion-spinner name="crescent"></ion-spinner>
+                  <p>{{ availPreviewLoadingLabel }}</p>
+                </div>
+
+                <div class="pls-availability-preview-empty" *ngIf="!availabilityPreviewLoading && availabilityPreviewEmpty">
+                  <div class="pls-availability-preview-empty__icon" aria-hidden="true">
+                    <ion-icon name="chatbubble-ellipses-outline"></ion-icon>
+                  </div>
+                  <p class="pls-availability-preview-empty__body">{{ availNoSlotsBody }}</p>
+                  <button
+                    type="button"
+                    class="pls-action-btn pls-action-btn--primary pls-availability-preview-empty__btn"
+                    (click)="openAskTutorForTimesMessage()">
+                    <ion-icon name="chatbubble-outline"></ion-icon>
+                    <span>{{ availSendMessageLabel }}</span>
+                  </button>
+                </div>
+
+                <ng-container *ngIf="!availabilityPreviewLoading && !availabilityPreviewEmpty">
+                  <div class="pls-availability-preview-pills">
+                    <button
+                      type="button"
+                      class="pls-availability-pill"
+                      *ngFor="let slot of availabilityPreviewSlots"
+                      (click)="onAvailabilityPreviewSlotClick(slot)">
+                      {{ slot.pillLabel }}
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    class="pls-action-btn pls-action-btn--secondary pls-action-btn--full pls-availability-preview-more"
+                    *ngIf="availabilityPreviewHasMore"
+                    (click)="openFullAvailabilityViewer()">
+                    <ion-icon name="calendar-outline"></ion-icon>
+                    <span>{{ viewAvailabilityLabel }}</span>
+                  </button>
+                </ng-container>
               </div>
-              <app-tutor-availability-viewer
-                [tutorId]="tutor._id"
-                [tutorName]="tutorDisplayName"
-                [inline]="true"
-                embedStyle="card">
-              </app-tutor-availability-viewer>
+
+              <div
+                class="pls-availability-viewer-wrap"
+                [class.pls-availability-viewer-wrap--hidden]="useAvailabilityPreview && !showFullAvailabilityViewer">
+                <app-tutor-availability-viewer
+                  #availabilityViewer
+                  [tutorId]="tutor._id"
+                  [tutorName]="tutorDisplayName"
+                  [inline]="true"
+                  embedStyle="card"
+                  (availabilityLoaded)="onAvailabilityPreloaded($event)">
+                </app-tutor-availability-viewer>
+              </div>
             </div>
 
-            <!-- Step: Book your next lesson (+ analysis / vocab) -->
-            <div class="pls-right-step" *ngIf="currentRightPanelStep === 'book'">
+            <!-- Analysis / vocab (non-trial only) -->
+            <div class="pls-right-step" *ngIf="!isTrialLesson">
               <ng-container *ngIf="!isTrialLesson && aiAnalysisEnabled">
                 <div class="pls-analysis-loading" *ngIf="!analysisReady && !analysisUnavailable">
                   <div class="pls-ai-animation">
@@ -333,22 +326,12 @@
               </div>
             </div>
           </div>
-
-          <footer class="pls-right-nav" *ngIf="showRightPanelStepNav">
-            <button
-              type="button"
-              class="pls-right-nav__btn pls-right-nav__btn--back"
-              (click)="rightPanelGoBack()">
-              <ion-icon name="chevron-back-outline" aria-hidden="true"></ion-icon>
-              <span>{{ stepBackLabel }}</span>
-            </button>
-          </footer>
         </div>
       </div>
     </div>
 
     <!-- Tip overlay -->
-    <div class="pls-tip-overlay" [class.pls-tip-overlay--active]="showTipSection && !tipSubmitted" *ngIf="!isTrialLesson">
+    <div class="pls-tip-overlay" [class.pls-tip-overlay--active]="showTipSection && !tipSubmitted">
       <div class="pls-tip-backdrop" (click)="toggleTipSection()"></div>
       <div class="pls-tip-card">
         <div class="pls-tip-header">

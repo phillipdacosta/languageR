@@ -99,38 +99,36 @@
   margin: 0 0 18px;
 }
 
-/* ion-textarea (md): Ionic draws a bottom “highlight” line; without overrides it
-   often appears green (valid/focus) and sits under our own border. Hide it and
-   rely on :focus-within + caret-color below. */
 .going-msg-textarea {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
   border: 1px solid var(--going-msg-border);
   border-radius: 14px;
   padding: 14px 16px;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
   font-size: 1rem;
   line-height: 1.5;
-  --background: var(--going-msg-textarea-bg);
-  --padding-start: 0;
-  --padding-end: 0;
-  --padding-top: 0;
-  --padding-bottom: 0;
-  --highlight-height: 0;
-  --highlight-color-focused: transparent;
-  --highlight-color-valid: transparent;
-  --highlight-color-invalid: transparent;
+  color: var(--going-msg-text);
+  caret-color: var(--going-msg-text);
+  background: var(--going-msg-textarea-bg);
   min-height: 220px;
   margin-bottom: 10px;
-  transition: border-color 0.15s ease, background 0.15s ease;
-}
-
-.going-msg-textarea:focus-within {
-  border-color: var(--going-msg-cta);
-  --background: var(--going-msg-surface);
-}
-
-:host ::ng-deep .going-msg-textarea::part(native) {
+  resize: vertical;
   outline: none;
-  caret-color: var(--going-msg-text);
-  resize: none;
+  transition: border-color 0.15s ease, background 0.15s ease;
+  -webkit-text-fill-color: var(--going-msg-text);
+
+  &::placeholder {
+    color: #8e8e93;
+    opacity: 1;
+  }
+
+  &:focus {
+    border-color: var(--going-msg-cta);
+    background: var(--going-msg-surface);
+    caret-color: var(--going-msg-text);
+  }
 }
 
 .going-msg-counter {
