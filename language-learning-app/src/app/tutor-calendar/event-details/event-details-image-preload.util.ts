@@ -1,4 +1,4 @@
-import { journeyBackgroundUrl } from '../../journey/journey-map-assets';
+import { journeyBackgroundPreloadUrls } from '../../journey/journey-map-assets';
 import { EVENT_DETAILS_STATIC_IMAGES } from '../../journey/journey-map-preview-assets';
 import { CachedLessonDetailBundle } from '../../services/lesson.service';
 
@@ -43,7 +43,9 @@ function addJourneyMapImage(urls: Set<string>, summary: Record<string, unknown> 
 
   if (MAP_PLAN_STATUSES.has(status) && phaseCount > 0) {
     const theme = String(summary['chapterTheme'] || 'a1-desert');
-    urls.add(journeyBackgroundUrl(theme, phaseCount));
+    for (const url of journeyBackgroundPreloadUrls(theme, phaseCount)) {
+      urls.add(url);
+    }
   }
 }
 

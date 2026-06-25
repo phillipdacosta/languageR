@@ -46,7 +46,7 @@ import { buildStripeConnectPayloadForProfilePayout, classifyStripeReturnStatus, 
 import { SmartIslandService, DynamicCard } from '../services/smart-island.service';
 import { TranslateService } from '@ngx-translate/core';
 import { LearningPlanService, LearningPlan } from '../services/learning-plan.service';
-import { journeyBackgroundUrl } from '../journey/journey-map-assets';
+import { journeyBackgroundPreloadUrls } from '../journey/journey-map-assets';
 import { TranscriptionService, LessonAnalysis } from '../services/transcription.service';
 import { GamificationService, Badge as GamBadge } from '../services/gamification.service';
 import { ReviewDeckService } from '../services/review-deck.service';
@@ -3004,8 +3004,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     // while the user is still on the home page — effectively zero cost.
     const chapterTheme: string = (plan as any).chapterTheme || 'a1-desert';
     const phaseCount = Array.isArray(plan.phases) ? plan.phases.length : 4;
-    const preloadImg = new Image();
-    preloadImg.src = journeyBackgroundUrl(chapterTheme, phaseCount);
+    this.imagePreloadService.preloadMany(journeyBackgroundPreloadUrls(chapterTheme, phaseCount));
 
     // Pre-mount the journey component hidden (behind *ngIf="journeyPreloaded")
     // so Angular bootstraps it, the cache-first getPlanWithCache returns
