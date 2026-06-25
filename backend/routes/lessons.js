@@ -2408,16 +2408,17 @@ router.post('/:id/join', verifyToken, async (req, res) => {
     if (userId.toString() === isStudentId && !lesson.studentJoinedAt) {
       lesson.studentJoinedAt = now;
       console.log(`👨‍🎓 Student joined at: ${now.toISOString()}`);
-    }
 
-    // ── Snapshot the student's AI setting at lesson start ──
-    // This is immutable — once set at lesson start, mid-lesson changes won't affect this lesson.
-    // Changes only take effect from the NEXT lesson onward.
-    if (lesson.aiAnalysisEnabledAtTime === null || lesson.aiAnalysisEnabledAtTime === undefined) {
-      const studentProfile = await User.findById(isStudentId).select('profile');
-      const aiEnabled = studentProfile?.profile?.aiAnalysisEnabled !== false;
-      lesson.aiAnalysisEnabledAtTime = aiEnabled;
-      console.log(`📸 Snapshotted aiAnalysisEnabledAtTime=${aiEnabled} at lesson start for lesson ${lesson._id}`);
+      // ── Seed the per-lesson AI setting from the student's global default ──
+      // ONLY when the STUDENT joins (not the tutor). This is just the baseline:
+      // the student can still change it for the first 2 minutes after joining
+      // via PATCH /:id/ai-analysis. The tutor joining must NOT lock this.
+      if (lesson.aiAnalysisEnabledAtTime === null || lesson.aiAnalysisEnabledAtTime === undefined) {
+        const studentProfile = await User.findById(isStudentId).select('profile');
+        const aiEnabled = studentProfile?.profile?.aiAnalysisEnabled !== false;
+        lesson.aiAnalysisEnabledAtTime = aiEnabled;
+        console.log(`📸 Seeded baseline aiAnalysisEnabledAtTime=${aiEnabled} on student join for lesson ${lesson._id}`);
+      }
     }
 
     // Record actual call start time ONLY when BOTH participants are present
@@ -2511,7 +2512,8 @@ router.post('/:id/join', verifyToken, async (req, res) => {
         tutor: lesson.tutorId,
         student: lesson.studentId,
         subject: lesson.subject,
-        aiAnalysisEnabledAtTime: lesson.aiAnalysisEnabledAtTime
+        aiAnalysisEnabledAtTime: lesson.aiAnalysisEnabledAtTime,
+        studentJoinedAt: lesson.studentJoinedAt
       },
       userRole: isTutor ? 'tutor' : 'student',
       serverTime: now.toISOString()
@@ -5073,6 +5075,79 @@ router.post('/:id/report-issue', verifyToken, async (req, res) => {
       success: false, 
       error: error.message || 'Failed to report issue' 
     });
+  }
+});
+
+// Editable window (ms) after the student joins the call during which they can
+// still change the AI-analysis setting for THIS lesson. Shared contract with
+// the pre-call + video-call UIs.
+const AI_SETTING_EDIT_WINDOW_MS = 2 * 60 * 1000;
+
+// PATCH /api/lessons/:id/ai-analysis - Student sets the AI-analysis setting for
+// THIS lesson only (does not change their global default). Editable until the
+// student has been in the call for AI_SETTING_EDIT_WINDOW_MS; after that the
+// value is frozen for the lesson. Notifies the tutor (and the student's other
+// devices) in realtime so the pre-call / in-call card stays in sync.
+router.patch('/:id/ai-analysis', verifyToken, async (req, res) => {
+  try {
+    const lessonId = req.params.id;
+    const userAuth0Id = req.user.sub;
+    const enabled = req.body?.enabled;
+
+    if (typeof enabled !== 'boolean') {
+      return res.status(400).json({ success: false, error: 'enabled (boolean) is required' });
+    }
+
+    const lesson = await Lesson.findById(lessonId).populate('studentId tutorId', 'auth0Id');
+    if (!lesson) {
+      return res.status(404).json({ success: false, error: 'Lesson not found' });
+    }
+
+    // Student-only: this is the student's choice about their own data.
+    const studentAuth0Id = lesson.studentId?.auth0Id;
+    if (!studentAuth0Id || studentAuth0Id !== userAuth0Id) {
+      return res.status(403).json({ success: false, error: 'Only the student can change this setting' });
+    }
+
+    // Trials never analyze — nothing to toggle.
+    if (lesson.isTrialLesson) {
+      return res.status(400).json({ success: false, error: 'Not applicable to trial lessons' });
+    }
+
+    // Enforce the edit window. Before the student joins → always editable.
+    // After joining → editable for AI_SETTING_EDIT_WINDOW_MS only.
+    if (lesson.studentJoinedAt) {
+      const elapsed = Date.now() - new Date(lesson.studentJoinedAt).getTime();
+      if (elapsed > AI_SETTING_EDIT_WINDOW_MS) {
+        return res.status(409).json({
+          success: false,
+          locked: true,
+          error: 'The AI setting is locked for this lesson (edit window passed).'
+        });
+      }
+    }
+
+    lesson.aiAnalysisEnabledAtTime = enabled;
+    await lesson.save();
+    console.log(`🤖 Per-lesson AI setting set to ${enabled} for lesson ${lessonId} by student`);
+
+    // Realtime sync to the tutor + the student's other devices.
+    if (req.io) {
+      const payload = {
+        studentId: lesson.studentId._id.toString(),
+        studentAuth0Id,
+        aiAnalysisEnabled: enabled,
+        lessonId: lessonId.toString()
+      };
+      const tutorAuth0Id = lesson.tutorId?.auth0Id;
+      if (tutorAuth0Id) req.io.to(`user:${tutorAuth0Id}`).emit('ai_analysis_setting_changed', payload);
+      req.io.to(`user:${studentAuth0Id}`).emit('ai_analysis_setting_changed', payload);
+    }
+
+    res.json({ success: true, aiAnalysisEnabledAtTime: enabled });
+  } catch (error) {
+    console.error('❌ Error updating per-lesson AI setting:', error);
+    res.status(500).json({ success: false, error: error.message || 'Failed to update setting' });
   }
 });
 

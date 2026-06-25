@@ -157,6 +157,7 @@ export class WebSocketService {
     studentId: string;
     studentAuth0Id: string;
     aiAnalysisEnabled: boolean;
+    lessonId?: string | null;
   }>();
   public aiAnalysisSettingChanged$ = this.aiAnalysisSettingChangedSubject.asObservable();
 
@@ -447,7 +448,7 @@ export class WebSocketService {
     });
 
     // Listen for a student's AI-analysis setting changing (pre-call sync)
-    this.socket.on('ai_analysis_setting_changed', (data: { studentId: string; studentAuth0Id: string; aiAnalysisEnabled: boolean }) => {
+    this.socket.on('ai_analysis_setting_changed', (data: { studentId: string; studentAuth0Id: string; aiAnalysisEnabled: boolean; lessonId?: string | null }) => {
       console.log('🤖 AI analysis setting changed:', data);
       this.aiAnalysisSettingChangedSubject.next(data);
     });

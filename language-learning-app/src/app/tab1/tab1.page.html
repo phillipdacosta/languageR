@@ -1050,7 +1050,7 @@
           </ion-button>
         </div>
 
-        <div class="upnext-filled-footer" *ngIf="nextClass.lesson?.status !== 'cancelled' && !nextLessonOtherJoined && previousNotesData">
+        <div class="upnext-filled-footer" *ngIf="showPreviousNotesLink && nextClass.lesson?.status !== 'cancelled' && !nextLessonOtherJoined && previousNotesData">
           <button
             type="button"
             class="upnext-filled-footer-link"

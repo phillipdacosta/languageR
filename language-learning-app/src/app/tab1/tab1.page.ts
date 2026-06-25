@@ -681,6 +681,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
 
   // Previous lesson notes for the Up Next tutor-student pair
   previousNotesData: any = null;
+  /** Hidden until previous-notes flow is polished. */
+  showPreviousNotesLink = false;
   previousNotesLoading = false;
   isPreviousNotesModalOpen = false;
   previousNotesDate = '';

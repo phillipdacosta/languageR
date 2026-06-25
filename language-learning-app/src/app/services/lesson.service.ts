@@ -765,6 +765,18 @@ export class LessonService {
     return this.http.post<{ success: boolean; message: string }>(`${this.baseUrl}/${lessonId}/end`, body, { headers });
   }
 
+  // Set the AI-analysis setting for THIS lesson only (student-only; editable
+  // until 2 min after the student joins the call). Does not change the global
+  // account default.
+  setLessonAiAnalysis(lessonId: string, enabled: boolean): Observable<{ success: boolean; aiAnalysisEnabledAtTime?: boolean; locked?: boolean; error?: string }> {
+    const headers = this.userService.getAuthHeadersSync();
+    return this.http.patch<{ success: boolean; aiAnalysisEnabledAtTime?: boolean; locked?: boolean; error?: string }>(
+      `${this.baseUrl}/${lessonId}/ai-analysis`,
+      { enabled },
+      { headers }
+    );
+  }
+
   // Update lesson status (cancel, reschedule, etc.)
   updateLessonStatus(lessonId: string, status: 'cancelled' | 'completed' | 'scheduled' | 'in_progress' | 'confirmed'): Observable<{ success: boolean; message: string }> {
     const headers = this.userService.getAuthHeadersSync();

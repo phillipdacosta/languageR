@@ -130,7 +130,7 @@
               <span class="plt-assessment-badge" *ngIf="isTrialMode">{{ 'POST_LESSON.TUTOR.TRIAL_BADGE' | translate }}</span>
             </div>
 
-            <div class="plt-impressions">
+            <div class="plt-impressions" *ngIf="!isTrialMode">
               <button
                 type="button"
                 *ngFor="let option of impressionOptions"

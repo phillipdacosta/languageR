@@ -576,15 +576,27 @@
               </span>
             </div>
 
-            <!-- Source divergence — only when AI vs tutor means differ ≥ 1 level -->
-            <div class="cefr-divergence" *ngIf="cefrRevealed.divergence">
+            <!-- Source divergence — AI vs tutor, or tutor vs tutor (cold start) -->
+            <div class="cefr-divergence" *ngIf="cefrDivergenceKind === 'sources'">
               <ion-icon name="alert-circle-outline" aria-hidden="true"></ion-icon>
               <div class="cefr-divergence-text">
                 <strong>{{ 'JOURNEY.CEFR.DIVERGENCE_TITLE' | translate }}</strong>
                 <span>
                   {{ 'JOURNEY.CEFR.DIVERGENCE_BODY' | translate:{
-                    aiLevel: cefrRevealed.divergence.aiLevel,
-                    tutorLevel: cefrRevealed.divergence.tutorLevel
+                    aiLevel: cefrDivergence?.aiLevel,
+                    tutorLevel: cefrDivergence?.tutorLevel
+                  } }}
+                </span>
+              </div>
+            </div>
+            <div class="cefr-divergence" *ngIf="cefrDivergenceKind === 'split'">
+              <ion-icon name="alert-circle-outline" aria-hidden="true"></ion-icon>
+              <div class="cefr-divergence-text">
+                <strong>{{ 'JOURNEY.CEFR.DIVERGENCE_SPLIT_TITLE' | translate }}</strong>
+                <span>
+                  {{ 'JOURNEY.CEFR.DIVERGENCE_SPLIT_BODY' | translate:{
+                    lowLevel: cefrDivergence?.lowLevel,
+                    highLevel: cefrDivergence?.highLevel
                   } }}
                 </span>
               </div>

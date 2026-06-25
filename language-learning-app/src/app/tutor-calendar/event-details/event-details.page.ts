@@ -250,6 +250,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   edPlanGoalLevelKey = '';
   edPlanGoalTimelineKey = '';
   edPlanGoalTimelineDate = '';
+  edPlanGoalTimelineLabel = '';
   edPlanShowGoalCard = false;
   edPlanPhaseLabel = '';
   showJourneyMapPreview = false;
@@ -2834,6 +2835,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       this.edPlanGoalLevelKey = '';
       this.edPlanGoalTimelineKey = '';
       this.edPlanGoalTimelineDate = '';
+      this.edPlanGoalTimelineLabel = '';
       this.edPlanShowGoalCard = false;
       return;
     }
@@ -2847,12 +2849,15 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     if (goal.timeline === 'specific_date' && goal.targetDate) {
       this.edPlanGoalTimelineKey = 'ONBOARDING.STUDENT.PREVIEW_TIMELINE_BY_DATE';
       this.edPlanGoalTimelineDate = new Date(goal.targetDate).toLocaleDateString();
+      this.edPlanGoalTimelineLabel = `${this.translate.instant('ONBOARDING.STUDENT.PREVIEW_TIMELINE_ROW')}: ${this.translate.instant(this.edPlanGoalTimelineKey, { date: this.edPlanGoalTimelineDate })}`;
     } else if (goal.timeline === 'few_months' || goal.timelinePressure === 'few_months') {
       this.edPlanGoalTimelineKey = 'ONBOARDING.STUDENT.TIMELINE_OPTION_FEW_MONTHS';
       this.edPlanGoalTimelineDate = '';
+      this.edPlanGoalTimelineLabel = `${this.translate.instant('ONBOARDING.STUDENT.PREVIEW_TIMELINE_ROW')}: ${this.translate.instant(this.edPlanGoalTimelineKey)}`;
     } else {
       this.edPlanGoalTimelineKey = 'ONBOARDING.STUDENT.TIMELINE_OPTION_NO_RUSH';
       this.edPlanGoalTimelineDate = '';
+      this.edPlanGoalTimelineLabel = `${this.translate.instant('ONBOARDING.STUDENT.PREVIEW_TIMELINE_ROW')}: ${this.translate.instant(this.edPlanGoalTimelineKey)}`;
     }
   }
 
@@ -3017,6 +3022,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     this.edPlanGoalLevelKey = '';
     this.edPlanGoalTimelineKey = '';
     this.edPlanGoalTimelineDate = '';
+    this.edPlanGoalTimelineLabel = '';
     this.edPlanShowGoalCard = false;
     this.edPlanPhaseLabel = '';
     this.showJourneyMapPreview = false;

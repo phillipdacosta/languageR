@@ -154,22 +154,35 @@ function aggregate(analyses, tutorBiasMap = null) {
   if (stddev <= AGREEMENT_HIGH_STDDEV) agreement = 'high';
   else if (stddev <= AGREEMENT_MEDIUM_STDDEV) agreement = 'medium';
 
-  // Confidence: higher when items agree AND individual analyses are confident.
-  const meanIndividualConfidence = items.reduce((s, x) => s + x.weight, 0) / items.length / 1.25;
-  const agreementBonus = agreement === 'high' ? 1 : agreement === 'medium' ? 0.85 : 0.65;
-  const confidencePct = Math.round(Math.max(35, Math.min(98, meanIndividualConfidence * 100 * agreementBonus)));
-
   const sources = {
     ai: items.filter(x => x.source === 'ai').length,
     tutor: items.filter(x => x.source === 'tutor').length
   };
 
-  // Source divergence — only meaningful when both sources are present.
-  // Compare mean numeric level by source. ≥ 1.0 levels apart = surface it.
+  // Confidence: higher when items agree AND individual analyses are confident.
+  const meanIndividualConfidence = items.reduce((s, x) => s + x.weight, 0) / items.length / 1.25;
+  const agreementBonus = agreement === 'high' ? 1 : agreement === 'medium' ? 0.85 : 0.65;
+  let confidencePct = Math.round(Math.max(35, Math.min(98, meanIndividualConfidence * 100 * agreementBonus)));
+
+  // Low-data, single-source guard. Two agreeing trials are NOT 95%-confident
+  // evidence — they're one source type with a tiny sample. Cap confidence
+  // when there's no AI baseline and very few lessons, so a sparse tutor-only
+  // window can't masquerade as high certainty.
+  if (sources.ai === 0 && items.length < REVEAL_HARD_FLOOR) {
+    confidencePct = Math.min(confidencePct, 60);
+  }
+
+  const aiItems = items.filter(x => x.source === 'ai');
+  const tutorItems = items.filter(x => x.source === 'tutor');
+
+  // Source divergence — surfaced when assessments disagree by ≥ 1 CEFR level.
+  // Two cases:
+  //   1. AI vs tutor means differ (typical: tutor inflation showing through).
+  //   2. Tutor vs tutor — conflicting tutor reads with no AI baseline (the
+  //      cold-start "two trials, two opinions" case). Without this, two
+  //      wildly different trials silently average with no signal to surface.
   let divergence = null;
   if (sources.ai > 0 && sources.tutor > 0) {
-    const aiItems = items.filter(x => x.source === 'ai');
-    const tutorItems = items.filter(x => x.source === 'tutor');
     const aiMean = aiItems.reduce((s, x) => s + x.numeric, 0) / aiItems.length;
     const tutorMean = tutorItems.reduce((s, x) => s + x.numeric, 0) / tutorItems.length;
     const gap = tutorMean - aiMean;
@@ -181,6 +194,24 @@ function aggregate(analyses, tutorBiasMap = null) {
         // 'tutor_higher' is the typical case (tutor inflation showing through);
         // 'ai_higher' is rarer but worth flagging differently.
         direction: gap > 0 ? 'tutor_higher' : 'ai_higher'
+      };
+    }
+  }
+
+  // Tutor-vs-tutor: only when ≥2 tutor reads and no AI/tutor divergence was
+  // already flagged. Compares the spread (max - min) of bias-adjusted tutor
+  // levels — catches the conflicting-trials scenario the AI/tutor check misses.
+  if (!divergence && sources.tutor >= 2) {
+    const tutorNumerics = tutorItems.map(x => x.numeric);
+    const tutorMin = Math.min(...tutorNumerics);
+    const tutorMax = Math.max(...tutorNumerics);
+    const spread = tutorMax - tutorMin;
+    if (spread >= 1.0) {
+      divergence = {
+        gap: Math.round(spread * 10) / 10,
+        lowLevel: numericToLevel(tutorMin),
+        highLevel: numericToLevel(tutorMax),
+        direction: 'tutor_split'
       };
     }
   }
@@ -537,9 +568,13 @@ function buildNarrative({ estimate, analyses, nextLevel, divergence = null }) {
   let narrative = `Over your last ${estimate.lessonsConsidered} lessons you've shown ${trendPhrase} in ${topLabel}, ${secondary}. You're ${framing} territory.`;
 
   if (divergence) {
-    narrative += ' ' + (divergence.direction === 'tutor_higher'
-      ? `Your tutors tend to assess you at ${divergence.tutorLevel}; AI signals point to ${divergence.aiLevel}. We've blended both — the truth is usually in between.`
-      : `AI signals are pointing higher (${divergence.aiLevel}) than your tutors (${divergence.tutorLevel}). A few more consistent lessons will sharpen this.`);
+    if (divergence.direction === 'tutor_split') {
+      narrative += ` Your tutors' assessments range from ${divergence.lowLevel} to ${divergence.highLevel}, so this is an early estimate — a few more lessons will sharpen it.`;
+    } else if (divergence.direction === 'tutor_higher') {
+      narrative += ` Your tutors tend to assess you at ${divergence.tutorLevel}; AI signals point to ${divergence.aiLevel}. We've blended both — the truth is usually in between.`;
+    } else {
+      narrative += ` AI signals are pointing higher (${divergence.aiLevel}) than your tutors (${divergence.tutorLevel}). A few more consistent lessons will sharpen this.`;
+    }
   }
 
   return narrative;

@@ -134,6 +134,14 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   ratingScale: number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
   // Template-facing mirrors (avoid function calls in the template / change detection)
   aiAnalysisDisabledForLesson = false;
+  // In-call AI toggle (student only). Editable for the first 2 minutes after the
+  // student joins; this mirror drives the small inline control + lock state.
+  aiToggleVisible = false;
+  aiToggleSaving = false;
+  aiAnalysisEnabledForLesson = true;
+  private studentJoinedAtMs: number | null = null;
+  private aiEditWindowTimer: any = null;
+  private static readonly AI_EDIT_WINDOW_MS = 2 * 60 * 1000;
   inCallFeedbackComplete = false;
   savingNotes = false;
   submittingInCallFeedback = false;
@@ -327,9 +335,15 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   private samplingCheckInterval: any = null;
   private lessonStartTimestamp: number = 0;
   private isCurrentlyRecording = false;
-  private batchAudioBlobs: Blob[] = []; // All recorded audio stored for batch upload
+  private batchAudioBlobs: Blob[] = []; // Legacy: retained for compatibility (incremental upload no longer buffers here)
   private transcriptionStream: MediaStream | null = null;
   private transcriptionMimeType: string = 'audio/webm';
+  // Incremental upload: each sampling window is uploaded as soon as it closes,
+  // so segments are persisted server-side throughout the lesson (not buffered
+  // to the end). Tracks in-flight per-window uploads so end-of-lesson can await.
+  private pendingWindowUploads: Promise<any>[] = [];
+  // Best-effort flush when the tab is backgrounded/closed mid-window.
+  private readonly boundTranscriptionPageHide = () => this.handleTranscriptionPageHide();
 
   // Tutor reference capture (Agora remote audio track) — used for VAD-only
   // mic-bleed filtering on the backend. Mirrors the student sampling-window
@@ -655,6 +669,11 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
 
     // Add beforeunload listener to handle browser close/refresh
     window.addEventListener('beforeunload', this.handleBeforeUnload.bind(this));
+
+    // Flush the in-progress recording window when the tab is backgrounded/closed
+    // (best-effort; already-uploaded windows + the autoComplete cron cover the rest).
+    document.addEventListener('visibilitychange', this.boundTranscriptionPageHide);
+    window.addEventListener('pagehide', this.boundTranscriptionPageHide);
 
     // Store query params for later use in ngAfterViewInit
     this.queryParams = qp;
@@ -1028,8 +1047,15 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
             || joinLesson?.isTrial
             || false;
           this.aiAnalysisDisabledForLesson = !isTrial && this.aiAnalysisEnabledAtTime === false;
+          this.aiAnalysisEnabledForLesson = this.aiAnalysisEnabledAtTime !== false;
           this.refreshInCallFeedbackState();
           console.log('📸 AI analysis snapshot from join response:', this.aiAnalysisEnabledAtTime, 'isTrial:', isTrial);
+
+          // Student-only in-call AI toggle, editable for the first 2 min after
+          // the student joins. Tutor never sees the control (read-only pill).
+          const joinedAt = joinLesson?.studentJoinedAt ? new Date(joinLesson.studentJoinedAt).getTime() : Date.now();
+          this.studentJoinedAtMs = isNaN(joinedAt) ? Date.now() : joinedAt;
+          this.initAiEditWindow(isTrial);
         }
         
         console.log('✅ Successfully joined lesson via backend, channel:', this.channelName);
@@ -1465,23 +1491,18 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         });
 
         if (!this.isVideoOff && localVideoElement) {
-          try {
-            console.log('🎬 Playing local video in participant tile');
-            localVideoElement.innerHTML = '';
-            // Disable mirroring to prevent video from flipping
-            localVideoTrack.play(localVideoElement, { mirror: false });
-            console.log('✅ Local video setup complete - should be visible');
-            
-            // Force change detection
-            this.cdr.detectChanges();
-            
-            // Apply virtual background after video display is ready
-            setTimeout(() => {
-              this.applyVirtualBackgroundAfterVideoSetup();
-            }, 500);
-          } catch (error) {
-            console.error('❌ Error playing local video:', error);
-          }
+          console.log('🎬 Playing local video in participant tile');
+          // Disable mirroring to prevent video from flipping
+          this.playVideoTrackSafely(localVideoTrack, localVideoElement, { mirror: false }, 'local video');
+          console.log('✅ Local video setup complete - should be visible');
+
+          // Force change detection
+          this.cdr.detectChanges();
+
+          // Apply virtual background after video display is ready
+          setTimeout(() => {
+            this.applyVirtualBackgroundAfterVideoSetup();
+          }, 500);
         } else if (this.isVideoOff) {
           console.log('📹 Video is OFF - showing placeholder instead');
         }
@@ -1649,13 +1670,19 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         }
       }
 
-      // For classes, NEVER call playRemoteVideoInCorrectContainer repeatedly
-      // Videos should only be attached when:
-      // 1. User count changes (handled above)
-      // 2. Video state changes from off to on (handled in handleRemoteUserStateChange)
-      if (remoteUsers.size > 0 && !this.isClass) {
-        // For 1:1 lessons only, use the original behavior
-        this.playRemoteVideoInCorrectContainer();
+      // Periodic self-heal: playVideoTrackSafely() is idempotent — it skips
+      // tiles that are already playing, resumes ones that silently paused (e.g.
+      // after the "play() interrupted by a new load request" abort), and only
+      // re-attaches when a track actually changed. Running it every tick means a
+      // black/frozen tile recovers on its own instead of staying broken.
+      if (remoteUsers.size > 0) {
+        if (!this.isClass) {
+          this.playRemoteVideoInCorrectContainer();
+        } else if (this.userRole === 'tutor' && !this.showWhiteboard) {
+          this.playVideosInTutorGallery();
+        } else {
+          this.playRemoteVideosInParticipantTiles();
+        }
       }
     }, 1000);
   }
@@ -1700,6 +1727,75 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     return this.userRole === 'tutor' ? (this.studentName || '') : (this.tutorName || '');
   }
 
+  /**
+   * Centralized, idempotent video render. Agora's `track.play()` creates a
+   * <video>, sets srcObject and calls .play() internally. Calling it again (or
+   * clearing innerHTML) while that promise is pending throws the noisy
+   * "AbortError: The play() request was interrupted by a new load request" and
+   * can leave the tile black. This helper:
+   *   1. Skips when the same track is already rendering healthily.
+   *   2. Resumes a paused <video> in place instead of nuking it (no abort).
+   *   3. Only re-attaches (clear + play) when truly needed, and swallows the
+   *      benign AbortError so a transient interruption never wedges the tile.
+   */
+  private playVideoTrackSafely(
+    track: any,
+    element: HTMLElement | null | undefined,
+    options?: { mirror?: boolean },
+    label = 'video'
+  ): void {
+    if (!track || !element) return;
+
+    const trackId = (track.getTrackId?.() || track.trackMediaType || '') + '';
+    const existing = element.querySelector('video') as HTMLVideoElement | null;
+
+    if (existing) {
+      const healthy = !existing.paused && existing.readyState >= 2 && existing.videoWidth > 0;
+      const sameTrack = element.getAttribute('data-rendered-track') === trackId;
+
+      if (healthy && sameTrack) {
+        return; // already playing fine — nothing to do
+      }
+
+      // Same track but the <video> stalled/paused: resume in place. Resuming an
+      // existing element does NOT trigger Agora's load-interrupt abort.
+      if (sameTrack && existing.paused) {
+        const resume = existing.play?.();
+        if (resume && typeof resume.then === 'function') {
+          resume.catch(() => this.reattachVideoTrack(track, element, trackId, options, label));
+        }
+        return;
+      }
+    }
+
+    this.reattachVideoTrack(track, element, trackId, options, label);
+  }
+
+  private reattachVideoTrack(
+    track: any,
+    element: HTMLElement,
+    trackId: string,
+    options?: { mirror?: boolean },
+    label = 'video'
+  ): void {
+    try {
+      element.innerHTML = '';
+      track.play(element, options);
+      element.setAttribute('data-rendered-track', trackId);
+
+      // Belt-and-suspenders: make sure the underlying <video> actually plays and
+      // swallow the benign AbortError if a newer load superseded this one.
+      setTimeout(() => {
+        const v = element.querySelector('video') as HTMLVideoElement | null;
+        if (v && v.paused) {
+          v.play?.().catch(() => { /* superseded by a newer play — safe to ignore */ });
+        }
+      }, 60);
+    } catch (error) {
+      console.error(`❌ Error playing ${label}:`, error);
+    }
+  }
+
   private playRemoteVideoInCorrectContainer() {
     const remoteUsers = this.agoraService.getRemoteUsers();
     if (remoteUsers.size === 0) return;
@@ -1720,28 +1816,10 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     // If whiteboard is open, the video should be in the tile instead
     if (this.showWhiteboard && this.remoteVideoTileRef?.nativeElement) {
       // Whiteboard is open - play in tile
-      try {
-        const element = this.remoteVideoTileRef.nativeElement;
-        // Only play if not already playing in this container
-        if (!element.querySelector('video') || element.querySelector('video')?.paused) {
-          firstRemoteUser.videoTrack.play(element);
-          console.log('✅ Playing remote video in tile');
-        }
-      } catch (error) {
-        console.error('❌ Error playing remote video in tile:', error);
-      }
+      this.playVideoTrackSafely(firstRemoteUser.videoTrack, this.remoteVideoTileRef.nativeElement, undefined, 'remote video (tile)');
     } else if (!this.showWhiteboard && this.remoteVideoRef?.nativeElement) {
       // Whiteboard is closed - play in main view
-      try {
-        const element = this.remoteVideoRef.nativeElement;
-        // Only play if not already playing in this container
-        if (!element.querySelector('video') || element.querySelector('video')?.paused) {
-          firstRemoteUser.videoTrack.play(element);
-          console.log('✅ Playing remote video in main view');
-        }
-      } catch (error) {
-        console.error('❌ Error playing remote video in main view:', error);
-      }
+      this.playVideoTrackSafely(firstRemoteUser.videoTrack, this.remoteVideoRef.nativeElement, undefined, 'remote video (main)');
     } else {
       // Element not available yet - will retry on next interval
       console.log('⏳ Remote video container not available yet, will retry...');
@@ -1795,50 +1873,9 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         innerHTML: tileElement.innerHTML.substring(0, 100) 
       });
       
-      try {
-        // IMPORTANT: Check if video is ALREADY playing properly in this container
-        const existingVideo = tileElement.querySelector('video');
-        if (existingVideo) {
-          // Check if the video element is playing and has the correct source
-          const isPlaying = !existingVideo.paused && existingVideo.readyState >= 2;
-          if (isPlaying) {
-            console.log(`⏭️ Video already playing properly for participant ${uid}, skipping re-attach`);
-            return;
-          }
-          console.log(`🔄 Video exists but not playing properly for ${uid}`, {
-            paused: existingVideo.paused,
-            readyState: existingVideo.readyState,
-            videoWidth: existingVideo.videoWidth,
-            videoHeight: existingVideo.videoHeight
-          });
-        }
-        
-        // Clear the container before playing to avoid duplicates
-        console.log(`🧹 Clearing container for participant ${uid} before playing`);
-        tileElement.innerHTML = '';
-        
-        // Play the video track in the tile
-        user.videoTrack.play(tileElement);
-        console.log(`✅ Playing video for participant ${uid} in participant tile`);
-        
-        // Verify video element was created
-        setTimeout(() => {
-          const videoElement = tileElement.querySelector('video');
-          if (videoElement) {
-            console.log(`✅ Video element confirmed for participant ${uid}`, {
-              src: videoElement.src,
-              readyState: videoElement.readyState,
-              paused: videoElement.paused,
-              width: videoElement.videoWidth,
-              height: videoElement.videoHeight
-            });
-          } else {
-            console.error(`❌ No video element found after play() for participant ${uid}`);
-          }
-        }, 500);
-      } catch (error) {
-        console.error(`❌ Error playing video for participant ${uid}:`, error);
-      }
+      // Idempotent render: skips if already healthy, resumes if paused, only
+      // re-attaches when needed (avoids the play() abort + black tile).
+      this.playVideoTrackSafely(user.videoTrack, tileElement, undefined, `participant ${uid} (tile)`);
     });
   }
 
@@ -1865,30 +1902,9 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         return;
       }
 
-      try {
-        // Check if video is already playing
-        const existingVideo = mainVideoElement.querySelector('video');
-        if (existingVideo) {
-          const isPlaying = !existingVideo.paused && existingVideo.readyState >= 2;
-          if (isPlaying) {
-            console.log('⏭️ Tutor video already playing in main view, skipping re-attach');
-            return;
-          }
-        }
-
-        // Clear the container and play
-        console.log('🧹 Clearing tutor main view container');
-        mainVideoElement.innerHTML = '';
-        
-        console.log('🎬 Playing tutor video in main view');
-        user.videoTrack.play(mainVideoElement);
-        console.log('✅ Tutor video setup complete in main view');
-        
-        // Force change detection
-        this.cdr.detectChanges();
-      } catch (error) {
-        console.error('❌ Error playing tutor video in main view:', error);
-      }
+      console.log('🎬 Playing tutor video in main view');
+      this.playVideoTrackSafely(user.videoTrack, mainVideoElement, undefined, 'tutor video (main)');
+      this.cdr.detectChanges();
     };
 
     attemptPlay();
@@ -1924,20 +1940,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         return;
       }
       
-      try {
-        // Check if already playing
-        const existingVideo = galleryElement.querySelector('video');
-        if (existingVideo && !existingVideo.paused && existingVideo.readyState >= 2) {
-          console.log(`⏭️ Video already playing in gallery for ${uid}`);
-          return;
-        }
-        
-        galleryElement.innerHTML = '';
-        user.videoTrack.play(galleryElement);
-        console.log(`✅ Playing video in gallery for participant ${uid}`);
-      } catch (error) {
-        console.error(`❌ Error playing video in gallery for ${uid}:`, error);
-      }
+      this.playVideoTrackSafely(user.videoTrack, galleryElement, undefined, `participant ${uid} (gallery)`);
     });
   }
 
@@ -1976,20 +1979,15 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       });
       
       if (!this.isVideoOff) {
-        try {
-          console.log('🎬 Playing local video in tutor gallery');
-          galleryElement.innerHTML = '';
-          localVideoTrack.play(galleryElement, { mirror: false });
-          console.log('✅ Local video in gallery setup complete');
-          this.cdr.detectChanges();
-          
-          // Apply virtual background after video display is ready
-          setTimeout(() => {
-            this.applyVirtualBackgroundAfterVideoSetup();
-          }, 500);
-        } catch (error) {
-          console.error('❌ Error playing local video in gallery:', error);
-        }
+        console.log('🎬 Playing local video in tutor gallery');
+        this.playVideoTrackSafely(localVideoTrack, galleryElement, { mirror: false }, 'local video (gallery)');
+        console.log('✅ Local video in gallery setup complete');
+        this.cdr.detectChanges();
+
+        // Apply virtual background after video display is ready
+        setTimeout(() => {
+          this.applyVirtualBackgroundAfterVideoSetup();
+        }, 500);
       } else {
         console.log('📹 Video is OFF in gallery - showing placeholder instead');
       }
@@ -2351,7 +2349,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         if (localVideoTrack && localVideoElement && !localVideoElement.querySelector('video, div[id]')) {
           console.log('📹 No video child found — first-time play needed');
           setTimeout(() => {
-            localVideoTrack.play(localVideoElement!, { mirror: false });
+            this.playVideoTrackSafely(localVideoTrack, localVideoElement, { mirror: false }, 'local video (toggle-on)');
             console.log('✅ First-time local video play complete');
           }, 100);
         }
@@ -2738,6 +2736,79 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   /** Keep the template-facing completeness flag in sync. */
   private refreshInCallFeedbackState() {
     this.inCallFeedbackComplete = this.isInCallFeedbackComplete;
+  }
+
+  /**
+   * Set up the student's in-call AI-toggle visibility window. The control is
+   * shown only to the student for AI_EDIT_WINDOW_MS after they join (and never
+   * for trials/classes/office hours). A timer hides + locks it when the window
+   * closes. Listens for realtime changes so the tutor's read-only pill and the
+   * student's other devices stay in sync.
+   */
+  private initAiEditWindow(isTrial: boolean): void {
+    const eligible = this.userRole === 'student' && !isTrial && !this.isClass && !this.isOfficeHours;
+    if (!eligible || this.studentJoinedAtMs == null) {
+      this.aiToggleVisible = false;
+    } else {
+      const elapsed = Date.now() - this.studentJoinedAtMs;
+      const remaining = VideoCallPage.AI_EDIT_WINDOW_MS - elapsed;
+      if (remaining > 0) {
+        this.aiToggleVisible = true;
+        if (this.aiEditWindowTimer) clearTimeout(this.aiEditWindowTimer);
+        this.aiEditWindowTimer = setTimeout(() => {
+          this.aiToggleVisible = false;
+          this.cdr.detectChanges();
+        }, remaining);
+      } else {
+        this.aiToggleVisible = false;
+      }
+    }
+
+    // Realtime sync (student's other devices + tutor's read-only pill).
+    this.websocketService.aiAnalysisSettingChanged$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(change => {
+        if (change.lessonId && String(change.lessonId) !== String(this.lessonId)) return;
+        this.applyAiSettingChange(change.aiAnalysisEnabled);
+      });
+  }
+
+  /** Apply a new AI-on/off value to local state + recording, from any source. */
+  private applyAiSettingChange(enabled: boolean): void {
+    this.aiAnalysisEnabledAtTime = enabled;
+    this.aiAnalysisEnabledForLesson = enabled;
+    this.aiAnalysisDisabledForLesson = !this.isTrialLesson && !enabled;
+    this.refreshInCallFeedbackState();
+
+    if (!enabled) {
+      // Student opted out within the window — stop capturing immediately.
+      this.stopAudioCapture_FIXED().catch(e => console.warn('⚠️ stopAudioCapture after AI off failed:', e));
+    } else if (this.userRole === 'student') {
+      // Re-enabled within the window — resume sampled capture if eligible.
+      this.startAudioCapture_FIXED();
+    }
+    this.cdr.detectChanges();
+  }
+
+  /** Student toggles AI feedback for THIS lesson (per-lesson, within window). */
+  async toggleInCallAiAnalysis(): Promise<void> {
+    if (this.userRole !== 'student' || !this.aiToggleVisible || this.aiToggleSaving) return;
+    const requested = !this.aiAnalysisEnabledForLesson;
+    const previous = this.aiAnalysisEnabledForLesson;
+    this.applyAiSettingChange(requested); // optimistic
+    this.aiToggleSaving = true;
+    try {
+      await firstValueFrom(this.lessonService.setLessonAiAnalysis(this.lessonId!, requested));
+    } catch (err: any) {
+      console.error('❌ In-call AI toggle failed:', err);
+      this.applyAiSettingChange(previous); // revert
+      if (err?.error?.locked) {
+        this.aiToggleVisible = false;
+      }
+    } finally {
+      this.aiToggleSaving = false;
+      this.cdr.detectChanges();
+    }
   }
 
   selectLessonCefr(level: string) {
@@ -4939,14 +5010,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
           return;
         }
 
-        const existingVideo = videoContainer.querySelector('video');
-        if (existingVideo && !existingVideo.paused && existingVideo.readyState >= 2) return;
-        try {
-          videoContainer.innerHTML = '';
-          user.videoTrack.play(videoContainer);
-        } catch (e) {
-          console.warn('⚠️ Failed to attach remote video to PiP for uid', uid, e);
-        }
+        this.playVideoTrackSafely(user.videoTrack, videoContainer, undefined, `pip remote ${uid}`);
       });
 
       // Attach the local camera into its own PiP slot so the sharer sees
@@ -4959,15 +5023,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
           if (this.isVideoOff || !localTrack) {
             videoContainer.innerHTML = '';
           } else {
-            const existingVideo = videoContainer.querySelector('video');
-            if (!existingVideo || existingVideo.paused || existingVideo.readyState < 2) {
-              try {
-                videoContainer.innerHTML = '';
-                localTrack.play(videoContainer);
-              } catch (e) {
-                console.warn('⚠️ Failed to attach local video to PiP', e);
-              }
-            }
+            this.playVideoTrackSafely(localTrack, videoContainer, { mirror: false }, 'pip local');
           }
         }
       }
@@ -6763,6 +6819,11 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     // Clean up messaging subscriptions
     this.destroy$.next();
     this.destroy$.complete();
+
+    if (this.aiEditWindowTimer) {
+      clearTimeout(this.aiEditWindowTimer);
+      this.aiEditWindowTimer = null;
+    }
     
     if (this.messagesSubscription) {
       this.messagesSubscription.unsubscribe();
@@ -6845,6 +6906,10 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
 
     // Remove beforeunload listener
     window.removeEventListener('beforeunload', this.handleBeforeUnload.bind(this));
+
+    // Remove page-hide flush listeners (stored bound ref so removal works)
+    document.removeEventListener('visibilitychange', this.boundTranscriptionPageHide);
+    window.removeEventListener('pagehide', this.boundTranscriptionPageHide);
     
     // Stop next event checking
     if (this.nextEventCheckInterval) {
@@ -8164,6 +8229,12 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     try {
       console.log('🎙️ ========== STARTING SAMPLED AUDIO CAPTURE ==========');
       
+      // Guard: student turned AI analysis off for this lesson.
+      if (this.aiAnalysisEnabledAtTime === false) {
+        console.log('⏭️ SKIPPING audio capture — AI analysis disabled for this lesson');
+        return;
+      }
+
       // Guard: no recording for trial lessons
       if (this.isTrialLesson) {
         console.log('⏭️ SKIPPING audio capture — trial lesson');
@@ -8328,30 +8399,51 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     
     const elapsedMin = ((Date.now() - this.lessonStartTimestamp) / 60000).toFixed(1);
     console.log(`🔴 Stopping sampling window recording at minute ${elapsedMin}`);
-    
-    const recorder = this.transcriptionRecorder;
-    
-    recorder.onstop = () => {
-      // Save this window's audio as a blob for batch upload later
-      if (this.transcriptionAudioChunks.length > 0) {
-        const windowBlob = new Blob(this.transcriptionAudioChunks, { type: this.transcriptionMimeType });
-        if (windowBlob.size > 1000) {
-          this.batchAudioBlobs.push(windowBlob);
-          console.log(`📦 Window audio saved: ${windowBlob.size} bytes (${this.batchAudioBlobs.length} windows stored)`);
-        }
-      }
-      this.transcriptionAudioChunks = [];
-    };
-    
-    if (recorder.state === 'recording') {
-      recorder.stop();
-    }
-    
-    this.transcriptionRecorder = null;
-    this.isCurrentlyRecording = false;
 
-    // Stop the parallel tutor-reference recorder for this window
-    this.stopTutorReferenceWindowRecording();
+    // Finalize this window's student + tutor-reference blobs, then upload the
+    // window immediately (incremental). Persisting each window as the lesson
+    // runs means a mid-lesson tab close only loses the in-progress window, and
+    // the autoCompleteTranscripts cron can still analyze what was uploaded.
+    const studentPromise = this.finalizeStudentWindowBlob();
+    const tutorPromise = this.finalizeTutorReferenceWindowBlob();
+
+    const uploadPromise = (async () => {
+      const [studentBlob, tutorBlob] = await Promise.all([studentPromise, tutorPromise]);
+      await this.uploadWindowAudio(studentBlob, tutorBlob);
+    })().catch(err => console.error('❌ Per-window upload failed (non-fatal):', err));
+
+    this.pendingWindowUploads.push(uploadPromise);
+  }
+
+  /**
+   * Stop the student-mic recorder for the current window and resolve with its
+   * audio blob (or null if too small / not recording). Clears recorder state.
+   */
+  private finalizeStudentWindowBlob(): Promise<Blob | null> {
+    return new Promise<Blob | null>((resolve) => {
+      const recorder = this.transcriptionRecorder;
+      if (!recorder) {
+        resolve(null);
+        return;
+      }
+      const chunks = this.transcriptionAudioChunks;
+      recorder.onstop = () => {
+        let blob: Blob | null = null;
+        if (chunks.length > 0) {
+          const windowBlob = new Blob(chunks, { type: this.transcriptionMimeType });
+          if (windowBlob.size > 1000) blob = windowBlob;
+        }
+        this.transcriptionAudioChunks = [];
+        resolve(blob);
+      };
+      if (recorder.state === 'recording') {
+        recorder.stop();
+      } else {
+        resolve(null);
+      }
+      this.transcriptionRecorder = null;
+      this.isCurrentlyRecording = false;
+    });
   }
 
   /**
@@ -8437,29 +8529,84 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
    * Stop the tutor-reference recorder for the current sampling window and
    * save the blob for batch upload.
    */
-  private stopTutorReferenceWindowRecording(): void {
-    if (!this.tutorReferenceRecorder || !this.isCurrentlyRecordingTutorRef) return;
-
-    const recorder = this.tutorReferenceRecorder;
-
-    recorder.onstop = () => {
-      if (this.tutorReferenceAudioChunks.length > 0) {
-        const windowBlob = new Blob(this.tutorReferenceAudioChunks, { type: this.tutorReferenceMimeType });
-        if (windowBlob.size > 1000) {
-          this.batchTutorReferenceBlobs.push(windowBlob);
-          console.log(`🎯 Tutor reference window saved: ${windowBlob.size} bytes (${this.batchTutorReferenceBlobs.length} windows stored)`);
-        }
+  /**
+   * Stop the tutor-reference recorder for the current window and resolve with
+   * its audio blob (or null). Does NOT stop the underlying Agora MediaStreamTrack.
+   */
+  private finalizeTutorReferenceWindowBlob(): Promise<Blob | null> {
+    return new Promise<Blob | null>((resolve) => {
+      const recorder = this.tutorReferenceRecorder;
+      if (!recorder || !this.isCurrentlyRecordingTutorRef) {
+        resolve(null);
+        return;
       }
-      this.tutorReferenceAudioChunks = [];
-    };
+      const chunks = this.tutorReferenceAudioChunks;
+      recorder.onstop = () => {
+        let blob: Blob | null = null;
+        if (chunks.length > 0) {
+          const windowBlob = new Blob(chunks, { type: this.tutorReferenceMimeType });
+          if (windowBlob.size > 1000) blob = windowBlob;
+        }
+        this.tutorReferenceAudioChunks = [];
+        resolve(blob);
+      };
+      if (recorder.state === 'recording') {
+        recorder.stop();
+      } else {
+        resolve(null);
+      }
+      this.tutorReferenceRecorder = null;
+      this.tutorReferenceStream = null;
+      this.isCurrentlyRecordingTutorRef = false;
+    });
+  }
 
-    if (recorder.state === 'recording') {
-      recorder.stop();
+  /**
+   * Upload a single sampling window. Tutor reference goes FIRST so the backend
+   * has the mic-bleed VAD intervals for this window before the student audio is
+   * transcribed. The backend transcribes the student blob on arrival and appends
+   * segments, so analysis works incrementally — no end-of-lesson batch needed.
+   */
+  private async uploadWindowAudio(studentBlob: Blob | null, tutorBlob: Blob | null): Promise<void> {
+    const transcriptId = this.transcriptionService.currentTranscriptId;
+    if (!transcriptId) {
+      console.error('❌ No transcript ID for per-window upload');
+      return;
     }
 
-    this.tutorReferenceRecorder = null;
-    this.tutorReferenceStream = null;
-    this.isCurrentlyRecordingTutorRef = false;
+    if (tutorBlob && tutorBlob.size >= 1000) {
+      try {
+        await firstValueFrom(this.transcriptionService.uploadTutorReference(transcriptId, tutorBlob));
+        console.log(`🎯 Tutor reference window uploaded: ${tutorBlob.size} bytes`);
+      } catch (error) {
+        console.warn('⚠️ Tutor reference window upload failed (non-fatal):', error);
+      }
+    }
+
+    if (studentBlob && studentBlob.size >= 1000) {
+      try {
+        await firstValueFrom(this.transcriptionService.uploadAudio(transcriptId, studentBlob, 'student'));
+        console.log(`✅ Student window uploaded + transcribed: ${studentBlob.size} bytes`);
+      } catch (error) {
+        console.error('❌ Student window upload failed:', error);
+      }
+    }
+  }
+
+  /**
+   * Best-effort flush when the tab is backgrounded or closed mid-window.
+   * Stops the in-progress window, which enqueues its incremental upload. On a
+   * soft hide (app switch) this completes normally; on a hard close it's a
+   * best effort — already-uploaded windows are safe and the server-side
+   * autoCompleteTranscripts cron finalizes + analyzes them regardless.
+   */
+  private handleTranscriptionPageHide(): void {
+    // Only act when the page is actually going away/hidden — visibilitychange
+    // also fires when the tab becomes visible again.
+    if (document.visibilityState === 'visible') return;
+    if (!this.isCurrentlyRecording || !this.transcriptionRecorder) return;
+    console.log('🚪 Page hidden — flushing in-progress recording window');
+    this.stopWindowRecording();
   }
 
   /**
@@ -8471,132 +8618,26 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
    * student transcript is completed and analysis runs.
    */
   private async uploadBatchAudio(): Promise<void> {
-    console.log('🎙️ ========== BATCH UPLOAD CALLED ==========');
-    
-    // If currently recording, stop and save the current window first
+    console.log('🎙️ ========== FLUSHING WINDOW UPLOADS ==========');
+
+    // Stop any in-progress window — this enqueues its incremental upload
+    // (student + tutor reference) onto pendingWindowUploads.
     if (this.isCurrentlyRecording && this.transcriptionRecorder) {
-      await new Promise<void>((resolve) => {
-        const recorder = this.transcriptionRecorder!;
-        recorder.onstop = () => {
-          if (this.transcriptionAudioChunks.length > 0) {
-            const windowBlob = new Blob(this.transcriptionAudioChunks, { type: this.transcriptionMimeType });
-            if (windowBlob.size > 1000) {
-              this.batchAudioBlobs.push(windowBlob);
-            }
-          }
-          this.transcriptionAudioChunks = [];
-          resolve();
-        };
-        if (recorder.state === 'recording') {
-          recorder.stop();
-        } else {
-          resolve();
-        }
-      });
-      this.transcriptionRecorder = null;
-      this.isCurrentlyRecording = false;
+      this.stopWindowRecording();
     }
 
-    // Flush any in-flight tutor reference window in parallel
-    if (this.isCurrentlyRecordingTutorRef && this.tutorReferenceRecorder) {
-      await new Promise<void>((resolve) => {
-        const recorder = this.tutorReferenceRecorder!;
-        recorder.onstop = () => {
-          if (this.tutorReferenceAudioChunks.length > 0) {
-            const windowBlob = new Blob(this.tutorReferenceAudioChunks, { type: this.tutorReferenceMimeType });
-            if (windowBlob.size > 1000) {
-              this.batchTutorReferenceBlobs.push(windowBlob);
-            }
-          }
-          this.tutorReferenceAudioChunks = [];
-          resolve();
-        };
-        if (recorder.state === 'recording') {
-          recorder.stop();
-        } else {
-          resolve();
-        }
-      });
-      this.tutorReferenceRecorder = null;
-      this.tutorReferenceStream = null;
-      this.isCurrentlyRecordingTutorRef = false;
-    }
-    
-    if (this.batchAudioBlobs.length === 0) {
-      console.log('⏭️ No audio windows to upload');
-      return;
-    }
-
-    const transcriptId = this.transcriptionService.currentTranscriptId;
-    if (!transcriptId) {
-      console.error('❌ No transcript ID for batch upload');
-      return;
-    }
-
-    // Upload tutor reference FIRST so its intervals are stored before the
-    // student transcript triggers analysis. Failures here are non-fatal —
-    // the student analysis still runs, just without the mic-bleed filter.
-    if (this.batchTutorReferenceBlobs.length > 0) {
-      const tutorBlob = new Blob(this.batchTutorReferenceBlobs, { type: this.tutorReferenceMimeType });
-      console.log(`🎯 Uploading tutor reference batch: ${tutorBlob.size} bytes from ${this.batchTutorReferenceBlobs.length} windows`);
-
-      if (tutorBlob.size >= 1000) {
-        try {
-          await new Promise<void>((resolve, reject) => {
-            this.transcriptionService.uploadTutorReference(transcriptId, tutorBlob)
-              .subscribe({
-                next: (response) => {
-                  console.log('✅ Tutor reference upload success:', response);
-                  resolve();
-                },
-                error: (error) => {
-                  console.error('⚠️ Tutor reference upload failed (non-fatal):', error);
-                  reject(error);
-                }
-              });
-          });
-        } catch (error) {
-          // Swallow — analysis will proceed without mic-bleed filter
-          console.warn('⚠️ Proceeding without tutor reference (mic-bleed filter disabled for this lesson)');
-        }
-      } else {
-        console.log('⏭️ Tutor reference blob too small, skipping upload');
-      }
-      this.batchTutorReferenceBlobs = [];
+    // Await every per-window upload that's still in flight so analysis runs on
+    // the complete set of segments.
+    if (this.pendingWindowUploads.length > 0) {
+      console.log(`⏳ Awaiting ${this.pendingWindowUploads.length} pending window upload(s)...`);
+      // Each queued promise already swallows its own errors (.catch), so
+      // Promise.all never rejects here — avoids needing the es2020 lib for allSettled.
+      await Promise.all(this.pendingWindowUploads);
+      this.pendingWindowUploads = [];
+      console.log('✅ All window uploads flushed');
     } else {
-      console.log('ℹ️ No tutor reference windows captured — likely tutor audio track was unavailable');
+      console.log('⏭️ No pending window uploads to flush');
     }
-
-    // Concatenate all student window blobs into one
-    const combinedBlob = new Blob(this.batchAudioBlobs, { type: this.transcriptionMimeType });
-    console.log(`📦 Combined batch audio: ${combinedBlob.size} bytes from ${this.batchAudioBlobs.length} windows`);
-    
-    if (combinedBlob.size < 1000) {
-      console.log('⏭️ Combined blob too small, skipping');
-      return;
-    }
-    
-    console.log('📤 Uploading batch audio to Whisper...');
-    try {
-      await new Promise<void>((resolve, reject) => {
-        this.transcriptionService.uploadAudio(transcriptId, combinedBlob, 'student')
-          .subscribe({
-            next: (response) => {
-              console.log('✅ ✅ ✅ BATCH WHISPER UPLOAD SUCCESS:', response);
-              resolve();
-            },
-            error: (error) => {
-              console.error('❌ ❌ ❌ BATCH WHISPER UPLOAD ERROR:', error);
-              reject(error);
-            }
-          });
-      });
-    } catch (error) {
-      console.error('❌ Batch upload failed:', error);
-    }
-    
-    // Clear stored blobs
-    this.batchAudioBlobs = [];
   }
 
   /**

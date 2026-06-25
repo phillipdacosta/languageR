@@ -592,12 +592,18 @@ router.post('/start', verifyToken, async (req, res) => {
       return res.status(404).json({ message: 'Lesson not found' });
     }
     
-    // Get target language from student's profile (most reliable source)
-    const targetLanguage = await getTargetLanguageFromStudent(lesson.studentId._id);
-    console.log(`🎯 Target language from student profile: ${targetLanguage}`);
-    
-    // Use target language from profile, fallback to frontend hint
-    const language = targetLanguage || frontendLanguage || 'Spanish';
+    // The lesson SUBJECT is the authoritative source of the target language
+    // for THIS lesson. A student may be learning several languages, so their
+    // profile's first language (onboardingData.languages[0]) is NOT reliable —
+    // it previously mislabeled e.g. a "Spanish Lesson" as German.
+    const subjectLanguage = lesson.subject
+      ? lesson.subject.replace(/\s*Lesson$/i, '').trim()
+      : null;
+    const profileLanguage = await getTargetLanguageFromStudent(lesson.studentId._id);
+    console.log(`🎯 Subject language: ${subjectLanguage} | profile language: ${profileLanguage}`);
+
+    // Prefer the lesson subject, then the frontend hint, then the profile, then Spanish.
+    const language = subjectLanguage || frontendLanguage || profileLanguage || 'Spanish';
     console.log(`📝 Final language for transcription: ${language}`);
     
     // Check if user is participant (compare Auth0 IDs)

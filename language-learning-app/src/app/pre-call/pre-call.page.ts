@@ -444,6 +444,7 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
       .pipe(takeUntil(this.destroy$))
       .subscribe(change => {
         if (this.aiStatusLocked || this.isTrialLesson) return;
+        if (change.lessonId && String(change.lessonId) !== String(this.lessonId)) return;
         if (!this.lessonStudentId || String(change.studentId) !== String(this.lessonStudentId)) return;
         console.log('🤖 PRE-CALL: applying live AI setting change:', change.aiAnalysisEnabled);
         this.aiAnalysisEnabled = change.aiAnalysisEnabled;
@@ -573,14 +574,14 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
         this.roleResolved = true;
         this.lessonStudentId = lesson.studentId?._id?.toString() || (typeof lesson.studentId === 'string' ? lesson.studentId : null);
 
-        // Resolve AI analysis status. The value that governs a lesson is locked
-        // in `aiAnalysisEnabledAtTime` at lesson start (immutable). Before that,
-        // the card mirrors the student's live setting and stays editable; a
-        // change made now still applies to this lesson. Once locked, we show the
-        // snapshot and any further change only affects the NEXT lesson.
+        // Resolve AI analysis status. The setting is per-lesson and editable by
+        // the student until 2 min after THEY join the call (not when the tutor
+        // joins). In pre-call the student usually hasn't joined yet, so it stays
+        // editable. `aiAnalysisEnabledAtTime` holds the per-lesson value (seeded
+        // from the student's default on join); before that we show the default.
         const aiSnapshot = (lesson as any).aiAnalysisEnabledAtTime;
-        this.aiStatusLocked = (aiSnapshot === true || aiSnapshot === false);
-        this.aiAnalysisEnabled = this.aiStatusLocked
+        this.aiStatusLocked = this.isAiEditWindowClosed((lesson as any).studentJoinedAt);
+        this.aiAnalysisEnabled = (aiSnapshot === true || aiSnapshot === false)
           ? aiSnapshot
           : (lesson.studentId?.profile?.aiAnalysisEnabled !== false);
         this.aiStatusResolved = !this.isTrialLesson;
@@ -717,9 +718,7 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
       // decode pipeline so the feed is ready to display the moment we unhide it.
       const videoElement = this.videoPreviewRef?.nativeElement;
       if (videoElement && !this.isVideoOff) {
-        videoElement.muted = true;
-        videoElement.srcObject = this.localStream;
-        videoElement.play().catch(() => {});
+        this.playPreviewSafely(videoElement);
         console.log('📷 setupPreview: attached stream to video element (still hidden)');
       }
       
@@ -728,12 +727,10 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
       this.cdr.detectChanges();
       
       // STEP 3: Re-trigger play() now that the element is fully visible.
-      // Some browsers need this after a visibility change.
-      if (videoElement) {
-        videoElement.play().catch(err => {
-          console.warn('⚠️ setupPreview: play() after unhide failed:', err);
-        });
-      }
+      // playPreviewSafely() is idempotent — it skips if already healthy and
+      // won't re-assign srcObject (which is what caused the AbortError + black
+      // frame), so this safely resumes after the visibility change.
+      this.playPreviewSafely(videoElement);
       
       // Start audio level monitoring
       this.startAudioMonitoring();
@@ -742,17 +739,8 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
       // conflict that kills the MediaStream preview. Agora is lazily initialized
       // when virtual background is first activated (setBackgroundBlur/setBackgroundColor).
       
-      // Safety: retry once after 500ms in case the first play didn't work
-      setTimeout(() => {
-        const ve = this.videoPreviewRef?.nativeElement;
-        if (ve && this.localStream && !this.isVideoOff && !this.useAgoraForPreview) {
-          if (!ve.srcObject) {
-            console.warn('⚠️ setupPreview: video srcObject was null, retrying...');
-            ve.srcObject = this.localStream;
-          }
-          ve.play().catch(() => {});
-        }
-      }, 500);
+      // Safety: self-heal once after 500ms in case the first play didn't take.
+      setTimeout(() => this.playPreviewSafely(), 500);
     } catch (error: any) {
       console.error('Error setting up preview:', error);
       this.isLoading = false;
@@ -1246,15 +1234,7 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
   // Update the video preview (simple MediaStream only)
   updateVideoPreview() {
     const videoElement = this.videoPreviewRef?.nativeElement;
-    
-    console.log('📷 updateVideoPreview called:', {
-      hasVideoElement: !!videoElement,
-      isVideoOff: this.isVideoOff,
-      hasLocalStream: !!this.localStream,
-      useAgoraForPreview: this.useAgoraForPreview,
-      isLoading: this.isLoading
-    });
-    
+
     if (!videoElement) {
       console.warn('⚠️ updateVideoPreview: videoPreviewRef is null — element not in DOM yet');
       return;
@@ -1265,29 +1245,53 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
       return;
     }
 
-    // Use MediaStream for video preview
     if (this.localStream) {
-      // Ensure video element is muted to prevent audio feedback
-      videoElement.muted = true;
-      videoElement.srcObject = this.localStream;
-      
-      const playPromise = videoElement.play();
-      if (playPromise) {
-        playPromise.then(() => {
-          console.log('✅ updateVideoPreview: video play() succeeded');
-        }).catch(err => {
-          console.error('❌ updateVideoPreview: video play() failed:', err);
-          // Retry play after a short delay (some browsers need user interaction first)
-          setTimeout(() => {
-            videoElement.play().catch(() => {});
-          }, 300);
-        });
-      }
-      
-      // Start monitoring audio levels for visual feedback
+      this.playPreviewSafely(videoElement);
       this.startAudioMonitoring();
     } else {
       console.warn('⚠️ updateVideoPreview: no localStream available');
+    }
+  }
+
+  /**
+   * Idempotent, abort-safe attach + play for the native MediaStream <video>
+   * preview. Mirrors video-call's playVideoTrackSafely() but for a raw <video>
+   * + srcObject (no Agora track here). Re-assigning srcObject or calling play()
+   * while a prior play() promise is still pending throws the noisy
+   * "AbortError: play() interrupted by a new load request" and leaves a black
+   * frame. This helper:
+   *   1. Only (re)assigns srcObject when the stream actually changed —
+   *      assigning the same stream restarts the load and aborts the in-flight
+   *      play(), which is the black-box cause.
+   *   2. Skips play() when the element is already rendering healthily.
+   *   3. Resumes a paused element in place and swallows the benign AbortError
+   *      so a transient interruption never wedges the preview to black.
+   */
+  private playPreviewSafely(videoElement?: HTMLVideoElement | null): void {
+    const ve = videoElement || this.videoPreviewRef?.nativeElement;
+    if (!ve || !this.localStream || this.isVideoOff || this.useAgoraForPreview) return;
+
+    ve.muted = true;
+    if (ve.srcObject !== this.localStream) {
+      ve.srcObject = this.localStream;
+    }
+
+    // Already playing fine — don't trigger another load/play.
+    if (!ve.paused && ve.readyState >= 2 && ve.videoWidth > 0) return;
+
+    const p = ve.play();
+    if (p && typeof p.then === 'function') {
+      p.catch((err: any) => {
+        // AbortError = a newer load superseded this play(); safe to ignore.
+        if (err?.name === 'AbortError') return;
+        console.warn('⚠️ pre-call preview play() failed, retrying once:', err?.name || err);
+        setTimeout(() => {
+          const v = videoElement || this.videoPreviewRef?.nativeElement;
+          if (v && this.localStream && !this.isVideoOff && !this.useAgoraForPreview && v.paused) {
+            v.play().catch(() => {});
+          }
+        }, 200);
+      });
     }
   }
 
@@ -1590,8 +1594,8 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
       const lesson = (response as any)?.lesson;
       if (!lesson) return;
       const aiSnapshot = lesson.aiAnalysisEnabledAtTime;
-      this.aiStatusLocked = (aiSnapshot === true || aiSnapshot === false);
-      this.aiAnalysisEnabled = this.aiStatusLocked
+      this.aiStatusLocked = this.isAiEditWindowClosed((lesson as any).studentJoinedAt);
+      this.aiAnalysisEnabled = (aiSnapshot === true || aiSnapshot === false)
         ? aiSnapshot
         : (lesson.studentId?.profile?.aiAnalysisEnabled !== false);
       this.aiStatusResolved = !(lesson.isTrialLesson || this.isTrialLesson);
@@ -1602,9 +1606,21 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
   }
 
   /**
-   * Inline toggle on the student's own pre-call card. Persists the student's
-   * setting (which applies to THIS lesson while it hasn't started yet) and
-   * relies on the backend to push the change to the tutor in realtime.
+   * Whether the per-lesson AI-setting edit window has closed. Editable until
+   * AI_EDIT_WINDOW_MS after the student joins the call; before they join
+   * (no studentJoinedAt) it's always editable. Mirrors the backend contract.
+   */
+  private isAiEditWindowClosed(studentJoinedAt?: string | Date | null): boolean {
+    if (!studentJoinedAt) return false;
+    const joined = new Date(studentJoinedAt).getTime();
+    if (isNaN(joined)) return false;
+    return (Date.now() - joined) > 2 * 60 * 1000;
+  }
+
+  /**
+   * Inline toggle on the student's own pre-call card. Sets the AI setting for
+   * THIS lesson only (not the global default) and relies on the backend to push
+   * the change to the tutor in realtime.
    */
   async onToggleAiAnalysis(event: any): Promise<void> {
     const requested = !!event?.detail?.checked;
@@ -1615,7 +1631,7 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
     this.aiAnalysisEnabled = requested; // optimistic
     this.aiToggleSaving = true;
     try {
-      await firstValueFrom(this.userService.updateAIAnalysisEnabled(requested));
+      await firstValueFrom(this.lessonService.setLessonAiAnalysis(this.lessonId, requested));
     } catch (err) {
       console.error('❌ PRE-CALL: failed to save AI setting', err);
       this.aiAnalysisEnabled = previous; // revert on failure
@@ -2524,7 +2540,7 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
       : '';
     this.planNextFocus = summary.nextLessonFocus || '';
     this.planStudentSummary = summary.studentSummary || '';
-    this.planSelfAssessedLevel = summary.selfAssessedLevel || '';
+    this.planSelfAssessedLevel = this.selfLevelLabel(summary.selfAssessedLevel);
     this.buildJourneyMap(summary);
   }
 
@@ -2572,12 +2588,18 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEn
   }
 
   private selfLevelLabel(level?: string): string {
-    switch (level) {
-      case 'beginner': return this.t('ONBOARDING.STUDENT.LEVEL_BEGINNER');
-      case 'intermediate': return this.t('ONBOARDING.STUDENT.LEVEL_INTERMEDIATE');
-      case 'advanced': return this.t('ONBOARDING.STUDENT.LEVEL_ADVANCED');
-      default: return level || '';
-    }
+    if (!level) return '';
+    const LEVEL_KEY_MAP: Record<string, string> = {
+      complete_beginner: 'ONBOARDING.STUDENT.LEVEL_OPTION_COMPLETE_BEGINNER',
+      some_basics: 'ONBOARDING.STUDENT.LEVEL_OPTION_SOME_BASICS',
+      simple_conversations: 'ONBOARDING.STUDENT.LEVEL_OPTION_SIMPLE_CONVERSATIONS',
+      intermediate: 'ONBOARDING.STUDENT.LEVEL_OPTION_INTERMEDIATE',
+      advanced: 'ONBOARDING.STUDENT.LEVEL_OPTION_ADVANCED',
+      beginner: 'ONBOARDING.STUDENT.LEVEL_BEGINNER',
+    };
+    const key = LEVEL_KEY_MAP[level];
+    if (key) return this.t(key);
+    return level.replace(/_/g, ' ');
   }
 
   private timelinePressureLabel(pressure?: string): string {

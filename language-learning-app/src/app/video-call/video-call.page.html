@@ -80,14 +80,22 @@
     </div>
 
     <!-- AI analysis status pill (shown to tutor AND student) -->
-    <div class="ai-status-pill" *ngIf="!isClass && !isTrialLesson && lessonSessionHeaderOtherName"
+    <div class="ai-status-pill" *ngIf="!isClass && !isTrialLesson && (lessonSessionHeaderOtherName || aiToggleVisible)"
          [class.ai-on]="!aiAnalysisDisabledForLesson"
          [class.ai-off]="aiAnalysisDisabledForLesson">
       <ion-icon [name]="aiAnalysisDisabledForLesson ? 'create-outline' : 'sparkles'"></ion-icon>
-      <span class="ai-status-pill-title">{{ (aiAnalysisDisabledForLesson ? 'VIDEO_CALL.AI_STATUS_OFF_TITLE' : 'VIDEO_CALL.AI_STATUS_ON_TITLE') | translate }}</span>
+      <span class="ai-status-pill-title">{{ (aiAnalysisDisabledForLesson ? (userRole === 'tutor' ? 'VIDEO_CALL.AI_STATUS_OFF_TITLE_TUTOR' : 'VIDEO_CALL.AI_STATUS_OFF_TITLE') : (userRole === 'tutor' ? 'VIDEO_CALL.AI_STATUS_ON_TITLE_TUTOR' : 'VIDEO_CALL.AI_STATUS_ON_TITLE')) | translate }}</span>
       <span class="ai-status-pill-sep">·</span>
       <span class="ai-status-pill-body" *ngIf="userRole === 'tutor'">{{ (aiAnalysisDisabledForLesson ? 'VIDEO_CALL.AI_STATUS_OFF_TUTOR' : 'VIDEO_CALL.AI_STATUS_ON_TUTOR') | translate }}</span>
       <span class="ai-status-pill-body" *ngIf="userRole !== 'tutor'">{{ (aiAnalysisDisabledForLesson ? 'VIDEO_CALL.AI_STATUS_OFF_STUDENT' : 'VIDEO_CALL.AI_STATUS_ON_STUDENT') | translate }}</span>
+      <button
+        type="button"
+        class="ai-status-pill-toggle"
+        *ngIf="aiToggleVisible"
+        [disabled]="aiToggleSaving"
+        (click)="toggleInCallAiAnalysis()">
+        {{ (aiAnalysisEnabledForLesson ? 'VIDEO_CALL.AI_TOGGLE_TURN_OFF' : 'VIDEO_CALL.AI_TOGGLE_TURN_ON') | translate }}
+      </button>
     </div>
 
     <!-- Main Content Area (above controls) -->

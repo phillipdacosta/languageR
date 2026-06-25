@@ -237,10 +237,16 @@ const cefrEstimateSchema = new mongoose.Schema({
 }, { _id: false });
 
 const cefrDivergenceSchema = new mongoose.Schema({
-  gap: { type: Number, required: true },           // signed: tutorMean - aiMean (in CEFR levels)
-  aiLevel: { type: String, enum: ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'], required: true },
-  tutorLevel: { type: String, enum: ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'], required: true },
-  direction: { type: String, enum: ['tutor_higher', 'ai_higher'], required: true }
+  // For 'tutor_higher' / 'ai_higher': signed gap (tutorMean - aiMean).
+  // For 'tutor_split': unsigned spread (max - min) across tutor reads.
+  gap: { type: Number, required: true },
+  // AI-vs-tutor case fields.
+  aiLevel: { type: String, enum: ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'], default: null },
+  tutorLevel: { type: String, enum: ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'], default: null },
+  // Tutor-vs-tutor case fields (the cold-start "two trials, two opinions" case).
+  lowLevel: { type: String, enum: ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'], default: null },
+  highLevel: { type: String, enum: ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'], default: null },
+  direction: { type: String, enum: ['tutor_higher', 'ai_higher', 'tutor_split'], required: true }
 }, { _id: false });
 
 const cefrRevealSchema = new mongoose.Schema({
