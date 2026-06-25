@@ -65,6 +65,20 @@ export function journeyBackgroundUrlHiRes(url: string): string {
   return url.replace(/\.png$/, '@4x.png');
 }
 
+/** All bitmap URLs worth warming for a map preview (matches displayed src/srcset). */
+export function journeyBackgroundPreloadUrls(theme: string, phaseCount: number): string[] {
+  const base = journeyBackgroundUrl(theme, phaseCount);
+  const urls = new Set<string>([base, journeyBackgroundUrlHiRes(base)]);
+  const srcset = journeyBackgroundSrcSet(theme, phaseCount);
+  if (srcset) {
+    for (const entry of srcset.split(',')) {
+      const url = entry.trim().split(/\s+/)[0];
+      if (url) urls.add(url);
+    }
+  }
+  return [...urls];
+}
+
 // ── Map hotspots (roadblocks + treasure chests) ──────────────────────
 // Baked into the background art, so we overlay invisible tappable hotspots
 // at the same screen positions (percentages of the 16:9 stage). Coordinates

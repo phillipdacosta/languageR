@@ -11,7 +11,11 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
-import { journeyBackgroundSrcSet, journeyBackgroundUrl, journeyBackgroundUrlHiRes } from './journey-map-assets';
+import {
+  journeyBackgroundSrcSet,
+  journeyBackgroundUrl,
+  journeyBackgroundUrlHiRes
+} from './journey-map-assets';
 import {
   buildJourneySvgPathD,
   depthToOpacity,
@@ -73,8 +77,12 @@ export class JourneyMapPreviewComponent implements OnChanges, AfterViewInit, OnD
   backgroundUrl = '';
   backgroundSrcSet = '';
   backgroundSrcHiRes = '';
+  backgroundDisplaySrc = '';
+  backgroundDisplaySrcSet = '';
   backgroundSizes = '480px';
   backgroundFailed = false;
+  backgroundLoaded = false;
+  illustrationLoaded = false;
   mapPathD = '';
   mapNodes: PreviewMapNode[] = [];
 
@@ -103,11 +111,15 @@ export class JourneyMapPreviewComponent implements OnChanges, AfterViewInit, OnD
   }
 
   ngOnChanges(changes: SimpleChanges): void {
+    if (changes['illustration']) {
+      this.illustrationLoaded = false;
+    }
     if (
       changes['chapterTheme'] ||
       changes['chapterLevel'] ||
       changes['phases'] ||
-      changes['currentPhaseIndex']
+      changes['currentPhaseIndex'] ||
+      changes['size']
     ) {
       this.recomputeMap();
     }
@@ -115,14 +127,27 @@ export class JourneyMapPreviewComponent implements OnChanges, AfterViewInit, OnD
 
   ngAfterViewInit(): void {
     this.observeStageSize();
+    this.syncBackgroundFromDom();
+    this.syncIllustrationFromDom();
   }
 
   ngOnDestroy(): void {
     this.stageResizeObserver?.disconnect();
   }
 
+  onBackgroundLoad(): void {
+    this.backgroundLoaded = true;
+    this.cdr.markForCheck();
+  }
+
   onBackgroundError(): void {
     this.backgroundFailed = true;
+    this.backgroundLoaded = true;
+    this.cdr.markForCheck();
+  }
+
+  onIllustrationLoad(): void {
+    this.illustrationLoaded = true;
     this.cdr.markForCheck();
   }
 
@@ -138,14 +163,22 @@ export class JourneyMapPreviewComponent implements OnChanges, AfterViewInit, OnD
       this.mapPathD = '';
       this.backgroundUrl = '';
       this.backgroundSrcSet = '';
+      this.backgroundSrcHiRes = '';
+      this.backgroundDisplaySrc = '';
+      this.backgroundDisplaySrcSet = '';
+      this.backgroundLoaded = false;
+      this.backgroundFailed = false;
       this.cdr.markForCheck();
       return;
     }
 
+    this.backgroundLoaded = false;
+    this.backgroundFailed = false;
+
     this.backgroundUrl = journeyBackgroundUrl(this.chapterTheme, n);
     this.backgroundSrcSet = journeyBackgroundSrcSet(this.chapterTheme, n);
     this.backgroundSrcHiRes = journeyBackgroundUrlHiRes(this.backgroundUrl);
-    this.backgroundFailed = false;
+    this.applyBackgroundDisplaySources();
 
     const pathPts = resolveJourneyPathPts(this.chapterTheme, n);
     const nodePts = resolveJourneyPlatformPts(this.chapterTheme, n);
@@ -178,6 +211,32 @@ export class JourneyMapPreviewComponent implements OnChanges, AfterViewInit, OnD
       };
     });
 
+    this.cdr.markForCheck();
+    queueMicrotask(() => this.syncBackgroundFromDom());
+  }
+
+  /** Sidebar previews are small — use 1x + srcset instead of forcing @4x src. */
+  private applyBackgroundDisplaySources(): void {
+    if (this.size === 'sidebar' || this.size === 'default') {
+      this.backgroundDisplaySrc = this.backgroundUrl;
+      this.backgroundDisplaySrcSet = this.backgroundSrcSet;
+      return;
+    }
+    this.backgroundDisplaySrc = this.backgroundSrcHiRes;
+    this.backgroundDisplaySrcSet = this.backgroundSrcSet;
+  }
+
+  private syncBackgroundFromDom(): void {
+    const img = this.el.nativeElement.querySelector('.jmp-bg--sharp') as HTMLImageElement | null;
+    if (!img?.complete || img.naturalWidth <= 0) return;
+    this.backgroundLoaded = true;
+    this.cdr.markForCheck();
+  }
+
+  private syncIllustrationFromDom(): void {
+    const img = this.el.nativeElement.querySelector('.jmp-illustration-art--theme-light') as HTMLImageElement | null;
+    if (!img?.complete || img.naturalWidth <= 0) return;
+    this.illustrationLoaded = true;
     this.cdr.markForCheck();
   }
 
