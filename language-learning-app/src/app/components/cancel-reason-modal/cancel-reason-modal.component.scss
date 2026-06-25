@@ -10,6 +10,7 @@ $background-hover: #f7f7f7;
   display: flex;
   flex-direction: column;
   height: 100%;
+  position: relative;
 }
 
 ion-content {
@@ -29,7 +30,7 @@ ion-content {
   position: absolute;
   top: 16px;
   right: 16px;
-  z-index: 1001;
+  z-index: 1010;
   width: 32px;
   height: 32px;
   margin: 0;

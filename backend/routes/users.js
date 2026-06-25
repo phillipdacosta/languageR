@@ -828,7 +828,7 @@ router.put('/onboarding', verifyToken, async (req, res) => {
 // PUT /api/users/profile - Update user profile
 router.put('/profile', verifyToken, async (req, res) => {
   try {
-    const { bio, timezone, preferredLanguage, userType, picture, officeHoursEnabled, interfaceLanguage, showWalletBalance, remindersEnabled, aiAnalysisEnabled, calendarTimeFormat, calendarDefaultView, calendarWeekStartsOn, calendarWeekStartsOnUserSet, weeklyEarningsGoal } = req.body;
+    const { bio, timezone, preferredLanguage, userType, picture, officeHoursEnabled, interfaceLanguage, showWalletBalance, remindersEnabled, aiAnalysisEnabled, calendarTimeFormat, calendarDefaultView, calendarWeekStartsOn, calendarWeekStartsOnUserSet, weeklyEarningsGoal, contextLessonId } = req.body;
     console.log('📝 Updating profile for user:', req.user.sub, 'officeHoursEnabled:', officeHoursEnabled, 'aiAnalysisEnabled:', aiAnalysisEnabled);
     
     const user = await User.findOne({ auth0Id: req.user.sub });
@@ -960,35 +960,58 @@ router.put('/profile', verifyToken, async (req, res) => {
     // stale value they loaded. We emit to imminent/active, not-yet-snapshotted
     // lessons for this student, to both the tutor and the student's own sockets.
     const newAiAnalysisEnabled = user.profile?.aiAnalysisEnabled !== false;
-    if (aiAnalysisEnabled !== undefined && newAiAnalysisEnabled !== prevAiAnalysisEnabled && req.io && req.connectedUsers) {
+    if (aiAnalysisEnabled !== undefined && newAiAnalysisEnabled !== prevAiAnalysisEnabled && req.io) {
       try {
         const now = new Date();
         const windowStart = new Date(now.getTime() - 30 * 60 * 1000); // started up to 30m ago
         const windowEnd = new Date(now.getTime() + 60 * 60 * 1000);   // starting within 60m
+        // lessonId → tutor auth0Id. Each tutor pre-call only reacts to its lesson.
+        const lessonsToNotify = new Map();
+
+        // Pre-call toggle: always notify the specific lesson's tutor (no time window).
+        if (contextLessonId) {
+          const contextLesson = await Lesson.findOne({
+            _id: contextLessonId,
+            studentId: user._id,
+            status: { $in: ['scheduled', 'confirmed', 'in_progress'] },
+            aiAnalysisEnabledAtTime: null
+          }).populate('tutorId', 'auth0Id').select('tutorId').lean();
+          if (contextLesson?.tutorId?.auth0Id) {
+            lessonsToNotify.set(String(contextLesson._id), contextLesson.tutorId.auth0Id);
+          }
+        }
+
         const liveLessons = await Lesson.find({
           studentId: user._id,
           status: { $in: ['scheduled', 'confirmed', 'in_progress'] },
-          aiAnalysisEnabledAtTime: null, // not yet locked → change still applies
+          aiAnalysisEnabledAtTime: null,
           startTime: { $gte: windowStart, $lte: windowEnd }
-        }).populate('tutorId', 'auth0Id').select('tutorId studentId').lean();
+        }).populate('tutorId', 'auth0Id').select('tutorId').lean();
 
-        const recipientAuth0Ids = new Set();
-        recipientAuth0Ids.add(user.auth0Id); // student's other devices
         for (const lesson of liveLessons) {
           const tutorAuth0Id = lesson.tutorId?.auth0Id;
-          if (tutorAuth0Id) recipientAuth0Ids.add(tutorAuth0Id);
+          if (tutorAuth0Id) lessonsToNotify.set(String(lesson._id), tutorAuth0Id);
         }
 
-        for (const auth0Id of recipientAuth0Ids) {
-          const socketId = req.connectedUsers.get(auth0Id);
-          if (socketId) {
-            req.io.to(socketId).emit('ai_analysis_setting_changed', {
-              studentId: user._id.toString(),
-              studentAuth0Id: user.auth0Id,
-              aiAnalysisEnabled: newAiAnalysisEnabled
-            });
-            console.log(`📡 Emitted ai_analysis_setting_changed=${newAiAnalysisEnabled} to ${auth0Id}`);
-          }
+        const payloadBase = {
+          studentId: user._id.toString(),
+          studentAuth0Id: user.auth0Id,
+          aiAnalysisEnabled: newAiAnalysisEnabled
+        };
+
+        // Student's own sockets (other tabs / devices on pre-call).
+        req.io.to(`user:${user.auth0Id}`).emit('ai_analysis_setting_changed', {
+          ...payloadBase,
+          lessonId: contextLessonId ? String(contextLessonId) : null
+        });
+        console.log(`📡 Emitted ai_analysis_setting_changed=${newAiAnalysisEnabled} to student room user:${user.auth0Id}`);
+
+        for (const [lessonId, tutorAuth0Id] of lessonsToNotify) {
+          req.io.to(`user:${tutorAuth0Id}`).emit('ai_analysis_setting_changed', {
+            ...payloadBase,
+            lessonId
+          });
+          console.log(`📡 Emitted ai_analysis_setting_changed=${newAiAnalysisEnabled} to tutor room user:${tutorAuth0Id} (lesson ${lessonId})`);
         }
       } catch (emitErr) {
         console.error('⚠️ Failed to emit ai_analysis_setting_changed:', emitErr);

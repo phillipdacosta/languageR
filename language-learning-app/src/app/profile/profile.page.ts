@@ -187,6 +187,10 @@ export class ProfilePage implements OnInit, ViewWillEnter {
   cefrScale: Array<{ level: 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2'; active: boolean }> = [];
   cefrSourcesLabel: string = '';
   cefrAgreementShortLabel: string = '';
+  // Divergence display (pre-computed; no template fns). 'split' = tutors
+  // disagree with each other; 'sources' = AI vs tutor disagree.
+  cefrDivergenceKind: 'sources' | 'split' | null = null;
+  cefrDivergence: import('../services/learning-plan.service').CefrDivergence | null = null;
   // Pre-computed evolution timeline for the template (no function calls).
   cefrEvolution: Array<{
     level: string;
@@ -1254,9 +1258,14 @@ export class ProfilePage implements OnInit, ViewWillEnter {
       this.cefrRevealed = null;
       this.cefrScale = [];
       this.cefrEvolution = [];
+      this.cefrDivergenceKind = null;
+      this.cefrDivergence = null;
       return;
     }
     this.cefrRevealed = plan.revealedCefrLevel;
+    const div = plan.revealedCefrLevel.divergence;
+    this.cefrDivergence = div || null;
+    this.cefrDivergenceKind = !div ? null : (div.direction === 'tutor_split' ? 'split' : 'sources');
     this.cefrScale = Array.isArray(plan.cefrScale) ? plan.cefrScale : [];
     const ai = plan.revealedCefrLevel.sources?.ai || 0;
     const tu = plan.revealedCefrLevel.sources?.tutor || 0;
@@ -1304,22 +1313,8 @@ export class ProfilePage implements OnInit, ViewWillEnter {
 
   private async confirmPauseLanguagePlan(language: string, isPremium: boolean) {
     const message = isPremium
-      ? `<p style="margin:0 0 12px;font-size:14px;line-height:1.55;color:#222;">
-           Pausing your <strong>${language}</strong> plan keeps everything as-is. Your phases, chapter history, and
-           CEFR estimate are preserved.
-         </p>
-         <p style="margin:0;font-size:13px;line-height:1.5;color:#555;">
-           <strong>Premium still works while paused.</strong> AI lesson
-           analysis, your personalized review deck, and tutor briefings keep
-           running. Resume any time.
-         </p>`
-      : `<p style="margin:0 0 12px;font-size:14px;line-height:1.55;color:#222;">
-           Pausing your <strong>${language}</strong> plan keeps everything as-is. Your phases and history are
-           preserved.
-         </p>
-         <p style="margin:0;font-size:13px;line-height:1.5;color:#555;">
-           Resume any time — we'll pick up right where you left off.
-         </p>`;
+      ? `Pausing your ${language} plan keeps everything as-is. Your phases, chapter history, and CEFR estimate are preserved.\n\nPremium still works while paused. AI lesson analysis, your personalized review deck, and tutor briefings keep running. Resume any time.`
+      : `Pausing your ${language} plan keeps everything as-is. Your phases and history are preserved.\n\nResume any time — we'll pick up right where you left off.`;
     const alert = await this.alertController.create({
       header: `Pause ${language} plan?`,
       message,
@@ -1420,22 +1415,8 @@ export class ProfilePage implements OnInit, ViewWillEnter {
 
   private async confirmSkipLanguagePlan(language: string, isPremium: boolean) {
     const message = isPremium
-      ? `<p style="margin:0 0 12px;font-size:14px;line-height:1.55;color:#222;">
-           Your <strong>${language}</strong> lessons will continue without a structured roadmap. Past chapters and
-           your CEFR history are kept.
-         </p>
-         <p style="margin:0;font-size:13px;line-height:1.5;color:#555;">
-           <strong>Premium still works without a plan.</strong> AI analysis,
-           review deck, and tutor briefings keep running on every lesson.
-           Add a goal any time to get a fresh roadmap.
-         </p>`
-      : `<p style="margin:0 0 12px;font-size:14px;line-height:1.55;color:#222;">
-           Your <strong>${language}</strong> lessons will continue without a structured roadmap. Past lessons and
-           CEFR estimate are kept.
-         </p>
-         <p style="margin:0;font-size:13px;line-height:1.5;color:#555;">
-           Add a goal any time to get a roadmap built for you.
-         </p>`;
+      ? `Your ${language} lessons will continue without a structured roadmap. Past chapters and your CEFR history are kept.\n\nPremium still works without a plan. AI analysis, review deck, and tutor briefings keep running on every lesson. Add a goal any time to get a fresh roadmap.`
+      : `Your ${language} lessons will continue without a structured roadmap. Past lessons and CEFR estimate are kept.\n\nAdd a goal any time to get a roadmap built for you.`;
     const alert = await this.alertController.create({
       header: `Learn ${language} at your own pace?`,
       message,
@@ -1538,23 +1519,18 @@ export class ProfilePage implements OnInit, ViewWillEnter {
 
     const alert = await this.alertController.create({
       header: 'Change Learning Goal',
-      cssClass: 'goal-change-alert',
-      message: `
-        <p style="margin:0 0 12px;font-size:14px;line-height:1.55;color:#222;">
-          <strong>What's kept</strong><br>
-          • Your current level and CEFR estimate<br>
-          • All past chapters and badges<br>
-          • Your tutors' notes about you
-        </p>
-        <p style="margin:0 0 12px;font-size:14px;line-height:1.55;color:#222;">
-          <strong>What changes</strong><br>
-          • Your current chapter restarts from <strong>Phase 1</strong> with new content matching your new goal<br>
-          • Phase progress in this chapter resets (your past lessons stay in your history)
-        </p>
-        <p style="margin:0;font-size:13px;line-height:1.5;color:#717171;">
-          You can change your goal once every <strong>7 days</strong>.
-        </p>
-      `,
+      message: [
+        "What's kept",
+        '• Your current level and CEFR estimate',
+        '• All past chapters and badges',
+        "• Your tutors' notes about you",
+        '',
+        'What changes',
+        '• Your current chapter restarts from Phase 1 with new content matching your new goal',
+        '• Phase progress in this chapter resets (your past lessons stay in your history)',
+        '',
+        'You can change your goal once every 7 days.'
+      ].join('\n'),
       buttons: [
         { text: 'Cancel', role: 'cancel' },
         {

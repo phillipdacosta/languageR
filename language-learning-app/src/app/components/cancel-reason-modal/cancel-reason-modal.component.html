@@ -1,9 +1,9 @@
-<ion-content class="ion-padding cancel-modal-content">
-  <!-- Floating close button (matches reschedule modal) -->
-  <button class="floating-close-button" (click)="dismiss()">
-    <ion-icon name="close"></ion-icon>
-  </button>
+<!-- Floating close button - outside ion-content so it stays visible while content scrolls -->
+<button type="button" class="floating-close-button" (click)="dismiss()" aria-label="Close">
+  <ion-icon name="close" aria-hidden="true"></ion-icon>
+</button>
 
+<ion-content class="ion-padding cancel-modal-content">
   <div class="cancel-reason-content">
     <!-- Header Section -->
     <div class="modal-header-section">

@@ -163,11 +163,10 @@
                     <span class="ed-goal-line-label">{{ 'PRE_CALL.STUDENT_GOAL' | translate }}:</span>
                     <span class="ed-goal-type ed-goal-type--inline">{{ edPlanGoalLabel }}</span>
                   </div>
-                  <div class="ed-goal-meta ed-goal-line-meta" *ngIf="edPlanGoalLevelKey || edPlanGoalTimelineKey">
+                  <div class="ed-goal-meta ed-goal-line-meta" *ngIf="edPlanGoalLevelKey || edPlanGoalTimelineLabel">
                     <span class="ed-goal-level" *ngIf="edPlanGoalLevelKey">{{ edPlanGoalLevelKey | translate }}</span>
-                    <span class="ed-meta-dot" *ngIf="edPlanGoalLevelKey && edPlanGoalTimelineKey" aria-hidden="true"></span>
-                    <span class="ed-goal-timeline" *ngIf="edPlanGoalTimelineKey && !edPlanGoalTimelineDate">{{ edPlanGoalTimelineKey | translate }}</span>
-                    <span class="ed-goal-timeline" *ngIf="edPlanGoalTimelineKey && edPlanGoalTimelineDate">{{ edPlanGoalTimelineKey | translate : { date: edPlanGoalTimelineDate } }}</span>
+                    <span class="ed-meta-dot" *ngIf="edPlanGoalLevelKey && edPlanGoalTimelineLabel" aria-hidden="true"></span>
+                    <span class="ed-goal-timeline" *ngIf="edPlanGoalTimelineLabel">{{ edPlanGoalTimelineLabel }}</span>
                   </div>
                 </div>
                 <h3 class="ed-pc-section-title" *ngIf="!edPlanShowGoalCard && edJourneyIllustration">{{ 'EVENT_DETAILS.LESSON_SCREEN.STUDENT_JOURNEY' | translate }}</h3>

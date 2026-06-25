@@ -839,7 +839,7 @@ export class UserService {
   /**
    * Update user profile
    */
-  updateProfile(profileData: Partial<User['profile']> & { interfaceLanguage?: string; calendarTimeFormat?: string; calendarDefaultView?: string; calendarWeekStartsOn?: number; calendarWeekStartsOnUserSet?: boolean }): Observable<User> {
+  updateProfile(profileData: Partial<User['profile']> & { interfaceLanguage?: string; calendarTimeFormat?: string; calendarDefaultView?: string; calendarWeekStartsOn?: number; calendarWeekStartsOnUserSet?: boolean; contextLessonId?: string }): Observable<User> {
     if (profileData.calendarWeekStartsOnUserSet && profileData.calendarWeekStartsOn !== undefined) {
       this.pendingManualWeekStart = normalizeCalendarWeekStartsOn(profileData.calendarWeekStartsOn);
     }
@@ -992,8 +992,11 @@ export class UserService {
   /**
    * Update AI analysis enabled setting
    */
-  updateAIAnalysisEnabled(enabled: boolean): Observable<User> {
-    return this.updateProfile({ aiAnalysisEnabled: enabled });
+  updateAIAnalysisEnabled(enabled: boolean, contextLessonId?: string): Observable<User> {
+    return this.updateProfile({
+      aiAnalysisEnabled: enabled,
+      ...(contextLessonId ? { contextLessonId } : {})
+    });
   }
   
   /**

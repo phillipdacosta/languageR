@@ -204,10 +204,14 @@ export interface CefrEstimate {
 }
 
 export interface CefrDivergence {
-  gap: number;                          // signed: tutorMean - aiMean
-  aiLevel: CefrLevel;
-  tutorLevel: CefrLevel;
-  direction: 'tutor_higher' | 'ai_higher';
+  // tutor_higher/ai_higher: signed gap (tutorMean - aiMean).
+  // tutor_split: unsigned spread (max - min) across tutor reads.
+  gap: number;
+  aiLevel?: CefrLevel | null;
+  tutorLevel?: CefrLevel | null;
+  lowLevel?: CefrLevel | null;
+  highLevel?: CefrLevel | null;
+  direction: 'tutor_higher' | 'ai_higher' | 'tutor_split';
 }
 
 export interface CefrReveal {
