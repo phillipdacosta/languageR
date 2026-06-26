@@ -1,5 +1,5 @@
-import { Component, Input, OnInit } from '@angular/core';
-import { ModalController } from '@ionic/angular';
+import { Component, ElementRef, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { ModalController, IonContent } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
@@ -21,7 +21,7 @@ export interface CancellationReason {
   standalone: true,
   imports: [CommonModule, FormsModule, IonicModule, TranslateModule]
 })
-export class CancelReasonModalComponent implements OnInit {
+export class CancelReasonModalComponent implements OnInit, OnDestroy {
   @Input() participantName?: string;
   @Input() participantAvatar?: string;
   @Input() userRole: 'student' | 'tutor' = 'student';
@@ -62,10 +62,19 @@ export class CancelReasonModalComponent implements OnInit {
     return this.t('ALERTS.CANCEL_REASON.INFO_LESSON', { name });
   }
 
+  get startedBlockedBodyKey(): string {
+    return this.isClass
+      ? 'ALERTS.CANCEL_REASON.STARTED_BODY_CLASS'
+      : 'ALERTS.CANCEL_REASON.STARTED_BODY_LESSON';
+  }
+
   selectedReason: CancellationReason | null = null;
   otherReasonText: string = '';
   isWithin12Hours: boolean = false;
   formattedDateTime: string = '';
+  cancellationBlocked = false;
+  private startTimeMonitorId: ReturnType<typeof setInterval> | null = null;
+  private startTimeTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
   studentReasons: CancellationReason[] = [
     { id: 'schedule_conflict', labelKey: 'ALERTS.CANCEL_REASON.REASON_SCHEDULE_STUDENT', icon: 'calendar-outline' },
@@ -82,6 +91,9 @@ export class CancelReasonModalComponent implements OnInit {
   ];
 
   reasons: CancellationReason[] = [];
+
+  @ViewChild('modalContent') modalContent?: IonContent;
+  @ViewChild('infoTextSection') infoTextSection?: ElementRef<HTMLElement>;
 
   constructor(
     private modalController: ModalController,
@@ -115,9 +127,52 @@ export class CancelReasonModalComponent implements OnInit {
     if (this.lessonDuration) {
       this.formattedDuration = this.formatDuration(this.lessonDuration);
     }
+
+    this.startStartTimeMonitor();
+  }
+
+  ngOnDestroy(): void {
+    this.clearStartTimeMonitor();
   }
 
   formattedDuration = '';
+
+  private startStartTimeMonitor(): void {
+    if (!this.lessonStartTime) return;
+
+    this.updateCancellationBlockedState();
+    if (this.cancellationBlocked) return;
+
+    const msUntilStart = new Date(this.lessonStartTime).getTime() - Date.now();
+    if (msUntilStart > 0) {
+      this.startTimeTimeoutId = setTimeout(() => {
+        this.updateCancellationBlockedState();
+      }, msUntilStart);
+    }
+
+    this.startTimeMonitorId = setInterval(() => {
+      this.updateCancellationBlockedState();
+      if (this.cancellationBlocked) {
+        this.clearStartTimeMonitor();
+      }
+    }, 1000);
+  }
+
+  private clearStartTimeMonitor(): void {
+    if (this.startTimeTimeoutId) {
+      clearTimeout(this.startTimeTimeoutId);
+      this.startTimeTimeoutId = null;
+    }
+    if (this.startTimeMonitorId) {
+      clearInterval(this.startTimeMonitorId);
+      this.startTimeMonitorId = null;
+    }
+  }
+
+  private updateCancellationBlockedState(): void {
+    if (!this.lessonStartTime) return;
+    this.cancellationBlocked = Date.now() >= new Date(this.lessonStartTime).getTime();
+  }
 
   private formatLessonDateTime(date: Date): string {
     const today = new Date();
@@ -170,10 +225,37 @@ export class CancelReasonModalComponent implements OnInit {
   }
 
   selectReason(reason: CancellationReason) {
+    if (this.cancellationBlocked) return;
     this.selectedReason = reason;
     if (reason.id !== 'other') {
       this.otherReasonText = '';
+      return;
     }
+    this.scheduleScrollInfoTextIntoView();
+  }
+
+  private scheduleScrollInfoTextIntoView(): void {
+    setTimeout(() => {
+      requestAnimationFrame(() => {
+        void this.scrollInfoTextIntoView();
+      });
+    }, 50);
+  }
+
+  private async scrollInfoTextIntoView(): Promise<void> {
+    const content = this.modalContent;
+    const el = this.infoTextSection?.nativeElement;
+    if (!content || !el) return;
+
+    const scrollEl = await content.getScrollElement();
+    if (!scrollEl) return;
+
+    const scrollRect = scrollEl.getBoundingClientRect();
+    const elRect = el.getBoundingClientRect();
+    const padding = 12;
+    const targetScrollTop = scrollEl.scrollTop + (elRect.bottom - scrollRect.bottom) + padding;
+
+    await content.scrollToPoint(0, Math.max(0, targetScrollTop), 400);
   }
 
   isSelected(reason: CancellationReason): boolean {
@@ -181,6 +263,7 @@ export class CancelReasonModalComponent implements OnInit {
   }
 
   canConfirm(): boolean {
+    if (this.cancellationBlocked) return false;
     if (!this.selectedReason) return false;
     if (this.selectedReason.requiresNote && !this.otherReasonText.trim()) return false;
     return true;
@@ -199,7 +282,8 @@ export class CancelReasonModalComponent implements OnInit {
   }
 
   confirm() {
-    if (!this.canConfirm()) return;
+    this.updateCancellationBlockedState();
+    if (this.cancellationBlocked || !this.canConfirm()) return;
 
     const reasonText = this.selectedReason?.id === 'other'
       ? this.otherReasonText.trim()

@@ -8,7 +8,8 @@ import { LessonAnalysis } from '../services/transcription.service';
 import { UserService } from '../services/user.service';
 import { LessonService } from '../services/lesson.service';
 import { TutorFeedbackService } from '../services/tutor-feedback.service';
-import { LearningPlanService } from '../services/learning-plan.service';
+import { LearningPlanService, LearningPlanSummary } from '../services/learning-plan.service';
+import { JourneyMapPreviewPhase } from '../journey/journey-map-preview.component';
 import { firstValueFrom, Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { TranslateService } from '@ngx-translate/core';
@@ -76,9 +77,16 @@ export class PostLessonTutorPage implements OnInit, OnDestroy {
   student: any = null;
   analysis: LessonAnalysis | null = null;
   analysisLoaded = false;
-  
-  // AI-enabled flag for this student
-  studentAiEnabled: boolean = true;
+
+  quickSummaryChips: Array<{
+    key: 'level' | 'grammar';
+    label: string;
+    qualitative: string;
+    tone: 'neutral' | 'strong' | 'solid' | 'building' | 'needs_work';
+  }> = [];
+  recapOnly = false;
+  recapMessage = '';
+  aiAnalysisLabel = '';
 
   // Trial mode: trials capture no audio, so the tutor's quick assessment
   // (CEFR + "start with" chips + optional note) is the only signal that
@@ -89,10 +97,10 @@ export class PostLessonTutorPage implements OnInit, OnDestroy {
   studentDisplayName: string = '';
   lessonDateTime: string = '';
   lessonDurationLabel: string = '';
-  analysisProficiencyLevel: string = 'N/A';
-  analysisWordCount: number = 0;
-  analysisGrammarScore: string = '0%';
   dotIndices: number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+  
+  // AI-enabled flag for this student
+  studentAiEnabled: boolean = true;
   
   // Countdown timer (2-hour grace period before profile is hidden)
   countdownDisplay: string = '';
@@ -132,6 +140,22 @@ export class PostLessonTutorPage implements OnInit, OnDestroy {
   hasActivePlan = false;
   planStudentId: string = '';
   planLanguage: string = '';
+
+  // Phase context so the tutor knows what they're adjusting + where the
+  // student sits in the journey overall. Reuses the journey-map snapshot
+  // shown in lessons/:id. Precomputed (no template fns per AGENTS rules).
+  private planSummary: LearningPlanSummary | null = null;
+  showJourneyMap = false;
+  journeySectionTitle: string = '';
+  journeyChapterTheme: string = 'a1-desert';
+  journeyChapterLevel: string = 'A1';
+  journeyPhases: JourneyMapPreviewPhase[] = [];
+  journeyCurrentPhaseIndex: number = 0;
+  journeyCaption: string = '';
+  journeyStartingChapterIndex = -1;
+  showFullJourneyLabel = '';
+  planPhaseLabel: string = '';
+  planPhaseFocusLabel: string = '';
 
   impressionOptions: ImpressionOption[] = [];
   errorAreaOptions: LabeledOption[] = [];
@@ -237,6 +261,12 @@ export class PostLessonTutorPage implements OnInit, OnDestroy {
         this.lessonDateTime = this.computeLessonDateTime();
         this.lessonDurationLabel = this.computeLessonDurationLabel();
       }
+      if (this.analysis) {
+        this.rebuildQuickSummary();
+      }
+      if (this.planSummary) {
+        this.buildPlanPhaseContext();
+      }
     });
     
     // Wait for user to be loaded first
@@ -271,6 +301,8 @@ export class PostLessonTutorPage implements OnInit, OnDestroy {
     this.removeCorrectionLabel = this.t('POST_LESSON.TUTOR.REMOVE_CORRECTION');
     this.focusPlaceholder = this.t('POST_LESSON.TUTOR.FOCUS_PLACEHOLDER');
     this.planNotePlaceholder = this.t('POST_LESSON.TUTOR.PLAN_NOTE_PLACEHOLDER');
+    this.aiAnalysisLabel = this.t('POST_LESSON.TUTOR.AI_ANALYSIS_LABEL');
+    this.showFullJourneyLabel = this.t('JOURNEY.SNAPSHOT.SHOW_FULL_JOURNEY');
 
     this.impressionOptions = this.impressionConfig.map(o => ({
       value: o.value,
@@ -367,10 +399,120 @@ export class PostLessonTutorPage implements OnInit, OnDestroy {
       next: (res) => {
         if (res.success && res.summaries?.length) {
           this.hasActivePlan = true;
+          const lang = this.planLanguage.toLowerCase();
+          const match = res.summaries.find(
+            (s) => (s.language || '').toLowerCase() === lang
+          );
+          this.planSummary = match || res.summaries[0];
+          this.buildPlanPhaseContext();
         }
       },
       error: () => {}
     });
+  }
+
+  private buildPlanPhaseContext(): void {
+    const summary = this.planSummary;
+    if (!summary) {
+      this.resetPlanPhaseContext();
+      return;
+    }
+
+    const currentIndex = summary.currentPhaseIndex ?? 0;
+    const total = summary.totalPhases ?? 0;
+
+    this.journeySectionTitle = this.t('JOURNEY.SNAPSHOT.STUDENT_IS_HERE', {
+      name: this.studentDisplayName
+    });
+
+    // Same phase label used in the pre-lesson briefing / map caption.
+    this.planPhaseLabel = summary.currentPhase
+      ? this.t('PRE_CALL.PHASE_LABEL', {
+          current: String(currentIndex + 1),
+          total: String(total),
+          title: summary.currentPhase.title
+        })
+      : '';
+
+    const focusAreas = summary.currentPhase?.focusAreas || [];
+    this.planPhaseFocusLabel = focusAreas.length
+      ? this.t('JOURNEY.SNAPSHOT.PHASE_FOCUS', { areas: focusAreas.slice(0, 3).join(' · ') })
+      : '';
+
+    // Journey-map inputs (mirrors event-details' applyJourneyMapFromSummary).
+    this.journeyChapterTheme = summary.chapterTheme || 'a1-desert';
+    this.journeyChapterLevel = summary.chapterLevel || 'A1';
+    this.journeyStartingChapterIndex = this.resolveChapterIndex(summary.chapterTheme, summary.chapterLevel);
+    this.journeyCurrentPhaseIndex = currentIndex;
+    this.journeyPhases = this.buildJourneyPhases(summary, currentIndex, total);
+    this.journeyCaption = this.planPhaseLabel;
+
+    const mapStatuses = new Set(['draft', 'active', 'completed', 'mastery_mode']);
+    this.showJourneyMap =
+      this.journeyPhases.length > 0 && mapStatuses.has(summary.status || '');
+  }
+
+  private buildJourneyPhases(
+    summary: LearningPlanSummary,
+    currentIndex: number,
+    total: number
+  ): JourneyMapPreviewPhase[] {
+    if (summary.phases?.length) {
+      return summary.phases.map((p) => ({
+        title: p.title || '',
+        status: (p.status as JourneyMapPreviewPhase['status']) || 'locked',
+        isRecovery: !!p._isRecovery,
+        isSplit: !!p._isSplit
+      }));
+    }
+
+    if (total > 0) {
+      return Array.from({ length: total }, (_, i) => {
+        let status: JourneyMapPreviewPhase['status'] = 'locked';
+        if (i < currentIndex) status = 'completed';
+        else if (i === currentIndex) status = 'active';
+        return {
+          title: i === currentIndex ? summary.currentPhase?.title || '' : '',
+          status,
+          isRecovery: i === currentIndex && !!summary.currentPhase?._isRecovery,
+          isSplit: i === currentIndex && !!summary.currentPhase?._isSplit
+        };
+      });
+    }
+
+    return [];
+  }
+
+  private resolveChapterIndex(theme?: string, level?: string): number {
+    const themeMap: Record<string, number> = {
+      'a1-desert': 0,
+      'a2-coast': 1,
+      'b1-lake': 2,
+      'b2-snow': 3,
+      'c1-cherry': 4,
+      'c2-tuscany': 5
+    };
+    const fromTheme = themeMap[(theme || '').toLowerCase()];
+    if (typeof fromTheme === 'number') {
+      return fromTheme;
+    }
+    const levelMap: Record<string, number> = {
+      A1: 0, A2: 1, B1: 2, B2: 3, C1: 4, C2: 5
+    };
+    return levelMap[(level || 'A1').toUpperCase()] ?? 0;
+  }
+
+  private resetPlanPhaseContext(): void {
+    this.showJourneyMap = false;
+    this.journeySectionTitle = '';
+    this.journeyChapterTheme = 'a1-desert';
+    this.journeyChapterLevel = 'A1';
+    this.journeyPhases = [];
+    this.journeyCurrentPhaseIndex = 0;
+    this.journeyCaption = '';
+    this.journeyStartingChapterIndex = -1;
+    this.planPhaseLabel = '';
+    this.planPhaseFocusLabel = '';
   }
 
   async loadAnalysis() {
@@ -385,7 +527,7 @@ export class PostLessonTutorPage implements OnInit, OnDestroy {
       if (response?.analysis?.status === 'completed') {
         this.analysis = response.analysis;
         this.analysisLoaded = true;
-        this.updateAnalysisDisplay();
+        this.rebuildQuickSummary();
         console.log('✅ POST-LESSON-TUTOR: Analysis loaded:', this.analysis);
       }
     } catch (error: any) {
@@ -828,18 +970,56 @@ export class PostLessonTutorPage implements OnInit, OnDestroy {
     return mins ? this.t('POST_LESSON.TUTOR.MIN_LESSON', { mins }) : '';
   }
 
-  private updateAnalysisDisplay(): void {
+  private qualitativeFromScore(score: number | null | undefined): { label: string; tone: 'neutral' | 'strong' | 'solid' | 'building' | 'needs_work' } {
+    if (score === null || score === undefined || !Number.isFinite(score)) {
+      return { label: '—', tone: 'neutral' };
+    }
+    if (score >= 80) return { label: 'Strong', tone: 'strong' };
+    if (score >= 60) return { label: 'Solid', tone: 'solid' };
+    if (score >= 40) return { label: 'Building', tone: 'building' };
+    return { label: 'Needs work', tone: 'needs_work' };
+  }
+
+  private rebuildQuickSummary(): void {
     if (!this.analysis) {
-      this.analysisProficiencyLevel = 'N/A';
-      this.analysisWordCount = 0;
-      this.analysisGrammarScore = '0%';
+      this.quickSummaryChips = [];
+      this.recapOnly = false;
+      this.recapMessage = '';
       return;
     }
-    this.analysisProficiencyLevel =
-      this.analysis.overallAssessment?.proficiencyLevel || 'N/A';
-    this.analysisWordCount = this.analysis.vocabularyAnalysis?.uniqueWordCount || 0;
-    const grammar = this.analysis.grammarAnalysis?.accuracyScore || 0;
-    this.analysisGrammarScore = `${grammar}%`;
+
+    const a: any = this.analysis;
+    const level: string = a.overallAssessment?.proficiencyLevel || 'N/A';
+    const grammarScore: number | null =
+      typeof a.grammarAnalysis?.accuracyScore === 'number' ? a.grammarAnalysis.accuracyScore : null;
+    const grammarQ = this.qualitativeFromScore(grammarScore);
+
+    this.recapOnly = a.proficiencyAssessed === false || !a.overallAssessment?.proficiencyLevel;
+    if (this.recapOnly) {
+      const reason: string = a.gradeWithheldReason || 'insufficient_target_language';
+      this.recapMessage = reason === 'insufficient_student_speech'
+        ? this.t('POST_LESSON.STUDENT.RECAP_LITTLE_SPEECH')
+        : this.t('POST_LESSON.STUDENT.RECAP_MORE_TARGET_LANGUAGE');
+    } else {
+      this.recapMessage = '';
+    }
+
+    const chips: typeof this.quickSummaryChips = [];
+    if (!this.recapOnly) {
+      chips.push({
+        key: 'level',
+        label: this.t('POST_LESSON.TUTOR.LEVEL'),
+        qualitative: level,
+        tone: 'neutral'
+      });
+    }
+    chips.push({
+      key: 'grammar',
+      label: this.t('POST_LESSON.TUTOR.GRAMMAR'),
+      qualitative: grammarQ.label,
+      tone: grammarQ.tone
+    });
+    this.quickSummaryChips = chips;
   }
 }
 

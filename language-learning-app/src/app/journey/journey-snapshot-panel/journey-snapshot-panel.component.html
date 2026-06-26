@@ -1,0 +1,89 @@
+<div class="jsp-panel">
+  <h4 class="jsp-panel__title" *ngIf="sectionTitle">{{ sectionTitle }}</h4>
+
+  <button
+    type="button"
+    class="jsp-trigger"
+    (click)="openModal()"
+    [attr.aria-label]="modalTitle || sectionTitle">
+    <app-journey-map-preview
+      class="jsp-trigger__map"
+      size="sidebar"
+      [chapterTheme]="chapterTheme"
+      [chapterLevel]="chapterLevel"
+      [phases]="phases"
+      [currentPhaseIndex]="currentPhaseIndex"
+      [caption]="caption" />
+    <span class="jsp-trigger__overlay" aria-hidden="true">
+      <ion-icon name="expand-outline"></ion-icon>
+    </span>
+  </button>
+</div>
+
+<ion-modal
+  #stageModal
+  [isOpen]="modalOpen"
+  (didDismiss)="onModalDismiss()"
+  cssClass="journey-current-stage-modal">
+  <ng-template>
+    <div class="jsp-modal" [class.jsp-modal--expanded]="modalExpanded">
+      <button
+        type="button"
+        class="jsp-modal__close"
+        (click)="closeModal()"
+        [attr.aria-label]="'COMMON.CLOSE' | translate">
+        <ion-icon name="close" aria-hidden="true"></ion-icon>
+      </button>
+
+      <button
+        type="button"
+        class="jsp-modal__back"
+        *ngIf="modalExpanded"
+        (click)="backToCurrentStage()"
+        [attr.aria-label]="backToCurrentLabel">
+        <ion-icon name="arrow-back-outline" aria-hidden="true"></ion-icon>
+      </button>
+
+      <header class="jsp-modal__header" *ngIf="!modalExpanded">
+        <h2 class="jsp-modal__title">{{ modalTitle || sectionTitle }}</h2>
+      </header>
+
+      <div class="jsp-modal__body">
+        <ng-container *ngIf="!modalExpanded">
+          <app-journey-map-preview
+            class="jsp-modal__map"
+            size="large"
+            [chapterTheme]="chapterTheme"
+            [chapterLevel]="chapterLevel"
+            [phases]="phases"
+            [currentPhaseIndex]="currentPhaseIndex"
+            [caption]="caption" />
+
+          <div class="jsp-modal__phase" *ngIf="phaseLabel || focusLabel">
+            <p class="jsp-modal__phase-label" *ngIf="phaseLabel">{{ phaseLabel }}</p>
+            <p class="jsp-modal__focus" *ngIf="focusLabel">{{ focusLabel }}</p>
+          </div>
+        </ng-container>
+
+        <app-journey-maps-overview
+          *ngIf="modalExpanded"
+          [startingChapterIndex]="resolvedStartingChapterIndex"
+          [titleLead]="fullJourneyTitleLead"
+          [titleTail]="fullJourneyTitleTail"
+          [bodyCaption]="fullJourneyBodyCaption"
+          [startHereBadgeLabel]="fullJourneyStartHereBadge"
+          [liveChapterTheme]="chapterTheme"
+          [liveChapterLevel]="chapterLevel"
+          [livePhases]="phases"
+          [liveCurrentPhaseIndex]="currentPhaseIndex" />
+      </div>
+
+      <footer class="jsp-modal__footer" *ngIf="!modalExpanded">
+        <button type="button" class="jsp-modal__cta" (click)="onShowFullJourney()">
+          <span>{{ showFullJourneyLabel }}</span>
+          <ion-icon name="arrow-forward-outline" aria-hidden="true"></ion-icon>
+        </button>
+      </footer>
+    </div>
+  </ng-template>
+</ion-modal>

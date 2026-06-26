@@ -40,20 +40,47 @@
             </div>
           </div>
 
-          <div class="plt-metrics" *ngIf="analysisLoaded && analysis">
-            <div class="plt-metric">
-              <span class="plt-metric__val">{{ analysisProficiencyLevel }}</span>
-              <span class="plt-metric__lbl">{{ 'POST_LESSON.TUTOR.LEVEL' | translate }}</span>
-            </div>
-            <div class="plt-metric">
-              <span class="plt-metric__val">{{ analysisWordCount }}</span>
-              <span class="plt-metric__lbl">{{ 'POST_LESSON.TUTOR.WORDS' | translate }}</span>
-            </div>
-            <div class="plt-metric">
-              <span class="plt-metric__val">{{ analysisGrammarScore }}</span>
-              <span class="plt-metric__lbl">{{ 'POST_LESSON.TUTOR.GRAMMAR' | translate }}</span>
+          <div class="plt-analysis-summary" *ngIf="analysisLoaded && analysis">
+            <div class="plt-ai-snapshot">
+              <div class="plt-ai-snapshot__header">
+                <ion-icon name="sparkles-outline" aria-hidden="true"></ion-icon>
+                <span>{{ aiAnalysisLabel }}</span>
+              </div>
+
+              <div class="plt-recap-note" *ngIf="recapOnly">
+                <ion-icon name="chatbubbles-outline"></ion-icon>
+                <p>{{ recapMessage }}</p>
+              </div>
+
+              <div class="plt-quick-summary" [class.plt-recap-only]="recapOnly">
+                <div
+                  class="plt-summary-card"
+                  *ngFor="let chip of quickSummaryChips"
+                  [class.plt-summary-card--strong]="chip.tone === 'strong'"
+                  [class.plt-summary-card--solid]="chip.tone === 'solid'"
+                  [class.plt-summary-card--building]="chip.tone === 'building'"
+                  [class.plt-summary-card--needs-work]="chip.tone === 'needs_work'">
+                  <span class="plt-summary-label">{{ chip.label }}</span>
+                  <span class="plt-summary-value">{{ chip.qualitative }}</span>
+                </div>
+              </div>
             </div>
           </div>
+
+          <app-journey-snapshot-panel
+            *ngIf="showJourneyMap"
+            [sectionTitle]="journeySectionTitle"
+            [modalTitle]="journeySectionTitle"
+            [subjectDisplayName]="studentDisplayName"
+            [chapterTheme]="journeyChapterTheme"
+            [chapterLevel]="journeyChapterLevel"
+            [phases]="journeyPhases"
+            [currentPhaseIndex]="journeyCurrentPhaseIndex"
+            [caption]="journeyCaption"
+            [phaseLabel]="planPhaseLabel"
+            [focusLabel]="planPhaseFocusLabel"
+            [showFullJourneyLabel]="showFullJourneyLabel"
+            [startingChapterIndex]="journeyStartingChapterIndex" />
 
           <div class="approval-split-guidance-list">
             <div class="approval-guidance-item" *ngIf="isTrialMode">
@@ -66,6 +93,7 @@
               </div>
             </div>
 
+            <!-- Temporarily hidden — tutor guidance tips
             <div class="approval-guidance-item" *ngIf="studentAiEnabled && !isTrialMode">
               <div class="approval-guidance-item__icon-wrap approval-guidance-item__icon-wrap--light">
                 <ion-icon name="sparkles-outline" aria-hidden="true"></ion-icon>
@@ -75,6 +103,7 @@
                 <p>{{ 'POST_LESSON.TUTOR.AI_ANALYSIS_DESC' | translate }}</p>
               </div>
             </div>
+            -->
 
             <div class="approval-guidance-item" *ngIf="!studentAiEnabled">
               <div class="approval-guidance-item__icon-wrap approval-guidance-item__icon-wrap--light">
@@ -98,6 +127,7 @@
               </div>
             </div>
 
+            <!-- Temporarily hidden — tutor guidance tips
             <div class="approval-guidance-item">
               <div class="approval-guidance-item__icon-wrap approval-guidance-item__icon-wrap--face">
                 <ion-icon name="school-outline" aria-hidden="true"></ion-icon>
@@ -117,6 +147,7 @@
                 <p>{{ 'POST_LESSON.TUTOR.BADGE_DESC' | translate }}</p>
               </div>
             </div>
+            -->
           </div>
         </aside>
 
@@ -282,6 +313,13 @@
                 <ion-icon [name]="showPlanOverride ? 'chevron-up-outline' : 'chevron-down-outline'"></ion-icon>
               </div>
               <div class="plt-plan-override__body" *ngIf="showPlanOverride">
+                <div class="plt-plan-phase" *ngIf="planPhaseLabel">
+                  <ion-icon name="location-outline" aria-hidden="true"></ion-icon>
+                  <div class="plt-plan-phase__text">
+                    <span class="plt-plan-phase__label">{{ planPhaseLabel }}</span>
+                    <span class="plt-plan-phase__focus" *ngIf="planPhaseFocusLabel">{{ planPhaseFocusLabel }}</span>
+                  </div>
+                </div>
                 <div class="plt-form-group">
                   <label>{{ 'POST_LESSON.TUTOR.ACTION' | translate }}</label>
                   <select

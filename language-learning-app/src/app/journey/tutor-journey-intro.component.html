@@ -102,7 +102,7 @@
     </div>
 
     <!-- Slide 3: full journey map -->
-    <div *ngIf="step === 3" class="ji-body ji-body--maps">
+    <div *ngIf="step === 3" class="ji-body ji-body--maps ji-body--maps-expanded">
       <div class="ji-dots ji-animate-in ji-animate-in--1" aria-hidden="true">
         <span *ngFor="let _ of slides; let i = index"
               class="ji-dot"
@@ -121,8 +121,10 @@
                  [class.ji-map-card--start]="i === startingChapterIndex"
                  [class.ji-map-card--summit]="i === journeyMapPreviews.length - 1"
                  [style.--map-index]="i">
-              <div class="ji-map-thumb-wrap">
+              <div class="ji-map-badge-slot">
                 <span *ngIf="i === startingChapterIndex" class="ji-map-start-badge">{{ 'TUTOR_JOURNEY.INTRO.MAP_EXAMPLE' | translate }}</span>
+              </div>
+              <div class="ji-map-thumb-wrap">
                 <div class="ji-map-thumb" [style.background-image]="'url(' + map.imageUrl + ')'"></div>
               </div>
               <div class="ji-map-meta">

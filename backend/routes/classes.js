@@ -2349,6 +2349,24 @@ router.delete('/:classId', verifyToken, async (req, res) => {
       await ClassModel.deleteOne({ _id: cls._id });
       return res.json({ success: true, message: 'Draft deleted' });
     }
+
+    const nonCancellableStatuses = ['in_progress', 'completed'];
+    if (nonCancellableStatuses.includes(cls.status)) {
+      return res.status(400).json({
+        success: false,
+        code: 'CLASS_ALREADY_STARTED',
+        message: 'Cannot cancel a class that has already started or ended'
+      });
+    }
+
+    const now = new Date();
+    if (new Date(cls.startTime) <= now) {
+      return res.status(400).json({
+        success: false,
+        code: 'CLASS_ALREADY_STARTED',
+        message: 'Cannot cancel a class that has already started or ended'
+      });
+    }
     
     // Cancel the class
     cls.status = 'cancelled';

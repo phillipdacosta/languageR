@@ -1,43 +1,56 @@
-<!-- Floating close button - outside ion-content so it stays visible while content scrolls -->
-<button type="button" class="floating-close-button" (click)="dismiss()" aria-label="Close">
-  <ion-icon name="close" aria-hidden="true"></ion-icon>
-</button>
+<ion-header class="cancel-modal-header">
+  <ion-toolbar>
+    <div class="cancel-modal-toolbar">
+      <button type="button" class="toolbar-close-button" (click)="dismiss()" aria-label="Close">
+        <ion-icon name="close" aria-hidden="true"></ion-icon>
+      </button>
 
-<ion-content class="ion-padding cancel-modal-content">
-  <div class="cancel-reason-content">
-    <!-- Header Section -->
-    <div class="modal-header-section">
-      <h1 class="modal-title">{{ titleTextKey | translate }}</h1>
-    </div>
-
-    <!-- Lesson / Class Info Card -->
-    <div class="lesson-info-card">
-      <div class="lesson-avatar">
-        <ion-avatar *ngIf="!isClass && participantAvatar">
-          <img [src]="participantAvatar" [alt]="participantName || 'Participant'" referrerpolicy="no-referrer">
-        </ion-avatar>
-        <ion-avatar *ngIf="isClass && classThumbnailUrl" class="class-thumb-avatar">
-          <img [src]="classThumbnailUrl" [alt]="className || 'Class'" referrerpolicy="no-referrer">
-        </ion-avatar>
-        <div class="avatar-placeholder" *ngIf="isClass && !classThumbnailUrl">
-          <ion-icon name="people-outline"></ion-icon>
+      <div class="cancel-modal-toolbar__center">
+        <div class="modal-header-section">
+          <h1 class="modal-title">{{ titleTextKey | translate }}</h1>
         </div>
-        <div class="avatar-placeholder" *ngIf="!isClass && !participantAvatar">
-          <ion-icon name="person"></ion-icon>
+
+        <div class="lesson-info-card">
+          <div class="lesson-avatar">
+          <ion-avatar *ngIf="!isClass && participantAvatar">
+            <img [src]="participantAvatar" [alt]="participantName || 'Participant'" referrerpolicy="no-referrer">
+          </ion-avatar>
+          <ion-avatar *ngIf="isClass && classThumbnailUrl" class="class-thumb-avatar">
+            <img [src]="classThumbnailUrl" [alt]="className || 'Class'" referrerpolicy="no-referrer">
+          </ion-avatar>
+          <div class="avatar-placeholder" *ngIf="isClass && !classThumbnailUrl">
+            <ion-icon name="people-outline"></ion-icon>
+          </div>
+          <div class="avatar-placeholder" *ngIf="!isClass && !participantAvatar">
+            <ion-icon name="person"></ion-icon>
+          </div>
+        </div>
+          <div class="lesson-details">
+            <h3 class="lesson-title">{{ lessonTitleText }}</h3>
+            <div class="lesson-meta">
+              <span class="lesson-datetime" *ngIf="formattedDateTime">
+                <ion-icon name="calendar-outline"></ion-icon>
+                {{ formattedDateTime }}
+              </span>
+              <span class="lesson-duration" *ngIf="formattedDuration">
+                <ion-icon name="time-outline"></ion-icon>
+                {{ formattedDuration }}
+              </span>
+            </div>
+          </div>
         </div>
       </div>
-      <div class="lesson-details">
-        <h3 class="lesson-title">{{ lessonTitleText }}</h3>
-        <div class="lesson-meta">
-          <span class="lesson-datetime" *ngIf="formattedDateTime">
-            <ion-icon name="calendar-outline"></ion-icon>
-            {{ formattedDateTime }}
-          </span>
-          <span class="lesson-duration" *ngIf="formattedDuration">
-            <ion-icon name="time-outline"></ion-icon>
-            {{ formattedDuration }}
-          </span>
-        </div>
+    </div>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content #modalContent class="cancel-modal-content">
+  <div class="cancel-reason-scroll">
+    <div class="start-time-blocked-warning" *ngIf="cancellationBlocked">
+      <ion-icon name="time-outline"></ion-icon>
+      <div class="warning-text">
+        <strong>{{ 'ALERTS.CANCEL_REASON.STARTED_TITLE' | translate }}</strong>
+        <p>{{ startedBlockedBodyKey | translate }}</p>
       </div>
     </div>
 
@@ -53,18 +66,19 @@
     <!-- Reason Selection -->
     <div class="reasons-list">
       <p class="select-reason-label">{{ 'ALERTS.CANCEL_REASON.SELECT_REASON' | translate }}</p>
-      
-      <button 
+
+      <button
         *ngFor="let reason of reasons"
         class="reason-option"
         [class.selected]="isSelected(reason)"
+        [disabled]="cancellationBlocked"
         (click)="selectReason(reason)">
         <div class="reason-icon">
           <ion-icon [name]="reason.icon"></ion-icon>
         </div>
         <span class="reason-label">{{ reason.labelKey | translate }}</span>
-        <ion-icon 
-          name="checkmark-circle" 
+        <ion-icon
+          name="checkmark-circle"
           class="check-icon"
           *ngIf="isSelected(reason)">
         </ion-icon>
@@ -84,7 +98,7 @@
     </div>
 
     <!-- Info text -->
-    <div class="info-text">
+    <div #infoTextSection class="info-text">
       <ion-icon name="information-circle-outline"></ion-icon>
       <span>{{ infoText }}</span>
     </div>
@@ -94,13 +108,14 @@
 <ion-footer>
   <ion-toolbar>
     <div class="button-group">
-      <ion-button 
-        expand="block" 
-        fill="outline" 
+      <ion-button
+        expand="block"
+        fill="outline"
+        [disabled]="cancellationBlocked"
         (click)="onSecondaryFooterClick()">
         {{ secondaryFooterCtaLabelKey | translate }}
       </ion-button>
-      <ion-button 
+      <ion-button
         expand="block"
         class="btn-continue"
         [disabled]="!canConfirm()"

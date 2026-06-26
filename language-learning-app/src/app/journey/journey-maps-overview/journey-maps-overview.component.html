@@ -1,0 +1,51 @@
+<div class="journey-intro-shell jmo-shell jmo-shell--modal">
+  <div class="ji-body ji-body--maps">
+    <div class="ji-maps-stage">
+      <div class="ji-maps-title-block">
+        <h1 class="ji-empty-title">{{ titleLead }}</h1>
+        <p class="ji-empty-title-tail">{{ titleTail }}</p>
+      </div>
+
+      <div class="ji-maps-rail">
+        <div class="ji-maps-track">
+          <div
+            *ngFor="let map of journeyMapPreviews; let i = index"
+            class="ji-map-card"
+            [class.ji-map-card--start]="i === startingChapterIndex"
+            [class.ji-map-card--summit]="i === journeyMapPreviews.length - 1"
+            [class.ji-map-card--future]="i > startingChapterIndex"
+            [class.ji-map-card--past]="i < startingChapterIndex"
+            [style.--map-index]="i">
+            <div class="ji-map-badge-slot">
+              <span *ngIf="i === startingChapterIndex" class="ji-map-start-badge">
+                {{ startHereBadgeLabel || ('JOURNEY.INTRO.MAP_START_HERE' | translate) }}
+              </span>
+            </div>
+            <div class="ji-map-thumb-wrap">
+              <app-journey-map-preview
+                *ngIf="i === startingChapterIndex && livePhases.length"
+                class="ji-map-live-preview"
+                size="overview"
+                [chapterStart]="true"
+                [chapterTheme]="liveChapterTheme || map.theme"
+                [chapterLevel]="liveChapterLevel || map.level"
+                [phases]="livePhases"
+                [currentPhaseIndex]="liveCurrentPhaseIndex"
+                [caption]="''" />
+              <div
+                *ngIf="i !== startingChapterIndex || !livePhases.length"
+                class="ji-map-thumb"
+                [style.background-image]="'url(' + map.imageUrl + ')'"></div>
+            </div>
+            <div class="ji-map-meta">
+              <span class="ji-map-level">{{ map.level }}</span>
+              <span class="ji-map-rung">{{ map.rungKey | translate }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p class="ji-desc ji-maps-caption">{{ bodyCaption }}</p>
+    </div>
+  </div>
+</div>

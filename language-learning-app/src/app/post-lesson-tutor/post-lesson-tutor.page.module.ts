@@ -5,6 +5,7 @@ import { IonicModule } from '@ionic/angular';
 import { RouterModule, Routes } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
 import { PostLessonTutorPage } from './post-lesson-tutor.page';
+import { JourneySnapshotPanelComponent } from '../journey/journey-snapshot-panel/journey-snapshot-panel.component';
 
 const routes: Routes = [
   {
@@ -19,7 +20,8 @@ const routes: Routes = [
     FormsModule,
     IonicModule,
     TranslateModule,
-    RouterModule.forChild(routes)
+    RouterModule.forChild(routes),
+    JourneySnapshotPanelComponent
   ],
   declarations: [PostLessonTutorPage]
 })

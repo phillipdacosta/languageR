@@ -163,6 +163,26 @@
         aria-hidden="true"
         decoding="async" />
 
+      <aside
+        class="journey-map-chapter-rail"
+        *ngIf="chapterRailItems.length"
+        aria-hidden="true">
+        <div
+          *ngFor="let ch of chapterRailItems; trackBy: trackByChapterStrip"
+          class="journey-map-rail-card"
+          [class.journey-map-rail-card--past]="ch.state === 'past'"
+          [class.journey-map-rail-card--future]="ch.state === 'future'"
+          [attr.data-theme]="ch.theme">
+          <img
+            class="journey-map-rail-card__img"
+            [src]="ch.imageUrl"
+            alt=""
+            decoding="async"
+            draggable="false" />
+          <span class="journey-map-rail-card__level">{{ ch.level }}</span>
+        </div>
+      </aside>
+
       <div class="journey-map-stage" [class.journey-map-stage--has-traveler]="travelerMapMode">
         <img
           class="journey-map-bg journey-map-bg--sharp"
@@ -322,97 +342,99 @@
 
       <!-- Title, back, and action dock — overlaid on the map. -->
       <div class="journey-map-chrome">
-        <div class="journey-map-chrome-start">
-          <button type="button" class="journey-map-chrome-back" (click)="goBack()" [attr.aria-label]="'JOURNEY.BACK' | translate">
-            <ion-icon name="chevron-back-outline" aria-hidden="true"></ion-icon>
-            <span>{{ 'JOURNEY.BACK' | translate }}</span>
-          </button>
-        </div>
+        <div class="journey-map-chrome-end">
+          <div class="journey-map-chrome-back-slot">
+            <button type="button" class="journey-map-chrome-back" (click)="goBack()" [attr.aria-label]="'JOURNEY.BACK' | translate">
+              <ion-icon name="chevron-back-outline" aria-hidden="true"></ion-icon>
+              <span>{{ 'JOURNEY.BACK' | translate }}</span>
+            </button>
+          </div>
 
-        <div class="journey-map-actions journey-map-actions--dock">
-          <button
-            *ngIf="phaseRows.length"
-            class="journey-dock-btn"
-            type="button"
-            [title]="'JOURNEY.WHY_THIS_PLAN' | translate"
-            [attr.aria-label]="'JOURNEY.WHY_THIS_PLAN' | translate"
-            (click)="openIntroSheet(false)">
-            <ion-icon name="information-circle-outline"></ion-icon>
-          </button>
-          <button
-            class="journey-dock-btn"
-            type="button"
-            [title]="'JOURNEY.PAST_MAPS.OPEN' | translate"
-            [attr.aria-label]="'JOURNEY.PAST_MAPS.OPEN' | translate"
-            (click)="openPastMaps()">
-            <ion-icon name="map-outline"></ion-icon>
-          </button>
-          <button
-            *ngIf="hasCelebrationToReplay"
-            class="journey-dock-btn journey-dock-btn--milestone"
-            type="button"
-            [title]="'JOURNEY.MILESTONE.REOPEN' | translate"
-            [attr.aria-label]="'JOURNEY.MILESTONE.REOPEN' | translate"
-            (click)="replayLatestCelebration()">
-            <ion-icon name="trophy-outline"></ion-icon>
-          </button>
-          <button
-            class="journey-dock-btn"
-            type="button"
-            [title]="'JOURNEY.PLAN_HISTORY.OPEN' | translate"
-            [attr.aria-label]="'JOURNEY.PLAN_HISTORY.OPEN' | translate"
-            (click)="openPlanHistory()">
-            <ion-icon name="time-outline"></ion-icon>
-          </button>
-          <button
-            *ngIf="isPremium && plan"
-            class="journey-dock-btn"
-            type="button"
-            [title]="'JOURNEY.CHAT.OPEN' | translate"
-            [attr.aria-label]="'JOURNEY.CHAT.OPEN' | translate"
-            (click)="openPlanChat()">
-            <ion-icon name="chatbubbles-outline"></ion-icon>
-          </button>
-          <button
-            *ngIf="permissions"
-            class="journey-dock-btn journey-dock-btn--ai"
-            type="button"
-            [class.journey-dock-btn--locked]="!permissions.canRegenWithAi"
-            [attr.aria-label]="regenTooltip"
-            [title]="regenTooltip"
-            (click)="askAiToRegenerate($event)">
-            <ion-icon name="sparkles-outline"></ion-icon>
-            <span class="journey-dock-counter" *ngIf="permissions.isPremium && regen">
-              {{ regen.remaining }}
-            </span>
-          </button>
-          <button
-            *ngIf="isDev"
-            class="journey-dock-btn journey-dock-btn--dev"
-            type="button"
-            title="Test roadblock flow (dev only)"
-            aria-label="Test roadblock flow (dev only)"
-            (click)="openRoadblockDevTools()">
-            <ion-icon name="construct-outline"></ion-icon>
-          </button>
-          <button
-            *ngIf="isDev"
-            class="journey-dock-btn journey-dock-btn--dev"
-            type="button"
-            title="Preview map layouts (dev only)"
-            aria-label="Preview map layouts (dev only)"
-            (click)="openMapLayoutPreview()">
-            <ion-icon name="map-outline"></ion-icon>
-          </button>
-          <button
-            *ngIf="isDev"
-            class="journey-dock-btn journey-dock-btn--dev"
-            type="button"
-            title="Preview chapter transitions (dev only)"
-            aria-label="Preview chapter transitions (dev only)"
-            (click)="openDevPreview()">
-            <ion-icon name="bug-outline"></ion-icon>
-          </button>
+          <div class="journey-map-actions journey-map-actions--dock">
+            <button
+              *ngIf="phaseRows.length"
+              class="journey-dock-btn"
+              type="button"
+              [title]="'JOURNEY.WHY_THIS_PLAN' | translate"
+              [attr.aria-label]="'JOURNEY.WHY_THIS_PLAN' | translate"
+              (click)="openIntroSheet(false)">
+              <ion-icon name="information-circle-outline"></ion-icon>
+            </button>
+            <button
+              class="journey-dock-btn"
+              type="button"
+              [title]="'JOURNEY.PAST_MAPS.OPEN' | translate"
+              [attr.aria-label]="'JOURNEY.PAST_MAPS.OPEN' | translate"
+              (click)="openPastMaps()">
+              <ion-icon name="map-outline"></ion-icon>
+            </button>
+            <button
+              *ngIf="hasCelebrationToReplay"
+              class="journey-dock-btn journey-dock-btn--milestone"
+              type="button"
+              [title]="'JOURNEY.MILESTONE.REOPEN' | translate"
+              [attr.aria-label]="'JOURNEY.MILESTONE.REOPEN' | translate"
+              (click)="replayLatestCelebration()">
+              <ion-icon name="trophy-outline"></ion-icon>
+            </button>
+            <button
+              class="journey-dock-btn"
+              type="button"
+              [title]="'JOURNEY.PLAN_HISTORY.OPEN' | translate"
+              [attr.aria-label]="'JOURNEY.PLAN_HISTORY.OPEN' | translate"
+              (click)="openPlanHistory()">
+              <ion-icon name="time-outline"></ion-icon>
+            </button>
+            <button
+              *ngIf="isPremium && plan"
+              class="journey-dock-btn"
+              type="button"
+              [title]="'JOURNEY.CHAT.OPEN' | translate"
+              [attr.aria-label]="'JOURNEY.CHAT.OPEN' | translate"
+              (click)="openPlanChat()">
+              <ion-icon name="chatbubbles-outline"></ion-icon>
+            </button>
+            <button
+              *ngIf="permissions"
+              class="journey-dock-btn journey-dock-btn--ai"
+              type="button"
+              [class.journey-dock-btn--locked]="!permissions.canRegenWithAi"
+              [attr.aria-label]="regenTooltip"
+              [title]="regenTooltip"
+              (click)="askAiToRegenerate($event)">
+              <ion-icon name="sparkles-outline"></ion-icon>
+              <span class="journey-dock-counter" *ngIf="permissions.isPremium && regen">
+                {{ regen.remaining }}
+              </span>
+            </button>
+          </div>
+
+          <div class="journey-map-actions journey-map-actions--dev-dock" *ngIf="isDev">
+            <button
+              class="journey-dock-btn journey-dock-btn--dev"
+              type="button"
+              title="Test roadblock flow (dev only)"
+              aria-label="Test roadblock flow (dev only)"
+              (click)="openRoadblockDevTools()">
+              <ion-icon name="construct-outline"></ion-icon>
+            </button>
+            <button
+              class="journey-dock-btn journey-dock-btn--dev"
+              type="button"
+              title="Preview map layouts (dev only)"
+              aria-label="Preview map layouts (dev only)"
+              (click)="openMapLayoutPreview()">
+              <ion-icon name="map-outline"></ion-icon>
+            </button>
+            <button
+              class="journey-dock-btn journey-dock-btn--dev"
+              type="button"
+              title="Preview chapter transitions (dev only)"
+              aria-label="Preview chapter transitions (dev only)"
+              (click)="openDevPreview()">
+              <ion-icon name="bug-outline"></ion-icon>
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -1488,6 +1488,10 @@ ion-modal.cancel-reason-modal {
     flex-direction: column;
     height: 100%;
     
+    ion-header {
+      flex-shrink: 0;
+    }
+
     ion-content {
       flex: 1;
       --background: #ffffff;
@@ -2331,6 +2335,105 @@ ion-modal.journey-phase-modal {
     height: 100%;
     overflow-y: auto;
     box-sizing: border-box;
+  }
+}
+
+// Journey current-stage modal — inline sheet opened from snapshot panels
+ion-modal.journey-current-stage-modal {
+  --width: min(520px, calc(100vw - 32px));
+  --height: min(640px, 90vh);
+  --max-height: min(640px, 90vh);
+  --border-radius: 24px;
+  --box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+  --backdrop-opacity: 1;
+
+  &::part(backdrop) {
+    background: rgba(0, 0, 0, 0.32);
+    backdrop-filter: blur(12px) saturate(1.08);
+    -webkit-backdrop-filter: blur(12px) saturate(1.08);
+  }
+
+  ion-backdrop {
+    background: rgba(0, 0, 0, 0.32);
+    backdrop-filter: blur(12px) saturate(1.08);
+    -webkit-backdrop-filter: blur(12px) saturate(1.08);
+  }
+
+  &::part(content) {
+    background: transparent;
+  }
+
+  .modal-wrapper {
+    overflow: hidden;
+    background: #fff;
+    border-radius: 24px;
+  }
+
+  .ion-page {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+
+  app-journey-snapshot-panel,
+  .jsp-modal,
+  app-journey-maps-overview {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+  }
+}
+
+ion-modal.journey-current-stage-expanding::part(content) {
+  transition:
+    width 0.45s cubic-bezier(0.32, 0.72, 0, 1),
+    max-width 0.45s cubic-bezier(0.32, 0.72, 0, 1),
+    height 0.45s cubic-bezier(0.32, 0.72, 0, 1),
+    max-height 0.45s cubic-bezier(0.32, 0.72, 0, 1),
+    border-radius 0.45s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+ion-modal.journey-current-stage-expanding::part(backdrop),
+ion-modal.journey-current-stage-expanding ion-backdrop {
+  transition:
+    background 0.45s cubic-bezier(0.32, 0.72, 0, 1),
+    backdrop-filter 0.45s cubic-bezier(0.32, 0.72, 0, 1),
+    -webkit-backdrop-filter 0.45s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+ion-modal.journey-current-stage-modal.journey-current-stage-expanded {
+  --width: calc(100vw - 120px);
+  --max-width: calc(100vw - 120px);
+  --height: calc(100vh - 48px);
+  --max-height: calc(100vh - 48px);
+  --border-radius: 20px;
+
+  .modal-wrapper,
+  .ion-page {
+    width: 100%;
+    min-width: 0;
+  }
+
+  &::part(backdrop) {
+    background: rgba(0, 0, 0, 0.72);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  ion-backdrop {
+    background: rgba(0, 0, 0, 0.72);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  @media (max-width: 768px) {
+    --width: calc(100vw - 32px);
+    --max-width: calc(100vw - 32px);
+    --height: calc(100vh - 32px);
+    --max-height: calc(100vh - 32px);
+    --border-radius: 16px;
   }
 }
 
@@ -3257,6 +3360,7 @@ html.ion-palette-dark {
   ion-modal.journey-intro-modal::part(backdrop),
   ion-modal.journey-roadblock-modal::part(backdrop),
   ion-modal.journey-phase-modal::part(backdrop),
+  ion-modal.journey-current-stage-modal::part(backdrop),
   ion-modal.journey-chest-modal::part(backdrop) {
     background: rgba(0, 0, 0, 0.32) !important;
     backdrop-filter: blur(6px) !important;
@@ -3284,6 +3388,7 @@ html.ion-palette-dark {
   ion-modal.journey-intro-modal ion-backdrop,
   ion-modal.journey-roadblock-modal ion-backdrop,
   ion-modal.journey-phase-modal ion-backdrop,
+  ion-modal.journey-current-stage-modal ion-backdrop,
   ion-modal.journey-chest-modal ion-backdrop {
     background: rgba(0, 0, 0, 0.32) !important;
     backdrop-filter: blur(6px) !important;
@@ -3356,6 +3461,7 @@ html.ion-palette-dark {
     app-tutor-availability-selection-modal ion-content,
     app-reschedule-lesson-modal ion-content,
     app-cancel-reason-modal ion-content,
+    app-cancel-reason-modal ion-header ion-toolbar,
     app-confirm-action-modal ion-content,
     app-tutor-filters-modal ion-content,
     app-explore-filters-modal ion-content {

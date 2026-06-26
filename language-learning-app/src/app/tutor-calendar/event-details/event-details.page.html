@@ -177,16 +177,21 @@
                   size="sidebar"
                   [illustration]="edJourneyIllustration"
                   [caption]="edJourneyStatusNote" />
-                <app-journey-map-preview
+                <app-journey-snapshot-panel
                   *ngIf="showJourneyMapPreview"
                   class="ed-journey-map-preview"
-                  size="sidebar"
+                  [sectionTitle]="edJourneySnapshotTitle"
+                  [modalTitle]="edJourneySnapshotTitle"
+                  [subjectDisplayName]="edJourneySubjectDisplayName"
                   [chapterTheme]="edJourneyChapterTheme"
                   [chapterLevel]="edJourneyChapterLevel"
                   [phases]="edJourneyPhases"
                   [currentPhaseIndex]="edJourneyCurrentPhaseIndex"
                   [caption]="edJourneyCaption"
-                  [planStateLabel]="edPlanStateLabel" />
+                  [phaseLabel]="edPlanPhaseLabel"
+                  [focusLabel]="edJourneyPhaseFocusLabel"
+                  [showFullJourneyLabel]="edShowFullJourneyLabel"
+                  [startingChapterIndex]="edJourneyStartingChapterIndex" />
               </div>
             </ng-container>
 
@@ -226,23 +231,28 @@
             <ng-container *ngIf="isStudentUser && edShowGoalSidebarSection">
               <div class="ed-pc-divider"></div>
               <div class="ed-journey-map-section">
-                <h3 class="ed-pc-section-title">{{ 'EVENT_DETAILS.LESSON_SCREEN.YOUR_JOURNEY' | translate }}</h3>
+                <h3 class="ed-pc-section-title" *ngIf="!showJourneyMapPreview && edJourneyIllustration">{{ 'EVENT_DETAILS.LESSON_SCREEN.YOUR_JOURNEY' | translate }}</h3>
                 <app-journey-map-preview
                   *ngIf="edJourneyIllustration"
                   class="ed-journey-map-preview"
                   size="sidebar"
                   [illustration]="edJourneyIllustration"
                   [caption]="edJourneyStatusNote" />
-                <app-journey-map-preview
+                <app-journey-snapshot-panel
                   *ngIf="showJourneyMapPreview"
                   class="ed-journey-map-preview"
-                  size="sidebar"
+                  [sectionTitle]="edJourneySnapshotTitle"
+                  [modalTitle]="edJourneySnapshotTitle"
+                  [subjectDisplayName]="edJourneySubjectDisplayName"
                   [chapterTheme]="edJourneyChapterTheme"
                   [chapterLevel]="edJourneyChapterLevel"
                   [phases]="edJourneyPhases"
                   [currentPhaseIndex]="edJourneyCurrentPhaseIndex"
                   [caption]="edJourneyCaption"
-                  [planStateLabel]="edPlanStateLabel" />
+                  [phaseLabel]="edPlanPhaseLabel"
+                  [focusLabel]="edJourneyPhaseFocusLabel"
+                  [showFullJourneyLabel]="edShowFullJourneyLabel"
+                  [startingChapterIndex]="edJourneyStartingChapterIndex" />
               </div>
             </ng-container>
 
@@ -565,26 +575,8 @@
         </div>
         <p class="ed-body" *ngIf="showTutorPrivateNotes">{{ lesson.notes }}</p>
 
-        <!-- Scores, topics and recommended focus — tutors only (students click through to full analysis) -->
+        <!-- Topics and recommended focus — tutors only (students click through to full analysis) -->
         <ng-container *ngIf="isTutorUser">
-          <div class="ed-scores" *ngIf="hasAnalysis && isAiAnalysis && (analysisData?.grammarAnalysis || analysisData?.fluencyAnalysis || analysisData?.pronunciationAnalysis)">
-            <div class="ed-score" *ngIf="analysisData?.grammarAnalysis?.accuracyScore != null">
-              <span class="ed-score-num" [style.color]="grammarScoreColor">{{ analysisData?.grammarAnalysis?.accuracyScore }}</span>
-              <span class="ed-score-name">{{ 'EVENT_DETAILS.LESSON_SCREEN.SCORE_GRAMMAR' | translate }}</span>
-            </div>
-            <div class="ed-score" *ngIf="analysisData?.fluencyAnalysis?.overallFluencyScore != null">
-              <span class="ed-score-num" [style.color]="fluencyScoreColor">{{ analysisData?.fluencyAnalysis?.overallFluencyScore }}</span>
-              <span class="ed-score-name">{{ 'EVENT_DETAILS.LESSON_SCREEN.SCORE_FLUENCY' | translate }}</span>
-            </div>
-            <div class="ed-score" *ngIf="analysisData?.pronunciationAnalysis?.overallScore != null">
-              <span class="ed-score-num" [style.color]="pronunciationScoreColor">{{ analysisData?.pronunciationAnalysis?.overallScore }}</span>
-              <span class="ed-score-name">{{ 'EVENT_DETAILS.LESSON_SCREEN.SCORE_PRONUNCIATION' | translate }}</span>
-            </div>
-            <div class="ed-score" *ngIf="analysisData?.vocabularyAnalysis?.vocabularyRange">
-              <span class="ed-score-word">{{ analysisData?.vocabularyAnalysis?.vocabularyRange }}</span>
-              <span class="ed-score-name">{{ 'EVENT_DETAILS.LESSON_SCREEN.SCORE_VOCABULARY' | translate }}</span>
-            </div>
-          </div>
           <div class="ed-topics" *ngIf="hasAnalysis && analysisData?.topicsDiscussed?.length">
             <span class="ed-topic" *ngFor="let t of analysisData?.topicsDiscussed">{{ t }}</span>
           </div>

@@ -1051,6 +1051,19 @@ $pls-viewport-height: calc(100dvh - #{$pls-chrome-height});
   animation: plsFadeIn 0.4s ease both;
 }
 
+.pls-book-again-cta {
+  margin-top: 4px;
+}
+
+.pls-view-feedback-cta {
+  margin-top: 20px;
+}
+
+.pls-analysis-ready ~ .pls-availability-host--active,
+.pls-book-again-cta ~ .pls-availability-host--active {
+  margin-top: 28px;
+}
+
 .pls-analysis-header {
   text-align: center;
   margin-bottom: 24px;
@@ -1096,7 +1109,7 @@ $pls-viewport-height: calc(100dvh - #{$pls-chrome-height});
 
 .pls-quick-summary {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 10px;
   margin-bottom: 16px;
 
@@ -1106,11 +1119,7 @@ $pls-viewport-height: calc(100dvh - #{$pls-chrome-height});
 }
 
 .pls-recap-only .pls-quick-summary {
-  grid-template-columns: repeat(2, 1fr);
-
-  @media (max-width: 520px) {
-    grid-template-columns: 1fr;
-  }
+  grid-template-columns: 1fr;
 }
 
 .pls-summary-card {

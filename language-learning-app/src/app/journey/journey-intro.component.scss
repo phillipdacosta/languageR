@@ -1,0 +1,244 @@
+@import './journey-intro-shell.scss';
+
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  position: relative;
+}
+
+@mixin ji-student-callout-card {
+  text-align: left;
+  width: 100%;
+  max-width: 440px;
+  padding: 16px 18px;
+  border-radius: 16px;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.06);
+
+  ion-icon {
+    font-size: 20px;
+    color: #222222;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  p {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.55;
+    color: #484848;
+    letter-spacing: -0.1px;
+  }
+}
+
+@mixin ji-student-centered-body {
+  align-items: center;
+  text-align: center;
+  justify-content: flex-start;
+}
+
+// Slide 0 — centered hero + elevated callout
+.ji-body--student-welcome {
+  @include ji-student-centered-body;
+  padding-top: 48px;
+
+  .ji-eyebrow {
+    margin-bottom: 20px;
+  }
+
+  .ji-hero-mascot--centered {
+    width: 96px;
+    height: 96px;
+    margin: 0 0 20px;
+  }
+
+  .ji-title--sm {
+    margin-bottom: 12px;
+    max-width: 420px;
+  }
+
+  .ji-desc--sm {
+    margin: 0 0 20px;
+    max-width: 440px;
+    color: #717171;
+    line-height: 1.55;
+  }
+
+  .ji-self-level {
+    max-width: 440px;
+    margin: 0 0 16px;
+  }
+
+  .ji-callout--card {
+    @include ji-student-callout-card;
+    margin-bottom: 0;
+  }
+}
+
+// Slide 1 — chapter preview + phases
+.ji-body--student-phases {
+  @include ji-student-centered-body;
+  padding-top: 48px;
+
+  .ji-phases-label,
+  .ji-desc--sm {
+    max-width: 440px;
+    width: 100%;
+  }
+
+  .ji-desc--sm {
+    margin-bottom: 20px;
+    color: #717171;
+    line-height: 1.55;
+  }
+
+  .ji-map-preview-wrap {
+    width: 100%;
+    max-width: 440px;
+    margin: 0 0 20px;
+  }
+
+  .ji-callout--card {
+    @include ji-student-callout-card;
+    margin-bottom: 0;
+  }
+}
+
+.ji-map-preview {
+  display: block;
+  width: 100%;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+// Slide 2 — adapts after lessons
+.ji-body--student-explain {
+  @include ji-student-centered-body;
+  padding-top: 48px;
+
+  .ji-empty-title-block {
+    max-width: 440px;
+  }
+
+  .ji-focus-demo {
+    max-width: 440px;
+    margin: 0 0 20px;
+  }
+
+  .ji-focus-card {
+    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.06);
+    border-color: rgba(0, 0, 0, 0.06);
+  }
+
+  .ji-desc {
+    max-width: 440px;
+    color: #484848;
+    line-height: 1.55;
+  }
+
+  .ji-desc--hint {
+    max-width: 440px;
+    color: #717171;
+  }
+}
+
+// Slide 4 — you're in control
+.ji-body--student-control {
+  @include ji-student-centered-body;
+  padding-top: 48px;
+
+  .ji-empty-title-block {
+    max-width: 440px;
+  }
+
+  .ji-desc {
+    max-width: 440px;
+    margin-bottom: 20px;
+    color: #717171;
+    line-height: 1.55;
+  }
+
+  .ji-action-cards {
+    max-width: 440px;
+    margin: 0 0 16px;
+  }
+
+  .ji-action-card--elevated {
+    background: #ffffff;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    border-radius: 16px;
+    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.06);
+    padding: 14px 16px;
+  }
+
+  .ji-book-nudge {
+    max-width: 440px;
+    margin-bottom: 0;
+    background: #ffffff;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    border-radius: 16px;
+    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.06);
+  }
+}
+
+:host-context(html.ion-palette-dark) {
+  .ji-body--student-welcome,
+  .ji-body--student-phases,
+  .ji-body--student-explain,
+  .ji-body--student-control {
+    .ji-desc,
+    .ji-desc--sm,
+    .ji-desc--hint {
+      color: #98989d;
+    }
+
+    .ji-callout--card {
+      background: #2c2c2e;
+      border-color: rgba(255, 255, 255, 0.08);
+      box-shadow: 0 2px 16px rgba(0, 0, 0, 0.24);
+
+      ion-icon {
+        color: #f5f5f7;
+      }
+
+      p {
+        color: #98989d;
+      }
+    }
+  }
+
+  .ji-body--student-explain .ji-focus-card {
+    background: #2c2c2e;
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.24);
+  }
+
+  .ji-body--student-control {
+    .ji-action-card--elevated,
+    .ji-book-nudge {
+      background: #2c2c2e;
+      border-color: rgba(255, 255, 255, 0.08);
+      box-shadow: 0 2px 16px rgba(0, 0, 0, 0.24);
+    }
+
+    .ji-action-icon {
+      background: #1c1c1e;
+      border-color: rgba(255, 255, 255, 0.08);
+    }
+
+    .ji-action-label {
+      color: #f5f5f7;
+    }
+
+    .ji-book-nudge ion-icon {
+      color: #f5f5f7;
+    }
+
+    .ji-book-nudge p {
+      color: #98989d;
+    }
+  }
+}

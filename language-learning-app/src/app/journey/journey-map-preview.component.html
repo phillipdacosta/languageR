@@ -7,7 +7,9 @@
   [class.jmp-card--illustration-paused]="illustration === 'paused'"
   [class.jmp-card--illustration-empty]="illustration === 'empty'"
   [class.jmp-card--large]="size === 'large'"
-  [class.jmp-card--sidebar]="size === 'sidebar'">
+  [class.jmp-card--sidebar]="size === 'sidebar'"
+  [class.jmp-card--overview]="size === 'overview'"
+  [class.jmp-card--chapter-start]="chapterStart && size === 'overview'">
   <div class="jmp-header" *ngIf="planStateLabel && !showIllustration">
     <span class="jmp-plan-state">{{ planStateLabel }}</span>
   </div>

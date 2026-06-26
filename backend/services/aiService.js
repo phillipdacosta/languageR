@@ -1797,7 +1797,7 @@ Respond ONLY with valid JSON:
     "confidenceLevel": 5,
     "speakingTimeMinutes": 10,
     "complexSentencesUsed": 2,
-    "keyImprovements": ["string"],
+    "keyImprovements": ["string — ONLY when proficiencyChange is improved or maintained vs a prior analyzed lesson. Use empty [] for first_lesson. Never use 'improved' wording on a first lesson."],
     "persistentChallenges": ["string"]
   },
   "errorPatterns": [
@@ -2168,6 +2168,19 @@ You MUST include errorPatterns and correctedExcerpts arrays with actual quotes f
     console.log(`✅ Analysis completed: ${analysis.overallAssessment?.proficiencyLevel || '(recap-only, no level)'} ${gradeMode === 'recap_only' ? '[recap mode]' : 'level detected'}`);
     console.log(`✅ Student summary: ${(analysis.studentSummary || '').substring(0, 100)}...`);
     console.log(`🤖 ========================================`);
+
+    const isFirstAnalyzedLesson = !previousAnalyses?.length;
+    if (analysis.progressionMetrics) {
+      if (isFirstAnalyzedLesson) {
+        analysis.progressionMetrics.proficiencyChange = 'first_lesson';
+      }
+      if (
+        analysis.progressionMetrics.proficiencyChange === 'first_lesson' ||
+        isFirstAnalyzedLesson
+      ) {
+        analysis.progressionMetrics.keyImprovements = [];
+      }
+    }
     
     return analysis;
     

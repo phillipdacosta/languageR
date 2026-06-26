@@ -4138,13 +4138,24 @@ router.delete('/:id/cancel', verifyToken, async (req, res) => {
     if (lesson.status === 'cancelled') {
       return res.status(400).json({ success: false, message: 'Lesson is already cancelled' });
     }
+
+    // Block cancellation once the lesson has started or finished
+    const nonCancellableStatuses = ['in_progress', 'ended_early', 'completed'];
+    if (nonCancellableStatuses.includes(lesson.status)) {
+      return res.status(400).json({
+        success: false,
+        code: 'LESSON_ALREADY_STARTED',
+        message: 'Cannot cancel a lesson that has already started or ended'
+      });
+    }
     
-    // Check if lesson has already started or ended
+    // Check if lesson start time has been reached or passed
     const now = new Date();
     const lessonStart = new Date(lesson.startTime);
     if (lessonStart <= now) {
       return res.status(400).json({ 
-        success: false, 
+        success: false,
+        code: 'LESSON_ALREADY_STARTED',
         message: 'Cannot cancel a lesson that has already started or ended' 
       });
     }

@@ -882,7 +882,7 @@
                 </app-paypal-connect-card>
               </div>
 
-              <div *ngIf="currentUser?.payoutProvider !== 'stripe' && currentUser?.payoutProvider !== 'paypal'" class="profile-payout-provider tutor-approval-step-pane--sub">
+              <div *ngIf="currentUser?.payoutProvider === 'manual'" class="profile-payout-provider tutor-approval-step-pane--sub">
                 <div class="status-card-large success">
                   <ion-icon name="checkmark-circle"></ion-icon>
                   <p>{{ 'TUTOR_APPROVAL.PAYMENT_CONNECTED' | translate }}</p>
