@@ -134,6 +134,15 @@ interface MapNode {
   row: PhaseRow;
 }
 
+interface JourneyChapterStripItem {
+  index: number;
+  level: string;
+  theme: string;
+  label: string;
+  imageUrl: string;
+  state: 'past' | 'current' | 'future';
+}
+
 interface RoadblockNode {
   x: number;
   y: number;
@@ -229,6 +238,9 @@ export class JourneyPage implements OnInit, OnDestroy {
   private phaseDetailModalView: JourneyPhaseDetailModalComponent | null = null;
   private roadblockModalBounds: { x: number; y: number; width: number; height: number } | null = null;
   private chestModalBounds: { x: number; y: number; width: number; height: number } | null = null;
+
+  // All-chapter strip — lowest → highest with past/current/future styling.
+  chapterStrip: JourneyChapterStripItem[] = [];
 
   // Scenic winding-path map
   mapNodes: MapNode[] = [];
@@ -722,6 +734,7 @@ export class JourneyPage implements OnInit, OnDestroy {
 
   trackByPhase(_i: number, row: PhaseRow) { return row.index; }
   trackByMapNode(_i: number, node: MapNode) { return node.index; }
+  trackByChapterStrip(_i: number, ch: JourneyChapterStripItem) { return ch.index; }
   trackByMaterial(_i: number, mat: RecommendedMaterial) { return mat._id; }
 
   // ── Internal ────────────────────────────────────────────────────
@@ -837,6 +850,7 @@ export class JourneyPage implements OnInit, OnDestroy {
     this.mapPhaseVariant = resolveMapVariant(phases.length || 4);
     this.backgroundUrl = journeyBackgroundUrl(this.chapterTheme, phases.length || 4);
     this.backgroundFailed = false;
+    this.rebuildChapterStrip();
 
     // Re-pick the smart CTA now that plan + phaseTitle + nextLessonFocus
     // are populated. Will be re-run again when comingUp / practiceDue arrive.
@@ -1797,6 +1811,7 @@ export class JourneyPage implements OnInit, OnDestroy {
     }
     // Always rebuild — chapter theme changed, so the path needs a redraw.
     this.computeMapNodes();
+    this.rebuildChapterStrip();
     this.cdr.markForCheck();
   }
 
@@ -1836,6 +1851,37 @@ export class JourneyPage implements OnInit, OnDestroy {
 
   get backgroundSrcHiRes(): string {
     return journeyBackgroundUrlHiRes(this.backgroundUrl);
+  }
+
+  /** Non-current chapters for the left vertical rail (A1→C2). */
+  get chapterRailItems(): JourneyChapterStripItem[] {
+    return this.chapterStrip.filter(ch => ch.state !== 'current');
+  }
+
+  private rebuildChapterStrip(): void {
+    const progressIndex = this.visitingChapter
+      ? (this.liveChapterSnapshot?.index ?? this.chapterIndex)
+      : this.chapterIndex;
+    const displayIndex = this.visitingChapter?.index ?? this.chapterIndex;
+
+    this.chapterStrip = JourneyPage.CHAPTER_PREVIEWS.map(ch => {
+      let state: JourneyChapterStripItem['state'];
+      if (ch.index === displayIndex) {
+        state = 'current';
+      } else if (ch.index > progressIndex) {
+        state = 'future';
+      } else {
+        state = 'past';
+      }
+      return {
+        index: ch.index,
+        level: ch.level,
+        theme: ch.theme,
+        label: ch.label,
+        imageUrl: journeyBackgroundUrl(ch.theme, 5),
+        state
+      };
+    });
   }
 
   // ── Pending transition state (Batch 4) ──────────────────────────────

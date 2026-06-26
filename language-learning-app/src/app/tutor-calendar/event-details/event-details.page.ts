@@ -19,6 +19,7 @@ import { WalletService } from '../../services/wallet.service';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { environment } from '../../../environments/environment';
 import { JourneyMapPreviewComponent, JourneyMapPreviewIllustration, JourneyMapPreviewPhase } from '../../journey/journey-map-preview.component';
+import { JourneySnapshotPanelComponent } from '../../journey/journey-snapshot-panel/journey-snapshot-panel.component';
 import { CancelReasonModalComponent } from '../../components/cancel-reason-modal/cancel-reason-modal.component';
 import { ClassAttendeesComponent } from '../../components/class-attendees/class-attendees.component';
 import { ClassInvitationModalComponent } from '../../components/class-invitation-modal/class-invitation-modal.component';
@@ -141,7 +142,7 @@ type RecommendedMaterialDisplay = TutorMaterial & {
   templateUrl: './event-details.page.html',
   styleUrls: ['./event-details.page.scss'],
   standalone: true,
-  imports: [CommonModule, FormsModule, IonicModule, SharedModule, TranslateModule, CancelReasonModalComponent, ConfirmActionModalComponent, RescheduleLessonModalComponent, ClassAttendeesComponent, ClassInvitationModalComponent, ClassGoingMessageModalComponent, JourneyMapPreviewComponent]
+  imports: [CommonModule, FormsModule, IonicModule, SharedModule, TranslateModule, CancelReasonModalComponent, ConfirmActionModalComponent, RescheduleLessonModalComponent, ClassAttendeesComponent, ClassInvitationModalComponent, ClassGoingMessageModalComponent, JourneyMapPreviewComponent, JourneySnapshotPanelComponent]
 })
 export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewDidEnter {
   /** When presented as a modal, the caller passes the event ID directly */
@@ -262,6 +263,11 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   edJourneyPhases: JourneyMapPreviewPhase[] = [];
   edJourneyCaption = '';
   edJourneyCurrentPhaseIndex = 0;
+  edJourneySnapshotTitle = '';
+  edJourneySubjectDisplayName = '';
+  edJourneyPhaseFocusLabel = '';
+  edJourneyStartingChapterIndex = -1;
+  edShowFullJourneyLabel = '';
   edPlanNextFocus = '';
   edPlanStudentSummary = '';
   edPlanFocusAreas: string[] = [];
@@ -481,9 +487,6 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   private activeClassRoomId: string | null = null;
 
   // Pre-computed score colors (no functions in template)
-  grammarScoreColor = '#6b7280';
-  fluencyScoreColor = '#6b7280';
-  pronunciationScoreColor = '#6b7280';
 
   // Class-specific pre-computed
   levelLabel = '';
@@ -1950,6 +1953,10 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       this.participantRoleDisplay = '';
     }
 
+    if (this.edHasPlan || this.showJourneyMapPreview) {
+      this.rebuildJourneySnapshotLabels();
+    }
+
     // Pre-compute tutor display name for student view ("Phillip D.")
     const tutor = this.lesson.tutorId;
     if (tutor) {
@@ -2877,6 +2884,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     this.edPlanStudentSummary = summary.studentSummary || '';
     this.edPlanFocusAreas = summary.currentPhase?.focusAreas || [];
     this.edPlanSuggestedTopics = summary.currentPhase?.suggestedTopics || [];
+    this.rebuildJourneySnapshotLabels();
     this.edHasPlan = true;
     this.planContextLoaded = true;
     this.refreshPlanPresentation();
@@ -2994,6 +3002,54 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       this.showJourneyMapPreview ||
       this.edJourneyIllustration
     );
+    this.rebuildJourneySnapshotLabels();
+  }
+
+  private rebuildJourneySnapshotLabels(): void {
+    this.edShowFullJourneyLabel = this.translate.instant('JOURNEY.SNAPSHOT.SHOW_FULL_JOURNEY');
+
+    if (this.isTutorUser) {
+      const name = this.participantName || this.translate.instant('VIDEO_CALL.STUDENT');
+      this.edJourneySnapshotTitle = this.translate.instant('JOURNEY.SNAPSHOT.STUDENT_IS_HERE', { name });
+      this.edJourneySubjectDisplayName = name;
+    } else if (this.isStudentUser) {
+      this.edJourneySnapshotTitle = this.translate.instant('JOURNEY.SNAPSHOT.YOU_ARE_HERE');
+      this.edJourneySubjectDisplayName = '';
+    } else {
+      this.edJourneySnapshotTitle = '';
+      this.edJourneySubjectDisplayName = '';
+    }
+
+    const focusAreas = this.edPlanFocusAreas || [];
+    this.edJourneyPhaseFocusLabel = focusAreas.length
+      ? this.translate.instant('JOURNEY.SNAPSHOT.PHASE_FOCUS', {
+          areas: focusAreas.slice(0, 3).join(' · ')
+        })
+      : '';
+
+    this.edJourneyStartingChapterIndex = this.resolveChapterIndex(
+      this.edJourneyChapterTheme,
+      this.edJourneyChapterLevel
+    );
+  }
+
+  private resolveChapterIndex(theme?: string, level?: string): number {
+    const themeMap: Record<string, number> = {
+      'a1-desert': 0,
+      'a2-coast': 1,
+      'b1-lake': 2,
+      'b2-snow': 3,
+      'c1-cherry': 4,
+      'c2-tuscany': 5
+    };
+    const fromTheme = themeMap[(theme || '').toLowerCase()];
+    if (typeof fromTheme === 'number') {
+      return fromTheme;
+    }
+    const levelMap: Record<string, number> = {
+      A1: 0, A2: 1, B1: 2, B2: 3, C1: 4, C2: 5
+    };
+    return levelMap[(level || 'A1').toUpperCase()] ?? 0;
   }
 
   private finishEdPlanLoad(silent = false): void {
@@ -3034,6 +3090,11 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     this.edJourneyPhases = [];
     this.edJourneyCaption = '';
     this.edJourneyCurrentPhaseIndex = 0;
+    this.edJourneySnapshotTitle = '';
+    this.edJourneySubjectDisplayName = '';
+    this.edJourneyPhaseFocusLabel = '';
+    this.edJourneyStartingChapterIndex = -1;
+    this.edShowFullJourneyLabel = '';
     this.edPlanNextFocus = '';
     this.edPlanStudentSummary = '';
     this.edPlanFocusAreas = [];
@@ -3467,11 +3528,6 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       ? this.translate.instant('EVENT_DETAILS.LESSON_SCREEN.AI_ANALYSIS_LABEL')
       : this.translate.instant('EVENT_DETAILS.LESSON_SCREEN.TUTOR_ASSESSMENT_LABEL');
 
-    // Pre-compute score colors
-    this.grammarScoreColor = this.calcScoreColor(this.analysisData.grammarAnalysis?.accuracyScore);
-    this.fluencyScoreColor = this.calcScoreColor(this.analysisData.fluencyAnalysis?.overallFluencyScore);
-    this.pronunciationScoreColor = this.calcScoreColor(this.analysisData.pronunciationAnalysis?.overallScore);
-
     // Tutor note
     if (this.analysisData.tutorNote?.text) {
       this.hasTutorNote = true;
@@ -3501,13 +3557,6 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       return { badge: dashParts[0].trim().slice(0, 4), detail: dashParts.slice(1).join(' – ').trim() };
     }
     return { badge: trimmed.slice(0, 4), detail: '' };
-  }
-
-  private calcScoreColor(score: number | undefined): string {
-    if (score == null) return '#6b7280';
-    if (score >= 80) return '#10b981';
-    if (score >= 60) return '#f59e0b';
-    return '#ef4444';
   }
 
   private resolveSidebarNotes() {

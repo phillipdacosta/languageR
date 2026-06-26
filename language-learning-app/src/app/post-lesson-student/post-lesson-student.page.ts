@@ -85,9 +85,10 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
   analysisUnavailableTitle = '';
   analysisUnavailableSub = '';
   analysisReadyTitle = '';
-  analysisDetailsToggleLabel = '';
   viewFullAnalysisLabel = '';
   takeawaysTitle = '';
+  takeawayItems: string[] = [];
+  showTakeawaysSection = false;
   vocabSectionTitle = '';
   vocabCountLabel = '';
   goalsSectionTitle = '';
@@ -128,11 +129,15 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
   availabilityPreviewSlots: BookableSlotPreview[] = [];
   availabilityPreviewHasMore = false;
   availabilityPreviewEmpty = false;
+  availabilityPreviewResolved = false;
   showFullAvailabilityViewer = false;
   availPreviewLoadingLabel = '';
   availNoSlotsBody = '';
   availSendMessageLabel = '';
   viewAvailabilityLabel = '';
+  bookAgainCtaLabel = '';
+  viewFeedbackCtaLabel = '';
+  showBookAgainSection = false;
 
   @ViewChild('availabilityViewer') availabilityViewer?: TutorAvailabilityViewerComponent;
   private availabilityPreviewScanning = false;
@@ -206,20 +211,13 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
   pollCount = 0;
   maxPollAttempts = 60;
 
-  // Quick-summary cards are deliberately *qualitative* by default to
-  // avoid making each lesson feel like an exam. Students can opt into
-  // raw numbers via this toggle. Per-mount only — qualitative is always
-  // the first read, no persisted preference.
-  showAnalysisDetails = false;
-
-  /** Pre-computed chips for the quick summary block. Built once when
-   *  the analysis lands so the template never calls a function — see
-   *  AGENTS.md "no functions in templates" rule. */
+  // Quick-summary cards use qualitative labels only on this page; raw values
+  // remain on the analysis object for the full analysis view.
   quickSummaryChips: Array<{
-    key: 'level' | 'vocabulary' | 'grammar';
-    label: string;          // localized field name
-    qualitative: string;    // "Strong", "Solid", "B1", "142 words"
-    detail: string;         // raw value for the "Show details" toggle
+    key: 'level' | 'grammar';
+    label: string;
+    qualitative: string;
+    detail: string;
     tone: 'neutral' | 'strong' | 'solid' | 'building' | 'needs_work';
   }> = [];
 
@@ -230,13 +228,6 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
   recapMessage = '';
 
   private readonly destroy$ = new Subject<void>();
-
-  toggleAnalysisDetails() {
-    this.showAnalysisDetails = !this.showAnalysisDetails;
-    this.analysisDetailsToggleLabel = this.showAnalysisDetails
-      ? this.t('POST_LESSON.STUDENT.HIDE_SCORES')
-      : this.t('POST_LESSON.STUDENT.SHOW_SCORES');
-  }
 
   /** Map a 0–100 score → student-facing qualitative bucket + tone. */
   private qualitativeFromScore(score: number | null | undefined): { label: string; tone: 'neutral' | 'strong' | 'solid' | 'building' | 'needs_work' } {
@@ -254,7 +245,6 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
     const a: any = this.analysis;
 
     const level: string = a.overallAssessment?.proficiencyLevel || 'N/A';
-    const vocabCount: number = a.vocabularyAnalysis?.uniqueWordCount || 0;
     const grammarScore: number | null =
       typeof a.grammarAnalysis?.accuracyScore === 'number' ? a.grammarAnalysis.accuracyScore : null;
 
@@ -284,13 +274,6 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
       });
     }
     chips.push({
-      key: 'vocabulary',
-      label: this.t('POST_LESSON.STUDENT.VOCABULARY'),
-      qualitative: `${vocabCount} word${vocabCount === 1 ? '' : 's'}`,
-      detail: `${vocabCount}`,
-      tone: 'neutral'
-    });
-    chips.push({
       key: 'grammar',
       label: this.t('POST_LESSON.STUDENT.GRAMMAR'),
       qualitative: grammarQ.label,
@@ -298,6 +281,53 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
       tone: grammarQ.tone
     });
     this.quickSummaryChips = chips;
+    this.rebuildTakeaways();
+  }
+
+  private isFirstAnalyzedLesson(): boolean {
+    if (!this.analysis) return false;
+    const pm = this.analysis.progressionMetrics;
+    const progress = this.analysis.overallAssessment?.progressFromLastLesson || '';
+    const previousLevel = (pm?.previousProficiencyLevel || '').trim();
+
+    return (
+      pm?.proficiencyChange === 'first_lesson' ||
+      !previousLevel ||
+      /first analyzed lesson|baseline established|establishing baseline|first lesson/i.test(progress)
+    );
+  }
+
+  /** Model sometimes labels baseline strengths as "Improved …" when there is no prior lesson. */
+  private looksLikeBaselineImprovementCopy(items: string[]): boolean {
+    return (
+      items.length > 0 &&
+      items.every((item) => /^improved\b/i.test(item.trim()))
+    );
+  }
+
+  private rebuildTakeaways(): void {
+    if (!this.analysis) {
+      this.takeawayItems = [];
+      this.showTakeawaysSection = false;
+      return;
+    }
+
+    const strengths = (this.analysis.strengths || []).filter((s) => !!s?.trim()).slice(0, 4);
+    const improvements = (this.analysis.progressionMetrics?.keyImprovements || [])
+      .filter((s) => !!s?.trim());
+    const useHighlights =
+      this.isFirstAnalyzedLesson() ||
+      (this.looksLikeBaselineImprovementCopy(improvements) && strengths.length > 0);
+
+    if (useHighlights) {
+      this.takeawayItems = strengths.length > 0 ? strengths : improvements;
+      this.takeawaysTitle = this.t('POST_LESSON.STUDENT.HIGHLIGHTS');
+    } else {
+      this.takeawayItems = improvements;
+      this.takeawaysTitle = this.t('POST_LESSON.STUDENT.TAKEAWAYS');
+    }
+
+    this.showTakeawaysSection = this.takeawayItems.length > 0;
   }
 
   // Plan-update card (Phase 3 of the better-than-toast UX). Surfaces
@@ -368,6 +398,7 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
       this.updateLessonDisplay();
       if (this.analysis) {
         this.rebuildQuickSummary();
+        this.rebuildTakeaways();
       }
     });
     console.log('🎓 POST-LESSON-STUDENT: Initializing with lessonId:', this.lessonId);
@@ -608,9 +639,6 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
     this.analysisUnavailableTitle = this.t('POST_LESSON.STUDENT.ANALYSIS_NONE_TITLE');
     this.analysisUnavailableSub = this.t('POST_LESSON.STUDENT.ANALYSIS_NONE_SUB');
     this.analysisReadyTitle = this.t('POST_LESSON.STUDENT.ANALYSIS_READY');
-    this.analysisDetailsToggleLabel = this.showAnalysisDetails
-      ? this.t('POST_LESSON.STUDENT.HIDE_SCORES')
-      : this.t('POST_LESSON.STUDENT.SHOW_SCORES');
     this.viewFullAnalysisLabel = this.t('POST_LESSON.STUDENT.VIEW_FULL');
     this.takeawaysTitle = this.t('POST_LESSON.STUDENT.TAKEAWAYS');
     this.vocabSectionTitle = this.t('POST_LESSON.STUDENT.VOCAB_SECTION');
@@ -639,6 +667,8 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
     this.availPreviewLoadingLabel = this.t('POST_LESSON.STUDENT.AVAIL_PREVIEW_LOADING');
     this.availSendMessageLabel = this.t('POST_LESSON.STUDENT.AVAIL_SEND_MESSAGE');
     this.viewAvailabilityLabel = this.t('POST_LESSON.STUDENT.VIEW_AVAILABILITY');
+    this.bookAgainCtaLabel = this.t('POST_LESSON.STUDENT.BOOK_AGAIN_CTA');
+    this.viewFeedbackCtaLabel = this.t('POST_LESSON.STUDENT.VIEW_FEEDBACK_CTA');
     this.cardFeeGenericNote = this.t('POST_LESSON.STUDENT.CARD_FEE_GENERIC', { label: this.cardFeeLabel });
     this.updateVocabCountLabel();
     this.updateTipLabels();
@@ -692,18 +722,83 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
     return !this.showFullAvailabilityViewer;
   }
 
+  /** When analysis is ready, book-again UI is tucked behind a CTA. */
+  get analysisDeferredAvailability(): boolean {
+    return !this.isTrialLesson && this.aiAnalysisEnabled && this.analysisReady && !!this.analysis;
+  }
+
+  get showAvailabilitySection(): boolean {
+    if (!this.analysisDeferredAvailability) {
+      return true;
+    }
+    return this.showBookAgainSection;
+  }
+
+  get showAnalysisPanel(): boolean {
+    if (!this.aiAnalysisEnabled || this.isTrialLesson) {
+      return false;
+    }
+    if (this.analysisDeferredAvailability) {
+      return !this.showBookAgainSection;
+    }
+    return true;
+  }
+
+  /** Keep the viewer mounted for background prefetch while analysis is in focus. */
+  get shouldMountAvailabilityHost(): boolean {
+    return !!this.tutor && !this.isTrialLesson;
+  }
+
+  openBookAgainSection(): void {
+    if (this.showBookAgainSection) return;
+    this.showBookAgainSection = true;
+    this.updateSubheaderDisplay();
+    this.updateRightPanelLayout();
+    if (!this.availabilityPreviewResolved) {
+      this.cdr.detectChanges();
+      setTimeout(() => {
+        if (this.availabilityViewer) {
+          void this.refreshAvailabilityPreview();
+        }
+      }, 0);
+    }
+  }
+
+  openAnalysisSection(): void {
+    if (!this.showBookAgainSection) return;
+    this.showBookAgainSection = false;
+    this.showFullAvailabilityViewer = false;
+    this.updateSubheaderDisplay();
+    this.updateRightPanelLayout();
+    this.cdr.markForCheck();
+  }
+
   onAvailabilityPreloaded(event: { hasAvailability: boolean; tutorBlocked: boolean }): void {
     if (this.useAvailabilityPreview) {
       void this.refreshAvailabilityPreview(event);
     }
   }
 
+  private prefetchAvailabilityPreview(): void {
+    if (!this.analysisDeferredAvailability || !this.tutor) return;
+    this.cdr.detectChanges();
+    setTimeout(() => {
+      if (this.availabilityViewer && !this.availabilityPreviewResolved && !this.availabilityPreviewScanning) {
+        void this.refreshAvailabilityPreview(undefined, { background: true });
+      }
+    }, 0);
+  }
+
   async refreshAvailabilityPreview(
-    loaded?: { hasAvailability: boolean; tutorBlocked: boolean }
+    loaded?: { hasAvailability: boolean; tutorBlocked: boolean },
+    options?: { background?: boolean }
   ): Promise<void> {
     if (!this.useAvailabilityPreview || !this.availabilityViewer) {
       return;
     }
+
+    const background = options?.background === true;
+    const showLoadingUi = !background && !this.analysisDeferredAvailability;
 
     const viewer = this.availabilityViewer;
     if (
@@ -711,8 +806,10 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
       !viewer.tutorBlocked &&
       viewer.availability.length === 0
     ) {
-      this.availabilityPreviewLoading = true;
-      this.availabilityPreviewEmpty = false;
+      if (showLoadingUi) {
+        this.availabilityPreviewLoading = true;
+        this.availabilityPreviewEmpty = false;
+      }
       this.updateRightPanelLayout();
       this.cdr.markForCheck();
       return;
@@ -723,7 +820,9 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
     }
 
     this.availabilityPreviewScanning = true;
-    this.availabilityPreviewLoading = true;
+    if (showLoadingUi) {
+      this.availabilityPreviewLoading = true;
+    }
     this.cdr.markForCheck();
 
     try {
@@ -734,6 +833,7 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
       const noAvail = loaded?.hasAvailability === false;
       this.availabilityPreviewEmpty =
         blocked || noAvail || result.slots.length === 0;
+      this.availabilityPreviewResolved = true;
     } finally {
       this.availabilityPreviewScanning = false;
       this.availabilityPreviewLoading = false;
@@ -747,13 +847,18 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
     this.availabilityPreviewSlots = [];
     this.availabilityPreviewHasMore = false;
     this.availabilityPreviewEmpty = false;
+    this.availabilityPreviewResolved = false;
     this.updateRightPanelLayout();
   }
 
   private updateRightPanelLayout(): void {
     if (this.isTrialLesson) return;
+    const analysisFirst = this.showAnalysisPanel && this.analysisDeferredAvailability;
+    const bookingFirst = this.analysisDeferredAvailability && this.showBookAgainSection;
     this.centerRightPanelContent =
-      this.useAvailabilityPreview && !this.showFullAvailabilityViewer;
+      analysisFirst ||
+      bookingFirst ||
+      (this.showAvailabilitySection && this.useAvailabilityPreview && !this.showFullAvailabilityViewer);
     this.subheaderAlignToRightColumn = false;
   }
 
@@ -812,8 +917,13 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
 
   private updateSubheaderDisplay(): void {
     if (this.isTrialLesson) return;
-    this.showSubheaderEmoji = true;
-    this.subheaderTitle = this.pageTitle;
+    if (this.analysisDeferredAvailability) {
+      this.showSubheaderEmoji = false;
+      this.subheaderTitle = '';
+    } else {
+      this.showSubheaderEmoji = true;
+      this.subheaderTitle = this.pageTitle;
+    }
     this.updateRightPanelLayout();
   }
 
@@ -996,12 +1106,15 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
         this.analysis = response.analysis;
         this.analysisReady = true;
         this.rebuildQuickSummary();
+        this.updateSubheaderDisplay();
+        this.prefetchAvailabilityPreview();
         if (this.pollingInterval) {
           clearInterval(this.pollingInterval);
         }
         console.log('✅ Analysis ready:', this.analysis);
       } else if (status === 'insufficient_data' || status === 'failed') {
         this.analysisUnavailable = true;
+        this.updateRightPanelLayout();
         if (this.pollingInterval) {
           clearInterval(this.pollingInterval);
         }

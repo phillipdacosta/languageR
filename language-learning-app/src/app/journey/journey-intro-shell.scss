@@ -863,3 +863,233 @@
       .ji-field-label { color: #f5f5f7; }
       .ji-field-input { background: #1c1c1e; border-color: #3a3a3c; color: #f5f5f7; &:focus { border-color: #f5f5f7; } }
     }
+
+// ── Expanded journey-map row (snapshot modal + onboarding slide 3) ──
+@mixin ji-maps-slide-expanded-body {
+  width: 100%;
+  max-width: none;
+  min-height: 0;
+  height: 100%;
+  margin: 0;
+  padding: clamp(8px, 1.5vh, 16px) 0 clamp(4px, 0.8vh, 8px);
+  align-items: stretch;
+  box-sizing: border-box;
+}
+
+@mixin ji-maps-slide-expanded-inner {
+  .ji-maps-stage {
+    position: relative;
+    width: 100%;
+    min-width: 0;
+    min-height: 0;
+    height: 100%;
+    margin-top: 0;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(6px, 1vh, 12px);
+    justify-content: flex-start;
+  }
+
+  .ji-maps-title-block {
+    position: static;
+    transform: none;
+    animation: none;
+    opacity: 1;
+    flex-shrink: 0;
+    width: 100%;
+    padding: 0 8px;
+    margin-bottom: clamp(2px, 0.5vh, 6px);
+  }
+
+  .ji-empty-title,
+  .ji-empty-title-tail {
+    white-space: normal;
+  }
+
+  .ji-empty-title {
+    font-size: clamp(26px, 3vw, 34px);
+  }
+
+  .ji-empty-title-tail {
+    font-size: clamp(14px, 1.4vw, 16px);
+  }
+
+  .ji-maps-rail {
+    position: static;
+    flex: 0 1 auto;
+    min-height: 0;
+    width: 100%;
+    opacity: 1;
+    animation: none;
+    overflow: visible;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+  }
+
+  .ji-maps-track {
+    --jmo-track-pad-top: clamp(8px, 1.2vh, 14px);
+    --jmo-track-pad-bottom: clamp(2px, 0.6vh, 6px);
+    --jmo-badge-slot-h: 34px;
+    --jmo-thumb-h: clamp(100px, 18vh, 172px);
+    position: relative;
+    isolation: isolate;
+    display: flex;
+    align-items: stretch;
+    justify-content: stretch;
+    flex: 0 1 auto;
+    width: 100%;
+    min-height: clamp(168px, 30vh, 300px);
+    max-height: min(40vh, 340px);
+    height: auto;
+    padding: var(--jmo-track-pad-top) clamp(8px, 1.5vw, 16px) var(--jmo-track-pad-bottom);
+    gap: clamp(8px, 1.1vw, 14px);
+    mask-image: none;
+    box-sizing: border-box;
+
+    &::before {
+      content: '';
+      position: absolute;
+      z-index: 0;
+      left: 4%;
+      right: 4%;
+      // Center on map thumbnails: padding + badge slot + gap + half thumb height.
+      top: calc(
+        var(--jmo-track-pad-top)
+        + var(--jmo-badge-slot-h)
+        + 8px
+        + var(--jmo-thumb-h) / 2
+      );
+      height: 2px;
+      transform: translateY(-50%);
+      border-radius: 999px;
+      background: linear-gradient(to right, #dddddd 0%, #717171 45%, #34c759 100%);
+      opacity: 0.85;
+      pointer-events: none;
+    }
+  }
+
+  .ji-map-card {
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: none;
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    opacity: 1;
+    transform: none;
+    animation: none;
+
+    &:not(:last-child) {
+      margin-right: 0;
+    }
+  }
+
+  .ji-map-badge-slot {
+    flex: 0 0 var(--jmo-badge-slot-h);
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    width: 100%;
+    margin-bottom: 8px;
+  }
+
+  .ji-map-start-badge {
+    position: static;
+    left: auto;
+    bottom: auto;
+    transform: none;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 5px 12px;
+    font-size: clamp(10px, 0.95vw, 12px);
+  }
+
+  .ji-map-thumb-wrap {
+    --jmo-thumb-radius: 14px;
+    position: relative;
+    z-index: 2;
+    flex: 0 0 auto;
+    width: 100%;
+    height: var(--jmo-thumb-h);
+    min-height: 100px;
+    background: #fff;
+    border-radius: var(--jmo-thumb-radius);
+    overflow: hidden;
+  }
+
+  .ji-map-thumb {
+    width: 100%;
+    height: 100%;
+    min-height: 100px;
+    aspect-ratio: auto;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    margin-bottom: 0;
+    border-radius: var(--jmo-thumb-radius);
+    border: 2px solid rgba(0, 0, 0, 0.08);
+    box-sizing: border-box;
+  }
+
+  .ji-map-card--start .ji-map-thumb {
+    border-color: #222222;
+  }
+
+  .ji-map-meta {
+    position: relative;
+    z-index: 1;
+    flex: 0 0 auto;
+    max-width: 100%;
+    margin-top: clamp(8px, 1.2vh, 12px);
+    min-height: 2.75em;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 4px;
+  }
+
+  .ji-map-level {
+    font-size: clamp(14px, 1.35vw, 18px);
+  }
+
+  .ji-map-rung {
+    font-size: clamp(11px, 1.05vw, 14px);
+    line-height: 1.3;
+  }
+
+  .ji-maps-caption {
+    position: static;
+    flex: 1 1 auto;
+    min-height: clamp(40px, 7vh, 88px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    max-width: 40em;
+    margin: 0 auto;
+    opacity: 1;
+    animation: none;
+    text-align: center;
+    padding: 0 clamp(16px, 3vw, 32px) 0;
+  }
+
+  .ji-desc {
+    font-size: clamp(14px, 1.35vw, 16px);
+    line-height: 1.55;
+  }
+}
+
+.ji-body--maps.ji-body--maps-expanded {
+  @include ji-maps-slide-expanded-body;
+  @include ji-maps-slide-expanded-inner;
+
+  .ji-map-card {
+    filter: none;
+    opacity: 1;
+  }
+}

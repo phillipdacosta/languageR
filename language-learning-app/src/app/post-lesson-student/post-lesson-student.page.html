@@ -134,71 +134,9 @@
               (layoutChange)="onTrialRecapLayoutChange($event)">
             </app-trial-lesson-recap-panel>
 
-            <!-- Non-trial: book again availability -->
-            <div
-              class="pls-availability-host"
-              *ngIf="!isTrialLesson && tutor"
-              [class.pls-availability-host--active]="true">
-              <div
-                class="pls-availability-preview"
-                *ngIf="useAvailabilityPreview && !showFullAvailabilityViewer">
-                <div class="pls-availability-preview-loading" *ngIf="availabilityPreviewLoading">
-                  <ion-spinner name="crescent"></ion-spinner>
-                  <p>{{ availPreviewLoadingLabel }}</p>
-                </div>
-
-                <div class="pls-availability-preview-empty" *ngIf="!availabilityPreviewLoading && availabilityPreviewEmpty">
-                  <div class="pls-availability-preview-empty__icon" aria-hidden="true">
-                    <ion-icon name="chatbubble-ellipses-outline"></ion-icon>
-                  </div>
-                  <p class="pls-availability-preview-empty__body">{{ availNoSlotsBody }}</p>
-                  <button
-                    type="button"
-                    class="pls-action-btn pls-action-btn--primary pls-availability-preview-empty__btn"
-                    (click)="openAskTutorForTimesMessage()">
-                    <ion-icon name="chatbubble-outline"></ion-icon>
-                    <span>{{ availSendMessageLabel }}</span>
-                  </button>
-                </div>
-
-                <ng-container *ngIf="!availabilityPreviewLoading && !availabilityPreviewEmpty">
-                  <div class="pls-availability-preview-pills">
-                    <button
-                      type="button"
-                      class="pls-availability-pill"
-                      *ngFor="let slot of availabilityPreviewSlots"
-                      (click)="onAvailabilityPreviewSlotClick(slot)">
-                      {{ slot.pillLabel }}
-                    </button>
-                  </div>
-                  <button
-                    type="button"
-                    class="pls-action-btn pls-action-btn--secondary pls-action-btn--full pls-availability-preview-more"
-                    *ngIf="availabilityPreviewHasMore"
-                    (click)="openFullAvailabilityViewer()">
-                    <ion-icon name="calendar-outline"></ion-icon>
-                    <span>{{ viewAvailabilityLabel }}</span>
-                  </button>
-                </ng-container>
-              </div>
-
-              <div
-                class="pls-availability-viewer-wrap"
-                [class.pls-availability-viewer-wrap--hidden]="useAvailabilityPreview && !showFullAvailabilityViewer">
-                <app-tutor-availability-viewer
-                  #availabilityViewer
-                  [tutorId]="tutor._id"
-                  [tutorName]="tutorDisplayName"
-                  [inline]="true"
-                  embedStyle="card"
-                  (availabilityLoaded)="onAvailabilityPreloaded($event)">
-                </app-tutor-availability-viewer>
-              </div>
-            </div>
-
-            <!-- Analysis / vocab (non-trial only) -->
+            <!-- Non-trial: analysis first when available -->
             <div class="pls-right-step" *ngIf="!isTrialLesson">
-              <ng-container *ngIf="!isTrialLesson && aiAnalysisEnabled">
+              <ng-container *ngIf="aiAnalysisEnabled && showAnalysisPanel">
                 <div class="pls-analysis-loading" *ngIf="!analysisReady && !analysisUnavailable">
                   <div class="pls-ai-animation">
                     <div class="pls-pulse-ring"></div>
@@ -243,32 +181,105 @@
                       [class.pls-summary-card--building]="chip.tone === 'building'"
                       [class.pls-summary-card--needs-work]="chip.tone === 'needs_work'">
                       <span class="pls-summary-label">{{ chip.label }}</span>
-                      <span class="pls-summary-value">{{ showAnalysisDetails ? chip.detail : chip.qualitative }}</span>
+                      <span class="pls-summary-value">{{ chip.qualitative }}</span>
                     </div>
                   </div>
-
-                  <button
-                    type="button"
-                    class="pls-detail-toggle"
-                    (click)="toggleAnalysisDetails()"
-                    [attr.aria-pressed]="showAnalysisDetails">
-                    <ion-icon [name]="showAnalysisDetails ? 'eye-off-outline' : 'eye-outline'"></ion-icon>
-                    <span>{{ analysisDetailsToggleLabel }}</span>
-                  </button>
 
                   <button type="button" class="pls-action-btn pls-action-btn--primary pls-action-btn--full" (click)="viewFullAnalysis()">
                     <ion-icon name="analytics-outline"></ion-icon>
                     <span>{{ viewFullAnalysisLabel }}</span>
                   </button>
 
-                  <div class="pls-takeaways" *ngIf="analysis.progressionMetrics?.keyImprovements?.length">
+                  <div class="pls-takeaways" *ngIf="showTakeawaysSection">
                     <h3>{{ takeawaysTitle }}</h3>
                     <ul>
-                      <li *ngFor="let improvement of analysis.progressionMetrics?.keyImprovements">{{ improvement }}</li>
+                      <li *ngFor="let item of takeawayItems">{{ item }}</li>
                     </ul>
                   </div>
                 </div>
+
+                <button
+                  type="button"
+                  class="pls-action-btn pls-action-btn--secondary pls-action-btn--full pls-book-again-cta"
+                  *ngIf="analysisDeferredAvailability && !showBookAgainSection"
+                  (click)="openBookAgainSection()">
+                  <ion-icon name="calendar-outline"></ion-icon>
+                  <span>{{ bookAgainCtaLabel }}</span>
+                </button>
               </ng-container>
+
+              <!-- Book again availability (replaces analysis when CTA clicked) -->
+              <div
+                class="pls-availability-host"
+                *ngIf="shouldMountAvailabilityHost"
+                [class.pls-availability-host--active]="showAvailabilitySection">
+                <div
+                  class="pls-availability-preview"
+                  *ngIf="useAvailabilityPreview && !showFullAvailabilityViewer">
+                  <div class="pls-availability-preview-loading" *ngIf="availabilityPreviewLoading && !analysisDeferredAvailability">
+                    <ion-spinner name="crescent"></ion-spinner>
+                    <p>{{ availPreviewLoadingLabel }}</p>
+                  </div>
+
+                  <div
+                    class="pls-availability-preview-empty"
+                    *ngIf="showAvailabilitySection && !availabilityPreviewLoading && availabilityPreviewEmpty">
+                    <div class="pls-availability-preview-empty__icon" aria-hidden="true">
+                      <ion-icon name="chatbubble-ellipses-outline"></ion-icon>
+                    </div>
+                    <p class="pls-availability-preview-empty__body">{{ availNoSlotsBody }}</p>
+                    <button
+                      type="button"
+                      class="pls-action-btn pls-action-btn--primary pls-availability-preview-empty__btn"
+                      (click)="openAskTutorForTimesMessage()">
+                      <ion-icon name="chatbubble-outline"></ion-icon>
+                      <span>{{ availSendMessageLabel }}</span>
+                    </button>
+                  </div>
+
+                  <ng-container *ngIf="showAvailabilitySection && !availabilityPreviewLoading && !availabilityPreviewEmpty">
+                    <div class="pls-availability-preview-pills">
+                      <button
+                        type="button"
+                        class="pls-availability-pill"
+                        *ngFor="let slot of availabilityPreviewSlots"
+                        (click)="onAvailabilityPreviewSlotClick(slot)">
+                        {{ slot.pillLabel }}
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      class="pls-action-btn pls-action-btn--secondary pls-action-btn--full pls-availability-preview-more"
+                      *ngIf="availabilityPreviewHasMore"
+                      (click)="openFullAvailabilityViewer()">
+                      <ion-icon name="calendar-outline"></ion-icon>
+                      <span>{{ viewAvailabilityLabel }}</span>
+                    </button>
+                  </ng-container>
+                </div>
+
+                <div
+                  class="pls-availability-viewer-wrap"
+                  [class.pls-availability-viewer-wrap--hidden]="useAvailabilityPreview && !showFullAvailabilityViewer">
+                  <app-tutor-availability-viewer
+                    #availabilityViewer
+                    [tutorId]="tutor._id"
+                    [tutorName]="tutorDisplayName"
+                    [inline]="true"
+                    embedStyle="card"
+                    (availabilityLoaded)="onAvailabilityPreloaded($event)">
+                  </app-tutor-availability-viewer>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                class="pls-action-btn pls-action-btn--secondary pls-action-btn--full pls-view-feedback-cta"
+                *ngIf="analysisDeferredAvailability && showBookAgainSection"
+                (click)="openAnalysisSection()">
+                <ion-icon name="analytics-outline"></ion-icon>
+                <span>{{ viewFeedbackCtaLabel }}</span>
+              </button>
 
               <div class="pls-vocab-goals" *ngIf="vocabItems.length > 0 || goalItems.length > 0">
                 <div class="pls-vocab-card" *ngIf="vocabItems.length > 0">

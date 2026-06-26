@@ -71,8 +71,10 @@ export class JourneyMapPreviewComponent implements OnChanges, AfterViewInit, OnD
   @Input() caption = '';
   @Input() planStateLabel = '';
   @Input() illustration: JourneyMapPreviewIllustration | null = null;
-  /** `large` — taller preview; `sidebar` — fills parent column in lessons/:id. */
-  @Input() size: 'default' | 'large' | 'sidebar' = 'default';
+  /** `large` — modal snapshot; `sidebar` — lessons/:id; `overview` — full-journey rail. */
+  @Input() size: 'default' | 'large' | 'sidebar' | 'overview' = 'default';
+  /** Highlights the stage border when embedded in the full-journey overview rail. */
+  @Input() chapterStart = false;
 
   backgroundUrl = '';
   backgroundSrcSet = '';
@@ -217,7 +219,7 @@ export class JourneyMapPreviewComponent implements OnChanges, AfterViewInit, OnD
 
   /** Sidebar previews are small — use 1x + srcset instead of forcing @4x src. */
   private applyBackgroundDisplaySources(): void {
-    if (this.size === 'sidebar' || this.size === 'default') {
+    if (this.size === 'sidebar' || this.size === 'default' || this.size === 'overview') {
       this.backgroundDisplaySrc = this.backgroundUrl;
       this.backgroundDisplaySrcSet = this.backgroundSrcSet;
       return;

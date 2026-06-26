@@ -528,8 +528,14 @@ export class UserService {
     const hasPayPal = user.payoutProvider === 'paypal';
     const hasManual = user.payoutProvider === 'manual';
     const stripeActionRequired = user.stripeActionRequired === true;
+    // "Started" = a Stripe Connect account already exists for this tutor. Once
+    // they've opened Stripe and entered details we must never fall back to the
+    // marketing "Connect your account" card — even if Stripe hasn't flipped
+    // `details_submitted` yet (e.g. they hit the browser back button before the
+    // final submit). Treat that whole window as pending/verifying instead.
+    const stripeOnboardingStarted = !!user.stripeConnectAccountId && !hasPayPal && !hasManual;
     const stripePendingReview = !!(
-      user.stripeDetailsSubmitted &&
+      (user.stripeDetailsSubmitted || stripeOnboardingStarted) &&
       !hasStripe &&
       !stripeActionRequired &&
       !user.stripeAccountDisabled
@@ -699,8 +705,10 @@ export class UserService {
         const payoutProvider = user?.payoutProvider || 'none';
         const stripeFullyConnected = user?.stripeConnectOnboarded === true;
         const stripeActionRequired = user?.stripeActionRequired === true;
+        const stripeOnboardingStarted =
+          !!user?.stripeConnectAccountId && payoutProvider !== 'paypal' && payoutProvider !== 'manual';
         const stripePendingReview = !!(
-          user?.stripeDetailsSubmitted &&
+          (user?.stripeDetailsSubmitted || stripeOnboardingStarted) &&
           !stripeFullyConnected &&
           !stripeActionRequired &&
           !user?.stripeAccountDisabled

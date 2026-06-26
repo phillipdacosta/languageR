@@ -684,6 +684,7 @@
   border-radius: 0;
   overflow: hidden;
   transition: background-color 1.2s ease-in-out;
+  --rail-gutter: max(0px, calc((100cqw - min(100cqw, calc(100cqh * 16 / 9))) / 2));
 
   // Soft vignette hides the seam between sharp map and blurred fill.
   &::after {
@@ -708,6 +709,82 @@
     z-index: 0;
     user-select: none;
     -webkit-user-drag: none;
+  }
+
+  .journey-map-chapter-rail {
+    // Sit in the left pillarbox gutter and center cards within it.
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 5;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(10px, 1.6cqh, 14px);
+    width: var(--rail-gutter);
+    min-width: clamp(148px, 18vw, 240px);
+    max-height: min(88cqh, 720px);
+    padding: 24px 16px;
+    box-sizing: border-box;
+    overflow-y: auto;
+    overflow-x: hidden;
+    pointer-events: none;
+    scrollbar-width: none;
+    mask-image: linear-gradient(to bottom, transparent 0, #000 5%, #000 95%, transparent 100%);
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
+  .journey-map-rail-card {
+    position: relative;
+    flex-shrink: 0;
+    width: min(100%, clamp(132px, calc(var(--rail-gutter) - 32px), 208px));
+    max-width: 208px;
+    aspect-ratio: 16 / 10;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.36);
+
+    &--past {
+      filter: blur(1px) brightness(0.78) saturate(0.85);
+      opacity: 0.9;
+    }
+
+    &--future {
+      filter: grayscale(0.92) brightness(0.48) saturate(0.22);
+      opacity: 0.52;
+    }
+  }
+
+  .journey-map-rail-card__img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-drag: none;
+  }
+
+  .journey-map-rail-card__level {
+    position: absolute;
+    left: 8px;
+    bottom: 8px;
+    z-index: 1;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    pointer-events: none;
   }
 
   // Full viewport 16:9 — @4x asset downscales cleanly on retina.
@@ -956,15 +1033,27 @@
     pointer-events: none;
   }
 
-  .journey-map-chrome-start {
+  .journey-map-chrome-end {
     position: absolute;
     top: 0;
-    left: 0;
-    right: 72px;
+    right: 0;
+    bottom: 0;
+    z-index: 1;
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 10px;
-    padding: 16px 16px 12px;
+    width: var(--rail-gutter);
+    min-width: clamp(148px, 18vw, 240px);
+    padding: 24px 16px;
+    box-sizing: border-box;
+    pointer-events: none;
+  }
+
+  .journey-map-chrome-back-slot {
+    flex-shrink: 0;
+    width: 100%;
+    display: flex;
+    justify-content: center;
     pointer-events: auto;
   }
 
@@ -1005,9 +1094,28 @@
   }
 
   .journey-map-actions--dock {
-    position: absolute;
-    top: 16px;
-    right: 10px;
+    position: static;
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 48px;
+    margin-top: 16px;
+    pointer-events: auto;
+  }
+
+  .journey-map-actions--dev-dock {
+    position: static;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    width: 48px;
+    margin-top: auto;
+    padding-bottom: 4px;
     pointer-events: auto;
   }
 
@@ -1096,6 +1204,7 @@
   // when the image hasn't loaded.
   &--fallback {
     .journey-map-bg--blur,
+    .journey-map-rail-card__img,
     .journey-map-bg--sharp {
       display: none;
     }
@@ -1437,7 +1546,8 @@ $jm-label-gap: 4px;
 // same content width and look visually equal. Icon-only rounded buttons,
 // each keeping a title + aria-label so the hidden label is still
 // recoverable on hover and via assistive tech.
-.journey-map-actions--dock {
+.journey-map-actions--dock,
+.journey-map-actions--dev-dock {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1445,7 +1555,6 @@ $jm-label-gap: 4px;
   width: 48px;
 
   @media (max-width: 600px) {
-    right: 8px;
     width: 36px;
     gap: 8px;
   }
