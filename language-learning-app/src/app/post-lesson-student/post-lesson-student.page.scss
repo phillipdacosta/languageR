@@ -1923,6 +1923,156 @@ $pls-viewport-height: calc(100dvh - #{$pls-chrome-height});
   .pls-pulse-ring { border-color: $d-text; }
 }
 
+.pls-journey-card {
+  margin-top: 16px;
+  padding: 18px;
+  background: #ffffff;
+  border: 1px solid $pls-border-light;
+  border-radius: 16px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+
+  &__head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 14px;
+
+    ion-icon {
+      font-size: 20px;
+      color: $pls-text-primary;
+    }
+
+    h3 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+      color: $pls-text-primary;
+    }
+  }
+
+  &__map {
+    display: block;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  &__phase {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 14px;
+  }
+}
+
+.pls-journey-pill {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1f7a4d;
+  background: rgba(52, 199, 89, 0.12);
+  border-radius: 999px;
+}
+
+.pls-journey-phase-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: $pls-text-primary;
+}
+
+.pls-journey-progress {
+  margin-top: 12px;
+
+  &__label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 12px;
+    color: $pls-text-secondary;
+  }
+
+  &__track {
+    height: 6px;
+    border-radius: 999px;
+    background: $pls-bg-subtle;
+    overflow: hidden;
+  }
+
+  &__fill {
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(to right, #34c759, #1f7a4d);
+    transition: width 0.4s ease;
+  }
+}
+
+.pls-journey-impact {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+
+  li {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 6px 0;
+    font-size: 14px;
+    color: $pls-text-primary;
+
+    ion-icon {
+      flex-shrink: 0;
+      margin-top: 1px;
+      font-size: 18px;
+      color: #34c759;
+    }
+  }
+}
+
+.pls-journey-focus {
+  margin-top: 14px;
+  padding: 12px;
+  background: $pls-bg-subtle;
+  border-radius: 12px;
+
+  &__label {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 12px;
+    color: $pls-text-secondary;
+  }
+
+  &__value {
+    font-size: 14px;
+    font-weight: 500;
+    color: $pls-text-primary;
+  }
+}
+
+.pls-journey-card .pls-action-btn {
+  margin-top: 14px;
+}
+
 :host-context(html.ion-palette-dark) {
   @include post-lesson-student-theme-dark;
+
+  .pls-journey-card {
+    background: #1c1c1e;
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow: none;
+
+    &__head ion-icon,
+    &__head h3 {
+      color: #f2f2f2;
+    }
+  }
+
+  .pls-journey-phase-title { color: #f2f2f2; }
+  .pls-journey-impact li { color: #e5e5e5; }
+
+  .pls-journey-progress__track { background: rgba(255, 255, 255, 0.12); }
+
+  .pls-journey-focus {
+    background: rgba(255, 255, 255, 0.06);
+
+    &__value { color: #f2f2f2; }
+  }
 }

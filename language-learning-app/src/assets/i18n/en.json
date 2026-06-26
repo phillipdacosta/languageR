@@ -8,7 +8,8 @@
       "BACK_TO_CURRENT_STAGE": "Back to current stage",
       "PHASE_FOCUS": "Focus: {{areas}}",
       "FULL_JOURNEY_BODY_STUDENT": "The full journey has six chapters — from first steps to fluency. You're starting at {{chapter}} for now. Each chapter has 3–5 phases, usually spread over several lessons — not one class per phase — before you climb to the next landscape.",
-      "FULL_JOURNEY_BODY_TUTOR": "The full journey has six chapters — from desert foothills to fluency peak. Your student is starting at {{chapter}} for now. Each chapter has 3–5 phases, usually spread over several lessons — not one class per phase."
+      "FULL_JOURNEY_BODY_TUTOR": "The full journey has six chapters — from desert foothills to fluency peak. Your student is starting at {{chapter}} for now. Each chapter has 3–5 phases, usually spread over several lessons — not one class per phase.",
+      "FULL_JOURNEY_PLACEMENT_NOTE_TUTOR": "If a lesson analysis shows a higher level than the map, that's expected. Everyone starts at A1; we only move a student to a new chapter after they consistently demonstrate their level across several lessons — not from one session."
     },
     "BACK": "Back",
     "CTA_OPEN_NEXT_LESSON": "Open next lesson",
@@ -659,6 +660,16 @@
     "STUDENT": {
       "GREAT_LESSON": "Great lesson!",
       "GREAT_LESSON_TRIAL": "We hope you liked {{name}}!",
+      "JOURNEY_TITLE_WHERE": "Where you are now",
+      "JOURNEY_TITLE_MOVED": "Your journey moved",
+      "JOURNEY_PHASE_OF": "Phase {{current}} of {{total}}",
+      "JOURNEY_PROGRESS_LABEL": "Phase progress",
+      "JOURNEY_NEXT_FOCUS": "Next lesson focus",
+      "JOURNEY_CTA": "See your journey",
+      "JOURNEY_IMPACT_CHAPTER": "You climbed to {{level}} — a new chapter begins",
+      "JOURNEY_IMPACT_PHASE": "You moved forward to {{phase}}",
+      "JOURNEY_IMPACT_FOCUS": "New focus: {{focus}}",
+      "JOURNEY_IMPACT_PROGRESS": "This lesson moved you further along this phase",
       "SUB": "Every lesson brings you closer to fluency.",
       "SUB_TRIAL": "See {{name}}'s schedule to book more lessons.",
       "LESSON_WITH": "Lesson with {{name}}",

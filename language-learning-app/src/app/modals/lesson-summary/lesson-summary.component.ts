@@ -52,6 +52,10 @@ export class LessonSummaryComponent implements OnInit, OnDestroy {
   // Recap-only: backend withheld the CEFR grade (too little genuine
   // target-language speech). Hide the level badge, show recap copy.
   recapOnly = false;
+  // CEFR level is withheld from the student until the reveal window (3–5
+  // lessons) completes — the backend computes this from plan.revealedCefrLevel.
+  // Defaults hidden so we never flash a premature level after one lesson.
+  cefrRevealedForStudent = false;
   progressIcon = 'trending-up';
   mainFocusText = '';
   hasPersistentChallenges = false;
@@ -129,15 +133,19 @@ export class LessonSummaryComponent implements OnInit, OnDestroy {
       attempts++;
 
       this.transcriptionService.getLessonAnalysis(this.lessonId).subscribe({
-        next: (analysis) => {
-          if (analysis.status === 'completed') {
+        next: (resp: any) => {
+          // Endpoint returns { analysis, cefrRevealedForStudent }, but older
+          // shapes returned the analysis directly — handle both defensively.
+          const analysis = resp?.analysis ?? resp;
+          this.cefrRevealedForStudent = resp?.cefrRevealedForStudent === true;
+          if (analysis?.status === 'completed') {
             this.analysis = analysis;
             this.loading = false;
             clearInterval(this.pollingInterval);
             this.pollingInterval = null;
             this.computeDerivedProperties();
             this.initTranslationState();
-          } else if (analysis.status === 'failed' || analysis.status === 'insufficient_data') {
+          } else if (analysis?.status === 'failed' || analysis?.status === 'insufficient_data') {
             this.analysisUnavailable = true;
             this.loading = false;
             clearInterval(this.pollingInterval);

@@ -11,6 +11,7 @@ const focusResolver = require('./focusResolverService');
 const focusHistory = require('./focusHistoryService');
 const signalFusion = require('./signalFusionService');
 const phaseScope = require('./phaseSkillScopeService');
+const skillBeliefKey = require('./skillBeliefKey');
 
 // Grace window (ms) after a plan is first created during which we let
 // the student change their goal without invoking the cooldown. Lets
@@ -383,6 +384,11 @@ async function updatePlanAfterLesson(planId, lessonAnalysis) {
 
   const student = await User.findById(plan.studentId);
 
+  // Snapshot the student-facing journey state BEFORE any mutation so we can
+  // diff it after all the phase/chapter/focus logic has run and persist a
+  // "what changed this lesson" delta for the post-lesson recap card.
+  const impactBefore = _snapshotJourneyState(plan);
+
   // ── 0. Bayesian beliefs: decay → apply this lesson's evidence ─────
   // Runs BEFORE the existing mastery/phase logic so any new gate or
   // focus resolution that reads beliefs sees the latest state. Cheap:
@@ -521,8 +527,64 @@ async function updatePlanAfterLesson(planId, lessonAnalysis) {
     }
   }
 
+  // Diff before/after and record what this lesson moved on the journey.
+  plan.lastLessonImpact = _buildLessonImpact(impactBefore, plan, lessonAnalysis);
+
   await plan.save();
   return plan;
+}
+
+/**
+ * Capture the coarse, student-facing journey state used by the post-lesson
+ * "your journey moved" card: phase index/title, chapter level, next focus,
+ * and the current phase's window-progress percent. Read-only.
+ */
+function _snapshotJourneyState(plan) {
+  const idx = plan.currentPhaseIndex || 0;
+  const phase = (plan.phases || [])[idx] || null;
+  const hasMore = idx < (plan.phases || []).length - 1;
+  let windowProgress = null;
+  try {
+    windowProgress = mastery.phaseProgressState(phase, hasMore).windowProgressPercent;
+  } catch (_) {
+    windowProgress = null;
+  }
+  return {
+    phaseIndex: idx,
+    phaseTitle: phase?.title || null,
+    chapterLevel: plan.chapterLevel || null,
+    focus: plan.nextLessonFocus || '',
+    windowProgress
+  };
+}
+
+/**
+ * Build the lastLessonImpact subdocument by diffing the before-snapshot
+ * against the plan's current (post-update) state.
+ */
+function _buildLessonImpact(before, plan, lessonAnalysis) {
+  const after = _snapshotJourneyState(plan);
+  const phaseAdvanced = after.phaseIndex > before.phaseIndex;
+  const chapterChanged = !!before.chapterLevel && !!after.chapterLevel
+    && before.chapterLevel !== after.chapterLevel;
+  const focusChanged = (before.focus || '') !== (after.focus || '');
+  return {
+    lessonId: lessonAnalysis.lessonId ? String(lessonAnalysis.lessonId) : null,
+    at: new Date(),
+    phaseIndexBefore: before.phaseIndex,
+    phaseIndexAfter: after.phaseIndex,
+    phaseAdvanced,
+    phaseTitleBefore: before.phaseTitle,
+    phaseTitleAfter: after.phaseTitle,
+    chapterChanged,
+    chapterLevelBefore: before.chapterLevel,
+    chapterLevelAfter: after.chapterLevel,
+    focusChanged,
+    focusBefore: before.focus || null,
+    focusAfter: after.focus || null,
+    windowProgressBefore: before.windowProgress,
+    windowProgressAfter: after.windowProgress
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -540,17 +602,8 @@ async function updatePlanAfterLesson(planId, lessonAnalysis) {
  */
 function _applyBeliefDecay(plan, now = new Date()) {
   if (!plan?.skillBeliefs) return;
-  // Mongoose Maps need to be iterated with .entries() for safety.
-  const iter = typeof plan.skillBeliefs.entries === 'function'
-    ? plan.skillBeliefs.entries()
-    : Object.entries(plan.skillBeliefs);
-  for (const [skillId, belief] of iter) {
-    const decayed = bayes.decay(belief, now);
-    if (typeof plan.skillBeliefs.set === 'function') {
-      plan.skillBeliefs.set(skillId, decayed);
-    } else {
-      plan.skillBeliefs[skillId] = decayed;
-    }
+  for (const [skillId, belief] of skillBeliefKey.beliefEntries(plan.skillBeliefs)) {
+    skillBeliefKey.setBelief(plan.skillBeliefs, skillId, bayes.decay(belief, now));
   }
 }
 
@@ -581,16 +634,71 @@ function _applyEvidenceToBeliefs(plan, evidenceBySkill, now = new Date()) {
       improvedCount: 0,
       inScopeNotFlagged: false
     });
-    const current = typeof plan.skillBeliefs.get === 'function'
-      ? plan.skillBeliefs.get(skillId)
-      : plan.skillBeliefs[skillId];
+    const current = skillBeliefKey.getBelief(plan.skillBeliefs, skillId);
     const updated = bayes.update(current || null, successWeight, failureWeight, now);
-    if (typeof plan.skillBeliefs.set === 'function') {
-      plan.skillBeliefs.set(skillId, updated);
-    } else {
-      plan.skillBeliefs[skillId] = updated;
-    }
+    skillBeliefKey.setBelief(plan.skillBeliefs, skillId, updated);
   }
+}
+
+// How much a single quiz question is worth as Bayesian evidence. A
+// checkpoint quiz answer is a real but lower-stakes signal than
+// spontaneous production in a lesson, so each question contributes a
+// fraction of a lesson's pseudo-count. `bayes.update` clamps the total
+// per call at MAX_EVIDENCE_PER_LESSON, so a full quiz can't overwhelm
+// the belief on its own.
+const QUIZ_EVIDENCE_PER_QUESTION = 0.3;
+
+/**
+ * Fold a checkpoint/practice quiz result into the student's skill belief.
+ *
+ * Closes the loop for journey-map roadblocks: when a student answers a
+ * struggle-targeted quiz, first-try correctness becomes success/failure
+ * evidence on that skill. This is what lets a passed checkpoint actually
+ * lower how often the struggle re-surfaces (and a missed one keep it up).
+ *
+ * `correct`/`total` are FIRST-attempt counts from the client. Safe and
+ * non-blocking: returns null (no throw) on any missing data.
+ *
+ * @returns {Promise<null | { skillId, mean, pMastered }>}
+ */
+async function recordQuizEvidence({ studentId, quizId, correct, total, now = new Date() }) {
+  if (!studentId || !quizId) return null;
+  if (!Number.isFinite(correct) || !Number.isFinite(total) || total <= 0) return null;
+
+  const Quiz = require('../models/Quiz');
+  const quiz = await Quiz.findById(quizId).select('struggle language').lean();
+  if (!quiz || !quiz.struggle || !quiz.language) return null;
+
+  const plan = await LearningPlan.findOne({ studentId, language: quiz.language });
+  if (!plan) return null;
+  if (!plan.skillBeliefs) plan.skillBeliefs = new Map();
+
+  const safeCorrect = Math.max(0, Math.min(correct, total));
+  const wrong = total - safeCorrect;
+  const successWeight = safeCorrect * QUIZ_EVIDENCE_PER_QUESTION;
+  const failureWeight = wrong * QUIZ_EVIDENCE_PER_QUESTION;
+
+  const current = skillBeliefKey.getBelief(plan.skillBeliefs, quiz.struggle);
+  const decayed = current ? bayes.decay(current, now) : null;
+  const updated = bayes.update(decayed, successWeight, failureWeight, now);
+  skillBeliefKey.setBelief(plan.skillBeliefs, quiz.struggle, updated);
+  plan.markModified('skillBeliefs');
+
+  // Keep the cached phase Bayesian average in sync so the next plan read
+  // reflects the new evidence without waiting for a lesson.
+  try {
+    _refreshPhaseBayesianMastery(plan, now);
+  } catch (err) {
+    console.error('[LearningPlan] recordQuizEvidence phase refresh failed (non-blocking):', err.message);
+  }
+
+  await plan.save();
+
+  return {
+    skillId: quiz.struggle,
+    mean: Number(bayes.posteriorMean(updated).toFixed(4)),
+    pMastered: Number(bayes.probabilityMastered(updated).toFixed(4))
+  };
 }
 
 /**
@@ -611,15 +719,9 @@ function _applyKeyImprovementsToBeliefs(plan, lessonAnalysis, language, now = ne
     if (typeof ki !== 'string' || !ki.trim()) continue;
     const { skillId, confidence } = taxonomy.canonicalize(ki, language);
     if (confidence === 'fallback') continue; // skip unknowns
-    const current = typeof plan.skillBeliefs.get === 'function'
-      ? plan.skillBeliefs.get(skillId)
-      : plan.skillBeliefs[skillId];
+    const current = skillBeliefKey.getBelief(plan.skillBeliefs, skillId);
     const updated = bayes.update(current || null, 1.2, 0, now);
-    if (typeof plan.skillBeliefs.set === 'function') {
-      plan.skillBeliefs.set(skillId, updated);
-    } else {
-      plan.skillBeliefs[skillId] = updated;
-    }
+    skillBeliefKey.setBelief(plan.skillBeliefs, skillId, updated);
   }
 }
 
@@ -647,15 +749,9 @@ function _applyPositiveSignalBeliefs(plan, lessonAnalysis, language, now = new D
   if (!plan.skillBeliefs) plan.skillBeliefs = new Map();
   for (const { skillId, successWeight } of signals) {
     if (!skillId || skillId.includes('.unknown.')) continue;
-    const current = typeof plan.skillBeliefs.get === 'function'
-      ? plan.skillBeliefs.get(skillId)
-      : plan.skillBeliefs[skillId];
+    const current = skillBeliefKey.getBelief(plan.skillBeliefs, skillId);
     const updated = bayes.update(current || null, successWeight, 0, now);
-    if (typeof plan.skillBeliefs.set === 'function') {
-      plan.skillBeliefs.set(skillId, updated);
-    } else {
-      plan.skillBeliefs[skillId] = updated;
-    }
+    skillBeliefKey.setBelief(plan.skillBeliefs, skillId, updated);
   }
 }
 
@@ -2947,6 +3043,7 @@ async function seedPlanFromTrialAssessment({ studentId, language, tutorUser, cef
 module.exports = {
   generateInitialPlan,
   updatePlanAfterLesson,
+  recordQuizEvidence,
   seedPlanFromTrialAssessment,
   regeneratePlan,
   regeneratePlanWithAi,

@@ -208,6 +208,55 @@
                 </button>
               </ng-container>
 
+              <!-- Journey snapshot: where you are now + what this lesson moved -->
+              <div class="pls-journey-card" *ngIf="showJourneyCard">
+                <div class="pls-journey-card__head">
+                  <ion-icon name="map-outline"></ion-icon>
+                  <h3>{{ journeyCardTitle }}</h3>
+                </div>
+
+                <app-journey-map-preview
+                  class="pls-journey-card__map"
+                  size="sidebar"
+                  [chapterTheme]="journeyChapterTheme"
+                  [chapterLevel]="journeyChapterLevel"
+                  [phases]="journeyPhases"
+                  [currentPhaseIndex]="journeyCurrentPhaseIndex">
+                </app-journey-map-preview>
+
+                <div class="pls-journey-card__phase">
+                  <span class="pls-journey-pill">{{ journeyPhasePillLabel }}</span>
+                  <span class="pls-journey-phase-title">{{ journeyPhaseTitle }}</span>
+                </div>
+
+                <div class="pls-journey-progress">
+                  <span class="pls-journey-progress__label">{{ journeyProgressLabel }}</span>
+                  <div class="pls-journey-progress__track">
+                    <div class="pls-journey-progress__fill" [style.width.%]="journeyProgressPercent"></div>
+                  </div>
+                </div>
+
+                <ul class="pls-journey-impact" *ngIf="journeyImpactLines.length > 0">
+                  <li *ngFor="let line of journeyImpactLines">
+                    <ion-icon name="arrow-forward-circle"></ion-icon>
+                    <span>{{ line }}</span>
+                  </li>
+                </ul>
+
+                <div class="pls-journey-focus" *ngIf="journeyNextFocus">
+                  <span class="pls-journey-focus__label">{{ journeyNextFocusLabel }}</span>
+                  <span class="pls-journey-focus__value">{{ journeyNextFocus }}</span>
+                </div>
+
+                <button
+                  type="button"
+                  class="pls-action-btn pls-action-btn--secondary pls-action-btn--full"
+                  (click)="openJourneyFromCard()">
+                  <ion-icon name="map-outline"></ion-icon>
+                  <span>{{ journeyCtaLabel }}</span>
+                </button>
+              </div>
+
               <!-- Book again availability (replaces analysis when CTA clicked) -->
               <div
                 class="pls-availability-host"

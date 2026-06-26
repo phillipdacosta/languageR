@@ -284,7 +284,13 @@ router.post('/:feedbackId/submit', verifyToken, async (req, res) => {
           progressionMetrics: {
             speakingTimeMinutes: lesson.clientSpeakingSeconds?.studentSeconds
               ? Math.ceil(lesson.clientSpeakingSeconds.studentSeconds / 60)
-              : (lesson.duration || 25)
+              : (lesson.duration || 25),
+            // Feed tutor-noted strengths into the success side of the
+            // Bayesian belief pipeline (mirrors areasForImprovement →
+            // failure). _applyKeyImprovementsToBeliefs canonicalizes each
+            // and silently skips any that don't map to a real skill, so
+            // generic praise can't pollute beliefs.
+            keyImprovements: strengths
           },
           studentSummary: overallNotes || `Tutor feedback: ${strengths[0]}. Focus on: ${areasForImprovement[0]}.`,
           homeworkSuggestions: homework ? [homework] : [],
@@ -417,7 +423,12 @@ router.post('/:feedbackId/submit', verifyToken, async (req, res) => {
         }
       }
     } catch (planErr) {
-      console.error('⚠️ Learning plan update after tutor feedback failed (non-blocking):', planErr.message);
+      // Non-blocking for feedback submission, but a failure here freezes the
+      // student's nextLessonFocus — log loudly with full stack so it surfaces.
+      console.error(
+        '❌ [LearningPlan] update after tutor feedback FAILED — plan NOT updated:',
+        planErr && planErr.stack ? planErr.stack : planErr
+      );
     }
 
     // ── Check for progress milestone (every 5 lessons) ─────────────

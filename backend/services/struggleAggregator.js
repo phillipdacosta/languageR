@@ -25,6 +25,7 @@ const taxonomy = require('./skillTaxonomy');
 const scorer = require('./struggleScorer');
 const bayes = require('./bayesianMastery');
 const signalFusion = require('./signalFusionService');
+const skillBeliefKey = require('./skillBeliefKey');
 
 const DEFAULT_WINDOW = 5;       // last N completed lessons
 const DEFAULT_TOP_N = 8;        // surface up to this many struggles
@@ -36,11 +37,7 @@ const MIN_APPEARANCES_FOR_SURFACE = 1; // be lenient — recurrence is rewarded 
  */
 function getBelief(plan, skillId) {
   if (!plan || !plan.skillBeliefs) return null;
-  if (typeof plan.skillBeliefs.get === 'function') {
-    return plan.skillBeliefs.get(skillId) || null;
-  }
-  if (plan.skillBeliefs[skillId]) return plan.skillBeliefs[skillId];
-  return null;
+  return skillBeliefKey.getBelief(plan.skillBeliefs, skillId);
 }
 
 /**
@@ -105,15 +102,20 @@ function extractEvidence(analysis, language) {
     });
   });
 
-  // 2. persistentChallenges (lighter weight — already aggregated by GPT)
+  // 2. persistentChallenges — the analyst's explicit cross-lesson verdict
+  // on what keeps recurring. This is a deliberate, already-aggregated
+  // prioritization (not a raw per-utterance count), so we weight it high
+  // and credit it as multiple occurrences. Without this, a single
+  // high-frequency surface error (e.g. "word choice") out-scores the
+  // deeper recurring issue the AI flagged as the thing to fix next.
   (analysis.progressionMetrics?.persistentChallenges || []).forEach(c => {
     if (typeof c !== 'string') return;
     const id = resolveSkillId(c, null);
     if (!id) return;
     fold(id, {
       skillId: id,
-      occurrences: 1,
-      impact: 'medium',
+      occurrences: 3,
+      impact: 'high',
       isLikelyTranscriptionError: false,
       sourceField: 'persistentChallenges',
       rawIssue: c
@@ -151,15 +153,18 @@ function extractEvidence(analysis, language) {
     });
   });
 
-  // 5. recommendedFocus[]
+  // 5. recommendedFocus[] — the analyst's direct answer to "what should
+  // the next lesson focus on?". Treat it as a high-impact signal so the
+  // surfaced focus aligns with the AI's stated recommendation rather than
+  // being diluted by raw error counts.
   (analysis.recommendedFocus || []).forEach(r => {
     if (typeof r !== 'string') return;
     const id = resolveSkillId(r, null);
     if (!id) return;
     fold(id, {
       skillId: id,
-      occurrences: 1,
-      impact: 'low',
+      occurrences: 2,
+      impact: 'high',
       isLikelyTranscriptionError: false,
       sourceField: 'recommendedFocus',
       rawIssue: r

@@ -34,6 +34,12 @@ export class RoadblockQuizModalComponent implements OnInit {
   answered = false;
   isCorrect = false;
 
+  // First-attempt performance — reported on finish so the backend can
+  // fold it into the student's skill belief. The gate is un-failable, so
+  // only the FIRST attempt per question counts as evidence.
+  private firstTryCorrect = 0;
+  private questionScored = false;
+
   introLine = '';
   questionCountLabel = '';
   footerLabelKey = 'JOURNEY.ROADBLOCK.START';
@@ -103,6 +109,7 @@ export class RoadblockQuizModalComponent implements OnInit {
     this.typedAnswer = '';
     this.answered = false;
     this.isCorrect = false;
+    this.questionScored = false;
     const total = this.quiz?.questions?.length || 1;
     this.questionCountLabel = this.translate.instant('JOURNEY.ROADBLOCK.QUESTION_COUNT', {
       current: this.questionIndex + 1,
@@ -162,6 +169,7 @@ export class RoadblockQuizModalComponent implements OnInit {
     this.selectedAnswer = opt;
     this.answered = true;
     this.isCorrect = this.optionIsCorrect(opt);
+    this.gradeFirstAttempt();
     if (this.isCorrect) {
       const total = this.quiz?.questions?.length || 1;
       this.progressPct = Math.round(((this.questionIndex + 1) / total) * 100);
@@ -178,6 +186,7 @@ export class RoadblockQuizModalComponent implements OnInit {
     const candidates = [q.correctAnswer, ...(q.acceptableAlternatives || [])].map(a => this.normalize(a));
     this.answered = true;
     this.isCorrect = candidates.includes(this.normalize(this.typedAnswer));
+    this.gradeFirstAttempt();
     if (this.isCorrect) {
       const total = this.quiz?.questions?.length || 1;
       this.progressPct = Math.round(((this.questionIndex + 1) / total) * 100);
@@ -199,8 +208,23 @@ export class RoadblockQuizModalComponent implements OnInit {
     this.cdr.markForCheck();
   }
 
+  /** Credit the FIRST attempt at the current question (un-failable gate). */
+  private gradeFirstAttempt(): void {
+    if (this.questionScored) return;
+    this.questionScored = true;
+    if (this.isCorrect) this.firstTryCorrect++;
+  }
+
   finish(): void {
-    this.modalCtrl.dismiss({ completed: true, quizId: this.quiz?._id }, 'completed');
+    this.modalCtrl.dismiss(
+      {
+        completed: true,
+        quizId: this.quiz?._id,
+        correct: this.firstTryCorrect,
+        total: this.quiz?.questions?.length || 0
+      },
+      'completed'
+    );
   }
 
   private normalize(s: string): string {

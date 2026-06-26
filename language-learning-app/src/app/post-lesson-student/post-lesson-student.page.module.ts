@@ -9,6 +9,7 @@ import { TutorAvailabilityViewerComponent } from '../components/tutor-availabili
 import { CardManagementModalComponent } from '../components/card-management-modal/card-management-modal.component';
 import { ClassGoingMessageModalComponent } from '../components/class-going-message-modal/class-going-message-modal.component';
 import { TrialLessonRecapPanelComponent } from '../components/trial-lesson-recap-panel/trial-lesson-recap-panel.component';
+import { JourneyMapPreviewComponent } from '../journey/journey-map-preview.component';
 
 const routes: Routes = [
   {
@@ -28,6 +29,7 @@ const routes: Routes = [
     CardManagementModalComponent,
     ClassGoingMessageModalComponent,
     TrialLessonRecapPanelComponent,
+    JourneyMapPreviewComponent,
   ],
   declarations: [PostLessonStudentPage]
 })

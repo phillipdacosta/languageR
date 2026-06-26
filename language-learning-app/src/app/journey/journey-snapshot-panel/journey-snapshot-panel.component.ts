@@ -82,6 +82,7 @@ export class JourneySnapshotPanelComponent implements OnInit, OnChanges, OnDestr
   fullJourneyTitleLead = '';
   fullJourneyTitleTail = '';
   fullJourneyBodyCaption = '';
+  fullJourneyPlacementNote = '';
   fullJourneyStartHereBadge = '';
   resolvedStartingChapterIndex = 0;
   backToCurrentLabel = '';
@@ -133,6 +134,9 @@ export class JourneySnapshotPanelComponent implements OnInit, OnChanges, OnDestr
   }
 
   closeModal(): void {
+    this.modalExpanded = false;
+    void this.collapseModalShell(true);
+    void this.stageModal?.dismiss();
     this.modalOpen = false;
   }
 
@@ -174,6 +178,7 @@ export class JourneySnapshotPanelComponent implements OnInit, OnChanges, OnDestr
       this.fullJourneyBodyCaption = this.translate.instant('JOURNEY.SNAPSHOT.FULL_JOURNEY_BODY_TUTOR', {
         chapter: chapterLabel
       });
+      this.fullJourneyPlacementNote = this.translate.instant('JOURNEY.SNAPSHOT.FULL_JOURNEY_PLACEMENT_NOTE_TUTOR');
       this.fullJourneyStartHereBadge = this.translate.instant('JOURNEY.SNAPSHOT.STUDENT_IS_HERE', {
         name
       });
@@ -183,6 +188,7 @@ export class JourneySnapshotPanelComponent implements OnInit, OnChanges, OnDestr
       this.fullJourneyBodyCaption = this.translate.instant('JOURNEY.SNAPSHOT.FULL_JOURNEY_BODY_STUDENT', {
         chapter: chapterLabel
       });
+      this.fullJourneyPlacementNote = '';
       this.fullJourneyStartHereBadge = this.translate.instant('JOURNEY.SNAPSHOT.YOU_ARE_HERE');
     }
 

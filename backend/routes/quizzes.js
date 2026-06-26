@@ -5,6 +5,8 @@ const User = require('../models/User');
 const LearningPlan = require('../models/LearningPlan');
 const quizService = require('../services/quizService');
 const struggleAggregator = require('../services/struggleAggregator');
+const bayes = require('../services/bayesianMastery');
+const learningPlanService = require('../services/learningPlanService');
 
 /**
  * GET /api/quizzes/me
@@ -62,7 +64,29 @@ router.post('/:quizId/complete', verifyToken, async (req, res) => {
       quizId: req.params.quizId,
       rating
     });
-    res.json({ success: true, entry: updated });
+
+    // Loop closure: when the client reports first-try performance (the
+    // roadblock checkpoint does), fold it into the student's skill belief
+    // so a passed gate lowers how often the struggle re-surfaces and a
+    // missed one keeps it on the radar. Non-blocking — never fails the
+    // completion record if the belief update has a problem.
+    let belief = null;
+    const correct = Number(req.body?.correct);
+    const total = Number(req.body?.total);
+    if (Number.isFinite(correct) && Number.isFinite(total) && total > 0) {
+      try {
+        belief = await learningPlanService.recordQuizEvidence({
+          studentId: user._id,
+          quizId: req.params.quizId,
+          correct,
+          total
+        });
+      } catch (err) {
+        console.error('[Quiz] belief update from quiz result failed (non-blocking):', err.message);
+      }
+    }
+
+    res.json({ success: true, entry: updated, belief });
   } catch (err) {
     console.error('POST /quizzes/complete failed:', err);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -116,8 +140,11 @@ router.post('/roadblock', verifyToken, async (req, res) => {
     const { language } = req.body || {};
     if (!language) return res.status(400).json({ success: false, message: 'language required' });
 
+    // Load beliefs too: they let the aggregator score with the same
+    // mastery context the rest of the app uses, AND let us skip a struggle
+    // the student has already proven (no point gating them on a win).
     const plan = await LearningPlan.findOne({ studentId: user._id, language })
-      .select('chapterLevel goal')
+      .select('chapterLevel goal skillBeliefs')
       .lean();
     const level = plan?.chapterLevel || 'A1';
 
@@ -128,10 +155,17 @@ router.post('/roadblock', verifyToken, async (req, res) => {
       plan
     });
 
-    const topStruggle = (agg.struggles || [])[0] || null;
+    const struggles = agg.struggles || [];
+    // Target the top struggle the student hasn't confidently mastered yet.
+    // If every surfaced struggle is already mastered, treat it as "all
+    // clear" — a rewarding pass beats drilling something they've nailed.
+    const topStruggle = struggles.find(s => !bayes.isMastered(s.belief)) || null;
     if (!topStruggle) {
-      // Not enough signal yet — don't fabricate a gate for a brand-new student.
-      return res.json({ success: true, available: false, reason: 'no_struggle_data' });
+      return res.json({
+        success: true,
+        available: false,
+        reason: struggles.length ? 'all_mastered' : 'no_struggle_data'
+      });
     }
 
     const result = await quizService.selectAndPushQuiz({

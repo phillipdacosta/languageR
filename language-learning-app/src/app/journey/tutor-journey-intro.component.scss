@@ -205,6 +205,17 @@
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
 }
 
+// Slide 3 — full journey map caption note
+.ji-body--maps-expanded {
+  .ji-maps-caption--note {
+    margin-top: 12px;
+    max-width: 42em;
+    font-size: clamp(13px, 1.2vw, 15px);
+    line-height: 1.55;
+    color: #717171;
+  }
+}
+
 :host-context(html.ion-palette-dark) {
   .ji-body--tutor-welcome,
   .ji-body--tutor-phases,
@@ -239,6 +250,10 @@
     background: #2c2c2e;
     border-color: rgba(255, 255, 255, 0.08);
     box-shadow: 0 2px 16px rgba(0, 0, 0, 0.24);
+  }
+
+  .ji-body--maps-expanded .ji-maps-caption--note {
+    color: #98989d;
   }
 
   .ji-body--tutor-where {

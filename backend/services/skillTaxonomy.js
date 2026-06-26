@@ -274,15 +274,29 @@ function canonicalize(rawIssue, lang) {
 }
 
 /**
+ * Humanize a raw skillId into a readable label. Used for synthesized
+ * `<lang>.unknown.<name>` skills that have no taxonomy entry — turns
+ * "english.unknown.word_choice_errors" into "Word choice errors" so the
+ * focus line never surfaces a raw dotted id to the student/tutor.
+ */
+function humanizeSkillId(skillId) {
+  if (typeof skillId !== 'string' || !skillId) return skillId;
+  const lastSegment = skillId.split('.').pop() || skillId;
+  const words = lastSegment.replace(/_/g, ' ').trim();
+  if (!words) return skillId;
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+/**
  * Render the display label for a skillId in the given locale, falling
- * back to English then to the raw id.
+ * back to English, then to a humanized form of the raw id.
  */
 function displayNameFor(skillId, locale = 'en') {
   const skill = getSkill(skillId);
-  if (!skill) return skillId;
+  if (!skill) return humanizeSkillId(skillId);
   if (skill.displayName?.[locale]) return skill.displayName[locale];
   if (skill.displayName?.en) return skill.displayName.en;
-  return skillId;
+  return humanizeSkillId(skillId);
 }
 
 /**

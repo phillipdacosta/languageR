@@ -678,15 +678,17 @@
               <!-- Connector Line (before the node, except for first) -->
               <div class="node-line-before" *ngIf="!first"></div>
               
-              <!-- Node Circle with Level -->
-              <div class="node-circle" [ngClass]="'node-circle--' + analysis.levelClass">
-                <span class="node-level">{{ analysis.proficiencyLevel }}</span>
+              <!-- Node Circle with Level (level withheld until reveal window) -->
+              <div class="node-circle" [ngClass]="cefrRevealed ? ('node-circle--' + analysis.levelClass) : 'node-circle--pending'">
+                <span class="node-level" *ngIf="cefrRevealed">{{ analysis.proficiencyLevel }}</span>
+                <span class="node-level node-level--pending" *ngIf="!cefrRevealed">•</span>
               </div>
               
               <!-- Node Info -->
               <div class="node-info">
                 <div class="node-level-label">
-                  {{ analysis.proficiencyLevel }}
+                  <ng-container *ngIf="cefrRevealed">{{ analysis.proficiencyLevel }}</ng-container>
+                  <ng-container *ngIf="!cefrRevealed">Lesson reviewed</ng-container>
                   <span class="source-chip" *ngIf="analysis.source">
                     {{ analysis.source === 'ai' ? 'AI' : 'Tutor' }}
                   </span>

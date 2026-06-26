@@ -146,6 +146,9 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
   learningPlanNextFocus = '';
   learningPlanGoalLabel = '';
   learningPlanHasPlan = false;
+  // CEFR level reveal gate (backend plan.revealedCefrLevel). Until this is true,
+  // per-lesson levels in the analyses timeline are hidden from the student.
+  cefrRevealed = false;
   expandedPhaseIndex: number | null = null;
   
   private radarChart: Chart | null = null;
@@ -246,6 +249,9 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
           };
           this.learningPlanGoalLabel = res.plan.goal?.description
             || GOAL_LABELS[res.plan.goal?.type] || '';
+          // Per-lesson CEFR levels stay hidden until the reveal window (3–5
+          // lessons) completes. Milestone snapshots are the reveal itself.
+          this.cefrRevealed = !!res.plan.revealedCefrLevel?.level;
           this.cdr.detectChanges();
         }
       },

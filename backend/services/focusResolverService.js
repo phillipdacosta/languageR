@@ -29,6 +29,7 @@ const skillGraph = require('./skillGraph');
 const taxonomy = require('./skillTaxonomy');
 const focusHistory = require('./focusHistoryService');
 const bayes = require('./bayesianMastery');
+const skillBeliefKey = require('./skillBeliefKey');
 
 // ── Focus-line templates ───────────────────────────────────────────
 // Deterministic. Locale-aware downstream renderers can swap the EN
@@ -40,6 +41,23 @@ function focusLineForAggregator(displayName, appearances) {
     return `Focus on ${displayName.toLowerCase()} — your top recurring struggle from recent lessons.`;
   }
   return `Focus on ${displayName.toLowerCase()} — it has come up across multiple lessons and is your top recurring struggle.`;
+}
+
+// The analyst's recommendedFocus is already a directive ("Work on X",
+// "Practice Y"). Surface it close to verbatim so the next-lesson focus
+// matches the "Recommended focus" the tutor sees in the analysis card.
+function focusLineForRecommendedFocus(text) {
+  const t = String(text || '').trim().replace(/\s+/g, ' ');
+  if (!t) return '';
+  return /[.!?]$/.test(t) ? t : `${t}.`;
+}
+
+// Pull the primary (first non-empty) recommendedFocus string off an analysis.
+function primaryRecommendedFocus(lessonAnalysis) {
+  const arr = lessonAnalysis?.recommendedFocus;
+  if (!Array.isArray(arr)) return null;
+  const first = arr.find(s => typeof s === 'string' && s.trim());
+  return first ? first.trim() : null;
 }
 
 function focusLineForUpstream(displayName, symptomDisplay) {
@@ -64,8 +82,7 @@ function focusLineForPhaseDefault(phase) {
 
 function readBelief(plan, skillId) {
   if (!plan?.skillBeliefs) return null;
-  if (typeof plan.skillBeliefs.get === 'function') return plan.skillBeliefs.get(skillId) || null;
-  return plan.skillBeliefs[skillId] || null;
+  return skillBeliefKey.getBelief(plan.skillBeliefs, skillId);
 }
 
 /**
@@ -228,6 +245,25 @@ async function resolveAndApply(opts = {}) {
     };
   }
 
+  // ── 2.5 AI analyst's recommended focus (latest lesson) ────────────
+  // The just-completed AI analysis answers "what should the next lesson
+  // focus on?" directly via analysis.recommendedFocus — and the tutor sees
+  // that exact string in the lesson-analysis card. Surface it as the
+  // next-lesson focus so the "Suggested focus" and "Recommended focus"
+  // never contradict each other. Ranks below explicit tutor signals but
+  // above the rolling aggregator (which can lag a single lesson's intent).
+  if (!pick) {
+    const rec = primaryRecommendedFocus(lessonAnalysis);
+    if (rec) {
+      pick = {
+        skillId: taxonomy.canonicalize(rec, language).skillId,
+        source: 'analysis_recommendation',
+        diagnosedFrom: null,
+        focusLine: focusLineForRecommendedFocus(rec)
+      };
+    }
+  }
+
   // ── 3. Upstream diagnosis when top struggle is stuck ──────────────
   if (!pick && aggregatorTop) {
     if (focusHistory.isStuck(plan, aggregatorTop.skillId)) {
@@ -317,5 +353,6 @@ module.exports = {
   focusLineForAggregator,
   focusLineForUpstream,
   focusLineForTutorPriority,
-  focusLineForPhaseDefault
+  focusLineForPhaseDefault,
+  focusLineForRecommendedFocus
 };

@@ -82,7 +82,9 @@ $jsp-bg-subtle: #f7f7f7;
   .jsp-modal__body {
     display: flex;
     flex-direction: column;
-    padding: 0 clamp(16px, 2.5vw, 28px) clamp(12px, 2vh, 20px);
+    // Leave room for the floating close/back controls so map content
+    // doesn't sit on top of them and swallow clicks.
+    padding: 48px clamp(16px, 2.5vw, 28px) clamp(12px, 2vh, 20px);
     min-width: 0;
     overflow: hidden;
   }
@@ -99,7 +101,8 @@ $jsp-bg-subtle: #f7f7f7;
   position: absolute;
   top: 16px;
   left: 16px;
-  z-index: 2;
+  z-index: 1010;
+  pointer-events: auto;
   width: 32px;
   height: 32px;
   border: none;
@@ -124,7 +127,8 @@ $jsp-bg-subtle: #f7f7f7;
   position: absolute;
   top: 16px;
   right: 16px;
-  z-index: 2;
+  z-index: 1010;
+  pointer-events: auto;
   width: 32px;
   height: 32px;
   border: none;

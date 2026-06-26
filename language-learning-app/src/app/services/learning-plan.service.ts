@@ -143,6 +143,30 @@ export interface LearningPlan {
   /** Server-provided scale visual: A1..C2 with `active` set on the revealed level. */
   cefrScale?: Array<{ level: 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2'; active: boolean }>;
 
+  /**
+   * What the most-recent analyzed lesson changed on the plan. Diffed and
+   * persisted server-side in updatePlanAfterLesson. The post-lesson recap
+   * confirms `lessonId` matches the lesson it's showing before rendering
+   * any "what changed" copy. See backend learningPlanService.
+   */
+  lastLessonImpact?: {
+    lessonId?: string | null;
+    at?: string | null;
+    phaseIndexBefore?: number | null;
+    phaseIndexAfter?: number | null;
+    phaseAdvanced?: boolean;
+    phaseTitleBefore?: string | null;
+    phaseTitleAfter?: string | null;
+    chapterChanged?: boolean;
+    chapterLevelBefore?: string | null;
+    chapterLevelAfter?: string | null;
+    focusChanged?: boolean;
+    focusBefore?: string | null;
+    focusAfter?: string | null;
+    windowProgressBefore?: number | null;
+    windowProgressAfter?: number | null;
+  };
+
   // Journey-map gamification (treasure chests).
   journeyXp?: number;
   claimedChests?: Array<{
@@ -714,15 +738,28 @@ export class LearningPlanService {
     );
   }
 
-  /** Record completion (and optional rating) of a roadblock/library quiz. */
-  completeQuiz(quizId: string, rating: number = 0): Observable<{ success: boolean }> {
+  /**
+   * Record completion (and optional rating) of a roadblock/library quiz.
+   * When `score` is supplied (roadblock checkpoints report first-try
+   * correctness), the backend folds it into the student's skill belief.
+   */
+  completeQuiz(
+    quizId: string,
+    rating: number = 0,
+    score?: { correct?: number; total?: number }
+  ): Observable<{ success: boolean }> {
     return this.userService.getCurrentUser().pipe(
       take(1),
       switchMap(() => {
         const headers = this.userService.getAuthHeadersSync();
+        const body: { rating: number; correct?: number; total?: number } = { rating };
+        if (score && Number.isFinite(score.correct) && Number.isFinite(score.total) && (score.total as number) > 0) {
+          body.correct = score.correct;
+          body.total = score.total;
+        }
         return this.http.post<{ success: boolean }>(
           `${environment.backendUrl}/api/quizzes/${quizId}/complete`,
-          { rating },
+          body,
           { headers }
         );
       })

@@ -7,6 +7,42 @@
   position: relative;
 }
 
+// Inline template is not wrapped in .journey-intro-shell — hoist close styles
+// so the button stays above slide content and receives clicks.
+.ji-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 1010;
+  pointer-events: auto;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid #dddddd;
+  background: #ffffff;
+  color: #717171;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  outline: none;
+  -webkit-appearance: none;
+
+  ion-icon { font-size: 18px; }
+
+  &:hover {
+    color: #222222;
+    border-color: #b0b0b0;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+  }
+
+  &:active {
+    background: #f7f7f7;
+    transform: scale(0.95);
+  }
+}
+
 @mixin ji-student-callout-card {
   text-align: left;
   width: 100%;

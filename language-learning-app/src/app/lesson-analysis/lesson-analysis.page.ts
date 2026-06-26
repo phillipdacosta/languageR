@@ -55,6 +55,11 @@ export class LessonAnalysisPage implements OnInit, OnDestroy, ViewWillEnter {
   
   // Analysis source (ai or tutor)
   analysisSource: string = '';
+
+  // CEFR level is withheld from the student until the reveal window (3–5
+  // lessons) completes (backend plan.revealedCefrLevel). Tutors always see it.
+  cefrRevealedForStudent = false;
+  private isTutorViewer = false;
   
   // Review deck
   savedCorrections: Set<string> = new Set();
@@ -156,6 +161,8 @@ export class LessonAnalysisPage implements OnInit, OnDestroy, ViewWillEnter {
         this.analysis = response.analysis;
         this.lesson = response.lesson;
         this.analysisSource = response.analysis?.source || 'ai';
+        this.cefrRevealedForStudent = response.cefrRevealedForStudent === true;
+        this.computeViewerRole();
       } else if (response.status) {
         // Direct LessonAnalysis document format - use it as-is with proper type
         this.analysis = response as LessonAnalysis;
@@ -249,6 +256,8 @@ export class LessonAnalysisPage implements OnInit, OnDestroy, ViewWillEnter {
         if (response.success && response.analysis) {
           this.analysis = response.analysis;
           this.lesson = response.lesson;
+          this.cefrRevealedForStudent = response.cefrRevealedForStudent === true;
+          this.computeViewerRole();
           this.error = null;
           
           // Stop polling if analysis is complete, failed, or insufficient
@@ -311,6 +320,19 @@ export class LessonAnalysisPage implements OnInit, OnDestroy, ViewWillEnter {
     } finally {
       await loading.dismiss();
     }
+  }
+
+  /** Determine whether the current viewer is the tutor (who always sees the level). */
+  private computeViewerRole() {
+    const user = this.userService.getCurrentUserValue();
+    const userId = String((user as any)?._id || (user as any)?.id || '');
+    const tutorId = String(this.lesson?.tutor?._id || '');
+    this.isTutorViewer = !!userId && !!tutorId && userId === tutorId;
+  }
+
+  /** Whether the CEFR level may be shown to this viewer. */
+  private get cefrLevelVisible(): boolean {
+    return this.isTutorViewer || this.cefrRevealedForStudent;
   }
 
   formatDate(date: Date): string {
@@ -544,7 +566,9 @@ export class LessonAnalysisPage implements OnInit, OnDestroy, ViewWillEnter {
     const metrics = this.analysis.progressionMetrics;
     const level = this.analysis.overallAssessment.proficiencyLevel;
     
-    if (level === 'C2') {
+    // These two messages reveal the CEFR level — only surface them once the
+    // level is visible to the viewer (tutor, or student past the reveal window).
+    if (level === 'C2' && this.cefrLevelVisible) {
       return '🎯 Native-level fluency maintained!';
     }
     
@@ -561,7 +585,7 @@ export class LessonAnalysisPage implements OnInit, OnDestroy, ViewWillEnter {
       return `✨ ${improvement}% fewer errors than last time!`;
     }
     
-    if (metrics?.proficiencyChange === 'improved') {
+    if (metrics?.proficiencyChange === 'improved' && this.cefrLevelVisible) {
       return `🎉 Congratulations! You leveled up to ${level}!`;
     }
     
