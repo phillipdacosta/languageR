@@ -55,16 +55,16 @@
           <span>{{ 'POST_LESSON.STUDENT.RECAP_MORE_TARGET_LANGUAGE' | translate }}</span>
         </div>
 
-        <!-- CEFR Level Jump Banner -->
-        <div class="level-jump-banner" *ngIf="!recapOnly && analysis.progressionMetrics?.previousProficiencyLevel && analysis.progressionMetrics?.previousProficiencyLevel !== analysis.overallAssessment.proficiencyLevel">
+        <!-- CEFR Level Jump Banner — withheld until the reveal window (3–5 lessons) -->
+        <div class="level-jump-banner" *ngIf="cefrRevealedForStudent && !recapOnly && analysis.progressionMetrics?.previousProficiencyLevel && analysis.progressionMetrics?.previousProficiencyLevel !== analysis.overallAssessment.proficiencyLevel">
           <ion-icon name="trophy"></ion-icon>
           <span>You've moved from <strong>{{ analysis.progressionMetrics?.previousProficiencyLevel }}</strong> to <strong>{{ analysis.overallAssessment.proficiencyLevel }}</strong> since your last session!</span>
         </div>
 
-        <!-- Level badge -->
+        <!-- Level badge — withheld until the reveal window (3–5 lessons) -->
         <div class="level-hero-row" *ngIf="!recapOnly">
           <div class="level-section">
-            <div class="level-badge-large">
+            <div class="level-badge-large" *ngIf="cefrRevealedForStudent">
               <div class="level-text">
                 {{ analysis.overallAssessment.proficiencyLevel }}
               </div>

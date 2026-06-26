@@ -14,7 +14,8 @@ import { formatTimeInTz, formatDateInTz } from '../shared/timezone.utils';
 import { CardManagementModalComponent } from '../components/card-management-modal/card-management-modal.component';
 import { VocabularyService, VocabEntry, GoalEntry } from '../services/vocabulary.service';
 import { ReviewDeckService } from '../services/review-deck.service';
-import { LearningPlanService } from '../services/learning-plan.service';
+import { LearningPlanService, LearningPlan } from '../services/learning-plan.service';
+import { JourneyMapPreviewPhase } from '../journey/journey-map-preview.component';
 import {
   TutorAvailabilityViewerComponent,
   BookableSlotPreview,
@@ -227,6 +228,13 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
   recapOnly = false;
   recapMessage = '';
 
+  // CEFR level is withheld from the student until the reveal window (3–5
+  // lessons) completes — showing a level after one lesson while the map
+  // still reads A1 is confusing. Backend computes this from the plan's
+  // reveal state (plan.revealedCefrLevel). Defaults hidden so we never
+  // flash a premature level before the response confirms.
+  cefrRevealedForStudent = false;
+
   private readonly destroy$ = new Subject<void>();
 
   /** Map a 0–100 score → student-facing qualitative bucket + tone. */
@@ -262,9 +270,11 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
       this.recapMessage = '';
     }
 
-    // Build the chips, omitting the level chip in recap-only mode.
+    // Build the chips. Omit the level chip in recap-only mode AND until the
+    // CEFR reveal window (3–5 lessons) completes — we don't surface a level
+    // to the student while the journey map still reads A1.
     const chips: typeof this.quickSummaryChips = [];
-    if (!this.recapOnly) {
+    if (!this.recapOnly && this.cefrRevealedForStudent) {
       chips.push({
         key: 'level',
         label: this.t('POST_LESSON.STUDENT.LEVEL'),
@@ -359,6 +369,25 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
     ctaLabel: string;
   } | null = null;
 
+  // Journey snapshot card — "where you are now" plus a "what changed" delta
+  // when the plan's lastLessonImpact belongs to this lesson. All copy and
+  // map inputs precomputed (no template fns / pipes per AGENTS.md).
+  showJourneyCard = false;
+  journeyCardTitle = '';
+  journeyChapterTheme = 'a1-desert';
+  journeyChapterLevel = 'A1';
+  journeyPhases: JourneyMapPreviewPhase[] = [];
+  journeyCurrentPhaseIndex = 0;
+  journeyPhasePillLabel = '';
+  journeyPhaseTitle = '';
+  journeyProgressLabel = '';
+  journeyProgressPercent = 0;
+  journeyNextFocusLabel = '';
+  journeyNextFocus = '';
+  journeyImpactLines: string[] = [];
+  journeyCtaLabel = '';
+  private journeyPlan: LearningPlan | null = null;
+
   constructor(
     private route: ActivatedRoute,
     private router: Router,
@@ -399,6 +428,9 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
       if (this.analysis) {
         this.rebuildQuickSummary();
         this.rebuildTakeaways();
+      }
+      if (this.journeyPlan) {
+        this.buildJourneyCardFromPlan(this.journeyPlan);
       }
     });
     console.log('🎓 POST-LESSON-STUDENT: Initializing with lessonId:', this.lessonId);
@@ -450,6 +482,11 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
 
       const res: any = await firstValueFrom(this.learningPlanService.getPlan(language));
       if (!res?.success || !res.plan) return;
+
+      // Journey snapshot ("where you are now"). Built from the same fetch so
+      // there's no second round-trip. The "what changed" delta only renders
+      // when lastLessonImpact belongs to this lesson — see builder.
+      this.buildJourneyCardFromPlan(res.plan);
 
       // "Want a plan?" soft prompt — only for plans without a structured
       // roadmap. Server attaches `softPlanPrompt.eligible` when ≥ 3 lessons
@@ -533,6 +570,127 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
       // Non-blocking — just no card.
       console.warn('[PostLesson] Plan-update card load failed:', err);
     }
+  }
+
+  /**
+   * Re-fetch the plan after the analysis pipeline finishes so the journey
+   * card can pick up the freshly-persisted lastLessonImpact (the plan update
+   * and the analysis run in the same server-side pipeline; on first paint the
+   * delta may not have landed yet). Falls back silently — the snapshot built
+   * at init still renders.
+   */
+  private async refreshJourneyCardAfterAnalysis() {
+    if (!this.planUpdateLanguage) return;
+    try {
+      const res: any = await firstValueFrom(
+        this.learningPlanService.getPlan(this.planUpdateLanguage)
+      );
+      if (res?.success && res.plan) {
+        this.buildJourneyCardFromPlan(res.plan);
+      }
+    } catch (err) {
+      console.warn('[PostLesson] Journey card refresh failed:', err);
+    }
+  }
+
+  /**
+   * Build the journey snapshot card from a plan. Always shows the current
+   * chapter/phase/progress/focus for a live plan; adds "what changed" lines
+   * only when lastLessonImpact.lessonId matches the lesson being shown.
+   */
+  private buildJourneyCardFromPlan(plan: LearningPlan) {
+    if (this.isTrialLesson || !plan) {
+      this.showJourneyCard = false;
+      return;
+    }
+
+    const liveStatuses = ['active', 'draft', 'mastery_mode'];
+    const phases = plan.phases || [];
+    if (!liveStatuses.includes(plan.status) || phases.length === 0) {
+      this.showJourneyCard = false;
+      return;
+    }
+
+    this.journeyPlan = plan;
+
+    const idx = plan.currentPhaseIndex || 0;
+    this.journeyChapterTheme = plan.chapterTheme || 'a1-desert';
+    this.journeyChapterLevel = plan.chapterLevel || 'A1';
+    this.journeyCurrentPhaseIndex = idx;
+    this.journeyPhases = phases.map((p, i) => ({
+      title: p.title || '',
+      status: p.status || (i < idx ? 'completed' : i === idx ? 'active' : 'locked'),
+      isRecovery: !!p._isRecovery,
+      isSplit: !!p._isSplit,
+    }));
+
+    const activePhase = phases[idx];
+    this.journeyPhaseTitle = activePhase?.title || '';
+    this.journeyProgressPercent = activePhase?.windowProgressPercent ?? 0;
+    this.journeyNextFocus = plan.nextLessonFocus || '';
+
+    this.journeyPhasePillLabel = this.translate.instant('POST_LESSON.STUDENT.JOURNEY_PHASE_OF', {
+      current: idx + 1,
+      total: phases.length,
+    });
+    this.journeyProgressLabel = this.translate.instant('POST_LESSON.STUDENT.JOURNEY_PROGRESS_LABEL');
+    this.journeyNextFocusLabel = this.translate.instant('POST_LESSON.STUDENT.JOURNEY_NEXT_FOCUS');
+    this.journeyCtaLabel = this.translate.instant('POST_LESSON.STUDENT.JOURNEY_CTA');
+
+    this.journeyImpactLines = this.buildJourneyImpactLines(plan);
+    this.journeyCardTitle = this.journeyImpactLines.length
+      ? this.translate.instant('POST_LESSON.STUDENT.JOURNEY_TITLE_MOVED')
+      : this.translate.instant('POST_LESSON.STUDENT.JOURNEY_TITLE_WHERE');
+
+    this.showJourneyCard = true;
+    this.cdr.detectChanges();
+  }
+
+  /** "What changed" bullets — only when the delta belongs to this lesson. */
+  private buildJourneyImpactLines(plan: LearningPlan): string[] {
+    const impact = plan.lastLessonImpact;
+    if (!impact || !impact.lessonId || impact.lessonId !== this.lessonId) {
+      return [];
+    }
+
+    const lines: string[] = [];
+    if (impact.chapterChanged && impact.chapterLevelAfter) {
+      lines.push(
+        this.translate.instant('POST_LESSON.STUDENT.JOURNEY_IMPACT_CHAPTER', {
+          level: impact.chapterLevelAfter,
+        })
+      );
+    } else if (impact.phaseAdvanced && impact.phaseTitleAfter) {
+      lines.push(
+        this.translate.instant('POST_LESSON.STUDENT.JOURNEY_IMPACT_PHASE', {
+          phase: impact.phaseTitleAfter,
+        })
+      );
+    }
+
+    if (impact.focusChanged && impact.focusAfter) {
+      lines.push(
+        this.translate.instant('POST_LESSON.STUDENT.JOURNEY_IMPACT_FOCUS', {
+          focus: impact.focusAfter,
+        })
+      );
+    }
+
+    // Same phase, no focus change, but the lesson still moved the bar forward.
+    if (
+      !lines.length &&
+      typeof impact.windowProgressAfter === 'number' &&
+      typeof impact.windowProgressBefore === 'number' &&
+      impact.windowProgressAfter > impact.windowProgressBefore
+    ) {
+      lines.push(this.translate.instant('POST_LESSON.STUDENT.JOURNEY_IMPACT_PROGRESS'));
+    }
+
+    return lines;
+  }
+
+  openJourneyFromCard() {
+    this.router.navigate(['/tabs/home/journey']);
   }
 
   private ackPlanUpdate() {
@@ -1105,9 +1263,13 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
       if (status === 'completed') {
         this.analysis = response.analysis;
         this.analysisReady = true;
+        this.cefrRevealedForStudent = response.cefrRevealedForStudent === true;
         this.rebuildQuickSummary();
         this.updateSubheaderDisplay();
         this.prefetchAvailabilityPreview();
+        // The plan update lands in the same server-side pipeline as the
+        // analysis — re-pull now to surface this lesson's journey delta.
+        this.refreshJourneyCardAfterAnalysis();
         if (this.pollingInterval) {
           clearInterval(this.pollingInterval);
         }

@@ -32,6 +32,8 @@
  * fast for the (α, β) ranges we see in practice (rarely > 50).
  */
 
+const skillBeliefKey = require('./skillBeliefKey');
+
 const PRIOR_ALPHA = 1.5;
 const PRIOR_BETA = 2.5;
 const HALF_LIFE_DAYS = 60;
@@ -323,12 +325,7 @@ function readBeliefsForSkills(skillBeliefs, skillIds, now = new Date()) {
   if (!skillBeliefs || !skillIds?.length) return [];
   const out = [];
   for (const skillId of skillIds) {
-    let belief = null;
-    if (typeof skillBeliefs.get === 'function') {
-      belief = skillBeliefs.get(skillId) || null;
-    } else if (skillBeliefs[skillId]) {
-      belief = skillBeliefs[skillId];
-    }
+    const belief = skillBeliefKey.getBelief(skillBeliefs, skillId);
     out.push({
       skillId,
       belief: belief ? decay(belief, now) : null

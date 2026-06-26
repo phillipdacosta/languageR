@@ -184,7 +184,7 @@ const focusHistoryEntrySchema = new mongoose.Schema({
   skillId: { type: String, required: true },
   source: {
     type: String,
-    enum: ['aggregator', 'upstream_diagnosis', 'tutor_priority', 'tutor_override', 'phase_default', 'manual'],
+    enum: ['aggregator', 'analysis_recommendation', 'upstream_diagnosis', 'tutor_priority', 'tutor_override', 'phase_default', 'manual'],
     required: true
   },
   surfacedAt: { type: Date, default: Date.now },
@@ -379,6 +379,29 @@ const learningPlanSchema = new mongoose.Schema({
     celebrationShownCount: { type: Number, default: 0 }
   },
 
+  // Snapshot of what THIS most-recent lesson changed on the plan. Computed
+  // in updatePlanAfterLesson by diffing before/after state, persisted here
+  // (the callers are fire-and-forget so they can't return it), and surfaced
+  // on the student's post-lesson recap as the "your journey moved" card.
+  // `lessonId` lets the client confirm the delta belongs to the lesson it's
+  // showing before rendering any "what changed" copy.
+  lastLessonImpact: {
+    lessonId: { type: String, default: null },
+    at: { type: Date, default: null },
+    phaseIndexBefore: { type: Number, default: null },
+    phaseIndexAfter: { type: Number, default: null },
+    phaseAdvanced: { type: Boolean, default: false },
+    phaseTitleBefore: { type: String, default: null },
+    phaseTitleAfter: { type: String, default: null },
+    chapterChanged: { type: Boolean, default: false },
+    chapterLevelBefore: { type: String, default: null },
+    chapterLevelAfter: { type: String, default: null },
+    focusChanged: { type: Boolean, default: false },
+    focusBefore: { type: String, default: null },
+    focusAfter: { type: String, default: null },
+    windowProgressBefore: { type: Number, default: null },
+    windowProgressAfter: { type: Number, default: null }
+  },
 
   weeklyRecommendations: {
     lessonFrequency: { type: String, default: '2x per week' },
@@ -418,7 +441,7 @@ const learningPlanSchema = new mongoose.Schema({
   activeFocusSkillId: { type: String, default: null },
   activeFocusSource: {
     type: String,
-    enum: ['aggregator', 'upstream_diagnosis', 'tutor_priority', 'tutor_override', 'phase_default', 'manual', null],
+    enum: ['aggregator', 'analysis_recommendation', 'upstream_diagnosis', 'tutor_priority', 'tutor_override', 'phase_default', 'manual', null],
     default: null
   },
   activeFocusSetAt: { type: Date, default: null },

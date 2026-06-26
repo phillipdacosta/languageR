@@ -30,11 +30,12 @@ const STUCK_AFTER_N_OUTCOMES = 3;    // 3 'stuck' settlements escalates the skil
 
 const OUTCOMES = Object.freeze(['pending', 'improved', 'stuck', 'worsened', 'superseded']);
 const SOURCES = Object.freeze([
-  'aggregator',          // standard rolling-struggle pick
-  'upstream_diagnosis',  // redirected to a prereq
-  'tutor_priority',      // structured tutor input
-  'tutor_override',      // legacy free-text tutor override
-  'phase_default',       // first lesson in a new phase, no analysis yet
+  'aggregator',              // standard rolling-struggle pick
+  'analysis_recommendation', // AI analysis's explicit recommendedFocus
+  'upstream_diagnosis',      // redirected to a prereq
+  'tutor_priority',          // structured tutor input
+  'tutor_override',          // legacy free-text tutor override
+  'phase_default',           // first lesson in a new phase, no analysis yet
   'manual'
 ]);
 

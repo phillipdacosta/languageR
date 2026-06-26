@@ -18,6 +18,7 @@
 
 const taxonomy = require('./skillTaxonomy');
 const bayes = require('./bayesianMastery');
+const skillBeliefKey = require('./skillBeliefKey');
 
 const MAX_TRAVERSAL_DEPTH = 8; // taxonomy depth is small; this is a defensive cap
 
@@ -66,15 +67,7 @@ function getAncestors(skillId, maxDepth = MAX_TRAVERSAL_DEPTH) {
  */
 function readBelief(beliefs, skillId) {
   if (!beliefs) return null;
-  // Mongoose Map / native Map
-  if (typeof beliefs.get === 'function') {
-    return beliefs.get(skillId) || null;
-  }
-  // Plain object
-  if (typeof beliefs === 'object') {
-    return beliefs[skillId] || null;
-  }
-  return null;
+  return skillBeliefKey.getBelief(beliefs, skillId);
 }
 
 /**

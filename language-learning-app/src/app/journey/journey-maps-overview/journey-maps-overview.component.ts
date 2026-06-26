@@ -28,6 +28,8 @@ export class JourneyMapsOverviewComponent {
   @Input() titleLead = '';
   @Input() titleTail = '';
   @Input() bodyCaption = '';
+  /** Tutor-only note explaining map placement vs lesson analysis level. */
+  @Input() placementNote = '';
   /** When set (snapshot contexts), overrides onboarding "You start here" badge. */
   @Input() startHereBadgeLabel = '';
   /** Live progress for the student's current chapter (snapshot / lesson contexts). */

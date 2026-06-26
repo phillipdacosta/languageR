@@ -2192,7 +2192,10 @@ export class JourneyPage implements OnInit, OnDestroy {
     const { data, role } = await modal.onDidDismiss();
     this.roadblockModalBounds = null;
     if (role === 'completed' && data?.quizId) {
-      this.learningPlanService.completeQuiz(data.quizId, 0).pipe(take(1)).subscribe({ error: () => {} });
+      this.learningPlanService
+        .completeQuiz(data.quizId, 0, { correct: data.correct, total: data.total })
+        .pipe(take(1))
+        .subscribe({ error: () => {} });
       this.showToast(this.translate.instant('JOURNEY.ROADBLOCK.PASSED_TOAST'), 'success');
       if (roadblockNode) {
         await this.playPostRoadblockTravelSequence(roadblockNode);

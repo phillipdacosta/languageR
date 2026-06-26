@@ -520,7 +520,12 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   paymentStatusSectionExpanded = false;
   feedbackNotes = '';
   feedbackCefrLevel = '';
+  // CEFR level is withheld from the student until the reveal window (3–5
+  // lessons) completes (backend plan.revealedCefrLevel). Tutors always see it.
+  cefrRevealedForStudent = false;
   feedbackDate = '';
+  feedbackImpressionLabel = '';
+  feedbackImpressionClass = '';
   sanitizedTutorNote: SafeHtml = '';
 
   // Feedback status (banner)
@@ -865,6 +870,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     const mockAi = (lesson as any).aiAnalysis;
     if (mockAi && mockAi.status === 'completed') {
       this.analysisData = this.buildMockAnalysisData(lesson, id);
+      this.cefrRevealedForStudent = true; // dev preview shows the level
       this.computeAnalysisProperties();
     } else if (mockAi && mockAi.status === 'generating') {
       this.analysisData = null;
@@ -1125,6 +1131,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
 
       if (cached.analysis) {
         this.analysisData = cached.analysis;
+        this.cefrRevealedForStudent = cached.cefrRevealedForStudent === true;
         this.computeAnalysisProperties();
       }
       if (cached.analysisUnavailable && !this.isTrialLessonEvent) {
@@ -1301,8 +1308,12 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
         next: (res) => {
           if (res.success && res.analysis) {
             this.analysisData = res.analysis;
+            this.cefrRevealedForStudent = res.cefrRevealedForStudent === true;
             this.computeAnalysisProperties();
-            this.lessonService.updateCachedLessonDetail(this.eventId!, { analysis: res.analysis });
+            // Feedback may have loaded first; re-gate its CEFR level now that
+            // the reveal flag is known.
+            if (this.hasTutorFeedback) this.computeFeedbackProperties();
+            this.lessonService.updateCachedLessonDetail(this.eventId!, { analysis: res.analysis, cefrRevealedForStudent: this.cefrRevealedForStudent });
           } else if (this.isLessonCompleted) {
             this.analysisUnavailable = true;
             this.lessonService.updateCachedLessonDetail(this.eventId!, { analysisUnavailable: true });
@@ -3534,12 +3545,44 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       this.sanitizedTutorNote = this.sanitizer.bypassSecurityTrustHtml(this.analysisData.tutorNote.text);
     }
 
+    // Students don't see the CEFR level until the reveal window; tutors always do.
+    const levelVisible = this.isTutorUser || this.cefrRevealedForStudent;
     const parsed = this.parseProficiencyLevel(this.analysisData.overallAssessment?.proficiencyLevel);
-    this.analysisProficiencyBadge = parsed.badge;
-    this.analysisProficiencyDetail = parsed.detail;
+    this.analysisProficiencyBadge = levelVisible ? parsed.badge : '';
+    this.analysisProficiencyDetail = levelVisible ? parsed.detail : '';
 
     this.refreshNotesPresentation();
+    this.refreshFeedbackImpressionLabel();
     this.refreshMainCardSections();
+  }
+
+  private refreshFeedbackImpressionLabel(): void {
+    const raw = (this.analysisData?.tutorNote?.quickImpression || '').trim();
+    if (!raw) {
+      this.feedbackImpressionLabel = '';
+      this.feedbackImpressionClass = '';
+      return;
+    }
+
+    const normalized = raw.toLowerCase();
+    const labelKeys: Record<string, string> = {
+      excellent: 'MESSAGES.IMPRESSION_EXCELLENT',
+      great: 'MESSAGES.IMPRESSION_GREAT',
+      good: 'MESSAGES.IMPRESSION_GOOD',
+      'needs-work': 'MESSAGES.IMPRESSION_NEEDS_WORK',
+    };
+    const classByValue: Record<string, string> = {
+      excellent: 'impression-excellent',
+      great: 'impression-great',
+      good: 'impression-good',
+      'needs-work': 'impression-needs-work',
+    };
+
+    const labelKey = labelKeys[normalized];
+    this.feedbackImpressionLabel = labelKey
+      ? this.translate.instant(labelKey)
+      : raw;
+    this.feedbackImpressionClass = classByValue[normalized] || '';
   }
 
   /** Split "B1 – Intermediate" into a short badge code and optional detail line. */
@@ -3653,7 +3696,9 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     this.feedbackStrengths = this.tutorFeedback.strengths || [];
     this.feedbackImprovements = this.tutorFeedback.areasForImprovement || [];
     this.feedbackNotes = this.tutorFeedback.overallNotes || '';
-    this.feedbackCefrLevel = this.tutorFeedback.estimatedCefrLevel || '';
+    // Withhold the tutor's CEFR estimate from the student until the reveal window.
+    const levelVisible = this.isTutorUser || this.cefrRevealedForStudent;
+    this.feedbackCefrLevel = levelVisible ? (this.tutorFeedback.estimatedCefrLevel || '') : '';
     this.feedbackDate = this.tutorFeedback.providedAt
       ? formatDateInTz(this.tutorFeedback.providedAt, this.userTz, { month: 'short', day: 'numeric', year: 'numeric' })
       : '';

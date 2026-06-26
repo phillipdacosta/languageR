@@ -20,6 +20,8 @@ export interface CachedLessonDetailBundle {
   recentLessons?: { _id: string; subject: string; dateLabel: string; durationLabel: string }[];
   analysis?: any;
   analysisUnavailable?: boolean;
+  /** Whether the student's CEFR level may be shown (plan.revealedCefrLevel). */
+  cefrRevealedForStudent?: boolean;
   feedback?: any;
   billing?: any;
   payment?: any;

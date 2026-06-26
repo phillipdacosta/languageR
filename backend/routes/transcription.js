@@ -1734,10 +1734,30 @@ router.get('/lesson/:lessonId/analysis', verifyToken, async (req, res) => {
     if (analysis.translations instanceof Map) {
       analysis.translations = Object.fromEntries(analysis.translations);
     }
-    
+
+    // Whether the student's CEFR level should be surfaced to THEM yet.
+    // We deliberately withhold the per-lesson CEFR from students until the
+    // calibration/reveal window (3–5 lessons) completes — showing a level
+    // after a single lesson, while the journey map still reads A1,
+    // confuses students. The reveal system (plan.revealedCefrLevel) is the
+    // single source of truth. Tutors always see the level (this flag is
+    // ignored by tutor surfaces).
+    let cefrRevealedForStudent = false;
+    try {
+      const LearningPlanModel = require('../models/LearningPlan');
+      const studentPlan = await LearningPlanModel
+        .findOne({ studentId: analysis.studentId?._id || analysis.studentId, language: analysis.language })
+        .select('revealedCefrLevel')
+        .lean();
+      cefrRevealedForStudent = !!studentPlan?.revealedCefrLevel?.level;
+    } catch (planErr) {
+      console.warn('⚠️ [analysis] CEFR reveal lookup failed (defaulting to hidden):', planErr.message);
+    }
+
     res.json({
       success: true,
       analysis: analysis,
+      cefrRevealedForStudent,
       lesson: {
         _id: analysis.lessonId?._id,
         subject: analysis.lessonId?.subject || analysis.language + ' Lesson',
@@ -2920,7 +2940,14 @@ async function analyzeLesson(transcriptId) {
         }
       }
     } catch (planError) {
-      console.error('⚠️ Learning plan update failed (non-blocking):', planError);
+      // Non-blocking for the analysis, but a failure here freezes the
+      // student's nextLessonFocus on stale data — surface it loudly with
+      // full context so it can't silently rot again.
+      console.error(
+        `❌ [LearningPlan] updatePlanAfterLesson FAILED for lesson ${transcript.lessonId} ` +
+        `(student ${transcript.studentId}, ${transcript.language}) — plan NOT updated:`,
+        planError && planError.stack ? planError.stack : planError
+      );
     }
 
     // Check if student hit a milestone (5, 10, 15, etc. lessons in this language)

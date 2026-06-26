@@ -2663,6 +2663,16 @@ $purple: #8b5cf6;
     background: linear-gradient(135deg, $red 0%, #dc2626 100%);
     box-shadow: 0 4px 12px rgba(239, 83, 80, 0.3);
   }
+
+  &--pending {
+    background: linear-gradient(135deg, #cbd5e1 0%, #94a3b8 100%);
+    box-shadow: 0 4px 12px rgba(148, 163, 184, 0.25);
+  }
+
+  .node-level--pending {
+    font-size: 24px;
+    line-height: 1;
+  }
 }
 
 .node-info {
