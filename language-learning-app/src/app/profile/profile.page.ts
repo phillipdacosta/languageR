@@ -83,7 +83,7 @@ export class ProfilePage implements OnInit, ViewWillEnter {
   isVideoApproved = false; // Track if tutor's video is approved
   hasPendingVideo = false; // Track if tutor has a pending video under review
   isDarkMode$: Observable<boolean>;
-  remindersEnabled: boolean = true;
+  remindersEnabled: boolean = false;
   showWalletBalance: boolean = true;
   aiAnalysisEnabled: boolean = true;
   timeFormat: '12h' | '24h' = '12h';
@@ -397,7 +397,7 @@ export class ProfilePage implements OnInit, ViewWillEnter {
         this.computeLearningGoalDisplay(user);
       }
       
-      this.remindersEnabled = user?.profile?.remindersEnabled !== false;
+      this.remindersEnabled = user?.profile?.remindersEnabled === true;
       this.showWalletBalance = user?.profile?.showWalletBalance ?? true;
       this.aiAnalysisEnabled = user?.profile?.aiAnalysisEnabled !== false;
       this.timeFormat = user?.profile?.calendarTimeFormat || '12h';

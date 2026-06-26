@@ -235,7 +235,7 @@ export class AppComponent implements OnInit, OnDestroy {
             this.reconcileInterfaceLanguage(currentUser);
 
             // Check if reminders are enabled from user profile (database)
-            const remindersEnabled = currentUser?.profile?.remindersEnabled !== false; // Default true
+            const remindersEnabled = currentUser?.profile?.remindersEnabled === true;
 
             if (remindersEnabled) {
               if (currentUser?.userType === 'tutor' && currentUser.id) {
