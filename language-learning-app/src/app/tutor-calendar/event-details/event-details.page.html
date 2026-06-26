@@ -505,7 +505,7 @@
           <!-- Tutor's personal note (free-text) -->
           <div class="ed-fb-block" *ngIf="hasTutorNote">
             <h3 class="ed-sub-label">{{ 'EVENT_DETAILS.LESSON_SCREEN.TUTOR_NOTE' | translate }}</h3>
-            <span class="ed-impression" *ngIf="analysisData?.tutorNote?.quickImpression">{{ analysisData?.tutorNote?.quickImpression | titlecase }}</span>
+            <span class="ed-impression" *ngIf="feedbackImpressionLabel" [ngClass]="feedbackImpressionClass">{{ feedbackImpressionLabel }}</span>
             <div class="ed-rich-body" [innerHTML]="sanitizedTutorNote"></div>
             <div class="ed-fb-homework" *ngIf="analysisData?.tutorNote?.homework">
               <h3 class="ed-sub-label">{{ 'EVENT_DETAILS.LESSON_SCREEN.HOMEWORK' | translate }}</h3>
@@ -662,6 +662,12 @@
           </div>
         </div>
 
+        <div
+          class="ed-feedback-preview"
+          *ngIf="showYourFeedbackCollapsible && !feedbackSectionExpanded && feedbackImpressionLabel">
+          <span class="ed-impression" [ngClass]="feedbackImpressionClass">{{ feedbackImpressionLabel }}</span>
+        </div>
+
         <div class="ed-inline-loader" *ngIf="feedbackLoading || analysisLoading">
           <ion-spinner name="crescent"></ion-spinner>
           <span>{{ 'EVENT_DETAILS.LESSON_SCREEN.LOADING_FEEDBACK' | translate }}</span>
@@ -689,7 +695,7 @@
           <ng-container *ngIf="hasTutorNote">
             <div class="ed-fb-block">
               <h3 class="ed-sub-label">{{ 'EVENT_DETAILS.LESSON_SCREEN.YOUR_NOTE' | translate }}</h3>
-              <span class="ed-impression" *ngIf="analysisData?.tutorNote?.quickImpression">{{ analysisData?.tutorNote?.quickImpression | titlecase }}</span>
+              <span class="ed-impression" *ngIf="feedbackImpressionLabel" [ngClass]="feedbackImpressionClass">{{ feedbackImpressionLabel }}</span>
               <div class="ed-rich-body" [innerHTML]="sanitizedTutorNote"></div>
             </div>
           </ng-container>

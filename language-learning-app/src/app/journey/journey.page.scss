@@ -787,6 +787,21 @@
     pointer-events: none;
   }
 
+  .journey-map-level-badge {
+    position: absolute;
+    left: clamp(10px, 1.4cqw, 16px);
+    bottom: clamp(10px, 1.4cqh, 16px);
+    z-index: 4;
+    padding: clamp(4px, 0.5cqh, 6px) clamp(10px, 1.2cqw, 14px);
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    font-size: clamp(12px, 1.1cqw, 15px);
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    pointer-events: none;
+  }
+
   // Full viewport 16:9 — @4x asset downscales cleanly on retina.
   .journey-map-stage {
     position: relative;

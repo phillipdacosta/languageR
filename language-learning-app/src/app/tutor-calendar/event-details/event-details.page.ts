@@ -521,6 +521,8 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   feedbackNotes = '';
   feedbackCefrLevel = '';
   feedbackDate = '';
+  feedbackImpressionLabel = '';
+  feedbackImpressionClass = '';
   sanitizedTutorNote: SafeHtml = '';
 
   // Feedback status (banner)
@@ -3539,7 +3541,37 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     this.analysisProficiencyDetail = parsed.detail;
 
     this.refreshNotesPresentation();
+    this.refreshFeedbackImpressionLabel();
     this.refreshMainCardSections();
+  }
+
+  private refreshFeedbackImpressionLabel(): void {
+    const raw = (this.analysisData?.tutorNote?.quickImpression || '').trim();
+    if (!raw) {
+      this.feedbackImpressionLabel = '';
+      this.feedbackImpressionClass = '';
+      return;
+    }
+
+    const normalized = raw.toLowerCase();
+    const labelKeys: Record<string, string> = {
+      excellent: 'MESSAGES.IMPRESSION_EXCELLENT',
+      great: 'MESSAGES.IMPRESSION_GREAT',
+      good: 'MESSAGES.IMPRESSION_GOOD',
+      'needs-work': 'MESSAGES.IMPRESSION_NEEDS_WORK',
+    };
+    const classByValue: Record<string, string> = {
+      excellent: 'impression-excellent',
+      great: 'impression-great',
+      good: 'impression-good',
+      'needs-work': 'impression-needs-work',
+    };
+
+    const labelKey = labelKeys[normalized];
+    this.feedbackImpressionLabel = labelKey
+      ? this.translate.instant(labelKey)
+      : raw;
+    this.feedbackImpressionClass = classByValue[normalized] || '';
   }
 
   /** Split "B1 – Intermediate" into a short badge code and optional detail line. */

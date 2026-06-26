@@ -2469,6 +2469,30 @@ ion-header ion-toolbar {
   font-size: 13px;
   font-weight: 600;
   margin-bottom: 12px;
+
+  &.impression-excellent {
+    background: #ecfdf5;
+    color: #059669;
+  }
+
+  &.impression-great {
+    background: #eff6ff;
+    color: #2563eb;
+  }
+
+  &.impression-good {
+    background: #f0f5ff;
+    color: #1a73e8;
+  }
+
+  &.impression-needs-work {
+    background: #fef3c7;
+    color: #d97706;
+  }
+}
+
+.ed-feedback-preview {
+  margin: -4px 0 12px;
 }
 
 .ed-note-hw {

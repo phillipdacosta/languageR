@@ -1981,6 +1981,7 @@
     "IMPRESSION_EXCELLENT": "Excellent",
     "IMPRESSION_GREAT": "Great job",
     "IMPRESSION_GOOD": "Good effort",
+    "IMPRESSION_NEEDS_WORK": "Needs more practice",
     "TRIAL_LESSON_SYSTEM_MESSAGE": {
       "TITLE": "New Trial Lesson Scheduled",
       "INTRO": "A new student has booked a trial lesson with you.",
