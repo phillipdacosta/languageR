@@ -1016,11 +1016,11 @@ export class UserService {
   }
   
   /**
-   * Get reminders enabled setting (default true)
+   * Get reminders enabled setting (default false — opt-in)
    */
   getRemindersEnabled(): boolean {
     const currentUser = this.currentUserSubject.value;
-    return currentUser?.profile?.remindersEnabled !== false; // Default true
+    return currentUser?.profile?.remindersEnabled === true;
   }
 
   /**

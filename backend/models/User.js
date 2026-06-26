@@ -334,7 +334,7 @@ const userSchema = new mongoose.Schema({
     },
     remindersEnabled: {
       type: Boolean,
-      default: true,
+      default: false,
       comment: 'Enable/disable lesson reminder notifications'
     },
     aiAnalysisEnabled: {

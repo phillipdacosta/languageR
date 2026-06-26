@@ -268,8 +268,8 @@ router.get('/me', verifyToken, async (req, res) => {
       needsSave = true;
     }
     if (user.profile.remindersEnabled === undefined) {
-      console.log('🔔 User has no remindersEnabled, setting default to true');
-      user.profile.remindersEnabled = true;
+      console.log('🔔 User has no remindersEnabled, setting default to false');
+      user.profile.remindersEnabled = false;
       needsSave = true;
     }
     
@@ -891,7 +891,7 @@ router.put('/profile', verifyToken, async (req, res) => {
       officeHoursEnabled: officeHoursEnabled !== undefined ? officeHoursEnabled : (user.profile?.officeHoursEnabled ?? false),
       officeHoursLastActive: user.profile?.officeHoursLastActive ?? null,
       showWalletBalance: showWalletBalance !== undefined ? showWalletBalance : (user.profile?.showWalletBalance ?? true),
-      remindersEnabled: remindersEnabled !== undefined ? remindersEnabled : (user.profile?.remindersEnabled ?? true),
+      remindersEnabled: remindersEnabled !== undefined ? remindersEnabled : (user.profile?.remindersEnabled ?? false),
       aiAnalysisEnabled: aiAnalysisEnabled !== undefined ? aiAnalysisEnabled : (user.profile?.aiAnalysisEnabled ?? true),
       calendarTimeFormat: calendarTimeFormat !== undefined ? calendarTimeFormat : (user.profile?.calendarTimeFormat ?? '12h'),
       calendarDefaultView: calendarDefaultView !== undefined ? calendarDefaultView : (user.profile?.calendarDefaultView ?? 'week'),
