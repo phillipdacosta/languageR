@@ -1,6 +1,17 @@
+:host {
+  ion-content {
+    --overflow: hidden;
+
+    &::part(scroll) {
+      overflow: hidden;
+    }
+  }
+}
+
 .admin-layout {
   display: flex;
   height: 100%;
+  min-height: 0;
   background: #f9fafb;
 }
 
@@ -74,11 +85,38 @@
   }
 }
 
-// Main Content Area
+// Main Content Area — child routes own scrolling (avoids double scrollbars)
 .admin-content {
   flex: 1;
-  overflow-y: auto;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   background: #f9fafb;
+
+  > :not(router-outlet) {
+    flex: 1;
+    min-height: 0;
+    min-width: 0;
+  }
+
+  > app-tutor-review,
+  > app-admin,
+  > app-reported-lessons,
+  > app-payment-review {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  > app-material-review,
+  > app-material-reports {
+    display: block;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 24px 28px;
+  }
 }
 
 // Mobile Responsive

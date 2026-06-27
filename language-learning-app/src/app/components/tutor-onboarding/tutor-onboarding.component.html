@@ -485,7 +485,15 @@
                     </label>
 
                     <div class="qualifications-education-fields" *ngIf="!educationNoDegree">
-                      <div class="qualifications-field">
+                      <p
+                        class="qualifications-education-required-notice"
+                        *ngIf="educationRequiredNoticeVisible">
+                        {{ 'TUTOR_APPROVAL.EDU_REQUIRED_FOR_DEGREE' | translate }}
+                      </p>
+
+                      <div
+                        class="qualifications-field"
+                        [class.qualifications-field--invalid]="educationValidationVisible && !educationUniversity">
                         <ion-item lines="none" class="qualifications-name-item">
                           <ion-input
                             [label]="'TUTOR_APPROVAL.EDU_UNIVERSITY_LABEL' | translate"
@@ -497,7 +505,9 @@
                         </ion-item>
                       </div>
 
-                      <div class="qualifications-field">
+                      <div
+                        class="qualifications-field"
+                        [class.qualifications-field--invalid]="educationValidationVisible && !educationDegree">
                         <ion-item lines="none" class="qualifications-name-item">
                           <ion-input
                             [label]="'TUTOR_APPROVAL.EDU_DEGREE_LABEL' | translate"
@@ -509,7 +519,9 @@
                         </ion-item>
                       </div>
 
-                      <div class="qualifications-field">
+                      <div
+                        class="qualifications-field"
+                        [class.qualifications-field--invalid]="educationValidationVisible && !educationDegreeType">
                         <div class="qualifications-select-field">
                           <ion-select
                             [label]="'TUTOR_APPROVAL.EDU_DEGREE_TYPE_LABEL' | translate"
@@ -528,7 +540,9 @@
                       </div>
 
                       <div class="qualifications-education-years">
-                        <div class="qualifications-field qualifications-field--half">
+                        <div
+                          class="qualifications-field qualifications-field--half"
+                          [class.qualifications-field--invalid]="educationValidationVisible && (!educationStartYear || educationYearsRangeInvalid)">
                           <div class="qualifications-select-field">
                             <ion-select
                               [label]="'TUTOR_APPROVAL.EDU_START_YEAR_LABEL' | translate"
@@ -537,14 +551,16 @@
                               interface="popover"
                               [(ngModel)]="educationStartYear"
                               (ionChange)="onEducationFieldChange()">
-                              <ion-select-option *ngFor="let year of educationYearOptions" [value]="year">
+                              <ion-select-option *ngFor="let year of educationStartYearOptions" [value]="year">
                                 {{ year }}
                               </ion-select-option>
                             </ion-select>
                           </div>
                         </div>
                         <span class="qualifications-education-years__sep" aria-hidden="true">–</span>
-                        <div class="qualifications-field qualifications-field--half">
+                        <div
+                          class="qualifications-field qualifications-field--half"
+                          [class.qualifications-field--invalid]="educationValidationVisible && (!educationEndYear || educationYearsRangeInvalid)">
                           <div class="qualifications-select-field">
                             <ion-select
                               [label]="'TUTOR_APPROVAL.EDU_END_YEAR_LABEL' | translate"
@@ -553,13 +569,18 @@
                               interface="popover"
                               [(ngModel)]="educationEndYear"
                               (ionChange)="onEducationFieldChange()">
-                              <ion-select-option *ngFor="let year of educationYearOptions" [value]="year">
+                              <ion-select-option *ngFor="let year of educationEndYearOptions" [value]="year">
                                 {{ year }}
                               </ion-select-option>
                             </ion-select>
                           </div>
                         </div>
                       </div>
+                      <p
+                        class="qualifications-education-years-error"
+                        *ngIf="educationValidationVisible && educationYearsRangeInvalid">
+                        {{ 'TUTOR_APPROVAL.EDU_YEARS_INVALID' | translate }}
+                      </p>
                     </div>
                   </section>
 
@@ -571,6 +592,9 @@
                       <p class="qualifications-verified-promo__desc">
                         {{ 'TUTOR_APPROVAL.CRED_VERIFIED_PROMO_DESC' | translate }}
                       </p>
+                      <p class="qualifications-verified-promo__badge">
+                        {{ 'TUTOR_APPROVAL.CRED_VERIFIED_PROMO_BADGE' | translate }}
+                      </p>
                       <p class="qualifications-verified-promo__formats">
                         {{ 'TUTOR_APPROVAL.CRED_CERT_FILE_TYPES' | translate }}
                       </p>
@@ -578,9 +602,36 @@
                         type="button"
                         class="qualifications-verified-promo__cta"
                         [disabled]="isUploadingCredential"
-                        (click)="triggerCredentialUpload('certification')">
+                        (click)="triggerDegreeUpload()">
                         {{ 'TUTOR_APPROVAL.CRED_VERIFIED_PROMO_BTN' | translate }}
                       </button>
+
+                      <div class="qualifications-uploaded-list" *ngIf="uploadedDegreeDocs.length > 0">
+                        <div
+                          class="qualifications-file-card"
+                          *ngFor="let doc of uploadedDegreeDocs; let i = index"
+                          [class.approved]="doc.status === 'approved'"
+                          [class.pending]="doc.status === 'pending'"
+                          [class.rejected]="doc.status === 'rejected'">
+                          <div class="qualifications-file-card__icon">
+                            <ion-icon name="document-text-outline" aria-hidden="true"></ion-icon>
+                          </div>
+                          <div class="qualifications-file-card__body">
+                            <span class="qualifications-file-card__name">{{ doc.label || doc.fileName }}</span>
+                            <span class="qualifications-file-card__meta" *ngIf="doc.label">{{ doc.fileName }}</span>
+                            <span
+                              class="qualifications-file-card__status"
+                              *ngIf="doc.status === 'pending'">{{ 'TUTOR_APPROVAL.CRED_DOC_PENDING' | translate }}</span>
+                          </div>
+                          <button
+                            type="button"
+                            class="qualifications-file-card__remove"
+                            *ngIf="doc.status !== 'approved'"
+                            (click)="removeDegreeDoc(i)">
+                            {{ 'TUTOR_APPROVAL.GOV_ID_BTN_REMOVE' | translate }}
+                          </button>
+                        </div>
+                      </div>
                     </div>
 
                     <div class="qualifications-panel-header">
@@ -621,7 +672,7 @@
                         <button
                           type="button"
                           class="qualifications-file-card__remove"
-                          *ngIf="cert.status === 'pending'"
+                          *ngIf="cert.status !== 'approved'"
                           (click)="removeCertification(i)">
                           {{ 'TUTOR_APPROVAL.GOV_ID_BTN_REMOVE' | translate }}
                         </button>
@@ -724,7 +775,7 @@
                         <button
                           type="button"
                           class="qualifications-file-card__remove"
-                          *ngIf="doc.status === 'pending'"
+                          *ngIf="doc.status !== 'approved'"
                           (click)="removeAdditionalDoc(i)">
                           {{ 'TUTOR_APPROVAL.GOV_ID_BTN_REMOVE' | translate }}
                         </button>

@@ -673,21 +673,22 @@ router.post('/', verifyToken, async (req, res) => {
       console.error('❌ Error sending lesson booked emails:', emailError.message);
     });
 
-    // Emit WebSocket notifications if users are connected
-    if (req.io && req.connectedUsers) {
-      const tutorSocketId = req.connectedUsers.get(tutor.auth0Id);
-      const studentSocketId = req.connectedUsers.get(student.auth0Id);
-
-      if (tutorSocketId) {
-        req.io.to(tutorSocketId).emit('new_notification', {
+    // Emit WebSocket notifications. Target the per-user room (user:<auth0Id>)
+    // rather than a single cached socket id from `connectedUsers`. The room
+    // reaches every live socket the user has (multiple tabs/devices) and is
+    // immune to the cached-socket-id going stale on reconnects — which was
+    // causing the tutor's "new lesson booked" ticker to silently not fire.
+    if (req.io) {
+      if (tutor.auth0Id) {
+        req.io.to(`user:${tutor.auth0Id}`).emit('new_notification', {
           type: 'lesson_created',
           message: `<strong>${studentDisplayName}</strong> set up a <strong>${language}</strong> ${lessonTypePrefix}lesson with you for <strong>${formattedDate} at ${formattedTime}</strong>`,
           isTrialLesson: isTrialLesson
         });
       }
 
-      if (studentSocketId) {
-        req.io.to(studentSocketId).emit('new_notification', {
+      if (student.auth0Id) {
+        req.io.to(`user:${student.auth0Id}`).emit('new_notification', {
           type: 'lesson_created',
           message: `You set up a <strong>${language}</strong> ${lessonTypePrefix}lesson with <strong>${tutorDisplayName}</strong> for <strong>${formattedDate} at ${formattedTime}</strong>`,
           isTrialLesson: isTrialLesson
@@ -787,40 +788,40 @@ router.post('/', verifyToken, async (req, res) => {
         
         console.log('✅ Trial lesson notification created:', trialNotification._id);
         
-        // Emit websocket notification to tutor if connected
-        if (req.io && req.connectedUsers) {
-          const tutorSocketId = req.connectedUsers.get(tutor.auth0Id);
-          if (tutorSocketId) {
-            console.log('📤 Emitting trial lesson notification to tutor');
-            
-            // Emit notification event
-            req.io.to(tutorSocketId).emit('new_notification', {
-              type: 'lesson_created',
-              title: 'Trial Lesson Tips',
-              message: `${studentDisplayName} booked a trial lesson on ${new Date(lesson.startTime).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} at ${new Date(lesson.startTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}. Check your messages for preparation tips.`,
-              data: {
-                lessonId: lesson._id.toString(),
-                studentId: student._id.toString(),
-                studentName: studentDisplayName,
-                studentPicture: student.picture,
-                conversationId,
-                startTime: lesson.startTime
-              }
-            });
-            
-            // Also emit new_message event to update Messages tab unread count and dropdown
-            req.io.to(tutorSocketId).emit('new_message', {
-              id: systemMessage._id.toString(),
+        // Emit websocket notification to tutor. Room-based so it reaches all
+        // of the tutor's live sockets and survives reconnects (see note above).
+        if (req.io && tutor.auth0Id) {
+          const tutorRoom = `user:${tutor.auth0Id}`;
+          console.log('📤 Emitting trial lesson notification to tutor room:', tutorRoom);
+
+          // Emit notification event
+          req.io.to(tutorRoom).emit('new_notification', {
+            type: 'lesson_created',
+            title: 'Trial Lesson Tips',
+            message: `${studentDisplayName} booked a trial lesson on ${new Date(lesson.startTime).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} at ${new Date(lesson.startTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}. Check your messages for preparation tips.`,
+            data: {
+              lessonId: lesson._id.toString(),
+              studentId: student._id.toString(),
+              studentName: studentDisplayName,
+              studentPicture: student.picture,
               conversationId,
-              senderId: 'system',
-              receiverId: tutor.auth0Id,
-              content: systemMessageContent, // Send full content, not truncated
-              type: 'system',
-              isSystemMessage: true,
-              read: false,
-              createdAt: systemMessage.createdAt
-            });
-          }
+              messageId: systemMessage._id.toString(),
+              startTime: lesson.startTime
+            }
+          });
+
+          // Also emit new_message event to update Messages tab unread count and dropdown
+          req.io.to(tutorRoom).emit('new_message', {
+            id: systemMessage._id.toString(),
+            conversationId,
+            senderId: 'system',
+            receiverId: tutor.auth0Id,
+            content: systemMessageContent, // Send full content, not truncated
+            type: 'system',
+            isSystemMessage: true,
+            read: false,
+            createdAt: systemMessage.createdAt
+          });
         }
       } catch (systemMsgError) {
         console.error('❌ Error creating trial lesson system message:', systemMsgError);

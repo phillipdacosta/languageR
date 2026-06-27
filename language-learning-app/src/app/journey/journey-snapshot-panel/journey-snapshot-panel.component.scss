@@ -3,6 +3,44 @@ $jsp-text-2: #717171;
 $jsp-border: rgba(0, 0, 0, 0.08);
 $jsp-bg-subtle: #f7f7f7;
 
+:host {
+  display: block;
+}
+
+:host-context(.ed-details) {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-height: 0;
+  height: 100%;
+
+  .jsp-panel {
+    margin-bottom: 0;
+    flex: 1 1 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .jsp-panel__title {
+    flex-shrink: 0;
+  }
+
+  .jsp-trigger {
+    flex: 1 1 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .jsp-trigger__map {
+    flex: 1 1 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+}
+
 .jsp-panel {
   margin-bottom: 20px;
 

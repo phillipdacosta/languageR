@@ -2823,6 +2823,21 @@ router.put('/tutor/higher-education', verifyToken, async (req, res) => {
         startYear: String(safeEntry.startYear || '').trim().slice(0, 4),
         endYear: String(safeEntry.endYear || '').trim().slice(0, 4)
       }];
+
+      const startYearNum = parseInt(user.tutorCredentials.higherEducation.entries[0].startYear, 10);
+      const endYearNum = parseInt(user.tutorCredentials.higherEducation.entries[0].endYear, 10);
+      if (
+        user.tutorCredentials.higherEducation.entries[0].startYear &&
+        user.tutorCredentials.higherEducation.entries[0].endYear &&
+        !Number.isNaN(startYearNum) &&
+        !Number.isNaN(endYearNum) &&
+        startYearNum > endYearNum
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: 'Start year cannot be after finish year.'
+        });
+      }
     }
 
     await user.save();
@@ -2860,6 +2875,27 @@ router.post('/tutor/upload-credential', verifyToken, uploadDocument.single('docu
         success: false, 
         message: 'Invalid credentialType. Must be: governmentId, teachingCertification, or additionalDocument' 
       });
+    }
+
+    const resolvedDocumentType = documentType || 'other';
+    if (credentialType === 'additionalDocument' && resolvedDocumentType === 'degree') {
+      const higherEducation = user.tutorCredentials?.higherEducation;
+      const educationEntry = higherEducation?.entries?.[0];
+      const educationComplete = !!(
+        higherEducation &&
+        higherEducation.noDegree !== true &&
+        educationEntry?.university?.trim() &&
+        educationEntry?.degree?.trim() &&
+        educationEntry?.degreeType &&
+        educationEntry?.startYear?.trim() &&
+        educationEntry?.endYear?.trim()
+      );
+      if (!educationComplete) {
+        return res.status(400).json({
+          success: false,
+          message: 'Complete your school and degree details before uploading a degree document.'
+        });
+      }
     }
 
     // Initialize GCS
@@ -3088,6 +3124,24 @@ const handleDeleteCredential = async (req, res) => {
     }
 
     await user.save();
+
+    // Notify admins via WebSocket so an open review page drops the doc live
+    // (mirrors the tutor_credential_uploaded event on upload).
+    try {
+      if (req.io) {
+        req.io.emit('tutor_credential_removed', {
+          tutorId: user._id,
+          tutorName: user.name || user.email,
+          tutorEmail: user.email,
+          credentialType,
+          credentialId: credentialId || null,
+          timestamp: new Date()
+        });
+        console.log('📬 Notified admins of credential removal from:', user.email);
+      }
+    } catch (socketError) {
+      console.warn('⚠️ Could not send WebSocket notification to admins:', socketError.message);
+    }
 
     res.json({
       success: true,

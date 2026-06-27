@@ -549,10 +549,16 @@ export class UserService {
     const governmentIdRejected = creds?.governmentId?.status === 'rejected';
     const governmentIdRejectionReason = creds?.governmentId?.rejectionReason?.trim() || null;
 
-    const certificationsRejected = !!(creds?.teachingCertifications?.some(c => c.status === 'rejected'));
-    const certificationsRejectionReason =
-      creds?.teachingCertifications?.find(c => c.status === 'rejected')?.rejectionReason?.trim() ||
-      null;
+    // Once any certification is approved, the qualifications requirement is met.
+    // A stale "rejected" entry from an earlier upload must NOT keep the tutor in a
+    // rejected/"not approved" state (admin already approved the re-upload).
+    const hasApprovedCertification = !!(creds?.teachingCertifications?.some(c => c.status === 'approved'));
+    const certificationsRejected =
+      !hasApprovedCertification &&
+      !!(creds?.teachingCertifications?.some(c => c.status === 'rejected'));
+    const certificationsRejectionReason = certificationsRejected
+      ? (creds?.teachingCertifications?.find(c => c.status === 'rejected')?.rejectionReason?.trim() || null)
+      : null;
     // Optional additional documents do not block qualifications / profile approval.
     const credentialsRejected = governmentIdRejected || certificationsRejected;
     const credentialsRejectionReason =
@@ -595,7 +601,7 @@ export class UserService {
       stripeIdentityVerified || (!identityRequired) || governmentIdUploaded;
 
     const certificationsUploaded = !!(creds?.teachingCertifications && creds.teachingCertifications.length > 0);
-    const certificationsApproved = !!(creds?.teachingCertifications?.some(c => c.status === 'approved'));
+    const certificationsApproved = hasApprovedCertification;
     const credentialsComplete = identityUploaded && certificationsUploaded;
     const credentialsApproved = identitySatisfied && certificationsApproved;
 

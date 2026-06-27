@@ -105,6 +105,17 @@ export class WebSocketService {
   }>();
   public tutorCredentialUploaded$ = this.tutorCredentialUploadedSubject.asObservable();
 
+  // Tutor credential removal subject (for admin notifications)
+  private tutorCredentialRemovedSubject = new Subject<{
+    tutorId: string;
+    tutorName: string;
+    tutorEmail: string;
+    credentialType: string;
+    credentialId: string | null;
+    timestamp: Date;
+  }>();
+  public tutorCredentialRemoved$ = this.tutorCredentialRemovedSubject.asObservable();
+
   // Tutor credential approval/rejection subjects (for tutor notifications)
   private credentialApprovedSubject = new Subject<any>();
   public credentialApproved$ = this.credentialApprovedSubject.asObservable();
@@ -224,6 +235,7 @@ export class WebSocketService {
     this.socket.off('tutor_photo_uploaded');
     this.socket.off('tutor_video_uploaded');
     this.socket.off('tutor_credential_uploaded');
+    this.socket.off('tutor_credential_removed');
     this.socket.off('credential_approved');
     this.socket.off('credential_rejected');
     this.socket.off('stripe_account_updated');
@@ -407,6 +419,19 @@ export class WebSocketService {
     }) => {
       console.log('📄 Tutor credential uploaded (admin notification):', data);
       this.tutorCredentialUploadedSubject.next(data);
+    });
+
+    // Listen for tutor credential removals (for admins)
+    this.socket.on('tutor_credential_removed', (data: {
+      tutorId: string;
+      tutorName: string;
+      tutorEmail: string;
+      credentialType: string;
+      credentialId: string | null;
+      timestamp: Date;
+    }) => {
+      console.log('🗑️ Tutor credential removed (admin notification):', data);
+      this.tutorCredentialRemovedSubject.next(data);
     });
 
     // Listen for credential approval (for tutors)
