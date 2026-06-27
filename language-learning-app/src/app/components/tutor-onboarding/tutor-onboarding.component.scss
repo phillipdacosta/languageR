@@ -675,17 +675,40 @@ $ob-wizard-cta-uniform-width: min(22.5rem, calc(100% - 16px));
   .photo-step-layout .photo-upload-zone,
   .identity-step-layout .identity-upload-zone {
     @media (min-width: 768px) {
-      flex: 1 1 auto;
-      min-height: clamp(280px, 46dvh, 560px);
-      padding: clamp(32px, 5vh, 56px) clamp(28px, 4vw, 48px);
+      flex: 1 1 0;
+      min-height: clamp(160px, 28dvh, 420px);
+      max-height: min(480px, calc(100dvh - 380px));
+      padding: clamp(24px, 4vh, 48px) clamp(24px, 3vw, 40px);
     }
   }
 
   @media (max-height: 820px) and (min-width: 768px) {
     .photo-step-layout .photo-upload-zone,
     .identity-step-layout .identity-upload-zone {
-      min-height: clamp(220px, 38dvh, 380px);
-      padding: 28px 24px;
+      min-height: clamp(140px, 24dvh, 280px);
+      max-height: min(320px, calc(100dvh - 360px));
+      padding: 20px 20px 16px;
+    }
+
+    .photo-step-upload-inner {
+      gap: 16px;
+    }
+
+    .photo-step-layout .photo-step-google-notice--upload {
+      margin-bottom: 12px;
+      padding: 10px 12px;
+    }
+
+    .photo-step-layout .photo-upload-avatar {
+      width: 128px;
+      height: 128px;
+      margin-bottom: 16px;
+
+      > ion-icon[name='person-circle-outline'] {
+        font-size: 128px;
+        width: 128px;
+        height: 128px;
+      }
     }
   }
 
@@ -2134,12 +2157,14 @@ $ob-wizard-cta-uniform-width: min(22.5rem, calc(100% - 16px));
   .photo-step-layout .photo-step-upload-footer {
     width: 100%;
     margin: 0;
+    flex: 0 0 auto;
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 12px;
     padding-top: 0;
+    padding-bottom: 4px;
   }
 
   .photo-step-layout .photo-upload-actions {
@@ -2171,14 +2196,14 @@ $ob-wizard-cta-uniform-width: min(22.5rem, calc(100% - 16px));
   }
 
   .photo-step-layout .photo-upload-zone {
-    flex: 1 1 auto;
+    flex: 1 1 0;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     width: 100%;
-    min-height: 240px;
-    padding: 36px 28px 28px;
+    min-height: 200px;
+    padding: 28px 24px 24px;
     border: 2px dashed #d1d1d6;
     border-radius: 16px;
     background: #f8f8f8;
@@ -2690,6 +2715,10 @@ $ob-wizard-cta-uniform-width: min(22.5rem, calc(100% - 16px));
     border: 1px solid $ob-border-light;
     flex-shrink: 0;
 
+    .qualifications-uploaded-list {
+      margin-top: 14px;
+    }
+
     &--inline {
       margin-top: 0;
       margin-bottom: 4px;
@@ -2715,11 +2744,19 @@ $ob-wizard-cta-uniform-width: min(22.5rem, calc(100% - 16px));
   }
 
   .qualifications-verified-promo__desc {
-    margin: 0 0 10px;
+    margin: 0 0 8px;
     font-size: 13px;
     line-height: 1.45;
     color: $ob-text-secondary;
     font-weight: 500;
+  }
+
+  .qualifications-verified-promo__badge {
+    margin: 0 0 10px;
+    font-size: 13px;
+    line-height: 1.45;
+    color: $ob-text-primary;
+    font-weight: 600;
   }
 
   .qualifications-verified-promo__formats {
@@ -2800,6 +2837,35 @@ $ob-wizard-cta-uniform-width: min(22.5rem, calc(100% - 16px));
     gap: 12px;
   }
 
+  .qualifications-education-required-notice {
+    margin: 0;
+    padding: 12px 14px;
+    border-radius: 12px;
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+    font-size: 13px;
+    line-height: 1.45;
+    font-weight: 600;
+    color: #9a3412;
+  }
+
+  .qualifications-field--invalid {
+    .qualifications-name-item,
+    .qualifications-select-field ion-select {
+      --highlight-color-focused: #c41e3a;
+    }
+
+    .qualifications-name-item {
+      border: 1px solid rgba(196, 30, 58, 0.35);
+      border-radius: 12px;
+    }
+
+    .qualifications-select-field {
+      border: 1px solid rgba(196, 30, 58, 0.35);
+      border-radius: 12px;
+    }
+  }
+
   .qualifications-education-years {
     display: flex;
     align-items: flex-end;
@@ -2812,6 +2878,13 @@ $ob-wizard-cta-uniform-width: min(22.5rem, calc(100% - 16px));
       color: $ob-text-secondary;
       font-weight: 500;
     }
+  }
+
+  .qualifications-education-years-error {
+    margin: 8px 0 0;
+    font-size: 13px;
+    line-height: 1.4;
+    color: #c41e3a;
   }
 
   .qualifications-field--half {
@@ -5552,14 +5625,17 @@ ion-button.credential-cta {
       flex: 1 1 auto;
       min-height: 0;
       min-width: 0;
-      height: 100%;
+      height: auto;
+      max-height: 100%;
       width: 100%;
       max-width: min(400px, 100%);
       margin-inline: 0;
-      overflow: hidden;
-      justify-content: space-between;
-      gap: 46px;
+      overflow-x: hidden;
+      overflow-y: auto;
+      justify-content: flex-start;
+      gap: clamp(16px, 2.5vh, 28px);
       padding-inline: 0;
+      padding-bottom: 4px;
       box-sizing: border-box;
     }
   }
@@ -5592,7 +5668,7 @@ ion-button.credential-cta {
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
+      justify-content: flex-start;
       min-height: 0;
       height: 100%;
     }

@@ -31,12 +31,10 @@ interface EditablePhase {
 }
 
 /**
- * Post-onboarding "Here's your first chapter" intro.
+ * Post-onboarding student intro.
  *
- * Triggered from the home page (tab1) or journey page after onboarding.
- * Five slides explain the provisional first chapter, calibration, and the
- * full journey map. An optional inline edit wizard lets the student
- * personalise phases before committing.
+ * Slide 0 explains how Barnabi works (lessons, feedback, optional journey).
+ * Later slides cover the provisional first chapter, calibration, and map.
  */
 @Component({
   selector: 'app-journey-intro',
@@ -122,7 +120,7 @@ interface EditablePhase {
 
       <ion-content>
 
-        <!-- ── Slide 0: first-chapter intro (provisional) ── -->
+        <!-- ── Slide 0: how Barnabi works ── -->
         <div *ngIf="step === 0" class="ji-body ji-body--student-welcome">
 
           <div class="ji-dots" aria-hidden="true">
@@ -145,13 +143,9 @@ interface EditablePhase {
           <h1 class="ji-title ji-title--sm">{{ 'JOURNEY.INTRO.S1_TITLE' | translate }}</h1>
           <p class="ji-desc ji-desc--sm">{{ 'JOURNEY.INTRO.S1_BODY' | translate }}</p>
 
-          <p *ngIf="selfLevelLabel" class="ji-self-level">
-            {{ 'JOURNEY.INTRO.S1_SELF_LEVEL' | translate:{ level: selfLevelLabel } }}
-          </p>
-
           <div class="ji-callout ji-callout--card">
             <ion-icon name="information-circle-outline" aria-hidden="true"></ion-icon>
-            <p>{{ 'JOURNEY.INTRO.S1_CALLOUT' | translate:{ language: languageDisplay } }}</p>
+            <p>{{ 'JOURNEY.INTRO.S1_CALLOUT' | translate }}</p>
           </div>
         </div>
 
@@ -163,6 +157,12 @@ interface EditablePhase {
                   [class.ji-dot--active]="i === step"
                   [class.ji-dot--done]="i < step"></span>
           </div>
+
+          <h1 class="ji-title ji-title--sm ji-animate-in ji-animate-in--2">{{ 'JOURNEY.INTRO.S1B_TITLE' | translate }}</h1>
+
+          <p *ngIf="selfLevelLabel" class="ji-self-level ji-animate-in ji-animate-in--2">
+            {{ 'JOURNEY.INTRO.S1_SELF_LEVEL' | translate:{ level: selfLevelLabel } }}
+          </p>
 
           <p class="ji-phases-label ji-animate-in ji-animate-in--2">
             {{ 'JOURNEY.INTRO.S1B_PHASES_LABEL' | translate }}

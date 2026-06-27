@@ -229,6 +229,13 @@ export class TutorOnboardingComponent implements OnInit {
   educationStartYear = '';
   educationEndYear = '';
   educationSaving = false;
+  educationValidationVisible = false;
+  educationRequiredNoticeVisible = false;
+  educationYearsRangeInvalid = false;
+  educationStartYearOptions: string[] = [];
+  educationEndYearOptions: string[] = [];
+  uploadedDegreeDocs: any[] = [];
+  private pendingAdditionalDocType: 'degree' | 'other' = 'other';
   readonly educationYearOptions: string[] = (() => {
     const years: string[] = [];
     const currentYear = new Date().getFullYear();
@@ -299,6 +306,7 @@ export class TutorOnboardingComponent implements OnInit {
   ) {}
 
   async ngOnInit() {
+    this.syncEducationYearOptions();
     this.imagePreloadService.preloadWhenIdle([
       ...this.photoExampleAvatars,
     ]);
@@ -739,7 +747,7 @@ export class TutorOnboardingComponent implements OnInit {
         : '',
       rejectionTeamNote: cert.status === 'rejected' ? ((cert.rejectionReason || '').trim() || null) : null,
     }));
-    this.uploadedAdditionalDocs = (creds?.additionalDocuments || []).map((doc) => ({
+    const additionalDocs = (creds?.additionalDocuments || []).map((doc) => ({
       ...doc,
       rejectionHeadline: doc.status === 'rejected'
         ? this.translate.instant('TUTOR_APPROVAL.CRED_DOC_REJECTED_GENERIC', {
@@ -748,6 +756,92 @@ export class TutorOnboardingComponent implements OnInit {
         : '',
       rejectionTeamNote: doc.status === 'rejected' ? ((doc.rejectionReason || '').trim() || null) : null,
     }));
+    this.uploadedDegreeDocs = additionalDocs.filter((doc) => doc.documentType === 'degree');
+    this.uploadedAdditionalDocs = additionalDocs.filter((doc) => doc.documentType !== 'degree');
+    this.syncEducationValidationState();
+  }
+
+  private syncEducationValidationState(): void {
+    const needsInfo = !this.educationNoDegree && this.uploadedDegreeDocs.length > 0;
+    this.educationYearsRangeInvalid = this.hasInvalidEducationYearRange();
+    this.educationRequiredNoticeVisible =
+      needsInfo && (!this.isEducationEntryComplete() || this.educationYearsRangeInvalid);
+  }
+
+  private hasInvalidEducationYearRange(): boolean {
+    if (!this.educationStartYear || !this.educationEndYear) {
+      return false;
+    }
+    return Number(this.educationStartYear) > Number(this.educationEndYear);
+  }
+
+  private syncEducationYearOptions(): void {
+    const startLimit = Number(this.educationEndYear);
+    const endLimit = Number(this.educationStartYear);
+
+    this.educationStartYearOptions = this.educationYearOptions.filter(
+      (year) => !this.educationEndYear || Number(year) <= startLimit
+    );
+    this.educationEndYearOptions = this.educationYearOptions.filter(
+      (year) => !this.educationStartYear || Number(year) >= endLimit
+    );
+  }
+
+  private normalizeEducationYears(): void {
+    if (!this.hasInvalidEducationYearRange()) {
+      return;
+    }
+    this.educationEndYear = this.educationStartYear;
+    this.educationYearsRangeInvalid = false;
+  }
+
+  private isEducationEntryComplete(): boolean {
+    if (this.educationNoDegree) {
+      return true;
+    }
+    return !!(
+      this.educationUniversity.trim() &&
+      this.educationDegree.trim() &&
+      this.educationDegreeType &&
+      this.educationStartYear &&
+      this.educationEndYear &&
+      !this.hasInvalidEducationYearRange()
+    );
+  }
+
+  private async validateEducationForDegreeUpload(showFeedback = true): Promise<boolean> {
+    if (this.educationNoDegree) {
+      if (showFeedback) {
+        this.showToast(
+          this.translate.instant('TUTOR_APPROVAL.EDU_UNCHECK_NO_DEGREE'),
+          'warning'
+        );
+      }
+      return false;
+    }
+    this.normalizeEducationYears();
+    this.syncEducationYearOptions();
+    if (this.isEducationEntryComplete()) {
+      await this.flushSaveHigherEducation();
+      return true;
+    }
+    this.educationValidationVisible = true;
+    this.syncEducationValidationState();
+    if (showFeedback) {
+      const messageKey = this.hasInvalidEducationYearRange()
+        ? 'TUTOR_APPROVAL.EDU_YEARS_INVALID'
+        : 'TUTOR_APPROVAL.EDU_REQUIRED_FOR_DEGREE';
+      this.showToast(this.translate.instant(messageKey), 'warning');
+    }
+    return false;
+  }
+
+  private async flushSaveHigherEducation(): Promise<void> {
+    if (this.educationSaveTimer) {
+      clearTimeout(this.educationSaveTimer);
+      this.educationSaveTimer = null;
+    }
+    await this.saveHigherEducation();
   }
 
   private applyStepRejectionParts(
@@ -909,6 +1003,26 @@ export class TutorOnboardingComponent implements OnInit {
     if (this.approvalStepId === 'video' && this.videoLinkPendingSubmit) {
       await this.showVideoLinkPendingAlert();
       return;
+    }
+
+    if (this.approvalStepId === 'qualifications') {
+      this.normalizeEducationYears();
+      this.syncEducationYearOptions();
+      if (!this.educationNoDegree && this.hasInvalidEducationYearRange()) {
+        this.educationValidationVisible = true;
+        this.syncEducationValidationState();
+        this.showToast(this.translate.instant('TUTOR_APPROVAL.EDU_YEARS_INVALID'), 'warning');
+        return;
+      }
+      if (!this.educationNoDegree && this.uploadedDegreeDocs.length > 0 && !this.isEducationEntryComplete()) {
+        this.educationValidationVisible = true;
+        this.syncEducationValidationState();
+        this.showToast(this.translate.instant('TUTOR_APPROVAL.EDU_REQUIRED_BEFORE_CONTINUE'), 'warning');
+        return;
+      }
+      if (!this.educationNoDegree && this.isEducationEntryComplete()) {
+        await this.flushSaveHigherEducation();
+      }
     }
 
     for (let i = this.currentStepIndex + 1; i < this.steps.length; i++) {
@@ -1523,7 +1637,13 @@ export class TutorOnboardingComponent implements OnInit {
   // CREDENTIAL UPLOAD METHODS
   // ============================================================
 
-  triggerCredentialUpload(type: 'governmentId' | 'certification' | 'additionalDocument') {
+  triggerCredentialUpload(
+    type: 'governmentId' | 'certification' | 'additionalDocument',
+    additionalDocType: 'degree' | 'other' = 'other'
+  ) {
+    if (type === 'additionalDocument') {
+      this.pendingAdditionalDocType = additionalDocType;
+    }
     const inputId = type === 'governmentId' ? 'gov-id-input' 
       : type === 'certification' ? 'cert-input'
       : 'additional-doc-input';
@@ -1531,6 +1651,14 @@ export class TutorOnboardingComponent implements OnInit {
     if (fileInput) {
       fileInput.click();
     }
+  }
+
+  async triggerDegreeUpload(): Promise<void> {
+    const ok = await this.validateEducationForDegreeUpload(true);
+    if (!ok) {
+      return;
+    }
+    this.triggerCredentialUpload('additionalDocument', 'degree');
   }
 
   async onCredentialSelected(event: any, credentialType: 'governmentId' | 'teachingCertification' | 'additionalDocument') {
@@ -1565,9 +1693,19 @@ export class TutorOnboardingComponent implements OnInit {
     await loading.present();
 
     try {
+      if (credentialType === 'additionalDocument' && this.pendingAdditionalDocType === 'degree') {
+        const educationOk = await this.validateEducationForDegreeUpload(true);
+        if (!educationOk) {
+          return;
+        }
+      }
+
       const metadata: any = {};
       if (credentialType === 'teachingCertification') {
         metadata.certificationName = this.buildCertificationUploadLabel();
+      } else if (credentialType === 'additionalDocument' && this.pendingAdditionalDocType === 'degree') {
+        metadata.documentType = 'degree';
+        metadata.label = this.buildDegreeUploadLabel();
       }
 
       const result = await firstValueFrom(
@@ -1586,6 +1724,7 @@ export class TutorOnboardingComponent implements OnInit {
       console.error('❌ Error uploading credential:', error);
       this.showToast(error.error?.message || 'Failed to upload document', 'danger');
     } finally {
+      this.pendingAdditionalDocType = 'other';
       this.isUploadingCredential = false;
       await loading.dismiss();
     }
@@ -1671,6 +1810,13 @@ export class TutorOnboardingComponent implements OnInit {
     }
   }
 
+  async removeDegreeDoc(index: number) {
+    const doc = this.uploadedDegreeDocs[index];
+    if (doc?._id) {
+      await this.removeCredential('additionalDocument', doc._id);
+    }
+  }
+
   private applyHigherEducationFromUser(higherEducation: any): void {
     this.educationNoDegree = higherEducation?.noDegree === true;
     const entry = higherEducation?.entries?.[0];
@@ -1679,6 +1825,8 @@ export class TutorOnboardingComponent implements OnInit {
     this.educationDegreeType = entry?.degreeType || '';
     this.educationStartYear = entry?.startYear || '';
     this.educationEndYear = entry?.endYear || '';
+    this.normalizeEducationYears();
+    this.syncEducationYearOptions();
   }
 
   onEducationNoDegreeChange(): void {
@@ -1689,10 +1837,19 @@ export class TutorOnboardingComponent implements OnInit {
       this.educationStartYear = '';
       this.educationEndYear = '';
     }
+    this.syncEducationYearOptions();
     void this.saveHigherEducation();
+    this.syncEducationValidationState();
   }
 
   onEducationFieldChange(): void {
+    const endBefore = this.educationEndYear;
+    this.normalizeEducationYears();
+    this.syncEducationYearOptions();
+    this.syncEducationValidationState();
+    if (endBefore !== this.educationEndYear) {
+      this.cdr.markForCheck();
+    }
     if (this.educationSaveTimer) {
       clearTimeout(this.educationSaveTimer);
     }
@@ -1706,8 +1863,18 @@ export class TutorOnboardingComponent implements OnInit {
     return parts.join(' · ');
   }
 
+  private buildDegreeUploadLabel(): string {
+    const parts = [this.educationDegree, this.educationUniversity].filter(Boolean);
+    return parts.join(' · ') || this.educationDegree.trim() || this.educationUniversity.trim();
+  }
+
   private async saveHigherEducation(): Promise<void> {
     if (this.educationSaving) {
+      return;
+    }
+
+    this.normalizeEducationYears();
+    if (!this.educationNoDegree && this.hasInvalidEducationYearRange()) {
       return;
     }
 

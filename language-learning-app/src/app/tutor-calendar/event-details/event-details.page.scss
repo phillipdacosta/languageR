@@ -78,6 +78,8 @@ $ed-sidebar-w: 352px;
     --ed-content-inset-right: 44px;
     --ed-sidebar-inset-left: 22px;
     --ed-sidebar-inset-right: 20px;
+    max-height: 100dvh;
+    overflow: hidden;
   }
 }
 
@@ -143,14 +145,13 @@ $ed-sidebar-w: 352px;
     grid-template-columns: $ed-sidebar-w minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr);
     align-items: stretch;
-    min-height: min(560px, #{$ed-viewport-height-mobile});
-    max-height: $ed-viewport-height-mobile;
+    // Fill the flex parent (.ed-body) — do NOT use a viewport calc here.
+    // The page already reserves toolbar + subheader space; a second
+    // 100dvh-based cap overflows the column and clips the journey map.
+    min-height: 0;
+    max-height: none;
+    height: 100%;
     column-gap: 0;
-
-    @media (min-width: 769px) {
-      min-height: min(560px, #{$ed-viewport-height-desktop});
-      max-height: $ed-viewport-height-desktop;
-    }
   }
 }
 
@@ -174,13 +175,10 @@ $ed-sidebar-w: 352px;
     grid-row: 1;
     align-self: stretch;
     padding: 16px var(--ed-sidebar-inset-right) 18px var(--ed-sidebar-inset-left);
-    max-height: $ed-viewport-height-mobile;
+    height: 100%;
+    max-height: none;
     border-right: 1px solid $ed-border-light;
-    overflow-y: hidden;
-
-    @media (min-width: 769px) {
-      max-height: $ed-viewport-height-desktop;
-    }
+    overflow: hidden;
   }
 }
 
@@ -845,7 +843,7 @@ $ed-sidebar-w: 352px;
     }
 
     .ed-journey-map-section {
-      flex: 1;
+      flex: 1 1 0;
       min-height: 0;
       display: flex;
       flex-direction: column;
@@ -854,19 +852,36 @@ $ed-sidebar-w: 352px;
     }
 
     .ed-pc-student-goal {
-      flex: 0 0 auto;
+      flex: 1 1 0;
+      min-height: 0;
       display: flex;
       flex-direction: column;
+      overflow: hidden;
+
+      .ed-goal-line,
+      .ed-pc-section-title,
+      .ed-goal-phase {
+        flex-shrink: 0;
+      }
 
       .ed-journey-map-preview {
+        flex: 1 1 0;
+        min-height: 0;
         margin-top: 12px;
       }
     }
 
     .ed-journey-map-preview {
-      flex: 0 0 auto;
+      flex: 1 1 0;
       min-height: 0;
-      display: block;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    app-journey-snapshot-panel.ed-journey-map-preview {
+      flex: 1 1 0;
+      min-height: 0;
     }
   }
 

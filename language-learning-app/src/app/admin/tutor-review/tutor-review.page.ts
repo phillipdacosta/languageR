@@ -42,6 +42,7 @@ export class TutorReviewPage implements OnInit, OnDestroy {
   selectedTab: 'pending' | 'approved' | 'rejected' = 'pending';
   private videoUploadSubscription?: Subscription;
   private credentialUploadSubscription?: Subscription;
+  private credentialRemovedSubscription?: Subscription;
   private photoUploadSubscription?: Subscription;
   
   // Track which specific tutors have new submissions (by tutor ID)
@@ -102,6 +103,14 @@ export class TutorReviewPage implements OnInit, OnDestroy {
     this.photoUploadSubscription = this.webSocketService.tutorPhotoUploaded$.subscribe((data: any) => {
       this.handleReviewUpdate(data.tutorId, `${data.tutorName} uploaded a new profile photo`);
     });
+
+    this.credentialRemovedSubscription = this.webSocketService.tutorCredentialRemoved$.subscribe((data: any) => {
+      const credLabel = data.credentialType === 'governmentId' ? 'government ID' :
+        data.credentialType === 'teachingCertification' ? 'teaching certification' : 'document';
+      this.showToast(`${data.tutorName} removed a ${credLabel}`, 'warning');
+      // Refresh that tutor's record so the removed doc disappears live.
+      void this.refreshSingleTutor(data.tutorId, { silent: true });
+    });
   }
 
   private handleReviewUpdate(tutorId: string, toastMessage: string) {
@@ -118,6 +127,9 @@ export class TutorReviewPage implements OnInit, OnDestroy {
     }
     if (this.credentialUploadSubscription) {
       this.credentialUploadSubscription.unsubscribe();
+    }
+    if (this.credentialRemovedSubscription) {
+      this.credentialRemovedSubscription.unsubscribe();
     }
     if (this.photoUploadSubscription) {
       this.photoUploadSubscription.unsubscribe();
@@ -138,13 +150,17 @@ export class TutorReviewPage implements OnInit, OnDestroy {
   }
 
   // Refresh a single tutor's video data
-  async refreshSingleTutor(tutorId: string) {
+  async refreshSingleTutor(tutorId: string, options?: { silent?: boolean }) {
+    const silent = options?.silent === true;
+    let loading: HTMLIonLoadingElement | null = null;
     try {
-      const loading = await this.loadingController.create({
-        message: 'Refreshing...',
-        duration: 3000
-      });
-      await loading.present();
+      if (!silent) {
+        loading = await this.loadingController.create({
+          message: 'Refreshing...',
+          duration: 3000
+        });
+        await loading.present();
+      }
 
       // Get authentication headers
       const headers = this.userService.getAuthHeadersSync();
@@ -163,8 +179,10 @@ export class TutorReviewPage implements OnInit, OnDestroy {
         rejectedResponse?.tutors?.find((t: any) => t._id === tutorId);
 
       if (!updatedTutor) {
-        await loading.dismiss();
-        this.showToast('Tutor not found', 'warning');
+        await loading?.dismiss();
+        if (!silent) {
+          this.showToast('Tutor not found', 'warning');
+        }
         return;
       }
 
@@ -206,11 +224,15 @@ export class TutorReviewPage implements OnInit, OnDestroy {
       this.tutorsWithUpdates.delete(tutorId);
       this.newUpdatesCount = Math.max(0, this.newUpdatesCount - 1);
 
-      await loading.dismiss();
-      this.showToast('Tutor refreshed successfully', 'success');
+      await loading?.dismiss();
+      if (!silent) {
+        this.showToast('Tutor refreshed successfully', 'success');
+      }
     } catch (error) {
       console.error('Error refreshing tutor:', error);
-      this.showToast('Failed to refresh tutor', 'danger');
+      if (!silent) {
+        this.showToast('Failed to refresh tutor', 'danger');
+      }
     }
   }
 
@@ -361,6 +383,17 @@ export class TutorReviewPage implements OnInit, OnDestroy {
         tutor._videoIsApproved ||
         tutor._approvedCredentials.length > 0;
 
+      tutor._payoutLabel = tutor.stripeConnectOnboarded
+        ? 'Stripe'
+        : tutor.payoutProvider === 'paypal'
+          ? 'PayPal'
+          : tutor.payoutProvider === 'manual'
+            ? 'Manual payout'
+            : 'No payout';
+
+      tutor._reviewSections = this.buildReviewSections(tutor);
+      tutor._approvedSections = this.buildApprovedSections(tutor);
+
       this.enrichTutorLanguages(tutor);
       
       return tutor;
@@ -369,6 +402,147 @@ export class TutorReviewPage implements OnInit, OnDestroy {
     this.pendingTutors = this.pendingTutors.map(enrichTutor);
     this.approvedTutors = this.approvedTutors.map(enrichTutor);
     this.rejectedTutors = this.rejectedTutors.map(enrichTutor);
+  }
+
+  private readonly reviewSectionOrder = [
+    'profile-photo',
+    'intro-video',
+    'government-id',
+    'degree',
+    'teaching-cert',
+    'other-doc',
+  ] as const;
+
+  private credentialIconName(sectionKey: string): string {
+    if (sectionKey === 'degree') return 'school-outline';
+    if (sectionKey === 'teaching-cert') return 'ribbon-outline';
+    if (sectionKey === 'government-id') return 'id-card-outline';
+    return 'document-attach-outline';
+  }
+
+  private credentialSectionMeta(
+    type: string,
+    documentType?: string
+  ): { sectionKey: string; sectionLabel: string } {
+    if (type === 'governmentId') {
+      return { sectionKey: 'government-id', sectionLabel: 'Government ID' };
+    }
+    if (type === 'teachingCertification') {
+      return { sectionKey: 'teaching-cert', sectionLabel: 'Teaching certification' };
+    }
+    if (type === 'additionalDocument') {
+      if (documentType === 'degree') {
+        return { sectionKey: 'degree', sectionLabel: 'Degree' };
+      }
+      return { sectionKey: 'other-doc', sectionLabel: 'Other teaching document' };
+    }
+    return { sectionKey: 'other-doc', sectionLabel: 'Document' };
+  }
+
+  private buildReviewSections(tutor: any): Array<{ key: string; label: string; items: any[] }> {
+    const sectionMap = new Map<string, { key: string; label: string; items: any[] }>();
+    const ensureSection = (key: string, label: string) => {
+      if (!sectionMap.has(key)) {
+        sectionMap.set(key, { key, label, items: [] });
+      }
+      return sectionMap.get(key)!;
+    };
+
+    if (tutor._needsPhotoReview) {
+      ensureSection('profile-photo', 'Profile photo').items.push({
+        key: 'photo',
+        title: 'Pending upload',
+        meta: tutor._photoTimeAgo || 'Awaiting review',
+        previewType: 'photo',
+        photoUrl: tutor._pendingPhotoUrl,
+        sectionKey: 'profile-photo',
+        sectionLabel: 'Profile photo',
+      });
+    }
+
+    if (tutor._needsVideoReview) {
+      ensureSection('intro-video', 'Introduction video').items.push({
+        key: 'video',
+        title: tutor.onboardingData?.pendingVideo ? 'Updated upload' : 'New upload',
+        meta: tutor._timeAgo || 'Awaiting review',
+        previewType: 'video',
+        videoMode: 'pending',
+        badge: tutor.onboardingData?.pendingVideo ? 'Updated' : 'New',
+        coolingMinutes: tutor._isInCoolingPeriod ? tutor._remainingCoolingMinutes : 0,
+        sectionKey: 'intro-video',
+        sectionLabel: 'Introduction video',
+      });
+    }
+
+    tutor._pendingCredentials.forEach((cred: any) => {
+      const { sectionKey, sectionLabel } = this.credentialSectionMeta(cred.type, cred.documentType);
+      ensureSection(sectionKey, sectionLabel).items.push({
+        key: `cred-${cred.type}-${cred.id || 'gov'}`,
+        title: cred.label,
+        meta: cred.fileName,
+        previewType: 'credential',
+        credType: cred.type,
+        credId: cred.id,
+        sectionKey,
+        sectionLabel,
+        iconName: this.credentialIconName(sectionKey),
+      });
+    });
+
+    return this.reviewSectionOrder
+      .filter((key) => sectionMap.has(key))
+      .map((key) => sectionMap.get(key)!);
+  }
+
+  private buildApprovedSections(tutor: any): Array<{ key: string; label: string; items: any[] }> {
+    const sectionMap = new Map<string, { key: string; label: string; items: any[] }>();
+    const ensureSection = (key: string, label: string) => {
+      if (!sectionMap.has(key)) {
+        sectionMap.set(key, { key, label, items: [] });
+      }
+      return sectionMap.get(key)!;
+    };
+
+    if (tutor._showApprovedPhoto) {
+      ensureSection('profile-photo', 'Profile photo').items.push({
+        key: 'photo-approved',
+        title: 'Approved photo',
+        previewType: 'photo',
+        photoUrl: tutor._approvedPhotoUrl,
+        sectionKey: 'profile-photo',
+        sectionLabel: 'Profile photo',
+      });
+    }
+
+    if (tutor._videoIsApproved && tutor._approvedVideoUrl) {
+      ensureSection('intro-video', 'Introduction video').items.push({
+        key: 'video-approved',
+        title: 'Approved video',
+        previewType: 'video',
+        videoMode: 'approved',
+        sectionKey: 'intro-video',
+        sectionLabel: 'Introduction video',
+      });
+    }
+
+    tutor._approvedCredentials.forEach((cred: any) => {
+      const { sectionKey, sectionLabel } = this.credentialSectionMeta(cred.type, cred.documentType);
+      ensureSection(sectionKey, sectionLabel).items.push({
+        key: `cred-approved-${cred.type}-${cred.id || 'gov'}`,
+        title: cred.label,
+        meta: cred.fileName,
+        previewType: 'credential',
+        credType: cred.type,
+        credId: cred.id,
+        sectionKey,
+        sectionLabel,
+        iconName: this.credentialIconName(sectionKey),
+      });
+    });
+
+    return this.reviewSectionOrder
+      .filter((key) => sectionMap.has(key))
+      .map((key) => sectionMap.get(key)!);
   }
 
   detectVideoType(url: string): 'upload' | 'youtube' | 'vimeo' {
@@ -403,17 +577,6 @@ export class TutorReviewPage implements OnInit, OnDestroy {
             ? 'pending'
             : 'missing';
 
-    let credStatus = 'missing';
-    if (tutor._needsCredentialReview) {
-      credStatus = 'pending';
-    } else if (tutor._hasAnyCredentials) {
-      const hasApproved =
-        tutor.tutorCredentials?.governmentId?.status === 'approved' ||
-        tutor.tutorCredentials?.teachingCertifications?.some((c: any) => c.status === 'approved') ||
-        tutor.tutorCredentials?.additionalDocuments?.some((d: any) => d.status === 'approved');
-      credStatus = hasApproved ? 'approved' : 'missing';
-    }
-
     const labelMap: Record<string, string> = {
       approved: 'Approved',
       pending: 'Needs review',
@@ -428,11 +591,61 @@ export class TutorReviewPage implements OnInit, OnDestroy {
       missing: 'ellipse-outline',
     };
 
+    const checklistItem = (key: string, label: string, status: string) => ({
+      key,
+      label,
+      status,
+      statusLabel: labelMap[status],
+      icon: iconMap[status],
+    });
+
+    const creds = tutor.tutorCredentials;
+    const govStatus = this.credentialChecklistStatus(creds, 'governmentId');
+    const degreeStatus = this.credentialChecklistStatus(creds, 'degree');
+    const certStatus = this.credentialChecklistStatus(creds, 'teachingCert');
+    const otherDocStatus = this.credentialChecklistStatus(creds, 'otherDoc');
+
     return [
-      { key: 'photo', label: 'Photo', status: photoStatus, statusLabel: labelMap[photoStatus], icon: iconMap[photoStatus] },
-      { key: 'video', label: 'Video', status: videoStatus, statusLabel: labelMap[videoStatus], icon: iconMap[videoStatus] },
-      { key: 'credentials', label: 'Credentials', status: credStatus, statusLabel: labelMap[credStatus], icon: iconMap[credStatus] },
+      checklistItem('photo', 'Profile photo', photoStatus),
+      checklistItem('video', 'Intro video', videoStatus),
+      checklistItem('government-id', 'Government ID', govStatus),
+      checklistItem('degree', 'Degree', degreeStatus),
+      checklistItem('teaching-cert', 'Teaching cert', certStatus),
+      checklistItem('other-doc', 'Other doc', otherDocStatus),
     ];
+  }
+
+  private credentialChecklistStatus(
+    creds: any,
+    type: 'governmentId' | 'degree' | 'teachingCert' | 'otherDoc'
+  ): string {
+    if (type === 'governmentId') {
+      if (!creds?.governmentId?.url) return 'missing';
+      if (creds.governmentId.status === 'approved') return 'approved';
+      if (creds.governmentId.status === 'rejected') return 'rejected';
+      return 'pending';
+    }
+
+    if (type === 'degree') {
+      const docs = (creds?.additionalDocuments || []).filter((d: any) => d.documentType === 'degree');
+      return this.aggregateDocStatuses(docs);
+    }
+
+    if (type === 'teachingCert') {
+      const docs = creds?.teachingCertifications || [];
+      return this.aggregateDocStatuses(docs);
+    }
+
+    const docs = (creds?.additionalDocuments || []).filter((d: any) => d.documentType !== 'degree');
+    return this.aggregateDocStatuses(docs);
+  }
+
+  private aggregateDocStatuses(docs: any[]): string {
+    if (!docs.length) return 'missing';
+    if (docs.some((d) => d.status === 'pending')) return 'pending';
+    if (docs.some((d) => d.status === 'rejected')) return 'rejected';
+    if (docs.every((d) => d.status === 'approved')) return 'approved';
+    return 'missing';
   }
 
   private buildApprovedCredentials(tutor: any): any[] {
@@ -447,6 +660,7 @@ export class TutorReviewPage implements OnInit, OnDestroy {
         label: 'Government ID',
         fileName: creds.governmentId.fileName,
         icon: 'id-card',
+        documentType: 'government-id',
       });
     }
     creds.teachingCertifications?.forEach((cert: any) => {
@@ -454,20 +668,25 @@ export class TutorReviewPage implements OnInit, OnDestroy {
         items.push({
           type: 'teachingCertification',
           id: cert._id,
-          label: cert.certificationName || 'Teaching Certification',
+          label: cert.certificationName || 'Teaching certification',
           fileName: cert.fileName,
           icon: 'ribbon',
+          documentType: 'teaching-cert',
         });
       }
     });
     creds.additionalDocuments?.forEach((doc: any) => {
       if (doc.status === 'approved') {
+        const isDegree = doc.documentType === 'degree';
         items.push({
           type: 'additionalDocument',
           id: doc._id,
-          label: doc.label || doc.documentType || 'Additional Document',
+          label: isDegree
+            ? (doc.label || 'University degree')
+            : (doc.label || doc.fileName || 'Other teaching document'),
           fileName: doc.fileName,
-          icon: 'document-attach',
+          icon: isDegree ? 'school-outline' : 'document-attach',
+          documentType: doc.documentType || 'other',
         });
       }
     });
@@ -522,6 +741,7 @@ export class TutorReviewPage implements OnInit, OnDestroy {
         fileName: creds.governmentId.fileName,
         icon: 'id-card',
         badgeColor: creds.governmentId._badgeColor,
+        documentType: 'government-id',
       });
     }
     creds.teachingCertifications?.forEach((cert: any) => {
@@ -529,22 +749,27 @@ export class TutorReviewPage implements OnInit, OnDestroy {
         items.push({
           type: 'teachingCertification',
           id: cert._id,
-          label: cert.certificationName || 'Teaching Certification',
+          label: cert.certificationName || 'Teaching certification',
           fileName: cert.fileName,
           icon: 'ribbon',
           badgeColor: cert._badgeColor,
+          documentType: 'teaching-cert',
         });
       }
     });
     creds.additionalDocuments?.forEach((doc: any) => {
       if (doc.status === 'pending') {
+        const isDegree = doc.documentType === 'degree';
         items.push({
           type: 'additionalDocument',
           id: doc._id,
-          label: doc.label || doc.documentType || 'Additional Document',
+          label: isDegree
+            ? (doc.label || 'University degree')
+            : (doc.label || doc.fileName || 'Other teaching document'),
           fileName: doc.fileName,
-          icon: 'document-attach',
+          icon: isDegree ? 'school-outline' : 'document-attach',
           badgeColor: doc._badgeColor,
+          documentType: doc.documentType || 'other',
         });
       }
     });
@@ -603,7 +828,8 @@ export class TutorReviewPage implements OnInit, OnDestroy {
     return `${diffDays} day${diffDays === 1 ? '' : 's'} ago`;
   }
 
-  onTabChange(event: any) {
+  selectTab(tab: 'pending' | 'approved' | 'rejected') {
+    this.selectedTab = tab;
     this.updateDisplayedTutors();
   }
 
