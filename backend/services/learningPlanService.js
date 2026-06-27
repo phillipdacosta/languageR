@@ -12,6 +12,11 @@ const focusHistory = require('./focusHistoryService');
 const signalFusion = require('./signalFusionService');
 const phaseScope = require('./phaseSkillScopeService');
 const skillBeliefKey = require('./skillBeliefKey');
+const {
+  PLAN_FOCUS_PHRASING_PROMPT_BLOCK,
+  normalizePlanFocusText,
+  isDefinitivePlanFocus,
+} = require('../utils/planFocusPhrasing');
 
 // Grace window (ms) after a plan is first created during which we let
 // the student change their goal without invoking the cooldown. Lets
@@ -248,7 +253,8 @@ IMPORTANT:
 - suggestedTopics should be conversation scenarios the student would actually enjoy
 - focusAreas should target specific ${language} grammar/vocabulary areas
 - studentSummary should be warm, encouraging, second-person ("You're...")
-- nextLessonFocus should be specific and actionable for the tutor
+- nextLessonFocus should be specific and actionable for the tutor — a suggestion they may adapt, not a commitment to the student
+${PLAN_FOCUS_PHRASING_PROMPT_BLOCK}
 
 Respond ONLY with valid JSON:
 {
@@ -269,7 +275,7 @@ Respond ONLY with valid JSON:
     "focusBetweenLessons": "string — specific practice advice"
   },
   "studentSummary": "string — warm, personal summary of where they are and what's ahead",
-  "nextLessonFocus": "string — specific focus for the upcoming lesson"
+  "nextLessonFocus": "string — suggested focus for the tutor (recommendatory, not a commitment)"
 }`;
 
   const completion = await getOpenAIClient().chat.completions.create({
@@ -277,7 +283,7 @@ Respond ONLY with valid JSON:
     messages: [
       {
         role: 'system',
-        content: 'You are an expert language teacher who creates personalized, encouraging learning plans. Always respond with valid JSON only. Be specific to the target language, not generic.'
+        content: 'You are an expert language teacher who creates personalized, encouraging learning plans. Always respond with valid JSON only. Be specific to the target language, not generic. Plan focus lines are suggestions for tutors — never promise what will happen in a lesson.'
       },
       { role: 'user', content: prompt }
     ],
@@ -329,7 +335,7 @@ Respond ONLY with valid JSON:
         result.weeklyRecommendations?.focusBetweenLessons || ''
       ),
       studentSummary: result.studentSummary || '',
-      nextLessonFocus: result.nextLessonFocus || '',
+      nextLessonFocus: normalizePlanFocusText(result.nextLessonFocus || ''),
       lastUpdatedAt: new Date(),
       lastGoalChangedAt: new Date(),
       status: planStatus,
@@ -774,7 +780,7 @@ async function _resolveNextFocus(plan, lessonAnalysis) {
   } catch (err) {
     console.error('[LearningPlan] Focus resolver failed (using rule fallback):', err.message);
     const fallback = _generateRuleBasedFocus(plan, lessonAnalysis);
-    if (fallback) plan.nextLessonFocus = fallback;
+    if (fallback) plan.nextLessonFocus = normalizePlanFocusText(fallback);
     return null;
   }
 }
@@ -1633,6 +1639,9 @@ function _validateAiPlanUpdate(result, namedSignals) {
   if (genericPhrases.some(re => re.test(focus))) {
     return { ok: false, reason: 'starts with a generic phrase' };
   }
+  if (isDefinitivePlanFocus(focus)) {
+    return { ok: false, reason: 'nextLessonFocus must be suggestive, not a commitment (avoid "We will" / "You will")' };
+  }
 
   // If we have named signals, require at least one to appear (case-insensitive).
   if (namedSignals.length > 0) {
@@ -1694,19 +1703,20 @@ Quality bar (REQUIRED for premium tier):
 3. studentSummary should reference the tutor's name (${tutorName}) when
    appropriate, and should feel like a personal note about today's lesson.
 4. Avoid generic phrases like "keep practicing", "great job", "work on
-   your skills".${extraNote ? '\n\nIMPORTANT: ' + extraNote : ''}
+   your skills".
+5. ${PLAN_FOCUS_PHRASING_PROMPT_BLOCK.replace(/\n/g, '\n   ')}${extraNote ? '\n\nIMPORTANT: ' + extraNote : ''}
 
 Your job:
 1. Decide shouldAdvancePhase (true/false) using the rules above.
 2. Write a warm, second-person studentSummary referencing THIS lesson.
-3. Write a specific, actionable nextLessonFocus that follows the quality bar.
+3. Write a specific, actionable nextLessonFocus that follows the quality bar — as a suggestion for the tutor, not a promise to the student.
 4. Optionally update weeklyRecommendations.focusBetweenLessons.
 
 Respond ONLY with valid JSON:
 {
   "shouldAdvancePhase": false,
   "studentSummary": "string — warm update",
-  "nextLessonFocus": "string — specific focus, starts with an activity verb",
+  "nextLessonFocus": "string — suggested focus for the tutor (recommendatory, starts with an activity verb)",
   "weeklyRecommendations": {
     "focusBetweenLessons": "string — updated practice advice"
   },
@@ -1726,7 +1736,7 @@ Respond ONLY with valid JSON:
         messages: [
           {
             role: 'system',
-            content: 'You are an expert language teacher updating a premium student learning plan. Always respond with valid JSON only. Be SPECIFIC, never generic — your output is the differentiator the student is paying for. Respect the mastery-gated promotion rules.'
+            content: 'You are an expert language teacher updating a premium student learning plan. Always respond with valid JSON only. Be SPECIFIC, never generic — your output is the differentiator the student is paying for. Respect the mastery-gated promotion rules. nextLessonFocus must be a suggestive recommendation for the tutor, never a commitment about what will happen in the lesson.'
           },
           { role: 'user', content: promptBase(qualityNote) }
         ],
@@ -1781,11 +1791,11 @@ Respond ONLY with valid JSON:
     const lowerAi = String(result.nextLessonFocus).toLowerCase();
     const lowerSkill = (resolved.displayName || '').toLowerCase();
     if (lowerSkill && lowerAi.includes(lowerSkill)) {
-      plan.nextLessonFocus = result.nextLessonFocus;
+      plan.nextLessonFocus = normalizePlanFocusText(result.nextLessonFocus);
     }
   } else if (!resolved?.focusLine && result.nextLessonFocus) {
     // Resolver had no signal at all — keep the AI line as a last resort.
-    plan.nextLessonFocus = result.nextLessonFocus;
+    plan.nextLessonFocus = normalizePlanFocusText(result.nextLessonFocus);
   }
 
   plan.lastUpdatedAt = new Date();
@@ -1919,7 +1929,7 @@ function _generateRuleBasedFocus(plan, analysis) {
   // Soft length cap — keep it skimmable in the widget clamp.
   if (line.length > 180) line = line.slice(0, 177).replace(/\s+\S*$/, '') + '…';
 
-  return line;
+  return normalizePlanFocusText(line);
 }
 
 /**
@@ -2377,9 +2387,11 @@ async function _regeneratePlanForGoalChange(plan, newGoal) {
   }
   const firstPhase = plan.phases[0];
   if (firstPhase) {
-    plan.nextLessonFocus = firstPhase.description
+    const raw =
+      firstPhase.description
       || (firstPhase.focusAreas && firstPhase.focusAreas[0])
       || `Start ${firstPhase.title}`;
+    plan.nextLessonFocus = normalizePlanFocusText(raw);
   }
   plan.studentSummary = `Your roadmap has been updated to reflect your new goal: ${GOAL_TYPE_LABELS[newGoal.type] || newGoal.type}. You're keeping your progress at level ${plan.chapterLevel || 'A1'} — only the upcoming phases have changed.`;
 
@@ -2651,9 +2663,10 @@ function _seedFocusFromPhase(phase) {
     .filter(s => typeof s === 'string' && s.trim());
   if (focusAreas.length) {
     const top = focusAreas.slice(0, 2).map(s => s.trim().replace(/[.!?]+$/, ''));
-    return top.length === 1
-      ? `Focus on ${top[0]} this lesson.`
-      : `Focus on ${top[0]} and ${top[1]} this lesson.`;
+    const line = top.length === 1
+      ? `Consider practicing ${top[0].toLowerCase()} in your next lesson.`
+      : `Consider practicing ${top[0].toLowerCase()} and ${top[1].toLowerCase()} in your next lesson.`;
+    return normalizePlanFocusText(line);
   }
 
   if (phase.description && phase.description.trim()) {
@@ -2662,11 +2675,13 @@ function _seedFocusFromPhase(phase) {
       .split(/(?<=[.!?])\s+/)[0]
       .trim()
       .slice(0, 160);
-    if (first) return first;
+    if (first) return normalizePlanFocusText(first);
   }
 
   if (phase.title && phase.title.trim()) {
-    return `Work on ${phase.title.trim().replace(/[.!?]+$/, '')}.`;
+    return normalizePlanFocusText(
+      `Consider working on ${phase.title.trim().replace(/[.!?]+$/, '').toLowerCase()}.`
+    );
   }
   return null;
 }

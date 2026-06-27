@@ -9,6 +9,13 @@ const learningPlanService = require('../services/learningPlanService');
 const entitlements = require('../services/entitlementsService');
 const perTutorLane = require('../services/perTutorLaneService');
 const mastery = require('../services/masteryService');
+const { normalizePlanFocusText } = require('../utils/planFocusPhrasing');
+
+function softenFocusForClient(focus, source) {
+  if (!focus) return focus;
+  if (source === 'tutor-lane') return focus;
+  return normalizePlanFocusText(focus);
+}
 
 /**
  * @route   GET /api/learning-plan/:language
@@ -62,7 +69,7 @@ router.get('/:language', verifyToken, async (req, res) => {
     // "with <Tutor>" hint when the focus came from a specific tutor.
     const resolved = await perTutorLane.resolveNextFocus(plan);
     if (resolved.focus) {
-      plan.nextLessonFocus = resolved.focus;
+      plan.nextLessonFocus = softenFocusForClient(resolved.focus, resolved.source);
     }
     plan.nextLessonFocusSource = resolved.source;
     plan.nextLessonFocusTutor = resolved.tutor || null;
@@ -383,9 +390,11 @@ router.get('/student/:studentId/summary', verifyToken, async (req, res) => {
       let nextLessonFocusTutor = null;
       if (tutorIdParam) {
         const resolved = perTutorLane.resolveFocusForTutor(plan, tutorIdParam);
-        if (resolved.focus) nextLessonFocus = resolved.focus;
+        if (resolved.focus) nextLessonFocus = softenFocusForClient(resolved.focus, resolved.source);
         nextLessonFocusSource = resolved.source;
         nextLessonFocusTutor = resolved.tutor || null;
+      } else if (nextLessonFocus) {
+        nextLessonFocus = softenFocusForClient(nextLessonFocus, nextLessonFocusSource);
       }
       return {
         _id: plan._id,
@@ -494,10 +503,14 @@ router.get('/student/:studentId/:language/lesson-prep', verifyToken, async (req,
 
     const currentPhase = plan?.phases?.[plan.currentPhaseIndex] || null;
 
+    const softenedPlanFocus = plan?.nextLessonFocus
+      ? softenFocusForClient(plan.nextLessonFocus, 'plan')
+      : '';
+
     // Deterministically craft a 2–3-bullet mini agenda for the tutor.
     const agenda = [];
-    if (plan?.nextLessonFocus) {
-      agenda.push(plan.nextLessonFocus);
+    if (softenedPlanFocus) {
+      agenda.push(softenedPlanFocus);
     }
     const topErr = latestAnalysis?.topErrors?.[0];
     if (topErr?.issue) {
@@ -548,7 +561,7 @@ router.get('/student/:studentId/:language/lesson-prep', verifyToken, async (req,
           status: plan.status,
           goal: plan.goal,
           studentSummary: plan.studentSummary,
-          nextLessonFocus: plan.nextLessonFocus,
+          nextLessonFocus: softenedPlanFocus || plan.nextLessonFocus,
           currentPhaseIndex: plan.currentPhaseIndex,
           totalPhases: plan.phases?.length || 0,
           currentPhase: currentPhase ? {

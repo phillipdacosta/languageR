@@ -28,6 +28,7 @@ const struggleAggregator = require('./struggleAggregator');
 const skillGraph = require('./skillGraph');
 const taxonomy = require('./skillTaxonomy');
 const focusHistory = require('./focusHistoryService');
+const { normalizePlanFocusText } = require('../utils/planFocusPhrasing');
 const bayes = require('./bayesianMastery');
 const skillBeliefKey = require('./skillBeliefKey');
 
@@ -37,10 +38,11 @@ const skillBeliefKey = require('./skillBeliefKey');
 // and the existing i18n pipeline handles translation.
 
 function focusLineForAggregator(displayName, appearances) {
+  const topic = displayName.toLowerCase();
   if (!appearances || appearances <= 1) {
-    return `Focus on ${displayName.toLowerCase()} — your top recurring struggle from recent lessons.`;
+    return `Consider working on ${topic} — a recurring struggle from recent lessons.`;
   }
-  return `Focus on ${displayName.toLowerCase()} — it has come up across multiple lessons and is your top recurring struggle.`;
+  return `Consider working on ${topic} — it has come up across multiple recent lessons.`;
 }
 
 // The analyst's recommendedFocus is already a directive ("Work on X",
@@ -49,7 +51,8 @@ function focusLineForAggregator(displayName, appearances) {
 function focusLineForRecommendedFocus(text) {
   const t = String(text || '').trim().replace(/\s+/g, ' ');
   if (!t) return '';
-  return /[.!?]$/.test(t) ? t : `${t}.`;
+  const normalized = normalizePlanFocusText(/[.!?]$/.test(t) ? t : `${t}.`);
+  return normalized;
 }
 
 // Pull the primary (first non-empty) recommendedFocus string off an analysis.
@@ -61,20 +64,30 @@ function primaryRecommendedFocus(lessonAnalysis) {
 }
 
 function focusLineForUpstream(displayName, symptomDisplay) {
-  return `Focus on ${displayName.toLowerCase()} first — it's the foundation behind your recent struggle with ${symptomDisplay.toLowerCase()}.`;
+  return `Consider starting with ${displayName.toLowerCase()} — it may help with recent struggles around ${symptomDisplay.toLowerCase()}.`;
 }
 
 function focusLineForTutorPriority(displayName, tutorName) {
   const t = tutorName && tutorName.trim() ? tutorName.trim() : 'Your tutor';
-  return `${t} flagged ${displayName.toLowerCase()} as a priority — make that the through-line of this lesson.`;
+  return `${t} flagged ${displayName.toLowerCase()} as a priority — a good through-line if it fits the lesson.`;
 }
 
 function focusLineForPhaseDefault(phase) {
   if (!phase) return '';
   const focus = (phase.focusAreas || []).filter(s => typeof s === 'string' && s.trim())[0];
-  if (focus) return `Focus on ${focus.replace(/[.!?]+$/, '').toLowerCase()} during your next lesson.`;
-  if (phase.description) return phase.description.split(/(?<=[.!?])\s+/)[0].trim();
-  if (phase.title) return `Work on ${phase.title.replace(/[.!?]+$/, '').toLowerCase()}.`;
+  if (focus) {
+    return normalizePlanFocusText(
+      `Consider practicing ${focus.replace(/[.!?]+$/, '').toLowerCase()} in your next lesson.`
+    );
+  }
+  if (phase.description) {
+    return normalizePlanFocusText(phase.description.split(/(?<=[.!?])\s+/)[0].trim());
+  }
+  if (phase.title) {
+    return normalizePlanFocusText(
+      `Consider working on ${phase.title.replace(/[.!?]+$/, '').toLowerCase()}.`
+    );
+  }
   return '';
 }
 
@@ -295,7 +308,7 @@ async function resolveAndApply(opts = {}) {
   if (!pick) {
     const line = focusLineForPhaseDefault(phase);
     if (line) {
-      plan.nextLessonFocus = line;
+      plan.nextLessonFocus = normalizePlanFocusText(line);
       plan.activeFocusSkillId = null;
       plan.activeFocusSource = 'phase_default';
       plan.activeFocusSetAt = now;
@@ -319,7 +332,7 @@ async function resolveAndApply(opts = {}) {
 
   // Apply the pick.
   const beliefBefore = readBelief(plan, pick.skillId);
-  plan.nextLessonFocus = pick.focusLine;
+  plan.nextLessonFocus = normalizePlanFocusText(pick.focusLine);
   plan.activeFocusSkillId = pick.skillId;
   plan.activeFocusSource = pick.source;
   plan.activeFocusSetAt = now;

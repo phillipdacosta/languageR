@@ -1682,7 +1682,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       this.mcTutorBriefingEmpty = false;
       this.showMcTrialInsightsPlaceholder = true;
     } else {
-      this.showMcFirstLesson = upcoming;
+      this.showMcFirstLesson = upcoming && !!this.lesson?.lastSessionContext?.isFirstLesson;
       this.mcFirstLessonEmpty = !this.hasFirstLessonContext;
 
       this.showMcLastSession = upcoming;
@@ -3168,10 +3168,25 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
         this.edPlanEyebrowKey = this.isLessonCompleted
           ? 'EVENT_DETAILS.LESSON_SCREEN.PLAN_TUTOR_NEXT'
           : 'EVENT_DETAILS.LESSON_SCREEN.PLAN_TUTOR_THIS';
+      } else if (!this.isLessonCompleted && !this.edPlanIsTrial && !!this.edPlanNextFocus) {
+        this.edPlanEyebrowKey = 'EVENT_DETAILS.LESSON_SCREEN.LESSON_OBJECTIVE_SUGGESTED';
       }
       this.edPlanStateLabel = '';
       this.edPlanIsPaused = false;
-      this.edPlanFocusBody = '';
+      if (this.edPlanNextFocus) {
+        this.refreshPlanFocusBody();
+        if (this.isStudentUser && !this.isLessonCompleted && !this.edPlanIsTrial) {
+          const name = this.participantName?.split(' ')[0] || '';
+          this.edPlanAdvisoryNote = name
+            ? this.translate.instant('EVENT_DETAILS.LESSON_SCREEN.PLAN_STUDENT_ADVISORY_NAMED', { name })
+            : this.translate.instant('EVENT_DETAILS.LESSON_SCREEN.PLAN_STUDENT_ADVISORY');
+        } else {
+          this.edPlanAdvisoryNote = '';
+        }
+      } else {
+        this.edPlanFocusBody = '';
+        this.edPlanAdvisoryNote = '';
+      }
       this.edPlanTrialBody = '';
       this.refreshJourneySidebarPresentation();
       return;
@@ -3188,6 +3203,8 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       this.edPlanEyebrowKey = this.isLessonCompleted
         ? 'EVENT_DETAILS.LESSON_SCREEN.PLAN_TUTOR_NEXT'
         : 'EVENT_DETAILS.LESSON_SCREEN.PLAN_TUTOR_THIS';
+    } else if (!this.isLessonCompleted && !this.edPlanIsTrial && !!this.edPlanNextFocus) {
+      this.edPlanEyebrowKey = 'EVENT_DETAILS.LESSON_SCREEN.LESSON_OBJECTIVE_SUGGESTED';
     }
 
     // Resolve plan status from the richest available source. edPlanSummary is
@@ -3203,6 +3220,17 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       this.edPlanAdvisoryNote = name
         ? this.translate.instant('EVENT_DETAILS.LESSON_SCREEN.PLAN_TUTOR_ADVISORY_NAMED', { name })
         : this.translate.instant('EVENT_DETAILS.LESSON_SCREEN.PLAN_TUTOR_ADVISORY');
+    } else if (
+      this.isStudentUser &&
+      !this.isLessonCompleted &&
+      !this.edPlanIsTrial &&
+      !this.edPlanIsPaused &&
+      !!this.edPlanNextFocus
+    ) {
+      const name = this.participantName?.split(' ')[0] || '';
+      this.edPlanAdvisoryNote = name
+        ? this.translate.instant('EVENT_DETAILS.LESSON_SCREEN.PLAN_STUDENT_ADVISORY_NAMED', { name })
+        : this.translate.instant('EVENT_DETAILS.LESSON_SCREEN.PLAN_STUDENT_ADVISORY');
     } else {
       this.edPlanAdvisoryNote = '';
     }

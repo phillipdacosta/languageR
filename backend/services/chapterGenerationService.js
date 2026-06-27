@@ -1334,7 +1334,7 @@ Return JSON:
     messages: [
       {
         role: 'system',
-        content: 'You are an expert language teacher creating personalized chapter plans. Always respond with valid JSON only. Be concrete and language-specific.'
+        content: 'You are an expert language teacher creating personalized chapter plans. Always respond with valid JSON only. Be concrete and language-specific. Phase descriptions and focus areas are suggestions for tutors — avoid "We will" or other commitment language.'
       },
       { role: 'user', content: prompt }
     ],

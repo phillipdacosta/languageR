@@ -1287,6 +1287,13 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
         cardDescText = T(key, { name: displayName });
       } else if (ctx?.summary) {
         cardDescText = T('LESSONS_PAGE.LAST_SESSION_PREFIX') + this.truncateCardText(ctx.summary, 180);
+      } else {
+        const focus = this.resolveNextLessonFocusForCard(lesson);
+        if (focus) {
+          cardDescText = T('LESSONS_PAGE.SUGGESTED_FOCUS_LINE', {
+            focus: this.truncateCardText(focus, 160),
+          });
+        }
       }
     }
 
