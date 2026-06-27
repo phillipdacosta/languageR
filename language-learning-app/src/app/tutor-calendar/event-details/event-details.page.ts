@@ -300,6 +300,12 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   edPlanIsPaused = false;
   edPlanFocusBody = '';
   edShowPlanExpanded = false;
+  /** Deduped agenda lines for the focus card (excludes repeats of the main focus body). */
+  edFocusAgendaItems: string[] = [];
+  edFocusDetailsVisible = false;
+  edFocusDetailsExpanded = false;
+  /** Upcoming student lessons: soft reassurance that prep content is optional. */
+  edShowOptionalReassurance = false;
   edShowTutorBriefing = false;
   edPrepShowPersistentChallenges = false;
   notesSectionLabelKey = 'EVENT_DETAILS.LESSON_SCREEN.NOTES';
@@ -1636,6 +1642,10 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     this.showMcLearningMaterials = false;
     this.mcLearningMaterialsEmpty = false;
     this.showMcTrialInsightsPlaceholder = false;
+    this.edShowOptionalReassurance = false;
+    this.edFocusAgendaItems = [];
+    this.edFocusDetailsVisible = false;
+    this.edFocusDetailsExpanded = false;
   }
 
   /** Which main-card sections render and whether they show an empty state. */
@@ -1669,8 +1679,9 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       ? 'EVENT_DETAILS.LESSON_SCREEN.EMPTY_PAYMENT_TUTOR'
       : 'EVENT_DETAILS.LESSON_SCREEN.EMPTY_PAYMENT_STUDENT';
 
-    this.showMcLearningFocus = true;
     this.mcLearningFocusEmpty = !this.edPlanIsPaused && !this.edPlanNextFocus && !this.edPlanTrialBody;
+    this.showMcLearningFocus = !this.mcLearningFocusEmpty;
+    this.edShowOptionalReassurance = upcoming && this.isStudentUser && !trial && !this.isCancelled;
 
     const upcomingTrial = upcoming && trial;
     if (upcomingTrial) {
@@ -1682,11 +1693,11 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       this.mcTutorBriefingEmpty = false;
       this.showMcTrialInsightsPlaceholder = true;
     } else {
-      this.showMcFirstLesson = upcoming && !!this.lesson?.lastSessionContext?.isFirstLesson;
-      this.mcFirstLessonEmpty = !this.hasFirstLessonContext;
+      this.showMcFirstLesson = upcoming && this.hasFirstLessonContext;
+      this.mcFirstLessonEmpty = false;
 
-      this.showMcLastSession = upcoming;
-      this.mcLastSessionEmpty = !this.hasLastSessionContext;
+      this.showMcLastSession = upcoming && this.hasLastSessionContext;
+      this.mcLastSessionEmpty = false;
 
       this.showMcTutorBriefing = upcoming && this.isTutorUser;
       this.mcTutorBriefingEmpty = !this.edPrepHasContent;
@@ -1722,8 +1733,9 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
 
     const recIds = new Set(this.recommendedMaterials.map(m => m._id));
     this.tutorMaterialsFiltered = this.tutorMaterials.filter(m => !recIds.has(m._id));
-    this.showMcLearningMaterials = this.isStudentUser && !this.isCancelled && !trial;
     this.mcLearningMaterialsEmpty = !this.tutorMaterialsFiltered.length;
+    this.showMcLearningMaterials =
+      this.isStudentUser && !this.isCancelled && !trial && !this.mcLearningMaterialsEmpty;
   }
 
   private computeRole() {
@@ -3188,6 +3200,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
         this.edPlanAdvisoryNote = '';
       }
       this.edPlanTrialBody = '';
+      this.refreshFocusDetailsPresentation();
       this.refreshJourneySidebarPresentation();
       return;
     }
@@ -3277,11 +3290,42 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       : [];
 
     this.refreshPlanFocusBody();
+    this.refreshFocusDetailsPresentation();
 
     this.edShowTutorBriefing =
       this.isTutorUser && !this.isLessonCompleted && !!this.edPrepHasContent && !this.edPlanIsPaused;
 
     this.refreshJourneySidebarPresentation();
+  }
+
+  private normalizeFocusCompareText(text: string): string {
+    return (text || '')
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .trim()
+      .replace(/^suggested focus:\s*/i, '');
+  }
+
+  private refreshFocusDetailsPresentation(): void {
+    const focusNorm = this.normalizeFocusCompareText(this.edPlanFocusBody);
+    this.edFocusAgendaItems = this.edPlanAgenda.filter(item => {
+      const itemNorm = this.normalizeFocusCompareText(item);
+      if (!itemNorm) return false;
+      if (!focusNorm) return true;
+      return itemNorm !== focusNorm && !focusNorm.includes(itemNorm) && !itemNorm.includes(focusNorm);
+    });
+
+    const hasChips =
+      this.edShowPlanExpanded &&
+      !this.edPlanIsTrial &&
+      !this.edPlanIsPaused &&
+      this.edPlanTopicChips.length > 0;
+    const hasAgenda = this.edFocusAgendaItems.length > 0;
+    this.edFocusDetailsVisible = hasChips || hasAgenda;
+
+    if (!this.edFocusDetailsVisible) {
+      this.edFocusDetailsExpanded = false;
+    }
   }
 
   /** Open the inline focus editor, prefilled with the current focus. */
@@ -3555,6 +3599,10 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
 
   toggleBriefingExpanded() {
     this.edPrepBriefingExpanded = !this.edPrepBriefingExpanded;
+  }
+
+  toggleFocusDetails(): void {
+    this.edFocusDetailsExpanded = !this.edFocusDetailsExpanded;
   }
 
   private computeAnalysisProperties() {

@@ -9,11 +9,8 @@
 }
 
 :host:has(.jmp-card--sidebar) {
-  display: flex;
-  flex-direction: column;
-  flex: 1 1 0;
-  min-height: 0;
-  height: 100%;
+  display: block;
+  width: 100%;
 }
 
 .jmp-card {
@@ -261,9 +258,6 @@
 }
 
 .jmp-card--sidebar {
-  flex: 1 1 0;
-  min-height: 0;
-  height: 100%;
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -280,16 +274,14 @@
   }
 
   .jmp-stage {
-    flex: 1 1 0;
+    flex: 0 0 auto;
     width: 100%;
-    aspect-ratio: unset;
-    min-height: 72px;
-    max-height: none;
+    aspect-ratio: 16 / 9;
   }
 
   &.jmp-card--illustration .jmp-stage--illustration {
-    aspect-ratio: unset;
-    min-height: 72px;
+    aspect-ratio: 16 / 9;
+    min-height: 0;
   }
 
   .jmp-footer {
