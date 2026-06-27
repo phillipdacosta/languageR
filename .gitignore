@@ -213,6 +213,11 @@ language-learning-app/plugins/
 # Google Cloud credentials (keep config.env but ignore the actual key file)
 backend/languager-*.json
 
+# Voiceprint sidecar (Python venv + downloaded model cache — never commit)
+backend/audio-sidecar/.venv/
+backend/audio-sidecar/pretrained_models/
+backend/audio-sidecar/__pycache__/
+
 # Test files
 test-video.mp4
 *.test.*

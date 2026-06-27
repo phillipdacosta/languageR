@@ -15,9 +15,7 @@
     <!-- Skeleton Loader (matches split layout) -->
     <div class="ed-skeleton ed-skeleton-layout" *ngIf="loading">
       <div class="ed-page ed-skeleton-page">
-        <div class="ed-subheader">
-          <div class="skeleton-button ed-skeleton-back" aria-hidden="true"></div>
-        </div>
+        <div class="ed-skeleton-back ed-skeleton-page-back" aria-hidden="true"></div>
 
         <div class="ed-body">
           <div class="ed-split approval-split-layout">
@@ -66,12 +64,14 @@
     <div class="ed-content" *ngIf="!loading && lesson && !isClass">
 
       <div class="ed-page">
-        <div class="ed-subheader">
-          <button type="button" class="ed-subheader__back" (click)="goBack()" [attr.aria-label]="'EVENT_DETAILS.LESSON_SCREEN.BACK_ARIA' | translate">
-            <ion-icon name="chevron-back-outline"></ion-icon>
-            <span>{{ 'COMMON.BACK' | translate }}</span>
-          </button>
-        </div>
+        <button
+          type="button"
+          class="ed-page-back"
+          (click)="goBack()"
+          [attr.aria-label]="'EVENT_DETAILS.LESSON_SCREEN.BACK_ARIA' | translate">
+          <ion-icon name="chevron-back-outline" aria-hidden="true"></ion-icon>
+          <span>{{ 'COMMON.BACK' | translate }}</span>
+        </button>
 
         <div class="ed-body">
           <div class="ed-split approval-split-layout">
@@ -275,6 +275,10 @@
             <span *ngIf="!pageTranslating && pageShowingTranslation">{{ 'COMMON.SHOW_ORIGINAL' | translate }}</span>
           </button>
 
+          <p class="ed-optional-reassurance" *ngIf="edShowOptionalReassurance">
+            {{ 'EVENT_DETAILS.LESSON_SCREEN.OPTIONAL_CONTEXT_REASSURANCE' | translate }}
+          </p>
+
     <!-- ── Plan context (compact — no duplicate briefing content) ── -->
     <ng-container *ngIf="showMcLearningFocus">
       <section class="ed-row ed-learning-focus">
@@ -324,15 +328,22 @@
               </div>
             </div>
           </div>
-          <div class="ed-topics" *ngIf="edShowPlanExpanded && !edPlanIsTrial && !edPlanIsPaused && edPlanTopicChips.length">
+          <button
+            type="button"
+            class="ed-focus-details-toggle"
+            *ngIf="isStudentUser && edFocusDetailsVisible"
+            (click)="toggleFocusDetails()"
+            [attr.aria-expanded]="edFocusDetailsExpanded">
+            <span>{{ (edFocusDetailsExpanded ? 'EVENT_DETAILS.LESSON_SCREEN.HIDE_TOPICS' : 'EVENT_DETAILS.LESSON_SCREEN.SHOW_TOPICS') | translate }}</span>
+            <ion-icon [name]="edFocusDetailsExpanded ? 'chevron-up-outline' : 'chevron-down-outline'" aria-hidden="true"></ion-icon>
+          </button>
+          <div class="ed-topics" *ngIf="edShowPlanExpanded && !edPlanIsTrial && !edPlanIsPaused && edPlanTopicChips.length && (!isStudentUser || edFocusDetailsExpanded)">
             <span class="ed-topic" *ngFor="let topic of edPlanTopicChips">{{ topic }}</span>
           </div>
-          <ul class="ed-focus-agenda" *ngIf="edShowPlanExpanded && !edPlanIsTrial && !edPlanIsPaused && edPlanAgenda.length && isStudentUser">
-            <li *ngFor="let item of edPlanAgenda">{{ item }}</li>
+          <ul class="ed-focus-agenda" *ngIf="edShowPlanExpanded && !edPlanIsTrial && !edPlanIsPaused && edFocusAgendaItems.length && (!isStudentUser || edFocusDetailsExpanded)">
+            <li *ngFor="let item of edFocusAgendaItems">{{ item }}</li>
           </ul>
           </ng-container>
-
-          <p class="ed-section-empty" *ngIf="mcLearningFocusEmpty">{{ mcLearningFocusEmptyKey | translate }}</p>
         </div>
       </section>
     </ng-container>
@@ -360,8 +371,7 @@
       <div class="ed-divider"></div>
       <section class="ed-row ed-first-session">
         <h2 class="ed-section-label">{{ 'EVENT_DETAILS.LESSON_SCREEN.FIRST_LESSON' | translate }}</h2>
-        <p class="ed-body" *ngIf="!mcFirstLessonEmpty">{{ firstLessonMessage }}</p>
-        <p class="ed-section-empty" *ngIf="mcFirstLessonEmpty">{{ mcFirstLessonEmptyKey | translate }}</p>
+        <p class="ed-body">{{ firstLessonMessage }}</p>
       </section>
     </ng-container>
 
@@ -372,13 +382,10 @@
         <div class="ed-feedback-header">
           <h2 class="ed-section-label">{{ 'EVENT_DETAILS.LESSON_SCREEN.WHAT_WE_WORKED_ON_LAST' | translate }}</h2>
         </div>
-        <ng-container *ngIf="!mcLastSessionEmpty">
         <p class="ed-body">{{ lastSessionSummary }}</p>
         <ul class="ed-focus-list" *ngIf="lastSessionFocus.length">
           <li *ngFor="let f of lastSessionFocus">{{ f }}</li>
         </ul>
-        </ng-container>
-        <p class="ed-section-empty" *ngIf="mcLastSessionEmpty">{{ mcLastSessionEmptyKey | translate }}</p>
       </section>
     </ng-container>
 
@@ -841,8 +848,7 @@
       <div class="ed-divider"></div>
       <section class="ed-row">
         <h2 class="ed-section-label">{{ 'EVENT_DETAILS.LESSON_SCREEN.LEARNING_MATERIALS' | translate }}</h2>
-        <ng-container *ngIf="!mcLearningMaterialsEmpty">
-        <p class="ed-body" style="margin-bottom: 12px">{{ 'EVENT_DETAILS.LESSON_SCREEN.MATERIALS_COUNT' | translate: { count: tutorMaterialsFiltered.length } }}</p>
+        <p class="ed-body ed-materials-intro">{{ 'EVENT_DETAILS.LESSON_SCREEN.MATERIALS_COUNT' | translate: { count: tutorMaterialsFiltered.length } }}</p>
         <div class="ed-materials-scroll">
           <div class="ed-material-tile" *ngFor="let m of tutorMaterialsFiltered" (click)="openMaterial(m)" [class.has-thumb]="m.thumbnailUrl">
             <div class="ed-material-thumb" *ngIf="m.thumbnailUrl">
@@ -863,8 +869,6 @@
             </div>
           </div>
         </div>
-        </ng-container>
-        <p class="ed-section-empty" *ngIf="mcLearningMaterialsEmpty">{{ 'EVENT_DETAILS.LESSON_SCREEN.EMPTY_MATERIALS_STUDENT' | translate }}</p>
       </section>
     </ng-container>
 

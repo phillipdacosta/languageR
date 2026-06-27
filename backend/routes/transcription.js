@@ -10,6 +10,8 @@ const Lesson = require('../models/Lesson');
 const User = require('../models/User');
 const { transcribeAudio, analyzeLessonTranscript, generateProgressReport, translateAnalysisFields } = require('../services/aiService');
 const franc = require('franc'); // text-based per-segment language detection (handles code-switching)
+const voiceprintClient = require('../services/voiceprintClient'); // Phase 1 sidecar client
+const voiceprintReclassifier = require('../services/voiceprintReclassifier'); // student-vs-tutor on overlap
 const { uploadAudio, downloadAudio, getSignedUrl } = require('../services/cloudStorageService');
 const { assessPronunciationScore, intelligentSampleSegments } = require('../services/gpt4PronunciationService');
 const { assessSegmentPronunciation } = require('../services/pronunciationService');
@@ -2106,6 +2108,21 @@ async function analyzeLesson(transcriptId) {
       endSec: iv.endSec
     }));
 
+    // Diagnostic baseline: how many student segments/words existed BEFORE any
+    // bleed filtering. Lets the per-lesson summary log show exactly how much
+    // genuine speech each filter removed (the silent failure mode that stranded
+    // repeat-after-me beginners with "no analysis").
+    const rawStudentSegmentCount = transcript.segments.filter(s => s.speaker === 'student').length;
+
+    // Overlap-filter mode (Phase 0 safety valve). The time-overlap filter is a
+    // blunt instrument that discards ANY student segment coinciding with tutor
+    // speech — which wrongly drops genuine repeat-after-me practice. This flag
+    // lets us measure or disable it while the voiceprint fix (Phase 1) is built:
+    //   • 'legacy' (default) — current behavior: exclude overlapping segments
+    //   • 'shadow'           — detect + log what WOULD be excluded, but keep it
+    //   • 'off'              — skip the time-overlap filter entirely
+    const overlapFilterMode = (process.env.OVERLAP_FILTER_MODE || 'legacy').toLowerCase();
+
     // Energy guard (Phase 2): only trust VAD intervals when the tutor reference
     // track actually carried speech-level energy. A near-silent track yields
     // spurious "speech" intervals from background noise, which would wrongly
@@ -2119,10 +2136,57 @@ async function analyzeLesson(transcriptId) {
       || (tutorTrackRms > -50 && (tutorTrackSilence === null || tutorTrackSilence < 0.97));
 
     let excludedCount = 0;
-    if (tutorIntervals.length > 0 && !tutorTrackHasSpeechEnergy) {
+    let shadowOverlapCount = 0; // would-be exclusions when mode !== 'legacy'
+
+    // ── Phase 1: voiceprint reclassification ─────────────────────────────────
+    // The durable replacement for the blunt time-overlap filter. Instead of
+    // dropping EVERY student segment that overlaps tutor speech (which destroys
+    // genuine repeat-after-me), we score each overlapping segment against the
+    // student's enrolled voiceprint vs. the tutor's and keep the genuine ones.
+    //   • VOICEPRINT_MODE=off (default) — disabled; time-overlap logic governs
+    //   • VOICEPRINT_MODE=shadow        — classify + log, but change nothing
+    //   • VOICEPRINT_MODE=enforce       — exclude only segments judged 'tutor'
+    // Fail-soft: any miss (sidecar down, no enrollment audio) falls back to the
+    // time-overlap filter below. No per-lesson API cost — self-hosted sidecar.
+    const voiceprintMode = (process.env.VOICEPRINT_MODE || 'off').toLowerCase();
+    let voiceprintApplied = false;
+    if (voiceprintMode !== 'off' && voiceprintClient.isEnabled()
+        && tutorIntervals.length > 0 && tutorTrackHasSpeechEnergy) {
+      try {
+        const vpResult = await voiceprintReclassifier.reclassifyOverlaps(transcript, tutorIntervals);
+        if (vpResult.available) {
+          voiceprintApplied = true;
+          if (voiceprintMode === 'enforce') {
+            vpResult.decisions.forEach(d => {
+              if (d.label === 'tutor') {
+                transcript.segments[d.segIndex].excludedByTutorOverlap = true;
+                excludedCount++;
+              }
+            });
+            console.log(`🎙️ Voiceprint filter [enforce]: kept ${vpResult.stats.keep} student / dropped ${excludedCount} tutor-bleed / ${vpResult.stats.uncertain} uncertain (of ${vpResult.stats.overlapping} overlapping; enrolled from ${vpResult.stats.enrolled} clip(s))`);
+            if (excludedCount > 0) {
+              try { await transcript.save(); } catch (e) { console.warn('⚠️ Failed to persist voiceprint exclusions (non-critical):', e.message); }
+            }
+          } else {
+            console.log(`🎙️ Voiceprint filter [shadow]: would keep ${vpResult.stats.keep} / drop ${vpResult.stats.dropTutor} / uncertain ${vpResult.stats.uncertain} of ${vpResult.stats.overlapping} overlapping segments — NO change applied (VOICEPRINT_MODE=shadow)`);
+          }
+        } else {
+          console.log(`ℹ️ Voiceprint filter unavailable (${vpResult.reason}) — falling back to time-overlap filter`);
+        }
+      } catch (vpErr) {
+        console.warn(`⚠️ Voiceprint reclassification failed (falling back): ${vpErr.message}`);
+      }
+    }
+
+    if (voiceprintApplied) {
+      // Voiceprint owns the overlap decision; skip the blunt time-overlap filter.
+    } else if (overlapFilterMode === 'off') {
+      console.log('⏭️ Mic-bleed filter: OVERLAP_FILTER_MODE=off — time-overlap exclusion disabled');
+    } else if (tutorIntervals.length > 0 && !tutorTrackHasSpeechEnergy) {
       console.log(`ℹ️ Mic-bleed filter: tutor track energy too low (RMS=${tutorTrackRms}dB, silence=${tutorTrackSilence}) — skipping VAD exclusion to avoid false positives`);
     } else if (tutorIntervals.length > 0) {
       const transcriptStartMs = transcript.startTime ? transcript.startTime.getTime() : 0;
+      const enforce = overlapFilterMode === 'legacy';
       transcript.segments.forEach(seg => {
         if (seg.speaker !== 'student') return;
         if (!seg.duration || seg.duration <= 0) return; // can't determine bounds; leave as-is
@@ -2132,8 +2196,13 @@ async function analyzeLesson(transcriptId) {
         const segEndSec = segStartSec + seg.duration;
 
         if (segmentOverlapsTutor(segStartSec, segEndSec, tutorIntervals)) {
-          seg.excludedByTutorOverlap = true;
-          excludedCount++;
+          if (enforce) {
+            seg.excludedByTutorOverlap = true;
+            excludedCount++;
+          } else {
+            // shadow mode: record what we WOULD have dropped, but keep it
+            shadowOverlapCount++;
+          }
         }
       });
 
@@ -2145,6 +2214,8 @@ async function analyzeLesson(transcriptId) {
         } catch (saveErr) {
           console.warn('⚠️ Failed to persist exclusion flags (non-critical):', saveErr.message);
         }
+      } else if (shadowOverlapCount > 0) {
+        console.log(`👻 Mic-bleed filter [shadow]: would have excluded ${shadowOverlapCount} student segments overlapping ${tutorIntervals.length} tutor intervals — KEPT (OVERLAP_FILTER_MODE=${overlapFilterMode})`);
       } else {
         console.log(`✅ Mic-bleed filter: no student segments overlap tutor speech (${tutorIntervals.length} intervals checked)`);
       }
@@ -2311,14 +2382,80 @@ async function analyzeLesson(transcriptId) {
       ISO1_TO_ISO3[targetLangIso], ISO1_TO_ISO3[nativeIso], 'eng'
     ].filter(Boolean))];
 
+    // Beginner safety net for short within-chunk utterances. franc needs ~12+
+    // chars to classify, and even then a [target,native]-constrained guess is a
+    // near coin-flip on short native phrases ("Yeah, that makes sense" scores
+    // German ≈ English), while UNCONSTRAINED franc misses real target sentences
+    // ("Guten Tag, mein Name ist Philip" → Hiligaynon). So neither statistical
+    // mode is safe alone for the short, code-switched speech beginners produce.
+    //
+    // The reliable, language-agnostic discriminator is the TUTOR'S OWN words:
+    // we mine tokens the tutor spoke in the target language this lesson, then
+    // SUBTRACT any token that also appears in the tutor's native-language
+    // speech (so ambiguous words like "okay" don't leak). A student utterance
+    // that echoes one of these target-only tokens is genuine target speech —
+    // covering both short echoes ("vier") and full sentences ("Ich bin 41 Jahre
+    // alt"). Positive-evidence only, so it never inflates a native aside.
+    const tokenizeForLang = (t) => (t || '')
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+      .split(/\s+/)
+      .filter(Boolean);
+    const tutorTargetRaw = new Set();
+    const tutorNativeRaw = new Set();
+    transcript.segments.forEach(seg => {
+      if (seg.speaker !== 'tutor' || !seg.text) return;
+      const iso = detectSegmentLangIso(seg.text, langWhitelist3);
+      if (!iso) return;
+      const bucket = iso === targetLangIso ? tutorTargetRaw : tutorNativeRaw;
+      tokenizeForLang(seg.text).forEach(tok => {
+        if (tok.length >= 2 && /\p{L}/u.test(tok)) bucket.add(tok);
+      });
+    });
+    // Target vocabulary the student can be credited for echoing = target tokens
+    // that are NOT also native tokens (drops cross-language ambiguity like the
+    // German/English homograph "name" or a tutor saying "okay").
+    const targetVocab = new Set([...tutorTargetRaw].filter(tok => !tutorNativeRaw.has(tok)));
+
+    // PRECISION-FIRST classification. A single echoed token (a proper noun, a
+    // cognate) must NOT promote an otherwise-English sentence to "target" — that
+    // would assert a CEFR level the student never earned, which is worse than
+    // under-counting. We credit target only on strong evidence and otherwise
+    // let the lesson fall to recap-only (the honest outcome for a beginner who
+    // mostly spoke their native language). The few genuine target words still
+    // get registered, flipping the withheld reason from "no speech" to
+    // "insufficient target language".
+    let vocabCreditedSegments = 0;
     const segLangCache = new Map();
     const resolveSegLang = (seg) => {
       if (segLangCache.has(seg)) return segLangCache.get(seg);
-      const confident = detectSegmentLangIso(seg.text, langWhitelist3);
+      const constrained = detectSegmentLangIso(seg.text, langWhitelist3);
+      const alphaToks = tokenizeForLang(seg.text).filter(t => /\p{L}/u.test(t));
       let lang;
-      if (confident) lang = confident;
-      else if (seg.detectedLanguage) lang = normalizeLangToIso(seg.detectedLanguage);
-      else lang = targetLangIso; // undetermined + no chunk hint → assume target
+      if (constrained && constrained !== targetLangIso) {
+        // 1) franc is confident this is a NON-target language — trust it.
+        lang = constrained;
+      } else if (constrained === targetLangIso && detectSegmentLangIso(seg.text, null) === targetLangIso) {
+        // 2) franc says target in BOTH constrained and unconstrained modes —
+        //    strong agreement (real target sentences like "Ich bin 41 Jahre alt").
+        lang = targetLangIso;
+      } else if (
+        seg.speaker === 'student' &&
+        alphaToks.length > 0 && alphaToks.length <= 3 &&
+        alphaToks.every(t => targetVocab.has(t))
+      ) {
+        // 3) Short utterance ENTIRELY composed of unambiguous target words the
+        //    tutor taught (e.g. a one-word number drill "vier"). franc can't see
+        //    these (too short), so the tutor-vocab echo is the only honest signal.
+        lang = targetLangIso;
+        vocabCreditedSegments++;
+      } else if (seg.detectedLanguage) {
+        // 4) Fall back to Whisper's chunk-level guess.
+        lang = normalizeLangToIso(seg.detectedLanguage);
+      } else {
+        // 5) No signal at all → lenient default to target.
+        lang = targetLangIso;
+      }
       segLangCache.set(seg, lang);
       return lang;
     };
@@ -2330,27 +2467,102 @@ async function analyzeLesson(transcriptId) {
     // anyway when the word floor isn't met).
     const gradingStudentSegments = targetStudentSegments.length > 0 ? targetStudentSegments : studentSegments;
 
-    // Floor for asserting a CEFR level. Deliberately lenient so a genuine A1
-    // effort still gets graded; tune via GRADE_MIN_TARGET_WORDS.
-    const GRADE_MIN_TARGET_WORDS = 25;
+    // Floor for asserting a CEFR level. Deliberately lenient — and now
+    // level-aware: a beginner legitimately produces far fewer target-language
+    // words than an upper-intermediate speaker, so demanding a flat 25 words
+    // pushed genuine A1/A2 lessons into recap-only (or worse) when they had
+    // every right to a provisional level. We bias toward the student's last
+    // graded level; brand-new students (no graded history) are treated as
+    // beginners so we ask the least of someone who barely knows the language.
+    // Seed the leniency floor from the student's own onboarding self-assessment
+    // when no graded history exists yet: a self-declared complete beginner is
+    // asked for the least target-language speech before we venture a level,
+    // while someone who self-reports "advanced" doesn't get the beginner floor.
+    // Graded history always wins over self-report once it exists.
+    const SELF_ASSESS_TO_LEVEL = {
+      complete_beginner: 'A0',
+      some_basics: 'A1',
+      simple_conversations: 'A2',
+      intermediate: 'B1',
+      advanced: 'B2'
+    };
+    const selfAssessedLevel = student?.learningGoal?.selfAssessedLevel || null;
+    const priorGradedLevel = previousAnalyses[0]?.overallAssessment?.proficiencyLevel || null;
+    const assumedLevel = priorGradedLevel || SELF_ASSESS_TO_LEVEL[selfAssessedLevel] || 'A1';
+    // A0 = self-declared complete beginner: floor below A1 so a handful of
+    // genuinely-echoed target words still earns a provisional read instead of
+    // silent recap-only.
+    const GRADE_FLOOR_BY_LEVEL = { A0: 10, A1: 15, A2: 18, B1: 25, B2: 25, C1: 25, C2: 25 };
+    const GRADE_MIN_TARGET_WORDS = GRADE_FLOOR_BY_LEVEL[assumedLevel] ?? 25;
     const canAssessProficiency = targetLanguageStudentWords >= GRADE_MIN_TARGET_WORDS;
     const gradeMode = canAssessProficiency ? 'full' : 'recap_only';
     const gradeWithheldReason = canAssessProficiency
       ? null
       : (targetLanguageStudentWords > 0 ? 'insufficient_target_language' : 'insufficient_student_speech');
 
-    console.log(`   Target-language (${targetLangIso}) student words: ${targetLanguageStudentWords} across ${targetStudentSegments.length}/${studentSegments.length} segments`);
+    console.log(`   Target-language (${targetLangIso}) student words: ${targetLanguageStudentWords} across ${targetStudentSegments.length}/${studentSegments.length} segments (${vocabCreditedSegments} short seg(s) credited via tutor-vocab echo)`);
     console.log(`   Grading mode: ${gradeMode}${gradeWithheldReason ? ` (withheld: ${gradeWithheldReason})` : ''}`);
+
+    // ── Per-lesson capture diagnostic (Phase 0) ──────────────────────────────
+    // Single structured line so it's easy to grep/dashboard while testing the
+    // bleed-filter fixes. Shows how much student speech each filter removed and
+    // why grading was withheld. `studentWordsRetentionPct` is the headline
+    // signal: a low value means genuine speech is being discarded (the
+    // repeat-after-me failure).
+    const studentWordsExcluded = transcript.segments
+      .filter(s => s.speaker === 'student' && s.excludedByTutorOverlap)
+      .reduce((sum, seg) => sum + countWords(seg.text), 0);
+    const rawStudentWords = totalStudentWords + studentWordsExcluded;
+    const retentionPct = rawStudentWords > 0
+      ? Math.round((totalStudentWords / rawStudentWords) * 100)
+      : 100;
+    const captureDiag = {
+      tag: 'CAPTURE_DIAG',
+      lessonId: String(transcript.lessonId),
+      language: transcript.language,
+      durationMin: lesson.duration,
+      overlapFilterMode,
+      segments: {
+        studentRaw: rawStudentSegmentCount,
+        studentAnalyzed: studentSegments.length,
+        excludedByOverlap: excludedCount,
+        wouldExcludeShadow: shadowOverlapCount,
+        excludedByTextDedup: dedupExcludedCount,
+        tutor: tutorSegments.length
+      },
+      words: {
+        studentRaw: rawStudentWords,
+        studentAnalyzed: totalStudentWords,
+        studentExcluded: studentWordsExcluded,
+        targetLanguage: targetLanguageStudentWords,
+        targetVocabCreditedSegments: vocabCreditedSegments,
+        retentionPct
+      },
+      grade: { mode: gradeMode, withheldReason: gradeWithheldReason, assumedLevel, selfAssessedLevel }
+    };
+    console.log(`📈 ${JSON.stringify(captureDiag)}`);
+    if (rawStudentWords >= 20 && retentionPct < 50) {
+      console.warn(`⚠️ CAPTURE_DIAG: low student-word retention (${retentionPct}%) — ${studentWordsExcluded}/${rawStudentWords} words removed by bleed filters for lesson ${transcript.lessonId}. Possible false exclusion of genuine speech.`);
+    }
     
     // ========================================================================
     // TRANSCRIPT QUALITY GATE — Prevent GPT-4 from analyzing garbage/hallucinated data
     // ========================================================================
     const qualityIssues = [];
     
-    // CHECK 1: Minimum word threshold (hard skip)
-    // For a 25+ minute lesson, fewer than 30 words means no meaningful speech occurred
-    if (totalStudentWords < 30) {
-      qualityIssues.push(`Insufficient speech: only ${totalStudentWords} student words detected (minimum 30 required for a ${lesson.duration}-min lesson)`);
+    // CHECK 1: Absolute floor — below this there is genuinely nothing to recap.
+    //
+    // We deliberately do NOT use a high flat word count as a show/hide gate.
+    // Word count is a poor proxy for "nothing meaningful happened": beginners
+    // and listening-heavy lessons legitimately produce few words. The strong
+    // signals for garbage/silence are CHECKS 2–7 below (script mismatch,
+    // repetition, hallucination phrases, no_speech_prob, audio energy,
+    // impossible speech rate) — those remain hard blocks. A short-but-genuine
+    // lesson instead flows through and is graded in recap_only mode (CEFR level
+    // withheld) rather than being discarded as insufficient_data.
+    const HARD_MIN_STUDENT_WORDS = 8;
+    if (totalStudentWords < HARD_MIN_STUDENT_WORDS) {
+      qualityIssues.push(`Insufficient speech: only ${totalStudentWords} student words detected (need at least ${HARD_MIN_STUDENT_WORDS} words to produce a recap)`);
     }
     
     // CHECK 2: Script mismatch detection (Whisper hallucination pattern)
@@ -2534,6 +2746,18 @@ async function analyzeLesson(transcriptId) {
       studentTargetLanguageWords: targetLanguageStudentWords,
       targetLanguage: targetLangIso
     };
+
+    // The schema constrains confidenceLevel to 1–10, but recap-only / very
+    // short lessons legitimately come back as 0 ("not assessed"). Coerce any
+    // out-of-range value to null so the save doesn't fail validation — the
+    // Mongoose min validator skips null/undefined. Without this, every
+    // recap_only analysis would error out and be marked 'failed'.
+    if (analysisResult.progressionMetrics) {
+      const conf = analysisResult.progressionMetrics.confidenceLevel;
+      if (typeof conf !== 'number' || conf < 1 || conf > 10) {
+        analysisResult.progressionMetrics.confidenceLevel = null;
+      }
+    }
     
     // ========== GPT-4 REALTIME PRONUNCIATION ASSESSMENT ==========
     // This runs AFTER the lesson ends, not during!
