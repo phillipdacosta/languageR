@@ -6848,6 +6848,12 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       const prefix = this.translateService.instant('LESSONS_PAGE.LAST_SESSION_PREFIX') || '';
       return `${prefix}${this.truncateTagline(ctx.summary, 110)}`;
     }
+    const focus = (this.learningPlanNextFocus || '').trim();
+    if (focus) {
+      return this.translateService.instant('LESSONS_PAGE.SUGGESTED_FOCUS_LINE', {
+        focus: this.truncateTagline(focus, 110),
+      });
+    }
     return '';
   }
 
