@@ -218,6 +218,11 @@ backend/audio-sidecar/.venv/
 backend/audio-sidecar/pretrained_models/
 backend/audio-sidecar/__pycache__/
 
+# Language-eval harness: cached Tatoeba dumps (large) and per-lesson labeled
+# fixtures. Keep the synthetic generator/scorer in git, not the downloaded data.
+backend/scripts/langeval/data/
+backend/scripts/langeval/fixtures/lesson-*.labeled.json
+
 # Test files
 test-video.mp4
 *.test.*

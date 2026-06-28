@@ -1140,6 +1140,31 @@ IMPORTANT INSTRUCTIONS:
     
     let studentText = sampleTranscript(studentSegments, ANALYSIS_CONFIG.MAX_STUDENT_WORDS, 'student');
     const tutorText = sampleTranscript(tutorSegments, ANALYSIS_CONFIG.MAX_TUTOR_WORDS, 'tutor');
+
+    // Full chronological conversation (BOTH speakers, ALL languages) for the
+    // SUMMARY / topicsDiscussed only. Grammar grading still uses studentText
+    // (target-language segments) so we never score the student's native asides —
+    // but the *summary* must describe the whole lesson. A beginner who mostly
+    // repeats after the tutor produces almost no gradeable target text, which
+    // previously left the summary empty/useless ("4 words"). Reading the real
+    // back-and-forth lets the recap say what was actually practiced.
+    const fullConversationSegments = Array.isArray(transcript)
+      ? transcript.filter(s =>
+          s && s.text &&
+          (s.speaker === 'student' || s.speaker === 'tutor') &&
+          !s.excludedByTutorOverlap // drop mic-bleed so echoed tutor lines aren't shown as the student
+        )
+      : [];
+    let fullConversationText = '';
+    if (fullConversationSegments.length > 0) {
+      const labeled = fullConversationSegments.map(s => ({
+        ...s,
+        text: `${s.speaker === 'tutor' ? 'Tutor' : 'Student'}: ${s.text}`
+      }));
+      // Reuse the begin/middle/end sampler so very long lessons stay within a
+      // bounded token budget (~1,200 words ≈ 1,600 tokens of added context).
+      fullConversationText = sampleTranscript(labeled, 1200, 'full-conversation');
+    }
     
     // Clean transcript: remove incomplete sentences and transcription errors
     console.log(`\n🧹 ========================================`);
@@ -1565,12 +1590,15 @@ IMPORTANT INSTRUCTIONS:
     
     const recapDirective = gradeMode === 'recap_only' ? `
 **⚠️ RECAP-ONLY MODE — DO NOT ASSIGN A PROFICIENCY LEVEL:**
-The student produced too little genuine ${language} speech this lesson to fairly assess a CEFR level.
-- Set "proficiencyLevel" to null. Do NOT guess or default to any A1–C2 value.
-- Set "confidence" to 0.
-- Be encouraging and specific: summarize what the student actually practiced, and give 1–3 concrete, bite-sized tips for next time.
-- studentSummary MUST be warm and motivating — celebrate effort, never imply failure, and invite them to speak more ${language} next lesson.
-- Keep errorPatterns/topErrors limited to what is clearly supported; it's fine for them to be short or empty.
+The student produced too little independent ${language} speech this lesson to fairly assess a CEFR level (this is normal for beginners and repeat-after-me lessons). Withholding the level is correct — but the recap must still be genuinely useful and motivating, NOT empty.
+
+Build the recap from the FULL LESSON CONVERSATION block (both speakers), since the student's own ${language} is sparse:
+- "proficiencyLevel": null (do NOT guess or default to A1–C2). "confidence": 0.
+- studentSummary: a warm, specific 2–3 sentence recap. Name what was actually covered (e.g. greetings, numbers, asking someone's age) and the key ${language} words/phrases the student practiced or echoed. Celebrate effort; never imply failure.
+- topicsDiscussed: the real topics from the full conversation (e.g. "Introductions", "Numbers 1–10", "Asking how someone is").
+- recommendations / nextSteps: 1–3 concrete, bite-sized actions tied to THIS lesson's content (e.g. "Practice saying 'Wie alt bist du?' out loud", "Review the numbers 1–10"). Keep them small and achievable for a beginner.
+- Encourage the student to try producing a little more ${language} on their own next lesson, even single words.
+- Keep errorPatterns/topErrors limited to what is clearly supported by the student's actual ${language}; short or empty is fine — do NOT invent errors.
 ` : '';
 
     const prompt = `You are an expert ${language} language teacher analyzing a student's lesson.
@@ -1581,7 +1609,10 @@ ${studentText}
 
 TUTOR'S TRANSCRIPT:
 ${tutorText}
-${correctionsContext}
+${fullConversationText ? `
+FULL LESSON CONVERSATION (both speakers, all languages — use ONLY for "summary" and "topicsDiscussed", NEVER for grammar/error analysis):
+${fullConversationText}
+` : ''}${correctionsContext}
 ${previousContext}
 
 **CRITICAL INSTRUCTIONS:**
@@ -1604,7 +1635,7 @@ ${previousContext}
    - Otherwise, be SPECIFIC with numbers and comparisons. NO second-person pronouns (no "you", "your"). FORBIDDEN phrases: "slight improvement", "some progress", "generally better", "you made", "vocabulary expanded". 
    - **EXAMPLE**: If previous lesson shows "Grammar Accuracy: 85%" and current is 92%, write: "Grammar accuracy improved from 85% to 92%." NOT "declined from 98% to 92%"
    - DO NOT mention vocabulary expansion - focus on grammar and errors only.
-8. For summary in overallAssessment: Use third-person or describe topics objectively (e.g., "Discussed going to the supermarket and meeting a friend" NOT "You discussed...")
+8. For summary in overallAssessment and topicsDiscussed: describe the WHOLE lesson using the FULL LESSON CONVERSATION block (both speakers) when present — not only the student's gradeable ${language}. This is essential for repeat-after-me / beginner lessons where the student spoke little independent ${language} but the lesson still covered real topics. Use third-person or describe topics objectively (e.g., "Practiced greetings, numbers, and asking someone's age" NOT "You discussed..."). Grammar/error analysis must still come ONLY from the student transcript.
 9. **FIND ALL MEANINGFUL ERRORS - COMPREHENSIVE ANALYSIS**: 
    - **"Meaningful" = errors that indicate areas for improvement, NOT only critical/severe errors**
    - **LESSON LENGTH CONTEXT** (speaking time: ${speakingTimeMinutes} minutes):
