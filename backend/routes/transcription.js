@@ -12,6 +12,7 @@ const { transcribeAudio, analyzeLessonTranscript, generateProgressReport, transl
 const franc = require('franc'); // text-based per-segment language detection (handles code-switching)
 const voiceprintClient = require('../services/voiceprintClient'); // Phase 1 sidecar client
 const voiceprintReclassifier = require('../services/voiceprintReclassifier'); // student-vs-tutor on overlap
+const languageClassifierService = require('../services/languageClassifierService'); // token-level LLM language ID
 const { uploadAudio, downloadAudio, getSignedUrl } = require('../services/cloudStorageService');
 const { assessPronunciationScore, intelligentSampleSegments } = require('../services/gpt4PronunciationService');
 const { assessSegmentPronunciation } = require('../services/pronunciationService');
@@ -350,6 +351,29 @@ const ISO1_TO_ISO3 = {
 const ISO3_TO_ISO1 = Object.fromEntries(
   Object.entries(ISO1_TO_ISO3).map(([one, three]) => [three, one])
 );
+
+// High-frequency English function/filler words. franc is unreliable on short
+// conversational text and will confidently mislabel plain English as the target
+// language (e.g. "So that's, I don't know, I don't understand" → German in both
+// constrained and unconstrained modes). When the target language is NOT English
+// and a segment is dominated by these words, we VETO any "target" classification
+// and treat it as English. This is a precision guard — it can only reject false
+// target credit, never invent it — so it cannot inflate a CEFR level.
+const EN_COMMON_WORDS = new Set([
+  'the','a','an','and','or','but','so','if','of','to','in','on','at','for','with',
+  'i','you','he','she','it','we','they','me','him','her','us','them','my','your',
+  'this','that','these','those','here','there','is','am','are','was','were','be',
+  'been','do','dont','does','did','have','has','had','will','would','can','could',
+  'should','not','no','yes','yeah','okay','ok','know','think','dont','im','its',
+  'thats','what','when','where','why','how','who','just','really','very','well',
+  'right','good','great','sorry','please','thank','thanks','about','because','want',
+  'understand','mean','means','see','say','said','one','two','get','got','go',
+  'going','let','back','up','out','oh','um','uh','hello','hi','like','dont','cant',
+  'wont','didnt','isnt','arent','wasnt','ive','youre','were','okay','alright'
+]);
+// Fraction of a segment's word tokens that are common-English before we treat
+// the whole segment as English regardless of what franc guessed.
+const EN_VETO_FRACTION = 0.6;
 
 /**
  * Detect the language actually spoken in a single transcript segment from its
@@ -721,7 +745,11 @@ router.post('/:transcriptId/audio', verifyToken, upload.single('audio'), async (
   try {
     const { transcriptId } = req.params;
     const { speaker } = req.body; // 'student' or 'tutor'
-    
+    // Elapsed lesson seconds when this sampling window began. Whisper returns
+    // segment times relative to the window blob; adding this offset places them
+    // on the lesson timeline (defaults to 0 for legacy single-blob clients).
+    const windowStartSec = Math.max(0, parseFloat(req.body.windowStartSec) || 0);
+
     console.log('🎙️ ========== AUDIO UPLOAD RECEIVED ==========');
     console.log('🎙️ Transcript ID:', transcriptId);
     console.log('🎙️ Speaker:', speaker);
@@ -1061,7 +1089,7 @@ router.post('/:transcriptId/audio', verifyToken, upload.single('audio'), async (
       .filter(seg => seg.text && seg.text.trim().length > 0)
       .map(seg => {
       const segmentData = {
-        timestamp: new Date(transcript.startTime.getTime() + (seg.start * 1000)),
+        timestamp: new Date(transcript.startTime.getTime() + ((windowStartSec + seg.start) * 1000)),
         speaker: speaker || 'student',
         text: seg.text,
         confidence: seg.confidence || 1,
@@ -1156,6 +1184,10 @@ router.post('/:transcriptId/audio', verifyToken, upload.single('audio'), async (
 router.post('/:transcriptId/tutor-reference', verifyToken, upload.single('audio'), async (req, res) => {
   try {
     const { transcriptId } = req.params;
+    // Window placement on the lesson timeline. Legacy single-blob clients omit
+    // these (default 0), preserving prior behavior.
+    const windowStartSec = Math.max(0, parseFloat(req.body.windowStartSec) || 0);
+    const windowIndexRaw = parseInt(req.body.windowIndex, 10);
 
     console.log('🎯 ========== TUTOR REFERENCE UPLOAD RECEIVED ==========');
     console.log('🎯 Transcript ID:', transcriptId);
@@ -1176,38 +1208,74 @@ router.post('/:transcriptId/tutor-reference', verifyToken, upload.single('audio'
 
     const vadResult = await extractSpeechIntervals(req.file.buffer, req.file.mimetype);
 
-    transcript.tutorSpeechIntervals = vadResult.intervals;
+    // Each window's VAD intervals are 0-based to that window's blob. Offset them
+    // onto the lesson timeline and APPEND (never overwrite — windows 1 & 2 used
+    // to be destroyed by window 3), keeping the list sorted by start time.
+    const offsetIntervals = (vadResult.intervals || []).map(iv => ({
+      startSec: iv.startSec + windowStartSec,
+      endSec: iv.endSec + windowStartSec
+    }));
+    transcript.tutorReferenceSegments = transcript.tutorReferenceSegments || [];
+    const windowIndex = Number.isFinite(windowIndexRaw) && windowIndexRaw >= 0
+      ? windowIndexRaw
+      : transcript.tutorReferenceSegments.length;
+    transcript.tutorSpeechIntervals = [...(transcript.tutorSpeechIntervals || []), ...offsetIntervals]
+      .sort((a, b) => a.startSec - b.startSec);
 
     // DUAL-TRACK DIARIZATION (Phase 3): persist the tutor's clean audio to GCS so
     // the async, server-side analysis step can transcribe it for text-dedup
     // (mic-bleed removal) WITHOUT making the client wait through Whisper here.
     // VAD stays in-request (fast, ~free); transcription is deferred to analysis.
+    // Each window is its OWN file (segment-tutor-reference-{windowIndex}) so the
+    // tutor's full speech survives — analysis transcribes every window clip.
     let tutorGcsPath = null;
     try {
       tutorGcsPath = await uploadAudio(
         req.file.buffer,
         transcript.lessonId.toString(),
-        'tutor-reference',
+        `tutor-reference-${windowIndex}`,
         req.file.mimetype
       );
-      console.log(`☁️ Tutor reference audio stored for analysis: ${tutorGcsPath}`);
+      console.log(`☁️ Tutor reference window ${windowIndex} stored (@${windowStartSec}s): ${tutorGcsPath}`);
     } catch (gcsErr) {
-      console.warn('⚠️ Failed to store tutor reference audio to GCS (text-dedup disabled for this lesson):', gcsErr.message);
+      console.warn('⚠️ Failed to store tutor reference audio to GCS (text-dedup disabled for this window):', gcsErr.message);
     }
 
-    transcript.tutorReferenceMeta = {
-      durationSeconds: vadResult.durationSeconds,
-      rmsLevelDb: vadResult.rmsLevelDb,
-      silenceRatio: vadResult.silenceRatio,
-      processedAt: new Date(),
-      sizeBytes: req.file.size,
-      gcsPath: tutorGcsPath,
-      mimeType: req.file.mimetype
-    };
+    if (tutorGcsPath) {
+      transcript.tutorReferenceSegments.push({
+        windowIndex,
+        windowStartSec,
+        gcsPath: tutorGcsPath,
+        mimeType: req.file.mimetype,
+        durationSeconds: vadResult.durationSeconds,
+        rmsLevelDb: vadResult.rmsLevelDb,
+        silenceRatio: vadResult.silenceRatio,
+        sizeBytes: req.file.size,
+        processedAt: new Date()
+      });
+    }
+
+    // Maintain `tutorReferenceMeta` as an AGGREGATE across windows so the
+    // downstream energy gate (which reads rmsLevelDb/silenceRatio) sees the
+    // loudest/most-speech window rather than being masked by a quiet one. Keep
+    // the first window's gcsPath for legacy single-file consumers/fallback.
+    const segs = transcript.tutorReferenceSegments;
+    if (segs.length > 0) {
+      const prevMeta = transcript.tutorReferenceMeta || {};
+      transcript.tutorReferenceMeta = {
+        durationSeconds: segs.reduce((s, w) => s + (w.durationSeconds || 0), 0),
+        rmsLevelDb: Math.max(...segs.map(w => (typeof w.rmsLevelDb === 'number' ? w.rmsLevelDb : -91))),
+        silenceRatio: Math.min(...segs.map(w => (typeof w.silenceRatio === 'number' ? w.silenceRatio : 1))),
+        processedAt: new Date(),
+        sizeBytes: segs.reduce((s, w) => s + (w.sizeBytes || 0), 0),
+        gcsPath: prevMeta.gcsPath || tutorGcsPath,
+        mimeType: req.file.mimetype
+      };
+    }
 
     await transcript.save();
 
-    const totalSpeechSec = vadResult.intervals.reduce((sum, iv) => sum + (iv.endSec - iv.startSec), 0);
+    const totalSpeechSec = offsetIntervals.reduce((sum, iv) => sum + (iv.endSec - iv.startSec), 0);
     console.log(`✅ Tutor reference processed: ${vadResult.intervals.length} speech intervals, ${totalSpeechSec.toFixed(1)}s of speech in ${vadResult.durationSeconds.toFixed(1)}s of audio`);
     console.log('🎯 ========== TUTOR REFERENCE UPLOAD COMPLETE ==========');
 
@@ -2052,36 +2120,70 @@ async function analyzeLesson(transcriptId) {
     // one timeline.
     // ========================================================================
     const hasTutorSegmentsAlready = transcript.segments.some(s => s.speaker === 'tutor');
-    const tutorRefGcsPath = transcript.tutorReferenceMeta?.gcsPath;
-    if (!hasTutorSegmentsAlready && tutorRefGcsPath) {
-      try {
-        console.log(`🎯 Transcribing tutor reference track from GCS: ${tutorRefGcsPath}`);
-        const tutorBuffer = await downloadAudio(tutorRefGcsPath);
-        const tutorTargetIso = normalizeLangToIso(transcript.language) || 'en';
-        const tutorResult = await transcribeAudio(tutorBuffer, tutorTargetIso, 'tutor');
-        const tutorDetectedIso = normalizeLangToIso(tutorResult.detectedLanguage) || tutorTargetIso;
+    // The tutor track is recorded in separate sampling windows, each stored as
+    // its own GCS clip with the lesson-time offset it began at. Transcribe every
+    // window and place its segments onto the lesson timeline. Fall back to the
+    // legacy single `tutorReferenceMeta.gcsPath` (windowStartSec 0) for lessons
+    // recorded before per-window storage existed.
+    const tutorClips = (transcript.tutorReferenceSegments && transcript.tutorReferenceSegments.length > 0)
+      ? transcript.tutorReferenceSegments
+          .map(w => ({ gcsPath: w.gcsPath, windowStartSec: w.windowStartSec || 0 }))
+          .filter(c => c.gcsPath)
+          .sort((a, b) => a.windowStartSec - b.windowStartSec)
+      : (transcript.tutorReferenceMeta?.gcsPath
+          ? [{ gcsPath: transcript.tutorReferenceMeta.gcsPath, windowStartSec: 0 }]
+          : []);
 
-        const newTutorSegments = (tutorResult.segments || [])
-          .filter(seg => seg.text && seg.text.trim().length > 0)
-          .map(seg => ({
-            timestamp: new Date(transcript.startTime.getTime() + ((seg.start || 0) * 1000)),
-            speaker: 'tutor',
-            text: seg.text,
-            confidence: seg.confidence || 1,
-            language: transcript.language,
-            detectedLanguage: tutorDetectedIso,
-            duration: (seg.end != null && seg.start != null) ? (seg.end - seg.start) : 0,
-            noSpeechProb: seg.no_speech_prob != null ? seg.no_speech_prob : null
-          }));
+    if (!hasTutorSegmentsAlready && tutorClips.length > 0) {
+      const tutorTargetIso = normalizeLangToIso(transcript.language) || 'en';
+      let totalTutorSegmentsAdded = 0;
+      for (const clip of tutorClips) {
+        try {
+          console.log(`🎯 Transcribing tutor reference window @${clip.windowStartSec}s from GCS: ${clip.gcsPath}`);
+          const rawTutorBuffer = await downloadAudio(clip.gcsPath);
+          // The tutor window blob is a MediaRecorder WebM/Opus clip and is often
+          // MALFORMED: missing duration header + mid-stream Opus packet
+          // corruption. Sent as-is, Whisper decodes only a fragment and emits
+          // looped/hallucinated text. Re-muxing through ffmpeg rewrites clean
+          // headers and conceals decode errors. Fail-soft: fall back to raw.
+          let tutorBuffer = rawTutorBuffer;
+          try {
+            tutorBuffer = await convertWebmToMp3(rawTutorBuffer);
+            console.log(`🛠️ Tutor window re-muxed: ${rawTutorBuffer.length} → ${tutorBuffer.length} bytes`);
+          } catch (remuxErr) {
+            console.warn('⚠️ Tutor window re-mux failed — transcribing raw buffer:', remuxErr.message);
+          }
+          const tutorResult = await transcribeAudio(tutorBuffer, tutorTargetIso, 'tutor');
+          const tutorDetectedIso = normalizeLangToIso(tutorResult.detectedLanguage) || tutorTargetIso;
 
-        if (newTutorSegments.length > 0) {
-          transcript.segments.push(...newTutorSegments);
-          await transcript.save();
+          const newTutorSegments = (tutorResult.segments || [])
+            .filter(seg => seg.text && seg.text.trim().length > 0)
+            .map(seg => ({
+              timestamp: new Date(transcript.startTime.getTime() + ((clip.windowStartSec + (seg.start || 0)) * 1000)),
+              speaker: 'tutor',
+              text: seg.text,
+              confidence: seg.confidence || 1,
+              language: transcript.language,
+              detectedLanguage: tutorDetectedIso,
+              duration: (seg.end != null && seg.start != null) ? (seg.end - seg.start) : 0,
+              noSpeechProb: seg.no_speech_prob != null ? seg.no_speech_prob : null
+            }));
+
+          if (newTutorSegments.length > 0) {
+            transcript.segments.push(...newTutorSegments);
+            totalTutorSegmentsAdded += newTutorSegments.length;
+          }
+        } catch (tutorTxErr) {
+          console.warn(`⚠️ Tutor window @${clip.windowStartSec}s transcription failed (non-critical):`, tutorTxErr.message);
         }
-        console.log(`🎯 Tutor track transcribed: ${newTutorSegments.length} tutor segments added`);
-      } catch (tutorTxErr) {
-        console.warn('⚠️ Tutor track transcription failed (non-critical, keeping VAD-only):', tutorTxErr.message);
       }
+      if (totalTutorSegmentsAdded > 0) {
+        // Keep segments globally ordered so downstream tutor-context lookups and
+        // the debug dump read in true chronological order.
+        transcript.segments.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+        await transcript.save();
+      }
+      console.log(`🎯 Tutor track transcribed across ${tutorClips.length} window(s): ${totalTutorSegmentsAdded} tutor segments added`);
     } else if (hasTutorSegmentsAlready) {
       console.log('ℹ️ Tutor segments already present — skipping tutor transcription');
     } else {
@@ -2431,8 +2533,26 @@ async function analyzeLesson(transcriptId) {
       if (segLangCache.has(seg)) return segLangCache.get(seg);
       const constrained = detectSegmentLangIso(seg.text, langWhitelist3);
       const alphaToks = tokenizeForLang(seg.text).filter(t => /\p{L}/u.test(t));
+      // English-veto: when the target language isn't English, refuse to credit a
+      // segment as target if it's dominated by common English words. Kills the
+      // franc false-positives (e.g. "So that's, I don't know, I don't understand"
+      // → German) without affecting genuine target speech ("Mir geht es gut" has
+      // zero English common-words, so it passes through untouched). Apostrophes
+      // are stripped first so contractions match ("don't" → "dont").
+      const enVetoToks = (seg.text || '').toLowerCase()
+        .replace(/['’]/g, '')
+        .replace(/[^\p{L}\s]/gu, ' ')
+        .split(/\s+/)
+        .filter(Boolean);
+      const enCommonHits = enVetoToks.filter(t => EN_COMMON_WORDS.has(t)).length;
+      const enDominated = targetLangIso !== 'en'
+        && enVetoToks.length >= 3
+        && (enCommonHits / enVetoToks.length) >= EN_VETO_FRACTION;
       let lang;
-      if (constrained && constrained !== targetLangIso) {
+      if (enDominated) {
+        // 0) Overwhelmingly common-English → English, regardless of franc.
+        lang = 'en';
+      } else if (constrained && constrained !== targetLangIso) {
         // 1) franc is confident this is a NON-target language — trust it.
         lang = constrained;
       } else if (constrained === targetLangIso && detectSegmentLangIso(seg.text, null) === targetLangIso) {
@@ -2461,11 +2581,53 @@ async function analyzeLesson(transcriptId) {
     };
 
     const targetStudentSegments = studentSegments.filter(seg => resolveSegLang(seg) === targetLangIso);
-    const targetLanguageStudentWords = targetStudentSegments.reduce((sum, seg) => sum + countWords(seg.text), 0);
+    const heuristicTargetWords = targetStudentSegments.reduce((sum, seg) => sum + countWords(seg.text), 0);
+
+    // ── Token-level LLM classifier (Phase A) ────────────────────────────────
+    // LANG_CLASSIFIER_MODE: off | shadow | enforce
+    //   off     — heuristic only (current behaviour)
+    //   shadow  — run the LLM classifier, LOG the comparison, but keep using the
+    //             heuristic result (safe rollout; no behaviour change)
+    //   enforce — credit target words from the LLM classifier (it reached ~100%
+    //             precision vs ~54% heuristic on a labeled real lesson). On any
+    //             failure it falls back to the heuristic (fail-soft).
+    const langClassifierMode = (process.env.LANG_CLASSIFIER_MODE || 'off').toLowerCase();
+    let llmClassification = null;
+    let llmTargetStudentSegments = null;
+    if (langClassifierMode === 'shadow' || langClassifierMode === 'enforce') {
+      llmClassification = await languageClassifierService.classifyLessonSegments({
+        studentSegments,
+        allSegments: transcript.segments,
+        targetIso: targetLangIso,
+        nativeIso
+      });
+      if (llmClassification) {
+        // Per-segment: a segment is "target" for grading if it contains any
+        // confirmed target words (mirrors how the heuristic yields whole
+        // segments, but now driven by precise token labels).
+        llmTargetStudentSegments = studentSegments.filter(
+          (_, i) => (llmClassification.perSegment[i]?.targetWords || 0) > 0
+        );
+        console.log(`🔤 Language classifier [${langClassifierMode}] (${llmClassification.model}): ` +
+          `LLM confirmedTargetWords=${llmClassification.confirmedTargetWords} ` +
+          `(heuristic=${heuristicTargetWords}) across ` +
+          `${llmTargetStudentSegments.length}/${studentSegments.length} segments`);
+      } else {
+        console.warn(`🔤 Language classifier [${langClassifierMode}] unavailable — using heuristic.`);
+      }
+    }
+
+    // Choose the source of truth for target-language credit.
+    const useLLM = langClassifierMode === 'enforce' && llmClassification;
+    const targetLanguageStudentWords = useLLM
+      ? llmClassification.confirmedTargetWords
+      : heuristicTargetWords;
+    const effectiveTargetSegments = useLLM ? llmTargetStudentSegments : targetStudentSegments;
+
     // Grade target-language speech only; fall back to all student segments if the
     // language split left nothing (keeps the recap non-empty — grade is withheld
     // anyway when the word floor isn't met).
-    const gradingStudentSegments = targetStudentSegments.length > 0 ? targetStudentSegments : studentSegments;
+    const gradingStudentSegments = effectiveTargetSegments.length > 0 ? effectiveTargetSegments : studentSegments;
 
     // Floor for asserting a CEFR level. Deliberately lenient — and now
     // level-aware: a beginner legitimately produces far fewer target-language
@@ -2537,6 +2699,13 @@ async function analyzeLesson(transcriptId) {
         targetLanguage: targetLanguageStudentWords,
         targetVocabCreditedSegments: vocabCreditedSegments,
         retentionPct
+      },
+      langClassifier: {
+        mode: langClassifierMode,
+        enforced: useLLM,
+        heuristicTargetWords,
+        llmTargetWords: llmClassification ? llmClassification.confirmedTargetWords : null,
+        model: llmClassification ? llmClassification.model : null
       },
       grade: { mode: gradeMode, withheldReason: gradeWithheldReason, assumedLevel, selfAssessedLevel }
     };

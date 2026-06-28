@@ -1,0 +1,5007 @@
+{
+  "pair": "en-de",
+  "native": "en",
+  "target": "de",
+  "generatedAt": "2026-06-28T02:01:21.760Z",
+  "note": "Synthetic (Tatoeba splice). Overestimates real accuracy: no ASR errors/disfluencies. Use for gross-error detection + relative classifier comparison.",
+  "counts": {
+    "mono_target": 36,
+    "mono_native": 36,
+    "splice": 36,
+    "hard": 12
+  },
+  "cases": [
+    {
+      "category": "mono_target",
+      "text": "Lass uns etwas versuchen!",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Lass",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "uns",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "etwas",
+          "gold": "target"
+        },
+        {
+          "id": 3,
+          "text": "versuchen!",
+          "gold": "target"
+        }
+      ],
+      "id": 0
+    },
+    {
+      "category": "mono_target",
+      "text": "Ich muss schlafen gehen.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Ich",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "muss",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "schlafen",
+          "gold": "target"
+        },
+        {
+          "id": 3,
+          "text": "gehen.",
+          "gold": "target"
+        }
+      ],
+      "id": 1
+    },
+    {
+      "category": "mono_target",
+      "text": "Was ist das?",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Was",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "ist",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "das?",
+          "gold": "target"
+        }
+      ],
+      "id": 2
+    },
+    {
+      "category": "mono_target",
+      "text": "Herzlichen Glückwunsch zum Geburtstag, Muiriel!",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Herzlichen",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "Glückwunsch",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "zum",
+          "gold": "target"
+        },
+        {
+          "id": 3,
+          "text": "Geburtstag,",
+          "gold": "target"
+        },
+        {
+          "id": 4,
+          "text": "Muiriel!",
+          "gold": "target"
+        }
+      ],
+      "id": 3
+    },
+    {
+      "category": "mono_target",
+      "text": "Ich werde bald zurück sein.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Ich",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "werde",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "bald",
+          "gold": "target"
+        },
+        {
+          "id": 3,
+          "text": "zurück",
+          "gold": "target"
+        },
+        {
+          "id": 4,
+          "text": "sein.",
+          "gold": "target"
+        }
+      ],
+      "id": 4
+    },
+    {
+      "category": "mono_target",
+      "text": "Ich finde keine Worte.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Ich",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "finde",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "keine",
+          "gold": "target"
+        },
+        {
+          "id": 3,
+          "text": "Worte.",
+          "gold": "target"
+        }
+      ],
+      "id": 5
+    },
+    {
+      "category": "mono_target",
+      "text": "Das wird nie enden.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Das",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "wird",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "nie",
+          "gold": "target"
+        },
+        {
+          "id": 3,
+          "text": "enden.",
+          "gold": "target"
+        }
+      ],
+      "id": 6
+    },
+    {
+      "category": "mono_target",
+      "text": "Ich weiß einfach nicht, was ich sagen soll.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Ich",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "weiß",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "einfach",
+          "gold": "target"
+        },
+        {
+          "id": 3,
+          "text": "nicht,",
+          "gold": "target"
+        },
+        {
+          "id": 4,
+          "text": "was",
+          "gold": "target"
+        },
+        {
+          "id": 5,
+          "text": "ich",
+          "gold": "target"
+        },
+        {
+          "id": 6,
+          "text": "sagen",
+          "gold": "target"
+        },
+        {
+          "id": 7,
+          "text": "soll.",
+          "gold": "target"
+        }
+      ],
+      "id": 7
+    },
+    {
+      "category": "mono_target",
+      "text": "Das war ein böses Kaninchen.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Das",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "war",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "ein",
+          "gold": "target"
+        },
+        {
+          "id": 3,
+          "text": "böses",
+          "gold": "target"
+        },
+        {
+          "id": 4,
+          "text": "Kaninchen.",
+          "gold": "target"
+        }
+      ],
+      "id": 8
+    },
+    {
+      "category": "mono_target",
+      "text": "Ich war in den Bergen.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Ich",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "war",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "in",
+          "gold": "target"
+        },
+        {
+          "id": 3,
+          "text": "den",
+          "gold": "target"
+        },
+        {
+          "id": 4,
+          "text": "Bergen.",
+          "gold": "target"
+        }
+      ],
+      "id": 9
+    },
+    {
+      "category": "mono_target",
+      "text": "Ich weiß nicht, ob ich Zeit dazu habe.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Ich",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "weiß",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "nicht,",
+          "gold": "target"
+        },
+        {
+          "id": 3,
+          "text": "ob",
+          "gold": "target"
+        },
+        {
+          "id": 4,
+          "text": "ich",
+          "gold": "target"
+        },
+        {
+          "id": 5,
+          "text": "Zeit",
+          "gold": "target"
+        },
+        {
+          "id": 6,
+          "text": "dazu",
+          "gold": "target"
+        },
+        {
+          "id": 7,
+          "text": "habe.",
+          "gold": "target"
+        }
+      ],
+      "id": 10
+    },
+    {
+      "category": "mono_target",
+      "text": "Letztendlich muss jeder selbst lernen.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Letztendlich",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "muss",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "jeder",
+          "gold": "target"
+        },
+        {
+          "id": 3,
+          "text": "selbst",
+          "gold": "target"
+        },
+        {
+          "id": 4,
+          "text": "lernen.",
+          "gold": "target"
+        }
+      ],
+      "id": 11
+    },
+    {
+      "category": "mono_target",
+      "text": "Die Ausbildung in dieser Welt enttäuscht mich.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Die",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "Ausbildung",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "in",
+          "gold": "target"
+        },
+        {
+          "id": 3,
+          "text": "dieser",
+          "gold": "target"
+        },
+        {
+          "id": 4,
+          "text": "Welt",
+          "gold": "target"
+        },
+        {
+          "id": 5,
+          "text": "enttäuscht",
+          "gold": "target"
+        },
+        {
+          "id": 6,
+          "text": "mich.",
+          "gold": "target"
+        }
+      ],
+      "id": 12
+    },
+    {
+      "category": "mono_target",
+      "text": "Das wird nichts ändern.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Das",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "wird",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "nichts",
+          "gold": "target"
+        },
+        {
+          "id": 3,
+          "text": "ändern.",
+          "gold": "target"
+        }
+      ],
+      "id": 13
+    },
+    {
+      "category": "mono_target",
+      "text": "Das wird nicht passieren.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Das",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "wird",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "nicht",
+          "gold": "target"
+        },
+        {
+          "id": 3,
+          "text": "passieren.",
+          "gold": "target"
+        }
+      ],
+      "id": 14
+    },
+    {
+      "category": "mono_target",
+      "text": "Manchmal kann er ein seltsamer Junge sein.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Manchmal",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "kann",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "er",
+          "gold": "target"
+        },
+        {
+          "id": 3,
+          "text": "ein",
+          "gold": "target"
+        },
+        {
+          "id": 4,
+          "text": "seltsamer",
+          "gold": "target"
+        },
+        {
+          "id": 5,
+          "text": "Junge",
+          "gold": "target"
+        },
+        {
+          "id": 6,
+          "text": "sein.",
+          "gold": "target"
+        }
+      ],
+      "id": 15
+    },
+    {
+      "category": "mono_target",
+      "text": "Mach dir keine Sorgen.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Mach",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "dir",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "keine",
+          "gold": "target"
+        },
+        {
+          "id": 3,
+          "text": "Sorgen.",
+          "gold": "target"
+        }
+      ],
+      "id": 16
+    },
+    {
+      "category": "mono_target",
+      "text": "Ich vermisse dich.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Ich",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "vermisse",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "dich.",
+          "gold": "target"
+        }
+      ],
+      "id": 17
+    },
+    {
+      "category": "mono_target",
+      "text": "Ich werde sie morgen anrufen, wenn ich zurückkomme.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Ich",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "werde",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "sie",
+          "gold": "target"
+        },
+        {
+          "id": 3,
+          "text": "morgen",
+          "gold": "target"
+        },
+        {
+          "id": 4,
+          "text": "anrufen,",
+          "gold": "target"
+        },
+        {
+          "id": 5,
+          "text": "wenn",
+          "gold": "target"
+        },
+        {
+          "id": 6,
+          "text": "ich",
+          "gold": "target"
+        },
+        {
+          "id": 7,
+          "text": "zurückkomme.",
+          "gold": "target"
+        }
+      ],
+      "id": 18
+    },
+    {
+      "category": "mono_target",
+      "text": "Ich mochte mysteriöse Charaktere schon immer mehr.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Ich",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "mochte",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "mysteriöse",
+          "gold": "target"
+        },
+        {
+          "id": 3,
+          "text": "Charaktere",
+          "gold": "target"
+        },
+        {
+          "id": 4,
+          "text": "schon",
+          "gold": "target"
+        },
+        {
+          "id": 5,
+          "text": "immer",
+          "gold": "target"
+        },
+        {
+          "id": 6,
+          "text": "mehr.",
+          "gold": "target"
+        }
+      ],
+      "id": 19
+    },
+    {
+      "category": "mono_target",
+      "text": "Du solltest schlafen.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Du",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "solltest",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "schlafen.",
+          "gold": "target"
+        }
+      ],
+      "id": 20
+    },
+    {
+      "category": "mono_target",
+      "text": "Du bist so ungeduldig mit mir.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Du",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "bist",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "so",
+          "gold": "target"
+        },
+        {
+          "id": 3,
+          "text": "ungeduldig",
+          "gold": "target"
+        },
+        {
+          "id": 4,
+          "text": "mit",
+          "gold": "target"
+        },
+        {
+          "id": 5,
+          "text": "mir.",
+          "gold": "target"
+        }
+      ],
+      "id": 21
+    },
+    {
+      "category": "mono_target",
+      "text": "Ich kann so ein Leben nicht leben.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Ich",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "kann",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "so",
+          "gold": "target"
+        },
+        {
+          "id": 3,
+          "text": "ein",
+          "gold": "target"
+        },
+        {
+          "id": 4,
+          "text": "Leben",
+          "gold": "target"
+        },
+        {
+          "id": 5,
+          "text": "nicht",
+          "gold": "target"
+        },
+        {
+          "id": 6,
+          "text": "leben.",
+          "gold": "target"
+        }
+      ],
+      "id": 22
+    },
+    {
+      "category": "mono_target",
+      "text": "Ich wollte mal Astrophysiker werden.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Ich",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "wollte",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "mal",
+          "gold": "target"
+        },
+        {
+          "id": 3,
+          "text": "Astrophysiker",
+          "gold": "target"
+        },
+        {
+          "id": 4,
+          "text": "werden.",
+          "gold": "target"
+        }
+      ],
+      "id": 23
+    },
+    {
+      "category": "mono_target",
+      "text": "Ich mochte Biologie noch nie.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Ich",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "mochte",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "Biologie",
+          "gold": "target"
+        },
+        {
+          "id": 3,
+          "text": "noch",
+          "gold": "target"
+        },
+        {
+          "id": 4,
+          "text": "nie.",
+          "gold": "target"
+        }
+      ],
+      "id": 24
+    },
+    {
+      "category": "mono_target",
+      "text": "Unglücklicherweise stimmt es.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Unglücklicherweise",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "stimmt",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "es.",
+          "gold": "target"
+        }
+      ],
+      "id": 25
+    },
+    {
+      "category": "mono_target",
+      "text": "Die meisten Leute denken, ich sei verrückt.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Die",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "meisten",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "Leute",
+          "gold": "target"
+        },
+        {
+          "id": 3,
+          "text": "denken,",
+          "gold": "target"
+        },
+        {
+          "id": 4,
+          "text": "ich",
+          "gold": "target"
+        },
+        {
+          "id": 5,
+          "text": "sei",
+          "gold": "target"
+        },
+        {
+          "id": 6,
+          "text": "verrückt.",
+          "gold": "target"
+        }
+      ],
+      "id": 26
+    },
+    {
+      "category": "mono_target",
+      "text": "Nein, ich bin es nicht, du bist es!",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Nein,",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "ich",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "bin",
+          "gold": "target"
+        },
+        {
+          "id": 3,
+          "text": "es",
+          "gold": "target"
+        },
+        {
+          "id": 4,
+          "text": "nicht,",
+          "gold": "target"
+        },
+        {
+          "id": 5,
+          "text": "du",
+          "gold": "target"
+        },
+        {
+          "id": 6,
+          "text": "bist",
+          "gold": "target"
+        },
+        {
+          "id": 7,
+          "text": "es!",
+          "gold": "target"
+        }
+      ],
+      "id": 27
+    },
+    {
+      "category": "mono_target",
+      "text": "Das war mein Satz!",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Das",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "war",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "mein",
+          "gold": "target"
+        },
+        {
+          "id": 3,
+          "text": "Satz!",
+          "gold": "target"
+        }
+      ],
+      "id": 28
+    },
+    {
+      "category": "mono_target",
+      "text": "Er tritt mich!",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Er",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "tritt",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "mich!",
+          "gold": "target"
+        }
+      ],
+      "id": 29
+    },
+    {
+      "category": "mono_target",
+      "text": "Bist du sicher?",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Bist",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "du",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "sicher?",
+          "gold": "target"
+        }
+      ],
+      "id": 30
+    },
+    {
+      "category": "mono_target",
+      "text": "Dann haben wir ein Problem...",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Dann",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "haben",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "wir",
+          "gold": "target"
+        },
+        {
+          "id": 3,
+          "text": "ein",
+          "gold": "target"
+        },
+        {
+          "id": 4,
+          "text": "Problem...",
+          "gold": "target"
+        }
+      ],
+      "id": 31
+    },
+    {
+      "category": "mono_target",
+      "text": "Oh, da ist ein Schmetterling!",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Oh,",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "da",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "ist",
+          "gold": "target"
+        },
+        {
+          "id": 3,
+          "text": "ein",
+          "gold": "target"
+        },
+        {
+          "id": 4,
+          "text": "Schmetterling!",
+          "gold": "target"
+        }
+      ],
+      "id": 32
+    },
+    {
+      "category": "mono_target",
+      "text": "Beeil dich!",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Beeil",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "dich!",
+          "gold": "target"
+        }
+      ],
+      "id": 33
+    },
+    {
+      "category": "mono_target",
+      "text": "Es überrascht mich nicht.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Es",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "überrascht",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "mich",
+          "gold": "target"
+        },
+        {
+          "id": 3,
+          "text": "nicht.",
+          "gold": "target"
+        }
+      ],
+      "id": 34
+    },
+    {
+      "category": "mono_target",
+      "text": "Wenn ich so sein könnte...",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Wenn",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "ich",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "so",
+          "gold": "target"
+        },
+        {
+          "id": 3,
+          "text": "sein",
+          "gold": "target"
+        },
+        {
+          "id": 4,
+          "text": "könnte...",
+          "gold": "target"
+        }
+      ],
+      "id": 35
+    },
+    {
+      "category": "mono_native",
+      "text": "Let's try something.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Let's",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "try",
+          "gold": "native"
+        },
+        {
+          "id": 2,
+          "text": "something.",
+          "gold": "native"
+        }
+      ],
+      "id": 36
+    },
+    {
+      "category": "mono_native",
+      "text": "I have to go to sleep.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "I",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "have",
+          "gold": "native"
+        },
+        {
+          "id": 2,
+          "text": "to",
+          "gold": "native"
+        },
+        {
+          "id": 3,
+          "text": "go",
+          "gold": "native"
+        },
+        {
+          "id": 4,
+          "text": "to",
+          "gold": "native"
+        },
+        {
+          "id": 5,
+          "text": "sleep.",
+          "gold": "native"
+        }
+      ],
+      "id": 37
+    },
+    {
+      "category": "mono_native",
+      "text": "I will be back soon.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "I",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "will",
+          "gold": "native"
+        },
+        {
+          "id": 2,
+          "text": "be",
+          "gold": "native"
+        },
+        {
+          "id": 3,
+          "text": "back",
+          "gold": "native"
+        },
+        {
+          "id": 4,
+          "text": "soon.",
+          "gold": "native"
+        }
+      ],
+      "id": 38
+    },
+    {
+      "category": "mono_native",
+      "text": "I'm at a loss for words.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "I'm",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "at",
+          "gold": "native"
+        },
+        {
+          "id": 2,
+          "text": "a",
+          "gold": "native"
+        },
+        {
+          "id": 3,
+          "text": "loss",
+          "gold": "native"
+        },
+        {
+          "id": 4,
+          "text": "for",
+          "gold": "native"
+        },
+        {
+          "id": 5,
+          "text": "words.",
+          "gold": "native"
+        }
+      ],
+      "id": 39
+    },
+    {
+      "category": "mono_native",
+      "text": "This is never going to end.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "This",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "is",
+          "gold": "native"
+        },
+        {
+          "id": 2,
+          "text": "never",
+          "gold": "native"
+        },
+        {
+          "id": 3,
+          "text": "going",
+          "gold": "native"
+        },
+        {
+          "id": 4,
+          "text": "to",
+          "gold": "native"
+        },
+        {
+          "id": 5,
+          "text": "end.",
+          "gold": "native"
+        }
+      ],
+      "id": 40
+    },
+    {
+      "category": "mono_native",
+      "text": "I just don't know what to say.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "I",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "just",
+          "gold": "native"
+        },
+        {
+          "id": 2,
+          "text": "don't",
+          "gold": "native"
+        },
+        {
+          "id": 3,
+          "text": "know",
+          "gold": "native"
+        },
+        {
+          "id": 4,
+          "text": "what",
+          "gold": "native"
+        },
+        {
+          "id": 5,
+          "text": "to",
+          "gold": "native"
+        },
+        {
+          "id": 6,
+          "text": "say.",
+          "gold": "native"
+        }
+      ],
+      "id": 41
+    },
+    {
+      "category": "mono_native",
+      "text": "That was an evil bunny.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "That",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "was",
+          "gold": "native"
+        },
+        {
+          "id": 2,
+          "text": "an",
+          "gold": "native"
+        },
+        {
+          "id": 3,
+          "text": "evil",
+          "gold": "native"
+        },
+        {
+          "id": 4,
+          "text": "bunny.",
+          "gold": "native"
+        }
+      ],
+      "id": 42
+    },
+    {
+      "category": "mono_native",
+      "text": "I was in the mountains.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "I",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "was",
+          "gold": "native"
+        },
+        {
+          "id": 2,
+          "text": "in",
+          "gold": "native"
+        },
+        {
+          "id": 3,
+          "text": "the",
+          "gold": "native"
+        },
+        {
+          "id": 4,
+          "text": "mountains.",
+          "gold": "native"
+        }
+      ],
+      "id": 43
+    },
+    {
+      "category": "mono_native",
+      "text": "Is it a recent picture?",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Is",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "it",
+          "gold": "native"
+        },
+        {
+          "id": 2,
+          "text": "a",
+          "gold": "native"
+        },
+        {
+          "id": 3,
+          "text": "recent",
+          "gold": "native"
+        },
+        {
+          "id": 4,
+          "text": "picture?",
+          "gold": "native"
+        }
+      ],
+      "id": 44
+    },
+    {
+      "category": "mono_native",
+      "text": "I don't know if I have the time.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "I",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "don't",
+          "gold": "native"
+        },
+        {
+          "id": 2,
+          "text": "know",
+          "gold": "native"
+        },
+        {
+          "id": 3,
+          "text": "if",
+          "gold": "native"
+        },
+        {
+          "id": 4,
+          "text": "I",
+          "gold": "native"
+        },
+        {
+          "id": 5,
+          "text": "have",
+          "gold": "native"
+        },
+        {
+          "id": 6,
+          "text": "the",
+          "gold": "native"
+        },
+        {
+          "id": 7,
+          "text": "time.",
+          "gold": "native"
+        }
+      ],
+      "id": 45
+    },
+    {
+      "category": "mono_native",
+      "text": "Education in this world disappoints me.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Education",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "in",
+          "gold": "native"
+        },
+        {
+          "id": 2,
+          "text": "this",
+          "gold": "native"
+        },
+        {
+          "id": 3,
+          "text": "world",
+          "gold": "native"
+        },
+        {
+          "id": 4,
+          "text": "disappoints",
+          "gold": "native"
+        },
+        {
+          "id": 5,
+          "text": "me.",
+          "gold": "native"
+        }
+      ],
+      "id": 46
+    },
+    {
+      "category": "mono_native",
+      "text": "You're in better shape than I am.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "You're",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "in",
+          "gold": "native"
+        },
+        {
+          "id": 2,
+          "text": "better",
+          "gold": "native"
+        },
+        {
+          "id": 3,
+          "text": "shape",
+          "gold": "native"
+        },
+        {
+          "id": 4,
+          "text": "than",
+          "gold": "native"
+        },
+        {
+          "id": 5,
+          "text": "I",
+          "gold": "native"
+        },
+        {
+          "id": 6,
+          "text": "am.",
+          "gold": "native"
+        }
+      ],
+      "id": 47
+    },
+    {
+      "category": "mono_native",
+      "text": "You are in my way.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "You",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "are",
+          "gold": "native"
+        },
+        {
+          "id": 2,
+          "text": "in",
+          "gold": "native"
+        },
+        {
+          "id": 3,
+          "text": "my",
+          "gold": "native"
+        },
+        {
+          "id": 4,
+          "text": "way.",
+          "gold": "native"
+        }
+      ],
+      "id": 48
+    },
+    {
+      "category": "mono_native",
+      "text": "It's because you don't want to be alone.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "It's",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "because",
+          "gold": "native"
+        },
+        {
+          "id": 2,
+          "text": "you",
+          "gold": "native"
+        },
+        {
+          "id": 3,
+          "text": "don't",
+          "gold": "native"
+        },
+        {
+          "id": 4,
+          "text": "want",
+          "gold": "native"
+        },
+        {
+          "id": 5,
+          "text": "to",
+          "gold": "native"
+        },
+        {
+          "id": 6,
+          "text": "be",
+          "gold": "native"
+        },
+        {
+          "id": 7,
+          "text": "alone.",
+          "gold": "native"
+        }
+      ],
+      "id": 49
+    },
+    {
+      "category": "mono_native",
+      "text": "That won't happen.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "That",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "won't",
+          "gold": "native"
+        },
+        {
+          "id": 2,
+          "text": "happen.",
+          "gold": "native"
+        }
+      ],
+      "id": 50
+    },
+    {
+      "category": "mono_native",
+      "text": "Sometimes he can be a strange guy.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Sometimes",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "he",
+          "gold": "native"
+        },
+        {
+          "id": 2,
+          "text": "can",
+          "gold": "native"
+        },
+        {
+          "id": 3,
+          "text": "be",
+          "gold": "native"
+        },
+        {
+          "id": 4,
+          "text": "a",
+          "gold": "native"
+        },
+        {
+          "id": 5,
+          "text": "strange",
+          "gold": "native"
+        },
+        {
+          "id": 6,
+          "text": "guy.",
+          "gold": "native"
+        }
+      ],
+      "id": 51
+    },
+    {
+      "category": "mono_native",
+      "text": "I miss you.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "I",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "miss",
+          "gold": "native"
+        },
+        {
+          "id": 2,
+          "text": "you.",
+          "gold": "native"
+        }
+      ],
+      "id": 52
+    },
+    {
+      "category": "mono_native",
+      "text": "I'll call them tomorrow when I come back.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "I'll",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "call",
+          "gold": "native"
+        },
+        {
+          "id": 2,
+          "text": "them",
+          "gold": "native"
+        },
+        {
+          "id": 3,
+          "text": "tomorrow",
+          "gold": "native"
+        },
+        {
+          "id": 4,
+          "text": "when",
+          "gold": "native"
+        },
+        {
+          "id": 5,
+          "text": "I",
+          "gold": "native"
+        },
+        {
+          "id": 6,
+          "text": "come",
+          "gold": "native"
+        },
+        {
+          "id": 7,
+          "text": "back.",
+          "gold": "native"
+        }
+      ],
+      "id": 53
+    },
+    {
+      "category": "mono_native",
+      "text": "I always liked mysterious characters more.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "I",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "always",
+          "gold": "native"
+        },
+        {
+          "id": 2,
+          "text": "liked",
+          "gold": "native"
+        },
+        {
+          "id": 3,
+          "text": "mysterious",
+          "gold": "native"
+        },
+        {
+          "id": 4,
+          "text": "characters",
+          "gold": "native"
+        },
+        {
+          "id": 5,
+          "text": "more.",
+          "gold": "native"
+        }
+      ],
+      "id": 54
+    },
+    {
+      "category": "mono_native",
+      "text": "You should sleep.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "You",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "should",
+          "gold": "native"
+        },
+        {
+          "id": 2,
+          "text": "sleep.",
+          "gold": "native"
+        }
+      ],
+      "id": 55
+    },
+    {
+      "category": "mono_native",
+      "text": "I'm going to go.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "I'm",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "going",
+          "gold": "native"
+        },
+        {
+          "id": 2,
+          "text": "to",
+          "gold": "native"
+        },
+        {
+          "id": 3,
+          "text": "go.",
+          "gold": "native"
+        }
+      ],
+      "id": 56
+    },
+    {
+      "category": "mono_native",
+      "text": "I told them to send me another ticket.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "I",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "told",
+          "gold": "native"
+        },
+        {
+          "id": 2,
+          "text": "them",
+          "gold": "native"
+        },
+        {
+          "id": 3,
+          "text": "to",
+          "gold": "native"
+        },
+        {
+          "id": 4,
+          "text": "send",
+          "gold": "native"
+        },
+        {
+          "id": 5,
+          "text": "me",
+          "gold": "native"
+        },
+        {
+          "id": 6,
+          "text": "another",
+          "gold": "native"
+        },
+        {
+          "id": 7,
+          "text": "ticket.",
+          "gold": "native"
+        }
+      ],
+      "id": 57
+    },
+    {
+      "category": "mono_native",
+      "text": "You're so impatient with me.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "You're",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "so",
+          "gold": "native"
+        },
+        {
+          "id": 2,
+          "text": "impatient",
+          "gold": "native"
+        },
+        {
+          "id": 3,
+          "text": "with",
+          "gold": "native"
+        },
+        {
+          "id": 4,
+          "text": "me.",
+          "gold": "native"
+        }
+      ],
+      "id": 58
+    },
+    {
+      "category": "mono_native",
+      "text": "I can't live that kind of life.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "I",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "can't",
+          "gold": "native"
+        },
+        {
+          "id": 2,
+          "text": "live",
+          "gold": "native"
+        },
+        {
+          "id": 3,
+          "text": "that",
+          "gold": "native"
+        },
+        {
+          "id": 4,
+          "text": "kind",
+          "gold": "native"
+        },
+        {
+          "id": 5,
+          "text": "of",
+          "gold": "native"
+        },
+        {
+          "id": 6,
+          "text": "life.",
+          "gold": "native"
+        }
+      ],
+      "id": 59
+    },
+    {
+      "category": "mono_native",
+      "text": "I once wanted to be an astrophysicist.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "I",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "once",
+          "gold": "native"
+        },
+        {
+          "id": 2,
+          "text": "wanted",
+          "gold": "native"
+        },
+        {
+          "id": 3,
+          "text": "to",
+          "gold": "native"
+        },
+        {
+          "id": 4,
+          "text": "be",
+          "gold": "native"
+        },
+        {
+          "id": 5,
+          "text": "an",
+          "gold": "native"
+        },
+        {
+          "id": 6,
+          "text": "astrophysicist.",
+          "gold": "native"
+        }
+      ],
+      "id": 60
+    },
+    {
+      "category": "mono_native",
+      "text": "I never liked biology.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "I",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "never",
+          "gold": "native"
+        },
+        {
+          "id": 2,
+          "text": "liked",
+          "gold": "native"
+        },
+        {
+          "id": 3,
+          "text": "biology.",
+          "gold": "native"
+        }
+      ],
+      "id": 61
+    },
+    {
+      "category": "mono_native",
+      "text": "It is unfortunately true.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "It",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "is",
+          "gold": "native"
+        },
+        {
+          "id": 2,
+          "text": "unfortunately",
+          "gold": "native"
+        },
+        {
+          "id": 3,
+          "text": "true.",
+          "gold": "native"
+        }
+      ],
+      "id": 62
+    },
+    {
+      "category": "mono_native",
+      "text": "Most people think I'm crazy.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Most",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "people",
+          "gold": "native"
+        },
+        {
+          "id": 2,
+          "text": "think",
+          "gold": "native"
+        },
+        {
+          "id": 3,
+          "text": "I'm",
+          "gold": "native"
+        },
+        {
+          "id": 4,
+          "text": "crazy.",
+          "gold": "native"
+        }
+      ],
+      "id": 63
+    },
+    {
+      "category": "mono_native",
+      "text": "No I'm not; you are!",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "No",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "I'm",
+          "gold": "native"
+        },
+        {
+          "id": 2,
+          "text": "not;",
+          "gold": "native"
+        },
+        {
+          "id": 3,
+          "text": "you",
+          "gold": "native"
+        },
+        {
+          "id": 4,
+          "text": "are!",
+          "gold": "native"
+        }
+      ],
+      "id": 64
+    },
+    {
+      "category": "mono_native",
+      "text": "That's MY line!",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "That's",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "MY",
+          "gold": "native"
+        },
+        {
+          "id": 2,
+          "text": "line!",
+          "gold": "native"
+        }
+      ],
+      "id": 65
+    },
+    {
+      "category": "mono_native",
+      "text": "He's kicking me!",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "He's",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "kicking",
+          "gold": "native"
+        },
+        {
+          "id": 2,
+          "text": "me!",
+          "gold": "native"
+        }
+      ],
+      "id": 66
+    },
+    {
+      "category": "mono_native",
+      "text": "Are you sure?",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Are",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "you",
+          "gold": "native"
+        },
+        {
+          "id": 2,
+          "text": "sure?",
+          "gold": "native"
+        }
+      ],
+      "id": 67
+    },
+    {
+      "category": "mono_native",
+      "text": "Then there is a problem...",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Then",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "there",
+          "gold": "native"
+        },
+        {
+          "id": 2,
+          "text": "is",
+          "gold": "native"
+        },
+        {
+          "id": 3,
+          "text": "a",
+          "gold": "native"
+        },
+        {
+          "id": 4,
+          "text": "problem...",
+          "gold": "native"
+        }
+      ],
+      "id": 68
+    },
+    {
+      "category": "mono_native",
+      "text": "Oh, there's a butterfly!",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Oh,",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "there's",
+          "gold": "native"
+        },
+        {
+          "id": 2,
+          "text": "a",
+          "gold": "native"
+        },
+        {
+          "id": 3,
+          "text": "butterfly!",
+          "gold": "native"
+        }
+      ],
+      "id": 69
+    },
+    {
+      "category": "mono_native",
+      "text": "Hurry up.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Hurry",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "up.",
+          "gold": "native"
+        }
+      ],
+      "id": 70
+    },
+    {
+      "category": "mono_native",
+      "text": "It doesn't surprise me.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "It",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "doesn't",
+          "gold": "native"
+        },
+        {
+          "id": 2,
+          "text": "surprise",
+          "gold": "native"
+        },
+        {
+          "id": 3,
+          "text": "me.",
+          "gold": "native"
+        }
+      ],
+      "id": 71
+    },
+    {
+      "category": "splice",
+      "text": "It depends on the context. Aus irgendeinem Grund fühle ich mich nachts lebendiger.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "It",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "depends",
+          "gold": "native"
+        },
+        {
+          "id": 2,
+          "text": "on",
+          "gold": "native"
+        },
+        {
+          "id": 3,
+          "text": "the",
+          "gold": "native"
+        },
+        {
+          "id": 4,
+          "text": "context.",
+          "gold": "native"
+        },
+        {
+          "id": 5,
+          "text": "Aus",
+          "gold": "target"
+        },
+        {
+          "id": 6,
+          "text": "irgendeinem",
+          "gold": "target"
+        },
+        {
+          "id": 7,
+          "text": "Grund",
+          "gold": "target"
+        },
+        {
+          "id": 8,
+          "text": "fühle",
+          "gold": "target"
+        },
+        {
+          "id": 9,
+          "text": "ich",
+          "gold": "target"
+        },
+        {
+          "id": 10,
+          "text": "mich",
+          "gold": "target"
+        },
+        {
+          "id": 11,
+          "text": "nachts",
+          "gold": "target"
+        },
+        {
+          "id": 12,
+          "text": "lebendiger.",
+          "gold": "target"
+        }
+      ],
+      "id": 72
+    },
+    {
+      "category": "splice",
+      "text": "Are you freaking kidding me?! Das kommt auf den Zusammenhang an.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Are",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "you",
+          "gold": "native"
+        },
+        {
+          "id": 2,
+          "text": "freaking",
+          "gold": "native"
+        },
+        {
+          "id": 3,
+          "text": "kidding",
+          "gold": "native"
+        },
+        {
+          "id": 4,
+          "text": "me?!",
+          "gold": "native"
+        },
+        {
+          "id": 5,
+          "text": "Das",
+          "gold": "target"
+        },
+        {
+          "id": 6,
+          "text": "kommt",
+          "gold": "target"
+        },
+        {
+          "id": 7,
+          "text": "auf",
+          "gold": "target"
+        },
+        {
+          "id": 8,
+          "text": "den",
+          "gold": "target"
+        },
+        {
+          "id": 9,
+          "text": "Zusammenhang",
+          "gold": "target"
+        },
+        {
+          "id": 10,
+          "text": "an.",
+          "gold": "target"
+        }
+      ],
+      "id": 73
+    },
+    {
+      "category": "splice",
+      "text": "Ich bin so dick. That's the stupidest thing I've ever said.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Ich",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "bin",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "so",
+          "gold": "target"
+        },
+        {
+          "id": 3,
+          "text": "dick.",
+          "gold": "target"
+        },
+        {
+          "id": 4,
+          "text": "That's",
+          "gold": "native"
+        },
+        {
+          "id": 5,
+          "text": "the",
+          "gold": "native"
+        },
+        {
+          "id": 6,
+          "text": "stupidest",
+          "gold": "native"
+        },
+        {
+          "id": 7,
+          "text": "thing",
+          "gold": "native"
+        },
+        {
+          "id": 8,
+          "text": "I've",
+          "gold": "native"
+        },
+        {
+          "id": 9,
+          "text": "ever",
+          "gold": "native"
+        },
+        {
+          "id": 10,
+          "text": "said.",
+          "gold": "native"
+        }
+      ],
+      "id": 74
+    },
+    {
+      "category": "splice",
+      "text": "Na und? I'm so fat.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Na",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "und?",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "I'm",
+          "gold": "native"
+        },
+        {
+          "id": 3,
+          "text": "so",
+          "gold": "native"
+        },
+        {
+          "id": 4,
+          "text": "fat.",
+          "gold": "native"
+        }
+      ],
+      "id": 75
+    },
+    {
+      "category": "splice",
+      "text": "Ich werde ihn erschießen. So what?",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Ich",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "werde",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "ihn",
+          "gold": "target"
+        },
+        {
+          "id": 3,
+          "text": "erschießen.",
+          "gold": "target"
+        },
+        {
+          "id": 4,
+          "text": "So",
+          "gold": "native"
+        },
+        {
+          "id": 5,
+          "text": "what?",
+          "gold": "native"
+        }
+      ],
+      "id": 76
+    },
+    {
+      "category": "splice",
+      "text": "Ich sag's ja nur! I'm gonna shoot him.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Ich",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "sag's",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "ja",
+          "gold": "target"
+        },
+        {
+          "id": 3,
+          "text": "nur!",
+          "gold": "target"
+        },
+        {
+          "id": 4,
+          "text": "I'm",
+          "gold": "native"
+        },
+        {
+          "id": 5,
+          "text": "gonna",
+          "gold": "native"
+        },
+        {
+          "id": 6,
+          "text": "shoot",
+          "gold": "native"
+        },
+        {
+          "id": 7,
+          "text": "him.",
+          "gold": "native"
+        }
+      ],
+      "id": 77
+    },
+    {
+      "category": "splice",
+      "text": "Das hätte ich gesagt. I'm just saying!",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Das",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "hätte",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "ich",
+          "gold": "target"
+        },
+        {
+          "id": 3,
+          "text": "gesagt.",
+          "gold": "target"
+        },
+        {
+          "id": 4,
+          "text": "I'm",
+          "gold": "native"
+        },
+        {
+          "id": 5,
+          "text": "just",
+          "gold": "native"
+        },
+        {
+          "id": 6,
+          "text": "saying!",
+          "gold": "native"
+        }
+      ],
+      "id": 78
+    },
+    {
+      "category": "splice",
+      "text": "That was probably what influenced their decision. Es würde ewig dauern, alles zu erklären.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "That",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "was",
+          "gold": "native"
+        },
+        {
+          "id": 2,
+          "text": "probably",
+          "gold": "native"
+        },
+        {
+          "id": 3,
+          "text": "what",
+          "gold": "native"
+        },
+        {
+          "id": 4,
+          "text": "influenced",
+          "gold": "native"
+        },
+        {
+          "id": 5,
+          "text": "their",
+          "gold": "native"
+        },
+        {
+          "id": 6,
+          "text": "decision.",
+          "gold": "native"
+        },
+        {
+          "id": 7,
+          "text": "Es",
+          "gold": "target"
+        },
+        {
+          "id": 8,
+          "text": "würde",
+          "gold": "target"
+        },
+        {
+          "id": 9,
+          "text": "ewig",
+          "gold": "target"
+        },
+        {
+          "id": 10,
+          "text": "dauern,",
+          "gold": "target"
+        },
+        {
+          "id": 11,
+          "text": "alles",
+          "gold": "target"
+        },
+        {
+          "id": 12,
+          "text": "zu",
+          "gold": "target"
+        },
+        {
+          "id": 13,
+          "text": "erklären.",
+          "gold": "target"
+        }
+      ],
+      "id": 79
+    },
+    {
+      "category": "splice",
+      "text": "Es liegt daran, dass du ein Mädchen bist. This is what I would have said.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Es",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "liegt",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "daran,",
+          "gold": "target"
+        },
+        {
+          "id": 3,
+          "text": "dass",
+          "gold": "target"
+        },
+        {
+          "id": 4,
+          "text": "du",
+          "gold": "target"
+        },
+        {
+          "id": 5,
+          "text": "ein",
+          "gold": "target"
+        },
+        {
+          "id": 6,
+          "text": "Mädchen",
+          "gold": "target"
+        },
+        {
+          "id": 7,
+          "text": "bist.",
+          "gold": "target"
+        },
+        {
+          "id": 8,
+          "text": "This",
+          "gold": "native"
+        },
+        {
+          "id": 9,
+          "text": "is",
+          "gold": "native"
+        },
+        {
+          "id": 10,
+          "text": "what",
+          "gold": "native"
+        },
+        {
+          "id": 11,
+          "text": "I",
+          "gold": "native"
+        },
+        {
+          "id": 12,
+          "text": "would",
+          "gold": "native"
+        },
+        {
+          "id": 13,
+          "text": "have",
+          "gold": "native"
+        },
+        {
+          "id": 14,
+          "text": "said.",
+          "gold": "native"
+        }
+      ],
+      "id": 80
+    },
+    {
+      "category": "splice",
+      "text": "That's because you're a girl. Das wäre etwas, das ich programmieren sollte.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "That's",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "because",
+          "gold": "native"
+        },
+        {
+          "id": 2,
+          "text": "you're",
+          "gold": "native"
+        },
+        {
+          "id": 3,
+          "text": "a",
+          "gold": "native"
+        },
+        {
+          "id": 4,
+          "text": "girl.",
+          "gold": "native"
+        },
+        {
+          "id": 5,
+          "text": "Das",
+          "gold": "target"
+        },
+        {
+          "id": 6,
+          "text": "wäre",
+          "gold": "target"
+        },
+        {
+          "id": 7,
+          "text": "etwas,",
+          "gold": "target"
+        },
+        {
+          "id": 8,
+          "text": "das",
+          "gold": "target"
+        },
+        {
+          "id": 9,
+          "text": "ich",
+          "gold": "target"
+        },
+        {
+          "id": 10,
+          "text": "programmieren",
+          "gold": "target"
+        },
+        {
+          "id": 11,
+          "text": "sollte.",
+          "gold": "target"
+        }
+      ],
+      "id": 81
+    },
+    {
+      "category": "splice",
+      "text": "Ich beabsichtige nicht, selbstsüchtig zu sein. Sometimes I can't help showing emotions.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Ich",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "beabsichtige",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "nicht,",
+          "gold": "target"
+        },
+        {
+          "id": 3,
+          "text": "selbstsüchtig",
+          "gold": "target"
+        },
+        {
+          "id": 4,
+          "text": "zu",
+          "gold": "target"
+        },
+        {
+          "id": 5,
+          "text": "sein.",
+          "gold": "target"
+        },
+        {
+          "id": 6,
+          "text": "Sometimes",
+          "gold": "native"
+        },
+        {
+          "id": 7,
+          "text": "I",
+          "gold": "native"
+        },
+        {
+          "id": 8,
+          "text": "can't",
+          "gold": "native"
+        },
+        {
+          "id": 9,
+          "text": "help",
+          "gold": "native"
+        },
+        {
+          "id": 10,
+          "text": "showing",
+          "gold": "native"
+        },
+        {
+          "id": 11,
+          "text": "emotions.",
+          "gold": "native"
+        }
+      ],
+      "id": 82
+    },
+    {
+      "category": "splice",
+      "text": "It would be something I'd have to program. Wie viele enge Freunde hast du?",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "It",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "would",
+          "gold": "native"
+        },
+        {
+          "id": 2,
+          "text": "be",
+          "gold": "native"
+        },
+        {
+          "id": 3,
+          "text": "something",
+          "gold": "native"
+        },
+        {
+          "id": 4,
+          "text": "I'd",
+          "gold": "native"
+        },
+        {
+          "id": 5,
+          "text": "have",
+          "gold": "native"
+        },
+        {
+          "id": 6,
+          "text": "to",
+          "gold": "native"
+        },
+        {
+          "id": 7,
+          "text": "program.",
+          "gold": "native"
+        },
+        {
+          "id": 8,
+          "text": "Wie",
+          "gold": "target"
+        },
+        {
+          "id": 9,
+          "text": "viele",
+          "gold": "target"
+        },
+        {
+          "id": 10,
+          "text": "enge",
+          "gold": "target"
+        },
+        {
+          "id": 11,
+          "text": "Freunde",
+          "gold": "target"
+        },
+        {
+          "id": 12,
+          "text": "hast",
+          "gold": "target"
+        },
+        {
+          "id": 13,
+          "text": "du?",
+          "gold": "target"
+        }
+      ],
+      "id": 83
+    },
+    {
+      "category": "splice",
+      "text": "Das ist immer so gewesen. I don't intend to be selfish.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Das",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "ist",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "immer",
+          "gold": "target"
+        },
+        {
+          "id": 3,
+          "text": "so",
+          "gold": "target"
+        },
+        {
+          "id": 4,
+          "text": "gewesen.",
+          "gold": "target"
+        },
+        {
+          "id": 5,
+          "text": "I",
+          "gold": "native"
+        },
+        {
+          "id": 6,
+          "text": "don't",
+          "gold": "native"
+        },
+        {
+          "id": 7,
+          "text": "intend",
+          "gold": "native"
+        },
+        {
+          "id": 8,
+          "text": "to",
+          "gold": "native"
+        },
+        {
+          "id": 9,
+          "text": "be",
+          "gold": "native"
+        },
+        {
+          "id": 10,
+          "text": "selfish.",
+          "gold": "native"
+        }
+      ],
+      "id": 84
+    },
+    {
+      "category": "splice",
+      "text": "Man kann immer Zeit finden. Let's consider the worst that could happen.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Man",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "kann",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "immer",
+          "gold": "target"
+        },
+        {
+          "id": 3,
+          "text": "Zeit",
+          "gold": "target"
+        },
+        {
+          "id": 4,
+          "text": "finden.",
+          "gold": "target"
+        },
+        {
+          "id": 5,
+          "text": "Let's",
+          "gold": "native"
+        },
+        {
+          "id": 6,
+          "text": "consider",
+          "gold": "native"
+        },
+        {
+          "id": 7,
+          "text": "the",
+          "gold": "native"
+        },
+        {
+          "id": 8,
+          "text": "worst",
+          "gold": "native"
+        },
+        {
+          "id": 9,
+          "text": "that",
+          "gold": "native"
+        },
+        {
+          "id": 10,
+          "text": "could",
+          "gold": "native"
+        },
+        {
+          "id": 11,
+          "text": "happen.",
+          "gold": "native"
+        }
+      ],
+      "id": 85
+    },
+    {
+      "category": "splice",
+      "text": "Als ich aufgewacht bin, war ich traurig. How many close friends do you have?",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Als",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "ich",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "aufgewacht",
+          "gold": "target"
+        },
+        {
+          "id": 3,
+          "text": "bin,",
+          "gold": "target"
+        },
+        {
+          "id": 4,
+          "text": "war",
+          "gold": "target"
+        },
+        {
+          "id": 5,
+          "text": "ich",
+          "gold": "target"
+        },
+        {
+          "id": 6,
+          "text": "traurig.",
+          "gold": "target"
+        },
+        {
+          "id": 7,
+          "text": "How",
+          "gold": "native"
+        },
+        {
+          "id": 8,
+          "text": "many",
+          "gold": "native"
+        },
+        {
+          "id": 9,
+          "text": "close",
+          "gold": "native"
+        },
+        {
+          "id": 10,
+          "text": "friends",
+          "gold": "native"
+        },
+        {
+          "id": 11,
+          "text": "do",
+          "gold": "native"
+        },
+        {
+          "id": 12,
+          "text": "you",
+          "gold": "native"
+        },
+        {
+          "id": 13,
+          "text": "have?",
+          "gold": "native"
+        }
+      ],
+      "id": 86
+    },
+    {
+      "category": "splice",
+      "text": "This is always the way it has been. Das ist am Ende einigermaßen erklärt.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "This",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "is",
+          "gold": "native"
+        },
+        {
+          "id": 2,
+          "text": "always",
+          "gold": "native"
+        },
+        {
+          "id": 3,
+          "text": "the",
+          "gold": "native"
+        },
+        {
+          "id": 4,
+          "text": "way",
+          "gold": "native"
+        },
+        {
+          "id": 5,
+          "text": "it",
+          "gold": "native"
+        },
+        {
+          "id": 6,
+          "text": "has",
+          "gold": "native"
+        },
+        {
+          "id": 7,
+          "text": "been.",
+          "gold": "native"
+        },
+        {
+          "id": 8,
+          "text": "Das",
+          "gold": "target"
+        },
+        {
+          "id": 9,
+          "text": "ist",
+          "gold": "target"
+        },
+        {
+          "id": 10,
+          "text": "am",
+          "gold": "target"
+        },
+        {
+          "id": 11,
+          "text": "Ende",
+          "gold": "target"
+        },
+        {
+          "id": 12,
+          "text": "einigermaßen",
+          "gold": "target"
+        },
+        {
+          "id": 13,
+          "text": "erklärt.",
+          "gold": "target"
+        }
+      ],
+      "id": 87
+    },
+    {
+      "category": "splice",
+      "text": "Ich dachte, du würdest gerne neue Sachen lernen. One can always find time.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Ich",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "dachte,",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "du",
+          "gold": "target"
+        },
+        {
+          "id": 3,
+          "text": "würdest",
+          "gold": "target"
+        },
+        {
+          "id": 4,
+          "text": "gerne",
+          "gold": "target"
+        },
+        {
+          "id": 5,
+          "text": "neue",
+          "gold": "target"
+        },
+        {
+          "id": 6,
+          "text": "Sachen",
+          "gold": "target"
+        },
+        {
+          "id": 7,
+          "text": "lernen.",
+          "gold": "target"
+        },
+        {
+          "id": 8,
+          "text": "One",
+          "gold": "native"
+        },
+        {
+          "id": 9,
+          "text": "can",
+          "gold": "native"
+        },
+        {
+          "id": 10,
+          "text": "always",
+          "gold": "native"
+        },
+        {
+          "id": 11,
+          "text": "find",
+          "gold": "native"
+        },
+        {
+          "id": 12,
+          "text": "time.",
+          "gold": "native"
+        }
+      ],
+      "id": 88
+    },
+    {
+      "category": "splice",
+      "text": "I'd be unhappy, but I wouldn't kill myself. Die meisten Menschen schreiben über ihr Alltagsleben.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "I'd",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "be",
+          "gold": "native"
+        },
+        {
+          "id": 2,
+          "text": "unhappy,",
+          "gold": "native"
+        },
+        {
+          "id": 3,
+          "text": "but",
+          "gold": "native"
+        },
+        {
+          "id": 4,
+          "text": "I",
+          "gold": "native"
+        },
+        {
+          "id": 5,
+          "text": "wouldn't",
+          "gold": "native"
+        },
+        {
+          "id": 6,
+          "text": "kill",
+          "gold": "native"
+        },
+        {
+          "id": 7,
+          "text": "myself.",
+          "gold": "native"
+        },
+        {
+          "id": 8,
+          "text": "Die",
+          "gold": "target"
+        },
+        {
+          "id": 9,
+          "text": "meisten",
+          "gold": "target"
+        },
+        {
+          "id": 10,
+          "text": "Menschen",
+          "gold": "target"
+        },
+        {
+          "id": 11,
+          "text": "schreiben",
+          "gold": "target"
+        },
+        {
+          "id": 12,
+          "text": "über",
+          "gold": "target"
+        },
+        {
+          "id": 13,
+          "text": "ihr",
+          "gold": "target"
+        },
+        {
+          "id": 14,
+          "text": "Alltagsleben.",
+          "gold": "target"
+        }
+      ],
+      "id": 89
+    },
+    {
+      "category": "splice",
+      "text": "When I woke up, I was sad. Um das zu tun, musst du Risiken eingehen.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "When",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "I",
+          "gold": "native"
+        },
+        {
+          "id": 2,
+          "text": "woke",
+          "gold": "native"
+        },
+        {
+          "id": 3,
+          "text": "up,",
+          "gold": "native"
+        },
+        {
+          "id": 4,
+          "text": "I",
+          "gold": "native"
+        },
+        {
+          "id": 5,
+          "text": "was",
+          "gold": "native"
+        },
+        {
+          "id": 6,
+          "text": "sad.",
+          "gold": "native"
+        },
+        {
+          "id": 7,
+          "text": "Um",
+          "gold": "target"
+        },
+        {
+          "id": 8,
+          "text": "das",
+          "gold": "target"
+        },
+        {
+          "id": 9,
+          "text": "zu",
+          "gold": "target"
+        },
+        {
+          "id": 10,
+          "text": "tun,",
+          "gold": "target"
+        },
+        {
+          "id": 11,
+          "text": "musst",
+          "gold": "target"
+        },
+        {
+          "id": 12,
+          "text": "du",
+          "gold": "target"
+        },
+        {
+          "id": 13,
+          "text": "Risiken",
+          "gold": "target"
+        },
+        {
+          "id": 14,
+          "text": "eingehen.",
+          "gold": "target"
+        }
+      ],
+      "id": 90
+    },
+    {
+      "category": "splice",
+      "text": "That is somewhat explained at the end. Warum fragst du?",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "That",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "is",
+          "gold": "native"
+        },
+        {
+          "id": 2,
+          "text": "somewhat",
+          "gold": "native"
+        },
+        {
+          "id": 3,
+          "text": "explained",
+          "gold": "native"
+        },
+        {
+          "id": 4,
+          "text": "at",
+          "gold": "native"
+        },
+        {
+          "id": 5,
+          "text": "the",
+          "gold": "native"
+        },
+        {
+          "id": 6,
+          "text": "end.",
+          "gold": "native"
+        },
+        {
+          "id": 7,
+          "text": "Warum",
+          "gold": "target"
+        },
+        {
+          "id": 8,
+          "text": "fragst",
+          "gold": "target"
+        },
+        {
+          "id": 9,
+          "text": "du?",
+          "gold": "target"
+        }
+      ],
+      "id": 91
+    },
+    {
+      "category": "splice",
+      "text": "Wie lange bist du geblieben? I thought you liked to learn new things.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Wie",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "lange",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "bist",
+          "gold": "target"
+        },
+        {
+          "id": 3,
+          "text": "du",
+          "gold": "target"
+        },
+        {
+          "id": 4,
+          "text": "geblieben?",
+          "gold": "target"
+        },
+        {
+          "id": 5,
+          "text": "I",
+          "gold": "native"
+        },
+        {
+          "id": 6,
+          "text": "thought",
+          "gold": "native"
+        },
+        {
+          "id": 7,
+          "text": "you",
+          "gold": "native"
+        },
+        {
+          "id": 8,
+          "text": "liked",
+          "gold": "native"
+        },
+        {
+          "id": 9,
+          "text": "to",
+          "gold": "native"
+        },
+        {
+          "id": 10,
+          "text": "learn",
+          "gold": "native"
+        },
+        {
+          "id": 11,
+          "text": "new",
+          "gold": "native"
+        },
+        {
+          "id": 12,
+          "text": "things.",
+          "gold": "native"
+        }
+      ],
+      "id": 92
+    },
+    {
+      "category": "splice",
+      "text": "Vielleicht wird es für ihn genauso sein. Most people write about their daily life.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Vielleicht",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "wird",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "es",
+          "gold": "target"
+        },
+        {
+          "id": 3,
+          "text": "für",
+          "gold": "target"
+        },
+        {
+          "id": 4,
+          "text": "ihn",
+          "gold": "target"
+        },
+        {
+          "id": 5,
+          "text": "genauso",
+          "gold": "target"
+        },
+        {
+          "id": 6,
+          "text": "sein.",
+          "gold": "target"
+        },
+        {
+          "id": 7,
+          "text": "Most",
+          "gold": "native"
+        },
+        {
+          "id": 8,
+          "text": "people",
+          "gold": "native"
+        },
+        {
+          "id": 9,
+          "text": "write",
+          "gold": "native"
+        },
+        {
+          "id": 10,
+          "text": "about",
+          "gold": "native"
+        },
+        {
+          "id": 11,
+          "text": "their",
+          "gold": "native"
+        },
+        {
+          "id": 12,
+          "text": "daily",
+          "gold": "native"
+        },
+        {
+          "id": 13,
+          "text": "life.",
+          "gold": "native"
+        }
+      ],
+      "id": 93
+    },
+    {
+      "category": "splice",
+      "text": "Why do you ask? Unschuld ist eine schöne Sache.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Why",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "do",
+          "gold": "native"
+        },
+        {
+          "id": 2,
+          "text": "you",
+          "gold": "native"
+        },
+        {
+          "id": 3,
+          "text": "ask?",
+          "gold": "native"
+        },
+        {
+          "id": 4,
+          "text": "Unschuld",
+          "gold": "target"
+        },
+        {
+          "id": 5,
+          "text": "ist",
+          "gold": "target"
+        },
+        {
+          "id": 6,
+          "text": "eine",
+          "gold": "target"
+        },
+        {
+          "id": 7,
+          "text": "schöne",
+          "gold": "target"
+        },
+        {
+          "id": 8,
+          "text": "Sache.",
+          "gold": "target"
+        }
+      ],
+      "id": 94
+    },
+    {
+      "category": "splice",
+      "text": "How long did you stay? Ich denke, ich habe dazu eine Theorie.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "How",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "long",
+          "gold": "native"
+        },
+        {
+          "id": 2,
+          "text": "did",
+          "gold": "native"
+        },
+        {
+          "id": 3,
+          "text": "you",
+          "gold": "native"
+        },
+        {
+          "id": 4,
+          "text": "stay?",
+          "gold": "native"
+        },
+        {
+          "id": 5,
+          "text": "Ich",
+          "gold": "target"
+        },
+        {
+          "id": 6,
+          "text": "denke,",
+          "gold": "target"
+        },
+        {
+          "id": 7,
+          "text": "ich",
+          "gold": "target"
+        },
+        {
+          "id": 8,
+          "text": "habe",
+          "gold": "target"
+        },
+        {
+          "id": 9,
+          "text": "dazu",
+          "gold": "target"
+        },
+        {
+          "id": 10,
+          "text": "eine",
+          "gold": "target"
+        },
+        {
+          "id": 11,
+          "text": "Theorie.",
+          "gold": "target"
+        }
+      ],
+      "id": 95
+    },
+    {
+      "category": "splice",
+      "text": "Innocence is a beautiful thing. Das macht neugierig.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Innocence",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "is",
+          "gold": "native"
+        },
+        {
+          "id": 2,
+          "text": "a",
+          "gold": "native"
+        },
+        {
+          "id": 3,
+          "text": "beautiful",
+          "gold": "native"
+        },
+        {
+          "id": 4,
+          "text": "thing.",
+          "gold": "native"
+        },
+        {
+          "id": 5,
+          "text": "Das",
+          "gold": "target"
+        },
+        {
+          "id": 6,
+          "text": "macht",
+          "gold": "target"
+        },
+        {
+          "id": 7,
+          "text": "neugierig.",
+          "gold": "target"
+        }
+      ],
+      "id": 96
+    },
+    {
+      "category": "splice",
+      "text": "Ich habe kein Konto in diesen Foren. Humans were never meant to live forever.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Ich",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "habe",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "kein",
+          "gold": "target"
+        },
+        {
+          "id": 3,
+          "text": "Konto",
+          "gold": "target"
+        },
+        {
+          "id": 4,
+          "text": "in",
+          "gold": "target"
+        },
+        {
+          "id": 5,
+          "text": "diesen",
+          "gold": "target"
+        },
+        {
+          "id": 6,
+          "text": "Foren.",
+          "gold": "target"
+        },
+        {
+          "id": 7,
+          "text": "Humans",
+          "gold": "native"
+        },
+        {
+          "id": 8,
+          "text": "were",
+          "gold": "native"
+        },
+        {
+          "id": 9,
+          "text": "never",
+          "gold": "native"
+        },
+        {
+          "id": 10,
+          "text": "meant",
+          "gold": "native"
+        },
+        {
+          "id": 11,
+          "text": "to",
+          "gold": "native"
+        },
+        {
+          "id": 12,
+          "text": "live",
+          "gold": "native"
+        },
+        {
+          "id": 13,
+          "text": "forever.",
+          "gold": "native"
+        }
+      ],
+      "id": 97
+    },
+    {
+      "category": "splice",
+      "text": "Ich wusste nicht, woher es kam. I think I have a theory about that.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Ich",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "wusste",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "nicht,",
+          "gold": "target"
+        },
+        {
+          "id": 3,
+          "text": "woher",
+          "gold": "target"
+        },
+        {
+          "id": 4,
+          "text": "es",
+          "gold": "target"
+        },
+        {
+          "id": 5,
+          "text": "kam.",
+          "gold": "target"
+        },
+        {
+          "id": 6,
+          "text": "I",
+          "gold": "native"
+        },
+        {
+          "id": 7,
+          "text": "think",
+          "gold": "native"
+        },
+        {
+          "id": 8,
+          "text": "I",
+          "gold": "native"
+        },
+        {
+          "id": 9,
+          "text": "have",
+          "gold": "native"
+        },
+        {
+          "id": 10,
+          "text": "a",
+          "gold": "native"
+        },
+        {
+          "id": 11,
+          "text": "theory",
+          "gold": "native"
+        },
+        {
+          "id": 12,
+          "text": "about",
+          "gold": "native"
+        },
+        {
+          "id": 13,
+          "text": "that.",
+          "gold": "native"
+        }
+      ],
+      "id": 98
+    },
+    {
+      "category": "splice",
+      "text": "Dies ist nicht wichtig. That is intriguing.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Dies",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "ist",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "nicht",
+          "gold": "target"
+        },
+        {
+          "id": 3,
+          "text": "wichtig.",
+          "gold": "target"
+        },
+        {
+          "id": 4,
+          "text": "That",
+          "gold": "native"
+        },
+        {
+          "id": 5,
+          "text": "is",
+          "gold": "native"
+        },
+        {
+          "id": 6,
+          "text": "intriguing.",
+          "gold": "native"
+        }
+      ],
+      "id": 99
+    },
+    {
+      "category": "splice",
+      "text": "I didn't know where it came from. Ich möchte es nicht.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "I",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "didn't",
+          "gold": "native"
+        },
+        {
+          "id": 2,
+          "text": "know",
+          "gold": "native"
+        },
+        {
+          "id": 3,
+          "text": "where",
+          "gold": "native"
+        },
+        {
+          "id": 4,
+          "text": "it",
+          "gold": "native"
+        },
+        {
+          "id": 5,
+          "text": "came",
+          "gold": "native"
+        },
+        {
+          "id": 6,
+          "text": "from.",
+          "gold": "native"
+        },
+        {
+          "id": 7,
+          "text": "Ich",
+          "gold": "target"
+        },
+        {
+          "id": 8,
+          "text": "möchte",
+          "gold": "target"
+        },
+        {
+          "id": 9,
+          "text": "es",
+          "gold": "target"
+        },
+        {
+          "id": 10,
+          "text": "nicht.",
+          "gold": "target"
+        }
+      ],
+      "id": 100
+    },
+    {
+      "category": "splice",
+      "text": "Sie fragt, wie das möglich ist. This is not important.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Sie",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "fragt,",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "wie",
+          "gold": "target"
+        },
+        {
+          "id": 3,
+          "text": "das",
+          "gold": "target"
+        },
+        {
+          "id": 4,
+          "text": "möglich",
+          "gold": "target"
+        },
+        {
+          "id": 5,
+          "text": "ist.",
+          "gold": "target"
+        },
+        {
+          "id": 6,
+          "text": "This",
+          "gold": "native"
+        },
+        {
+          "id": 7,
+          "text": "is",
+          "gold": "native"
+        },
+        {
+          "id": 8,
+          "text": "not",
+          "gold": "native"
+        },
+        {
+          "id": 9,
+          "text": "important.",
+          "gold": "native"
+        }
+      ],
+      "id": 101
+    },
+    {
+      "category": "splice",
+      "text": "Du kannst das machen! I didn't like it.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Du",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "kannst",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "das",
+          "gold": "target"
+        },
+        {
+          "id": 3,
+          "text": "machen!",
+          "gold": "target"
+        },
+        {
+          "id": 4,
+          "text": "I",
+          "gold": "native"
+        },
+        {
+          "id": 5,
+          "text": "didn't",
+          "gold": "native"
+        },
+        {
+          "id": 6,
+          "text": "like",
+          "gold": "native"
+        },
+        {
+          "id": 7,
+          "text": "it.",
+          "gold": "native"
+        }
+      ],
+      "id": 102
+    },
+    {
+      "category": "splice",
+      "text": "She's asking how that's possible. Ich wünschte, ich könnte nach Japan gehen.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "She's",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "asking",
+          "gold": "native"
+        },
+        {
+          "id": 2,
+          "text": "how",
+          "gold": "native"
+        },
+        {
+          "id": 3,
+          "text": "that's",
+          "gold": "native"
+        },
+        {
+          "id": 4,
+          "text": "possible.",
+          "gold": "native"
+        },
+        {
+          "id": 5,
+          "text": "Ich",
+          "gold": "target"
+        },
+        {
+          "id": 6,
+          "text": "wünschte,",
+          "gold": "target"
+        },
+        {
+          "id": 7,
+          "text": "ich",
+          "gold": "target"
+        },
+        {
+          "id": 8,
+          "text": "könnte",
+          "gold": "target"
+        },
+        {
+          "id": 9,
+          "text": "nach",
+          "gold": "target"
+        },
+        {
+          "id": 10,
+          "text": "Japan",
+          "gold": "target"
+        },
+        {
+          "id": 11,
+          "text": "gehen.",
+          "gold": "target"
+        }
+      ],
+      "id": 103
+    },
+    {
+      "category": "splice",
+      "text": "Ich hasse es, wenn viele Leute da sind. You're just running away from life's problems.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Ich",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "hasse",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "es,",
+          "gold": "target"
+        },
+        {
+          "id": 3,
+          "text": "wenn",
+          "gold": "target"
+        },
+        {
+          "id": 4,
+          "text": "viele",
+          "gold": "target"
+        },
+        {
+          "id": 5,
+          "text": "Leute",
+          "gold": "target"
+        },
+        {
+          "id": 6,
+          "text": "da",
+          "gold": "target"
+        },
+        {
+          "id": 7,
+          "text": "sind.",
+          "gold": "target"
+        },
+        {
+          "id": 8,
+          "text": "You're",
+          "gold": "native"
+        },
+        {
+          "id": 9,
+          "text": "just",
+          "gold": "native"
+        },
+        {
+          "id": 10,
+          "text": "running",
+          "gold": "native"
+        },
+        {
+          "id": 11,
+          "text": "away",
+          "gold": "native"
+        },
+        {
+          "id": 12,
+          "text": "from",
+          "gold": "native"
+        },
+        {
+          "id": 13,
+          "text": "life's",
+          "gold": "native"
+        },
+        {
+          "id": 14,
+          "text": "problems.",
+          "gold": "native"
+        }
+      ],
+      "id": 104
+    },
+    {
+      "category": "splice",
+      "text": "Ich muss ins Bett gehen. There's a problem there that you don't see.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Ich",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "muss",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "ins",
+          "gold": "target"
+        },
+        {
+          "id": 3,
+          "text": "Bett",
+          "gold": "target"
+        },
+        {
+          "id": 4,
+          "text": "gehen.",
+          "gold": "target"
+        },
+        {
+          "id": 5,
+          "text": "There's",
+          "gold": "native"
+        },
+        {
+          "id": 6,
+          "text": "a",
+          "gold": "native"
+        },
+        {
+          "id": 7,
+          "text": "problem",
+          "gold": "native"
+        },
+        {
+          "id": 8,
+          "text": "there",
+          "gold": "native"
+        },
+        {
+          "id": 9,
+          "text": "that",
+          "gold": "native"
+        },
+        {
+          "id": 10,
+          "text": "you",
+          "gold": "native"
+        },
+        {
+          "id": 11,
+          "text": "don't",
+          "gold": "native"
+        },
+        {
+          "id": 12,
+          "text": "see.",
+          "gold": "native"
+        }
+      ],
+      "id": 105
+    },
+    {
+      "category": "splice",
+      "text": "You can do it. Ich werde dich heute nichts mehr fragen.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "You",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "can",
+          "gold": "native"
+        },
+        {
+          "id": 2,
+          "text": "do",
+          "gold": "native"
+        },
+        {
+          "id": 3,
+          "text": "it.",
+          "gold": "native"
+        },
+        {
+          "id": 4,
+          "text": "Ich",
+          "gold": "target"
+        },
+        {
+          "id": 5,
+          "text": "werde",
+          "gold": "target"
+        },
+        {
+          "id": 6,
+          "text": "dich",
+          "gold": "target"
+        },
+        {
+          "id": 7,
+          "text": "heute",
+          "gold": "target"
+        },
+        {
+          "id": 8,
+          "text": "nichts",
+          "gold": "target"
+        },
+        {
+          "id": 9,
+          "text": "mehr",
+          "gold": "target"
+        },
+        {
+          "id": 10,
+          "text": "fragen.",
+          "gold": "target"
+        }
+      ],
+      "id": 106
+    },
+    {
+      "category": "splice",
+      "text": "Nächste Woche wird es vielleicht Frost geben. I wish I could go to Japan.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Nächste",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "Woche",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "wird",
+          "gold": "target"
+        },
+        {
+          "id": 3,
+          "text": "es",
+          "gold": "target"
+        },
+        {
+          "id": 4,
+          "text": "vielleicht",
+          "gold": "target"
+        },
+        {
+          "id": 5,
+          "text": "Frost",
+          "gold": "target"
+        },
+        {
+          "id": 6,
+          "text": "geben.",
+          "gold": "target"
+        },
+        {
+          "id": 7,
+          "text": "I",
+          "gold": "native"
+        },
+        {
+          "id": 8,
+          "text": "wish",
+          "gold": "native"
+        },
+        {
+          "id": 9,
+          "text": "I",
+          "gold": "native"
+        },
+        {
+          "id": 10,
+          "text": "could",
+          "gold": "native"
+        },
+        {
+          "id": 11,
+          "text": "go",
+          "gold": "native"
+        },
+        {
+          "id": 12,
+          "text": "to",
+          "gold": "native"
+        },
+        {
+          "id": 13,
+          "text": "Japan.",
+          "gold": "native"
+        }
+      ],
+      "id": 107
+    },
+    {
+      "category": "hard",
+      "note": "clean target sentence",
+      "text": "Mir geht es gut.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Mir",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "geht",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "es",
+          "gold": "target"
+        },
+        {
+          "id": 3,
+          "text": "gut.",
+          "gold": "target"
+        }
+      ],
+      "id": 108
+    },
+    {
+      "category": "hard",
+      "note": "plain english franc-misreads as german",
+      "text": "So that's, I don't know, I don't understand.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "So",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "that's,",
+          "gold": "native"
+        },
+        {
+          "id": 2,
+          "text": "I",
+          "gold": "native"
+        },
+        {
+          "id": 3,
+          "text": "don't",
+          "gold": "native"
+        },
+        {
+          "id": 4,
+          "text": "know,",
+          "gold": "native"
+        },
+        {
+          "id": 5,
+          "text": "I",
+          "gold": "native"
+        },
+        {
+          "id": 6,
+          "text": "don't",
+          "gold": "native"
+        },
+        {
+          "id": 7,
+          "text": "understand.",
+          "gold": "native"
+        }
+      ],
+      "id": 109
+    },
+    {
+      "category": "hard",
+      "note": "mixed: shared marker + target NP + english tail",
+      "text": "Okay. Das Wasser. Die Toilette. So what is this?",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Okay.",
+          "gold": "shared"
+        },
+        {
+          "id": 1,
+          "text": "Das",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "Wasser.",
+          "gold": "target"
+        },
+        {
+          "id": 3,
+          "text": "Die",
+          "gold": "target"
+        },
+        {
+          "id": 4,
+          "text": "Toilette.",
+          "gold": "target"
+        },
+        {
+          "id": 5,
+          "text": "So",
+          "gold": "native"
+        },
+        {
+          "id": 6,
+          "text": "what",
+          "gold": "native"
+        },
+        {
+          "id": 7,
+          "text": "is",
+          "gold": "native"
+        },
+        {
+          "id": 8,
+          "text": "this?",
+          "gold": "native"
+        }
+      ],
+      "id": 110
+    },
+    {
+      "category": "hard",
+      "note": "bare homograph — must NOT credit target",
+      "text": "die",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "die",
+          "gold": "ambiguous"
+        }
+      ],
+      "id": 111
+    },
+    {
+      "category": "hard",
+      "note": "homograph inside target NP — credit target",
+      "text": "die Toilette",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "die",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "Toilette",
+          "gold": "target"
+        }
+      ],
+      "id": 112
+    },
+    {
+      "category": "hard",
+      "note": "one-word target answer",
+      "text": "Gut.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Gut.",
+          "gold": "target"
+        }
+      ],
+      "id": 113
+    },
+    {
+      "category": "hard",
+      "note": "english with homograph \"name\"",
+      "text": "My name is Philip.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "My",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "name",
+          "gold": "native"
+        },
+        {
+          "id": 2,
+          "text": "is",
+          "gold": "native"
+        },
+        {
+          "id": 3,
+          "text": "Philip.",
+          "gold": "native"
+        }
+      ],
+      "id": 114
+    },
+    {
+      "category": "hard",
+      "note": "target greeting with proper noun",
+      "text": "Hallo, mein Name ist Anna.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Hallo,",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "mein",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "Name",
+          "gold": "target"
+        },
+        {
+          "id": 3,
+          "text": "ist",
+          "gold": "target"
+        },
+        {
+          "id": 4,
+          "text": "Anna.",
+          "gold": "target"
+        }
+      ],
+      "id": 115
+    },
+    {
+      "category": "hard",
+      "note": "non-lexical fillers + target word",
+      "text": "Uh, um, ja.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Uh,",
+          "gold": "non_lexical"
+        },
+        {
+          "id": 1,
+          "text": "um,",
+          "gold": "non_lexical"
+        },
+        {
+          "id": 2,
+          "text": "ja.",
+          "gold": "target"
+        }
+      ],
+      "id": 116
+    },
+    {
+      "category": "hard",
+      "note": "target question",
+      "text": "Wie alt bist du?",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Wie",
+          "gold": "target"
+        },
+        {
+          "id": 1,
+          "text": "alt",
+          "gold": "target"
+        },
+        {
+          "id": 2,
+          "text": "bist",
+          "gold": "target"
+        },
+        {
+          "id": 3,
+          "text": "du?",
+          "gold": "target"
+        }
+      ],
+      "id": 117
+    },
+    {
+      "category": "hard",
+      "note": "shared \"okay\" alone",
+      "text": "Okay.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "Okay.",
+          "gold": "shared"
+        }
+      ],
+      "id": 118
+    },
+    {
+      "category": "hard",
+      "note": "english filler + english",
+      "text": "So, I think that's good.",
+      "tokens": [
+        {
+          "id": 0,
+          "text": "So,",
+          "gold": "native"
+        },
+        {
+          "id": 1,
+          "text": "I",
+          "gold": "native"
+        },
+        {
+          "id": 2,
+          "text": "think",
+          "gold": "native"
+        },
+        {
+          "id": 3,
+          "text": "that's",
+          "gold": "native"
+        },
+        {
+          "id": 4,
+          "text": "good.",
+          "gold": "native"
+        }
+      ],
+      "id": 119
+    }
+  ]
+}

@@ -178,6 +178,24 @@ const lessonTranscriptSchema = new mongoose.Schema({
     mimeType: { type: String, default: null }
   },
 
+  // Per-sampling-window tutor reference clips. The lesson records the tutor's
+  // clean Agora remote track in 3 separate windows; each is stored as its own
+  // GCS file here (the legacy single `tutorReferenceMeta.gcsPath` overwrote
+  // windows 1 & 2, losing most tutor speech). `windowStartSec` is the elapsed
+  // lesson time at which the window began, so analysis can offset this clip's
+  // transcript + VAD intervals onto the lesson timeline.
+  tutorReferenceSegments: [{
+    windowIndex: Number,
+    windowStartSec: Number,
+    gcsPath: String,
+    mimeType: String,
+    durationSeconds: Number,
+    rmsLevelDb: Number,
+    silenceRatio: Number,
+    sizeBytes: Number,
+    processedAt: { type: Date, default: Date.now }
+  }],
+
   fullText: String  // Concatenated transcript text (used by analysis)
 }, {
   timestamps: true

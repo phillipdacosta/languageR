@@ -261,10 +261,13 @@ export class TranscriptionService {
   /**
    * Upload audio file for transcription
    */
-  uploadAudio(transcriptId: string, audioBlob: Blob, speaker: 'student' | 'tutor'): Observable<any> {
+  uploadAudio(transcriptId: string, audioBlob: Blob, speaker: 'student' | 'tutor', windowStartSec: number = 0): Observable<any> {
     const formData = new FormData();
     formData.append('audio', audioBlob, 'audio.webm');
     formData.append('speaker', speaker);
+    // Elapsed lesson seconds when this sampling window began, so the backend can
+    // offset Whisper's window-relative segment times onto the lesson timeline.
+    formData.append('windowStartSec', String(Math.max(0, Math.round(windowStartSec))));
     
     // Get auth headers but exclude Content-Type (Angular will set multipart/form-data automatically)
     const authHeaders = this.userService.getAuthHeadersSync();
@@ -285,9 +288,13 @@ export class TranscriptionService {
    * solely to detect when the tutor was speaking so we can filter out
    * student-tagged segments contaminated by speaker bleed.
    */
-  uploadTutorReference(transcriptId: string, audioBlob: Blob): Observable<any> {
+  uploadTutorReference(transcriptId: string, audioBlob: Blob, windowStartSec: number = 0, windowIndex: number = 0): Observable<any> {
     const formData = new FormData();
     formData.append('audio', audioBlob, 'tutor-reference.webm');
+    // Window placement so the backend stores each window as its own clip and
+    // aligns its VAD intervals to the lesson timeline (legacy overwrote them).
+    formData.append('windowStartSec', String(Math.max(0, Math.round(windowStartSec))));
+    formData.append('windowIndex', String(Math.max(0, Math.round(windowIndex))));
 
     const authHeaders = this.userService.getAuthHeadersSync();
     const authToken = authHeaders.get('Authorization') || authHeaders.get('authorization');

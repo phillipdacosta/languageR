@@ -354,6 +354,12 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   private tutorReferenceStream: MediaStream | null = null;
   private tutorReferenceMimeType: string = 'audio/webm';
   private isCurrentlyRecordingTutorRef = false;
+  // Elapsed lesson seconds at the start of the current sampling window, and a
+  // monotonic window counter. Sent with each window upload so the backend can
+  // offset window-relative Whisper times + tutor VAD intervals onto the lesson
+  // timeline and store each tutor window as its own clip.
+  private currentWindowStartSec = 0;
+  private currentWindowIndex = 0;
   
   // Deepgram real-time transcription
   private deepgramService: DeepgramAudioService | null = null;
@@ -8303,6 +8309,8 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       this.batchTutorReferenceBlobs = [];
       this.tutorReferenceAudioChunks = [];
       this.isCurrentlyRecordingTutorRef = false;
+      this.currentWindowIndex = 0;
+      this.currentWindowStartSec = 0;
       
       console.log(`📊 Sampling strategy for ${lessonDuration}min lesson:`, this.samplingWindows);
       console.log(`📊 Total recording time: ${this.samplingWindows.reduce((sum, w) => sum + (w.endMin - w.startMin), 0)} minutes`);
@@ -8355,9 +8363,15 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     if (!this.transcriptionStream || this.isCurrentlyRecording) return;
     
     try {
-      const elapsedMin = ((Date.now() - this.lessonStartTimestamp) / 60000).toFixed(1);
+      const elapsedMs = Date.now() - this.lessonStartTimestamp;
+      const elapsedMin = (elapsedMs / 60000).toFixed(1);
       console.log(`🟢 Starting sampling window recording at minute ${elapsedMin}`);
-      
+
+      // Record where this window sits on the lesson timeline (used to offset
+      // window-relative segment/VAD times server-side).
+      this.currentWindowStartSec = Math.max(0, Math.round(elapsedMs / 1000));
+      this.currentWindowIndex += 1;
+
       this.transcriptionRecorder = new MediaRecorder(this.transcriptionStream, {
         mimeType: this.transcriptionMimeType,
         audioBitsPerSecond: 64000
@@ -8407,9 +8421,14 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     const studentPromise = this.finalizeStudentWindowBlob();
     const tutorPromise = this.finalizeTutorReferenceWindowBlob();
 
+    // Snapshot window placement now; the next window will overwrite the live
+    // fields before this async upload runs.
+    const windowStartSec = this.currentWindowStartSec;
+    const windowIndex = this.currentWindowIndex;
+
     const uploadPromise = (async () => {
       const [studentBlob, tutorBlob] = await Promise.all([studentPromise, tutorPromise]);
-      await this.uploadWindowAudio(studentBlob, tutorBlob);
+      await this.uploadWindowAudio(studentBlob, tutorBlob, windowStartSec, windowIndex);
     })().catch(err => console.error('❌ Per-window upload failed (non-fatal):', err));
 
     this.pendingWindowUploads.push(uploadPromise);
@@ -8567,7 +8586,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
    * transcribed. The backend transcribes the student blob on arrival and appends
    * segments, so analysis works incrementally — no end-of-lesson batch needed.
    */
-  private async uploadWindowAudio(studentBlob: Blob | null, tutorBlob: Blob | null): Promise<void> {
+  private async uploadWindowAudio(studentBlob: Blob | null, tutorBlob: Blob | null, windowStartSec: number = 0, windowIndex: number = 0): Promise<void> {
     const transcriptId = this.transcriptionService.currentTranscriptId;
     if (!transcriptId) {
       console.error('❌ No transcript ID for per-window upload');
@@ -8576,8 +8595,8 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
 
     if (tutorBlob && tutorBlob.size >= 1000) {
       try {
-        await firstValueFrom(this.transcriptionService.uploadTutorReference(transcriptId, tutorBlob));
-        console.log(`🎯 Tutor reference window uploaded: ${tutorBlob.size} bytes`);
+        await firstValueFrom(this.transcriptionService.uploadTutorReference(transcriptId, tutorBlob, windowStartSec, windowIndex));
+        console.log(`🎯 Tutor reference window uploaded: ${tutorBlob.size} bytes (window ${windowIndex} @ ${windowStartSec}s)`);
       } catch (error) {
         console.warn('⚠️ Tutor reference window upload failed (non-fatal):', error);
       }
@@ -8585,7 +8604,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
 
     if (studentBlob && studentBlob.size >= 1000) {
       try {
-        await firstValueFrom(this.transcriptionService.uploadAudio(transcriptId, studentBlob, 'student'));
+        await firstValueFrom(this.transcriptionService.uploadAudio(transcriptId, studentBlob, 'student', windowStartSec));
         console.log(`✅ Student window uploaded + transcribed: ${studentBlob.size} bytes`);
       } catch (error) {
         console.error('❌ Student window upload failed:', error);
