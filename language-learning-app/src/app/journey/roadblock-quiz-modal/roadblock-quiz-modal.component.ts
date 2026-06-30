@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, ModalController } from '@ionic/angular';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
-import { RoadblockQuiz, RoadblockQuizQuestion } from '../../services/learning-plan.service';
+import { RoadblockQuiz, RoadblockQuizQuestion, RoadblockReviewItem } from '../../services/learning-plan.service';
 
 /**
  * Journey-map roadblock checkpoint. Mandatory but un-failable: a wrong
@@ -28,6 +28,9 @@ export class RoadblockQuizModalComponent implements OnInit {
     quiz: RoadblockQuiz;
     struggleLabel?: string;
     personalizedHeader?: string;
+    label?: string;
+    tier?: string;
+    reviewItems?: RoadblockReviewItem[];
   } | null>;
 
   readonly roadblockIconSrc = 'assets/journey/sprites/roadblock.png';
@@ -35,9 +38,20 @@ export class RoadblockQuizModalComponent implements OnInit {
   loading = false;
   loadFailed = false;
 
+  /** Honest provenance label ("Based on your lessons", etc.). */
+  provenanceLabel = '';
+  /** Saveable nuggets surfaced alongside the quiz; each can be kept. */
+  reviewItems: RoadblockReviewItem[] = [];
+  savedFlags: boolean[] = [];
+  hasReviewItems = false;
+
   stage: 'intro' | 'quiz' | 'done' = 'intro';
   questionIndex = 0;
   currentQuestion: RoadblockQuizQuestion | null = null;
+  /** Resolved prompt (localized if the question carries a promptKey). */
+  currentPromptText = '';
+  /** Interface-language translation shown under a target-language prompt. */
+  currentPromptTranslation = '';
   isMultipleChoice = false;
   selectedAnswer = '';
   typedAnswer = '';
@@ -78,7 +92,7 @@ export class RoadblockQuizModalComponent implements OnInit {
     this.updateFooterState();
   }
 
-  private onQuizLoaded(res: { quiz: RoadblockQuiz; struggleLabel?: string; personalizedHeader?: string } | null): void {
+  private onQuizLoaded(res: { quiz: RoadblockQuiz; struggleLabel?: string; personalizedHeader?: string; label?: string; reviewItems?: RoadblockReviewItem[] } | null): void {
     this.loading = false;
     if (!res || !res.quiz) {
       this.loadFailed = true;
@@ -91,6 +105,10 @@ export class RoadblockQuizModalComponent implements OnInit {
     this.quiz = res.quiz;
     if (res.struggleLabel) this.struggleLabel = res.struggleLabel;
     if (res.personalizedHeader) this.personalizedHeader = res.personalizedHeader;
+    if (res.label) this.provenanceLabel = res.label;
+    this.reviewItems = Array.isArray(res.reviewItems) ? res.reviewItems : [];
+    this.savedFlags = this.reviewItems.map(() => false);
+    this.hasReviewItems = this.reviewItems.length > 0;
     this.applyIntroLine();
     this.stage = 'intro';
     this.updateFooterState();
@@ -152,7 +170,10 @@ export class RoadblockQuizModalComponent implements OnInit {
 
   private loadQuestion(): void {
     const q = this.quiz?.questions?.[this.questionIndex] || null;
+    if (q) this.ensureAnswerable(q);
     this.currentQuestion = q;
+    this.currentPromptText = q?.promptKey ? this.translate.instant(q.promptKey) : (q?.prompt || '');
+    this.currentPromptTranslation = q?.promptTranslation || '';
     this.isMultipleChoice = !!(q && q.type === 'multiple_choice' && q.options && q.options.length > 0);
     this.selectedAnswer = '';
     this.typedAnswer = '';
@@ -167,6 +188,17 @@ export class RoadblockQuizModalComponent implements OnInit {
     });
     this.progressPct = Math.round((this.questionIndex / total) * 100);
     this.updateFooterState();
+  }
+
+  /** Safety net: a multiple-choice question whose correct answer isn't in
+   *  its options is impossible to pass — and the gate is un-failable, so it
+   *  would block the student forever. Inject the answer if it's missing. */
+  private ensureAnswerable(q: RoadblockQuizQuestion): void {
+    if (q.type !== 'multiple_choice' || !q.options || !q.options.length) return;
+    const answer = (q.correctAnswer || '').trim();
+    if (!answer) return;
+    const has = q.options.some(o => this.normalize(o) === this.normalize(answer));
+    if (!has) q.options = [...q.options, answer];
   }
 
   private updateFooterState(): void {
@@ -265,13 +297,21 @@ export class RoadblockQuizModalComponent implements OnInit {
     if (this.isCorrect) this.firstTryCorrect++;
   }
 
+  toggleSave(i: number): void {
+    if (i < 0 || i >= this.savedFlags.length) return;
+    this.savedFlags[i] = !this.savedFlags[i];
+    this.cdr.markForCheck();
+  }
+
   finish(): void {
+    const savedReviewItems = this.reviewItems.filter((_, i) => this.savedFlags[i]);
     this.modalCtrl.dismiss(
       {
         completed: true,
         quizId: this.quiz?._id,
         correct: this.firstTryCorrect,
-        total: this.quiz?.questions?.length || 0
+        total: this.quiz?.questions?.length || 0,
+        savedReviewItems
       },
       'completed'
     );

@@ -15,6 +15,13 @@ const quizQuestionSchema = new mongoose.Schema({
     required: true
   },
   prompt: { type: String, required: true },
+  // i18n key for prompts that are app-authored (not target-language), e.g.
+  // the Tier A "Which version is correct?" check. When set, the client
+  // renders the translated key instead of `prompt`.
+  promptKey: { type: String, default: '' },
+  // Prompt rendered in the student's interface language (shown under a
+  // target-language prompt so they understand what's being asked).
+  promptTranslation: { type: String, default: '' },
   options: [{ type: String }],          // for multiple_choice / listen_select
   correctAnswer: { type: String, required: true }, // canonical answer (string compare or index for MC)
   acceptableAlternatives: [{ type: String }],
@@ -58,9 +65,23 @@ const quizSchema = new mongoose.Schema({
   },
   source: {
     type: String,
-    enum: ['ai_generated', 'hand_curated'],
+    enum: ['ai_generated', 'hand_curated', 'roadblock_personal', 'goal_inferred'],
     default: 'ai_generated'
   },
+  // Personal quizzes (roadblock tiers): scoped to ONE student so they never
+  // leak into the shared pool. Null = shared pool quiz. This is what stops
+  // one student's lesson-grounded items being served to unrelated students.
+  personalForUserId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null,
+    index: true
+  },
+  // Interface language a personal quiz's translations were built for. If a
+  // student's UI language differs at serve time, we rebuild so the prompt
+  // translations match (also forces a one-time refresh of quizzes generated
+  // before prompt-translation existed).
+  builtForInterfaceLang: { type: String, default: '' },
   // Bumped when content changes. History rows reference the version they served.
   quizVersion: { type: Number, default: 1 },
   // Soft-deleted quizzes don't show in pool queries but stay readable for

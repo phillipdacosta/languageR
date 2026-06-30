@@ -1764,4 +1764,46 @@ router.post('/:language/chests/claim', verifyToken, async (req, res) => {
   }
 });
 
+/**
+ * POST /api/learning-plan/:language/roadblock/clear
+ * Persist that the student passed a roadblock checkpoint. Idempotent per
+ * `key` (a map-stable id for the gate). Once cleared, the journey map treats
+ * the gate as done even before the next phase is completed — so it never
+ * auto-reopens on revisit.
+ * Body: { key, afterPhase, chapterTheme, phaseCount, quizId? }
+ */
+router.post('/:language/roadblock/clear', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    const { key, afterPhase, chapterTheme, phaseCount, quizId } = req.body || {};
+    if (!key) return res.status(400).json({ success: false, message: 'key required' });
+
+    const plan = await LearningPlan.findOne({ studentId: user._id, language: req.params.language });
+    if (!plan) return res.status(404).json({ success: false, message: 'Plan not found' });
+
+    plan.clearedRoadblocks = plan.clearedRoadblocks || [];
+    const already = plan.clearedRoadblocks.find(r => r.key === key);
+    if (already) {
+      return res.json({ success: true, alreadyCleared: true });
+    }
+
+    plan.clearedRoadblocks.push({
+      key,
+      afterPhase: Number.isInteger(afterPhase) ? afterPhase : 0,
+      chapterTheme: chapterTheme || '',
+      phaseCount: Number.isInteger(phaseCount) ? phaseCount : 0,
+      quizId: quizId || null,
+      clearedAt: new Date()
+    });
+    await plan.save();
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error clearing roadblock:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 module.exports = router;

@@ -6,6 +6,7 @@
         <p class="rbq-kicker">{{ 'JOURNEY.ROADBLOCK.TITLE' | translate }}</p>
         <p class="rbq-header-sub" *ngIf="loading">{{ 'JOURNEY.ROADBLOCK.PREPARING' | translate }}</p>
         <p class="rbq-header-sub" *ngIf="!loading && !loadFailed && stage === 'intro'">{{ introLine }}</p>
+        <p class="rbq-provenance" *ngIf="!loading && !loadFailed && stage === 'intro' && provenanceLabel">{{ provenanceLabel }}</p>
         <p class="rbq-count" *ngIf="!loading && stage === 'quiz'">{{ questionCountLabel }}</p>
       </div>
     </div>
@@ -28,7 +29,8 @@
         <div class="rbq-progress">
           <span class="rbq-progress-bar" [style.width.%]="progressPct"></span>
         </div>
-        <p class="rbq-prompt">{{ currentQuestion.prompt }}</p>
+        <p class="rbq-prompt">{{ currentPromptText }}</p>
+        <p class="rbq-prompt-translation" *ngIf="currentPromptTranslation">{{ currentPromptTranslation }}</p>
 
         <div class="rbq-options" *ngIf="isMultipleChoice">
           <button
@@ -71,6 +73,22 @@
         <div class="rbq-done-emoji">🎉</div>
         <h2 class="rbq-title">{{ 'JOURNEY.ROADBLOCK.CLEARED_TITLE' | translate }}</h2>
         <p class="rbq-sub">{{ 'JOURNEY.ROADBLOCK.CLEARED_SUB' | translate }}</p>
+
+        <div class="rbq-save" *ngIf="hasReviewItems">
+          <p class="rbq-save-title">{{ 'JOURNEY.ROADBLOCK.SAVE_TITLE' | translate }}</p>
+          <button
+            type="button"
+            class="rbq-save-item"
+            *ngFor="let item of reviewItems; let i = index; trackBy: trackByIndex"
+            [class.rbq-save-item--on]="savedFlags[i]"
+            (click)="toggleSave(i)">
+            <ion-icon [name]="savedFlags[i] ? 'checkmark-circle' : 'add-circle-outline'" class="rbq-save-check"></ion-icon>
+            <span class="rbq-save-text">
+              <span class="rbq-save-main">{{ item.corrected }}</span>
+              <span class="rbq-save-explain" *ngIf="item.explanation">{{ item.explanation }}</span>
+            </span>
+          </button>
+        </div>
       </div>
     </div>
 

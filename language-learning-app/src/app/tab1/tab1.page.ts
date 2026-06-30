@@ -1139,12 +1139,13 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     // Listen for lesson-left events to immediately refresh status
     window.addEventListener('lesson-left' as any, (e: any) => {
       const leftLessonId = e?.detail?.lessonId;
-      // Skip if upcoming lesson is a class (not a real lesson)
       if (
         this.upcomingLesson &&
         this.upcomingLesson._id === leftLessonId &&
-        !(this.upcomingLesson as any).isClass &&
-        !isLessonMockId(this.upcomingLesson._id)
+        this.lessonService.shouldPollLessonStatus(this.upcomingLesson, {
+          isClass: !!(this.upcomingLesson as any).isClass,
+          isMockId: isLessonMockId(this.upcomingLesson._id)
+        })
       ) {
         this.lessonService.getLessonStatus(this.upcomingLesson._id).subscribe(status => {
           if (status?.success) {
@@ -1427,22 +1428,22 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       }, 5000);
       
       this.statusInterval = setInterval(() => {
-        if (
-          this.upcomingLesson &&
-          !(this.upcomingLesson as any).isClass &&
-          !isLessonMockId(this.upcomingLesson._id)
-        ) {
-          this.ngZone.run(() => {
-            this.lessonService.getLessonStatus(this.upcomingLesson!._id).subscribe(status => {
-              if (status?.success && this.upcomingLesson) {
-                (this.upcomingLesson as any).serverTime = status.serverTime;
-                (this.upcomingLesson as any).status = status.lesson?.status || this.upcomingLesson.status;
-                (this.upcomingLesson as any).participant = status.participant;
-                this.cdr.markForCheck();
-              }
-            });
-          });
+        if (!this.lessonService.shouldPollLessonStatus(this.upcomingLesson, {
+          isClass: !!(this.upcomingLesson as any)?.isClass,
+          isMockId: this.upcomingLesson ? isLessonMockId(this.upcomingLesson._id) : false
+        })) {
+          return;
         }
+        this.ngZone.run(() => {
+          this.lessonService.getLessonStatus(this.upcomingLesson!._id).subscribe(status => {
+            if (status?.success && this.upcomingLesson) {
+              (this.upcomingLesson as any).serverTime = status.serverTime;
+              (this.upcomingLesson as any).status = status.lesson?.status || this.upcomingLesson.status;
+              (this.upcomingLesson as any).participant = status.participant;
+              this.cdr.markForCheck();
+            }
+          });
+        });
       }, 30000);
     });
 

@@ -2546,6 +2546,55 @@ ion-header ion-toolbar {
   }
 }
 
+.ed-error-examples {
+  margin: 14px 0 0;
+
+  .ed-error-examples-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ed-text-secondary, #717171);
+    margin: 0 0 8px;
+  }
+
+  .ed-error-example {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px 10px;
+    background: #f7f7f7;
+    border-radius: 8px;
+    font-size: 13px;
+    line-height: 1.4;
+
+    & + .ed-error-example {
+      margin-top: 6px;
+    }
+
+    .ed-error-example-original {
+      color: #c0392b;
+      text-decoration: line-through;
+      flex: 1;
+      word-break: break-word;
+    }
+
+    .ed-error-example-arrow {
+      flex-shrink: 0;
+      font-size: 13px;
+      color: #999;
+      margin-top: 1px;
+    }
+
+    .ed-error-example-corrected {
+      color: #27ae60;
+      font-weight: 500;
+      flex: 1;
+      word-break: break-word;
+    }
+  }
+}
+
 .ed-last-session {
   .ed-body {
     margin-bottom: 0;

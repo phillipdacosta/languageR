@@ -223,6 +223,9 @@ async function selectAndPushQuiz(opts) {
     level,
     struggle,
     retiredAt: null,
+    // Never serve another student's personal (roadblock-tier) quiz from the
+    // shared pool — that was the source of "tested on things I never did".
+    personalForUserId: null,
     _id: { $nin: seenIds }
   }).sort({ templateVariant: 1 }).lean();
 
@@ -334,7 +337,7 @@ async function recordQuizCompletion({ userId, quizId, rating = 0 }) {
 
 async function generateAndSaveQuiz({ language, level, struggle, type = 'drill', displayName = '', examples = [] }) {
   // Determine variant index — fill the pool to POOL_VARIANTS_TARGET.
-  const existingCount = await Quiz.countDocuments({ language, level, struggle, type, retiredAt: null });
+  const existingCount = await Quiz.countDocuments({ language, level, struggle, type, retiredAt: null, personalForUserId: null });
   const templateVariant = existingCount;
 
   const draft = await _generateQuizDraft({ language, level, struggle, type, displayName, examples });
@@ -809,7 +812,7 @@ async function listSeenForUser(userId, language) {
 /** Browse the static (curated/AI) library — for free tier (G28) and for
  *  premium users who want to retake. */
 async function browsePool({ language, level, struggle, limit = 20 }) {
-  const q = { retiredAt: null };
+  const q = { retiredAt: null, personalForUserId: null };
   if (language) q.language = language;
   if (level) q.level = level;
   if (struggle) q.struggle = struggle;

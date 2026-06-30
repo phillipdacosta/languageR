@@ -135,26 +135,37 @@
   </section>
 
   <!-- ── Roadmap — full-screen scenic map with overlay chrome ─────── -->
-  <section class="journey-section journey-section--roadmap" *ngIf="phaseRows.length">
-
-    <!-- Sticky "visiting past chapter" badge — shown only while exploring history. -->
-    <div
-      *ngIf="visitingChapter"
-      class="journey-visit-badge journey-visit-badge--overlay">
-      <span class="journey-visit-badge-text">
-        {{ 'JOURNEY.PAST_MAPS.VISITING' | translate }} {{ 'JOURNEY.PAST_MAPS.CHAPTER' | translate }} {{ visitingChapter.index + 1 }} · {{ visitingChapter.level }}
-        <span class="journey-visit-badge-readonly">{{ 'JOURNEY.PAST_MAPS.READ_ONLY' | translate }}</span>
-      </span>
-      <button class="journey-visit-badge-back" type="button" (click)="exitVisitingChapter()">
-        {{ 'JOURNEY.PAST_MAPS.RETURN' | translate }}
-      </button>
-    </div>
+  <section
+    class="journey-section journey-section--roadmap"
+    *ngIf="phaseRows.length"
+    [@roadmapReveal]="roadmapRevealState">
 
     <div
       class="journey-map-canvas"
       *ngIf="mapNodes.length"
       [class.journey-map-canvas--fallback]="backgroundFailed"
       [attr.data-theme]="chapterTheme">
+      <!-- Visiting / locked chapter preview — pinned to top of map stage. -->
+      <div
+        *ngIf="visitingChapter"
+        @chapterPreviewBadge
+        class="journey-visit-badge journey-visit-badge--overlay"
+        [class.journey-visit-badge--locked]="visitingChapter.locked">
+        <span class="journey-visit-badge-text">
+          <ng-container *ngIf="visitingChapter.locked">
+            {{ 'JOURNEY.CHAPTER_RAIL.PREVIEWING' | translate }}
+            {{ 'JOURNEY.PAST_MAPS.CHAPTER' | translate }} {{ visitingChapter.index + 1 }} · {{ visitingChapter.level }}
+            <span class="journey-visit-badge-readonly">{{ 'JOURNEY.CHAPTER_RAIL.LOCKED_BADGE' | translate }}</span>
+          </ng-container>
+          <ng-container *ngIf="!visitingChapter.locked">
+            {{ 'JOURNEY.PAST_MAPS.VISITING' | translate }} {{ 'JOURNEY.PAST_MAPS.CHAPTER' | translate }} {{ visitingChapter.index + 1 }} · {{ visitingChapter.level }}
+            <span class="journey-visit-badge-readonly">{{ 'JOURNEY.PAST_MAPS.READ_ONLY' | translate }}</span>
+          </ng-container>
+        </span>
+        <button class="journey-visit-badge-back" type="button" (click)="exitVisitingChapter()">
+          {{ 'JOURNEY.CHAPTER_RAIL.RETURN_LIVE' | translate }}
+        </button>
+      </div>
       <!-- Blurred cover fill behind the sharp map (fills pillar/letterbox gaps). -->
       <img
         class="journey-map-bg journey-map-bg--blur"
@@ -163,16 +174,22 @@
         aria-hidden="true"
         decoding="async" />
 
+      <div class="journey-map-row">
       <aside
         class="journey-map-chapter-rail"
         *ngIf="chapterRailItems.length"
-        aria-hidden="true">
-        <div
+        aria-label="Chapter maps">
+        <button
+          type="button"
           *ngFor="let ch of chapterRailItems; trackBy: trackByChapterStrip"
           class="journey-map-rail-card"
           [class.journey-map-rail-card--past]="ch.state === 'past'"
           [class.journey-map-rail-card--future]="ch.state === 'future'"
-          [attr.data-theme]="ch.theme">
+          [class.journey-map-rail-card--selected]="ch.selected"
+          [attr.data-theme]="ch.theme"
+          [attr.aria-pressed]="ch.selected"
+          [attr.aria-label]="ch.label"
+          (click)="onChapterRailTap(ch)">
           <img
             class="journey-map-rail-card__img"
             [src]="ch.imageUrl"
@@ -180,10 +197,18 @@
             decoding="async"
             draggable="false" />
           <span class="journey-map-rail-card__level">{{ ch.level }}</span>
-        </div>
+          <span class="journey-map-rail-card__lock" *ngIf="ch.state === 'future'" aria-hidden="true">
+            <ion-icon name="lock-closed"></ion-icon>
+          </span>
+        </button>
       </aside>
 
-      <div class="journey-map-stage" [class.journey-map-stage--has-traveler]="travelerMapMode" [class.journey-map-stage--traveler-roadblock]="travelerOnRoadblock">
+      <div
+        class="journey-map-stage"
+        [@chapterMapCrossfade]="mapPreviewAnimKey"
+        [class.journey-map-stage--has-traveler]="travelerMapMode && !visitingChapter"
+        [class.journey-map-stage--traveler-roadblock]="travelerOnRoadblock && !visitingChapter"
+        [class.journey-map-stage--preview-locked]="visitingChapter?.locked">
         <img
           class="journey-map-bg journey-map-bg--sharp"
           [src]="backgroundSrcHiRes"
@@ -217,7 +242,8 @@
 
       <!-- Traveler dot — rests on the active phase; animates for roadblock checkpoints. -->
       <div
-        *ngIf="travelerVisible"
+        *ngIf="travelerVisible && !visitingChapter"
+        @chapterPreviewTraveler
         class="jm-traveler"
         [style.left.%]="travelerXPct"
         [style.top.%]="travelerYPct"
@@ -246,6 +272,7 @@
         [style.--jm-depth-opacity]="node.depthOpacity"
         [style.z-index]="node.depthZIndex"
         [attr.aria-label]="('JOURNEY.PHASE' | translate) + ' ' + (node.index + 1) + ': ' + node.row.title + (node.row.isSplit ? ' (' + ('JOURNEY.SPLIT.NODE_BADGE' | translate) + ')' : '') + (node.row.isRecovery ? ' (' + ('JOURNEY.RECOVERY.NODE_BADGE' | translate) + ')' : '')"
+        [disabled]="!!visitingChapter"
         (click)="togglePhase(node.index, $event)">
         <span
           *ngIf="node.row.isSplit"
@@ -268,7 +295,7 @@
         </span>
         <span class="jm-label">
           <span class="jm-label-num">{{ node.index + 1 }}</span>
-          <span class="jm-label-title">{{ node.row.title }}</span>
+          <span class="jm-label-title">{{ node.labelTitle }}</span>
         </span>
       </button>
 
@@ -283,7 +310,7 @@
         [style.left.%]="rb.x"
         [style.top.%]="rb.y"
         [attr.data-rb-phase]="rb.afterPhase"
-        [disabled]="rb.state !== 'active' && !(isDev && devRoadblockForceActive)"
+        [disabled]="!!visitingChapter || (rb.state !== 'active' && !(isDev && devRoadblockForceActive))"
         [attr.aria-label]="'JOURNEY.ROADBLOCK.TITLE' | translate"
         (click)="onRoadblockTap(rb)">
         <span class="jm-hotspot-glow"></span>
@@ -300,6 +327,7 @@
           [style.left.%]="chest.x"
           [style.top.%]="chest.y"
           [attr.data-chest-id]="chest.chestId"
+          [disabled]="!!visitingChapter"
           [attr.aria-label]="(chest.state === 'claimed' ? 'JOURNEY.CHEST.ALREADY_COLLECTED' : 'JOURNEY.CHEST.OPEN') | translate"
           (click)="onChestTap(chest)">
           <span class="jm-hotspot-glow"></span>
@@ -321,6 +349,7 @@
           [style.left.%]="chest.x"
           [style.top.%]="chest.y"
           [attr.data-chest-id]="chest.chestId"
+          [disabled]="!!visitingChapter || chest.state === 'locked'"
           [attr.aria-label]="(chest.state === 'claimed' ? 'JOURNEY.CHEST.ALREADY_COLLECTED' : 'JOURNEY.CHEST.OPEN') | translate"
           (click)="onChestTap(chest)">
           <span class="jm-chest-frames">
@@ -339,12 +368,19 @@
           </span>
         </button>
       </ng-container>
+
+        <div class="journey-map-locked-overlay" *ngIf="visitingChapter?.locked" @chapterPreviewLock>
+          <div class="journey-map-locked-card" @chapterPreviewLockCard>
+            <ion-icon name="lock-closed" class="journey-map-locked-icon"></ion-icon>
+            <p class="journey-map-locked-title">{{ 'JOURNEY.CHAPTER_RAIL.LOCKED_TITLE' | translate }}</p>
+            <p class="journey-map-locked-body">{{ 'JOURNEY.CHAPTER_RAIL.LOCKED_BODY' | translate }}</p>
+          </div>
+        </div>
       </div>
 
-      <!-- Title, back, and action dock — overlaid on the map. -->
-      <div class="journey-map-chrome">
-        <div class="journey-map-chrome-end">
-          <div class="journey-map-chrome-back-slot">
+      <!-- Back + action dock — dedicated right column (never overlaps the map). -->
+      <aside class="journey-map-chrome-end">
+          <div class="journey-map-chrome-back-slot" *ngIf="!visitingChapter" @chapterPreviewBack>
             <button type="button" class="journey-map-chrome-back" (click)="goBack()" [attr.aria-label]="'JOURNEY.BACK' | translate">
               <ion-icon name="chevron-back-outline" aria-hidden="true"></ion-icon>
               <span>{{ 'JOURNEY.BACK' | translate }}</span>
@@ -436,7 +472,7 @@
               <ion-icon name="bug-outline"></ion-icon>
             </button>
           </div>
-        </div>
+      </aside>
       </div>
     </div>
 

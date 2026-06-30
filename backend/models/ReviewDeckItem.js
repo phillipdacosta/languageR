@@ -8,13 +8,23 @@ const reviewDeckItemSchema = new mongoose.Schema({
     index: true
   },
   
-  // The incorrect text the student said
+  // What kind of item this is:
+  //   correction — student said `original` (wrong) → `corrected` (right)
+  //   phrase/tip — a learning nugget with no "wrong" version (e.g. a goal-
+  //                inferred phrase from a roadblock). `original` is blank.
+  itemType: {
+    type: String,
+    enum: ['correction', 'phrase', 'tip'],
+    default: 'correction'
+  },
+
+  // The incorrect text the student said. Empty for phrase/tip items.
   original: {
     type: String,
-    required: true
+    default: ''
   },
   
-  // The corrected version
+  // The corrected version (or, for phrase/tip items, the thing to learn).
   corrected: {
     type: String,
     required: true

@@ -1,4 +1,5 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef, ChangeDetectionStrategy, Input, Output, EventEmitter, HostBinding, ElementRef } from '@angular/core';
+import { animate, group, query, style, transition, trigger } from '@angular/animations';
 import { CommonModule, Location } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { IonicModule } from '@ionic/angular';
@@ -18,7 +19,8 @@ import {
   ComingUpItem,
   CefrReveal,
   RoadblockQuiz,
-  RoadblockResponse
+  RoadblockResponse,
+  RoadblockReviewItem
 } from '../services/learning-plan.service';
 import { UserService } from '../services/user.service';
 import { FormsModule } from '@angular/forms';
@@ -132,6 +134,8 @@ interface MapNode {
   labelAlign: 'start' | 'center' | 'end';
   /** Per-node label nudge from map-layouts.json (px). */
   labelOffsetX: number;
+  /** Title without a leading "Phase N:" prefix (shown beside the num badge). */
+  labelTitle: string;
   row: PhaseRow;
 }
 
@@ -142,6 +146,8 @@ interface JourneyChapterStripItem {
   label: string;
   imageUrl: string;
   state: 'past' | 'current' | 'future';
+  /** True when this chapter is shown in the main map (preview / visit). */
+  selected: boolean;
 }
 
 interface RoadblockNode {
@@ -150,6 +156,17 @@ interface RoadblockNode {
   afterPhase: number;
   /** locked = upstream phase not done; active = current gate; cleared = passed. */
   state: 'locked' | 'active' | 'cleared';
+}
+
+/** Everything the roadblock modal needs: the quiz plus its honest provenance
+ *  label and the saveable nuggets surfaced alongside it. */
+interface RoadblockGatePayload {
+  quiz: RoadblockQuiz;
+  struggleLabel: string;
+  personalizedHeader: string;
+  label?: string;
+  tier?: string;
+  reviewItems?: RoadblockReviewItem[];
 }
 
 interface ChestNode {
@@ -185,12 +202,97 @@ const LABEL_EDGE_RIGHT_THRESHOLD = 86;   // xPct > this → label anchored to th
 const MIN_LESSONS_PER_PHASE = 3;
 const MAX_LESSONS_PER_PHASE = 10;
 
+const CHAPTER_PREVIEW_EASE = 'cubic-bezier(0.32, 0.72, 0, 1)';
+
 @Component({
   selector: 'app-journey-page',
   templateUrl: './journey.page.html',
   styleUrls: ['./journey.page.scss'],
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
+  animations: [
+    trigger('chapterPreviewBadge', [
+      transition(':enter', [
+        style({ opacity: 0, transform: 'translateY(-14px)' }),
+        animate(`340ms ${CHAPTER_PREVIEW_EASE}`, style({ opacity: 1, transform: 'translateY(0)' }))
+      ]),
+      transition(':leave', [
+        animate(`260ms ${CHAPTER_PREVIEW_EASE}`, style({ opacity: 0, transform: 'translateY(-10px)' }))
+      ])
+    ]),
+    trigger('chapterPreviewLock', [
+      transition(':enter', [
+        style({ opacity: 0 }),
+        animate(`320ms ${CHAPTER_PREVIEW_EASE}`, style({ opacity: 1 }))
+      ]),
+      transition(':leave', [
+        animate(`240ms ${CHAPTER_PREVIEW_EASE}`, style({ opacity: 0 }))
+      ])
+    ]),
+    trigger('chapterPreviewLockCard', [
+      transition(':enter', [
+        style({ opacity: 0, transform: 'scale(0.92) translateY(10px)' }),
+        animate(`380ms 80ms ${CHAPTER_PREVIEW_EASE}`, style({ opacity: 1, transform: 'scale(1) translateY(0)' }))
+      ]),
+      transition(':leave', [
+        animate(`220ms ease-out`, style({ opacity: 0, transform: 'scale(0.96) translateY(6px)' }))
+      ])
+    ]),
+    trigger('chapterPreviewBack', [
+      transition(':enter', [
+        style({ opacity: 0, transform: 'translateX(-10px)' }),
+        animate(`300ms 140ms ${CHAPTER_PREVIEW_EASE}`, style({ opacity: 1, transform: 'translateX(0)' }))
+      ]),
+      transition(':leave', [
+        animate(`200ms ease-out`, style({ opacity: 0, transform: 'translateX(-10px)' }))
+      ])
+    ]),
+    trigger('chapterMapCrossfade', [
+      transition('* => *', [
+        style({ opacity: 0.68 }),
+        animate(`420ms ${CHAPTER_PREVIEW_EASE}`, style({ opacity: 1 }))
+      ])
+    ]),
+    trigger('chapterPreviewTraveler', [
+      transition(':enter', [
+        style({ opacity: 0, transform: 'translate(-50%, -50%) scale(0.55)' }),
+        animate(`300ms 160ms ${CHAPTER_PREVIEW_EASE}`, style({ opacity: 1, transform: 'translate(-50%, -50%) scale(1)' }))
+      ]),
+      transition(':leave', [
+        animate(`200ms ease-out`, style({ opacity: 0, transform: 'translate(-50%, -50%) scale(0.55)' }))
+      ])
+    ]),
+    trigger('roadmapReveal', [
+      transition('hidden => revealed', [
+        group([
+          query('.journey-map-bg--blur', [
+            style({ opacity: 0 }),
+            animate(`460ms ${CHAPTER_PREVIEW_EASE}`, style({ opacity: 1 }))
+          ], { optional: true }),
+          query('.journey-map-chapter-rail', [
+            style({ opacity: 0, transform: 'translateX(-18px)' }),
+            animate(`400ms 70ms ${CHAPTER_PREVIEW_EASE}`, style({ opacity: 1, transform: 'translateX(0)' }))
+          ], { optional: true }),
+          query('.journey-map-stage', [
+            style({ opacity: 0.65 }),
+            animate(`440ms ${CHAPTER_PREVIEW_EASE}`, style({ opacity: 1 }))
+          ], { optional: true }),
+          query('.journey-map-chrome-back-slot', [
+            style({ opacity: 0, transform: 'translateX(-10px)' }),
+            animate(`300ms 150ms ${CHAPTER_PREVIEW_EASE}`, style({ opacity: 1, transform: 'translateX(0)' }))
+          ], { optional: true }),
+          query('.journey-map-actions--dock', [
+            style({ opacity: 0, transform: 'translateX(10px)' }),
+            animate(`320ms 110ms ${CHAPTER_PREVIEW_EASE}`, style({ opacity: 1, transform: 'translateX(0)' }))
+          ], { optional: true }),
+          query('.jm-traveler', [
+            style({ opacity: 0, transform: 'translate(-50%, -50%) scale(0.55)' }),
+            animate(`300ms 200ms ${CHAPTER_PREVIEW_EASE}`, style({ opacity: 1, transform: 'translate(-50%, -50%) scale(1)' }))
+          ], { optional: true })
+        ])
+      ])
+    ])
+  ],
   imports: [
     CommonModule,
     FormsModule,
@@ -211,12 +313,17 @@ export class JourneyPage implements OnInit, OnDestroy {
    *  the roadblock quiz / travel animation until the student really opens the
    *  map. Flipping false → true runs the deferred entry check exactly once. */
   private _active = false;
+  /** Drives the staggered map entrance when opening "View roadmap" or the routed page. */
+  roadmapRevealState: 'hidden' | 'revealed' = 'hidden';
   @Input()
   set active(value: boolean) {
     const next = !!value;
     if (next === this._active) return;
     this._active = next;
-    if (next) this.onJourneyBecameVisible();
+    if (next) {
+      this.onJourneyBecameVisible();
+      this.playRoadmapReveal();
+    }
   }
   get active(): boolean {
     return this._active;
@@ -265,6 +372,10 @@ export class JourneyPage implements OnInit, OnDestroy {
   roadblockNodes: RoadblockNode[] = [];
   chestNodes: ChestNode[] = [];
   private claimedChestIds = new Set<string>();
+  /** Map-stable keys of roadblock gates the student has already passed.
+   *  A cleared gate stays cleared on revisit — it no longer re-derives as
+   *  'active' (and auto-reopens) just because the next phase isn't done. */
+  private clearedRoadblockKeys = new Set<string>();
   private roadblockBusy = false;
   private chestBusy = false;
 
@@ -870,6 +981,10 @@ export class JourneyPage implements OnInit, OnDestroy {
     this.chapterLevel = (plan as any).chapterLevel || 'A1';
     this.chapterIndex = (plan as any).chapterIndex || 0;
     this.claimedChestIds = new Set((plan.claimedChests || []).map(c => c.chestId));
+    // DB is the single source of truth for cleared gates (keeps web + the RN
+    // app in sync). Stale web caches are reconciled by a fresh server check
+    // before any auto-open — see verifyRoadblockStillActive().
+    this.clearedRoadblockKeys = new Set(((plan as any).clearedRoadblocks || []).map((r: any) => r.key));
     this.mapPhaseVariant = resolveMapVariant(phases.length || 4);
     this.backgroundUrl = journeyBackgroundUrl(this.chapterTheme, phases.length || 4);
     this.backgroundFailed = false;
@@ -959,6 +1074,23 @@ export class JourneyPage implements OnInit, OnDestroy {
     // Live-page rule: when the user is already on the journey page, we
     // surface a non-blocking toast instead of blocking with a modal.
     this.maybeHandlePendingTransitions(plan);
+
+    if (!this.inline && phases.length && this.roadmapRevealState !== 'revealed') {
+      this.playRoadmapReveal();
+    }
+  }
+
+  /** Staggered fade/slide for the full map chrome (home "View roadmap" + routed page). */
+  private playRoadmapReveal(): void {
+    if (!this.phaseRows.length) return;
+    if (this.inline && !this._active) return;
+    this.roadmapRevealState = 'hidden';
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        this.roadmapRevealState = 'revealed';
+        this.cdr.markForCheck();
+      });
+    });
   }
 
   private computeCefrAgreementLabel(): string {
@@ -1189,7 +1321,7 @@ export class JourneyPage implements OnInit, OnDestroy {
     backgroundFailed: boolean;
     mapPhaseVariant: MapPhaseVariant;
   } | null = null;
-  visitingChapter: { index: number; level: string; theme: string } | null = null;
+  visitingChapter: { index: number; level: string; theme: string; locked: boolean } | null = null;
 
   async openPastMaps() {
     if (!this.language) return;
@@ -1784,7 +1916,54 @@ export class JourneyPage implements OnInit, OnDestroy {
     }, 8000);
   }
 
-  private startVisitingChapter(c: { index: number; level: string; theme: string; phaseTitles?: string[] }) {
+  onChapterRailTap(ch: JourneyChapterStripItem): void {
+    if (ch.selected && this.visitingChapter) {
+      this.exitVisitingChapter();
+      return;
+    }
+    if (ch.state === 'future') {
+      this.startVisitingChapter({
+        index: ch.index,
+        level: ch.level,
+        theme: ch.theme,
+        phaseTitles: this.previewPhaseTitlesFor(ch),
+        locked: true
+      });
+      return;
+    }
+    const completed = this.findCompletedChapterData(ch.index);
+    this.startVisitingChapter({
+      index: ch.index,
+      level: ch.level,
+      theme: ch.theme,
+      phaseTitles: completed?.phaseTitles?.length
+        ? completed.phaseTitles
+        : this.previewPhaseTitlesFor(ch),
+      locked: false
+    });
+  }
+
+  private findCompletedChapterData(index: number): { phaseTitles: string[] } | null {
+    const row = (this.plan?.chaptersCompleted || []).find(c => c.index === index);
+    if (!row) return null;
+    const phaseTitles = (row.phases || []).map(p => p.title || '').filter(Boolean);
+    return phaseTitles.length ? { phaseTitles } : null;
+  }
+
+  private previewPhaseTitlesFor(ch: { level: string }): string[] {
+    const count = 4;
+    return Array.from({ length: count }, (_, i) =>
+      this.translate.instant('JOURNEY.CHAPTER_RAIL.PREVIEW_PHASE', { n: i + 1, level: ch.level })
+    );
+  }
+
+  private startVisitingChapter(c: {
+    index: number;
+    level: string;
+    theme: string;
+    phaseTitles?: string[];
+    locked?: boolean;
+  }) {
     if (!this.liveChapterSnapshot) {
       this.liveChapterSnapshot = {
         theme: this.chapterTheme,
@@ -1795,7 +1974,12 @@ export class JourneyPage implements OnInit, OnDestroy {
         mapPhaseVariant: this.mapPhaseVariant
       };
     }
-    this.visitingChapter = { index: c.index, level: c.level, theme: c.theme };
+    this.visitingChapter = {
+      index: c.index,
+      level: c.level,
+      theme: c.theme,
+      locked: !!c.locked
+    };
     this.chapterTheme = c.theme;
     this.chapterLevel = c.level;
     this.chapterIndex = c.index;
@@ -1807,6 +1991,7 @@ export class JourneyPage implements OnInit, OnDestroy {
     this.backgroundFailed = false;
     // Replace map nodes with the visited chapter's titles (read-only).
     if (Array.isArray(c.phaseTitles) && c.phaseTitles.length) {
+      const locked = !!c.locked;
       this.phaseRows = c.phaseTitles.map((title, i) => ({
         index: i,
         title: title || `Phase ${i + 1}`,
@@ -1814,7 +1999,7 @@ export class JourneyPage implements OnInit, OnDestroy {
         focusAreas: [],
         suggestedTopics: [],
         exitCriteria: '',
-        status: 'completed' as const,
+        status: locked ? ('locked' as const) : ('completed' as const),
         lessonsCompleted: 0,
         estimatedLessons: 0,
         masteryAverage: null,
@@ -1876,22 +2061,25 @@ export class JourneyPage implements OnInit, OnDestroy {
     return journeyBackgroundUrlHiRes(this.backgroundUrl);
   }
 
+  /** Drives map crossfade when switching live ↔ preview chapters. */
+  get mapPreviewAnimKey(): string {
+    return `${this.chapterTheme}-${this.visitingChapter?.index ?? 'live'}`;
+  }
+
   /** Non-current chapters for the left vertical rail (A1→C2). */
   get chapterRailItems(): JourneyChapterStripItem[] {
     return this.chapterStrip.filter(ch => ch.state !== 'current');
   }
 
   private rebuildChapterStrip(): void {
-    const progressIndex = this.visitingChapter
-      ? (this.liveChapterSnapshot?.index ?? this.chapterIndex)
-      : this.chapterIndex;
-    const displayIndex = this.visitingChapter?.index ?? this.chapterIndex;
+    const liveIndex = this.liveChapterSnapshot?.index ?? this.chapterIndex;
+    const previewIndex = this.visitingChapter?.index ?? null;
 
     this.chapterStrip = JourneyPage.CHAPTER_PREVIEWS.map(ch => {
       let state: JourneyChapterStripItem['state'];
-      if (ch.index === displayIndex) {
+      if (ch.index === liveIndex) {
         state = 'current';
-      } else if (ch.index > progressIndex) {
+      } else if (ch.index > liveIndex) {
         state = 'future';
       } else {
         state = 'past';
@@ -1902,7 +2090,8 @@ export class JourneyPage implements OnInit, OnDestroy {
         theme: ch.theme,
         label: ch.label,
         imageUrl: journeyBackgroundUrl(ch.theme, 5),
-        state
+        state,
+        selected: previewIndex === ch.index
       };
     });
   }
@@ -1927,6 +2116,17 @@ export class JourneyPage implements OnInit, OnDestroy {
   private static depthToOpacity(z: number): number {
     const clamped = Math.max(0, Math.min(1, z));
     return 0.76 + clamped * 0.24;
+  }
+
+  /** Map pill shows the phase number separately — drop a duplicate "Phase N:" prefix. */
+  private static mapNodeLabelTitle(title: string, index: number): string {
+    const trimmed = (title || '').trim();
+    if (!trimmed) return `Phase ${index + 1}`;
+    const stripped = trimmed.replace(
+      new RegExp(`^phase\\s+${index + 1}\\s*[:\\-–—]\\s*`, 'i'),
+      ''
+    ).trim();
+    return stripped || trimmed;
   }
 
   private waypointDepth(pt: PathWaypoint, pts: PathWaypoint[]): number {
@@ -2052,6 +2252,7 @@ export class JourneyPage implements OnInit, OnDestroy {
         labelPlacement,
         labelAlign,
         labelOffsetX: layoutPt?.labelOffsetX ?? 0,
+        labelTitle: JourneyPage.mapNodeLabelTitle(row.title, i),
         row
       };
     });
@@ -2086,7 +2287,11 @@ export class JourneyPage implements OnInit, OnDestroy {
       .map(rb => {
         const upstreamDone = statusAt(rb.afterPhase) === 'completed';
         const nextDone = statusAt(rb.afterPhase + 1) === 'completed';
-        let state: RoadblockNode['state'] = nextDone ? 'cleared' : upstreamDone ? 'active' : 'locked';
+        // A gate is cleared if the next phase is done OR the student already
+        // passed it (persisted). The persisted flag is what stops a passed
+        // gate from auto-reopening before phase N+1 is completed.
+        const passed = this.clearedRoadblockKeys.has(this.roadblockKey(rb.afterPhase));
+        let state: RoadblockNode['state'] = (nextDone || passed) ? 'cleared' : upstreamDone ? 'active' : 'locked';
         if (this.isDev && this.devRoadblockForceActive && state !== 'cleared') {
           state = 'active';
         }
@@ -2167,12 +2372,15 @@ export class JourneyPage implements OnInit, OnDestroy {
   private buildRoadblockQuizLoader(
     node: RoadblockNode,
     devOpts?: { mock?: boolean; skipStateCheck?: boolean }
-  ): Promise<{ quiz: RoadblockQuiz; struggleLabel: string; personalizedHeader: string } | null> {
+  ): Promise<RoadblockGatePayload | null> {
     if (devOpts?.mock) {
       return Promise.resolve({
         quiz: this.buildMockRoadblockQuiz(),
         struggleLabel: 'greetings',
-        personalizedHeader: 'Dev preview — quick check on greetings.'
+        personalizedHeader: 'Dev preview — quick check on greetings.',
+        label: 'Dev preview',
+        tier: 'dev',
+        reviewItems: []
       });
     }
 
@@ -2193,14 +2401,20 @@ export class JourneyPage implements OnInit, OnDestroy {
         return {
           quiz: res.quiz,
           struggleLabel: res.struggleLabel || '',
-          personalizedHeader: res.personalizedHeader || ''
+          personalizedHeader: res.personalizedHeader || res.label || '',
+          label: res.label || '',
+          tier: res.tier || '',
+          reviewItems: res.reviewItems || []
         };
       }
       if (this.isDev) {
         return {
           quiz: this.buildMockRoadblockQuiz(),
           struggleLabel: res?.struggleLabel || 'checkpoint',
-          personalizedHeader: res?.personalizedHeader || 'Dev fallback quiz.'
+          personalizedHeader: res?.personalizedHeader || 'Dev fallback quiz.',
+          label: 'Dev fallback',
+          tier: 'dev',
+          reviewItems: []
         };
       }
       return null;
@@ -2208,7 +2422,7 @@ export class JourneyPage implements OnInit, OnDestroy {
   }
 
   private async presentRoadblockQuizModal(
-    quizLoader: Promise<{ quiz: RoadblockQuiz; struggleLabel: string; personalizedHeader: string } | null>,
+    quizLoader: Promise<RoadblockGatePayload | null>,
     roadblockNode?: RoadblockNode
   ): Promise<void> {
     // Park the blue dot ON the gate (not hidden) so it's the only marker and
@@ -2237,6 +2451,22 @@ export class JourneyPage implements OnInit, OnDestroy {
         .completeQuiz(data.quizId, 0, { correct: data.correct, total: data.total })
         .pipe(take(1))
         .subscribe({ error: () => {} });
+
+      // Persist the pass so the gate stays cleared on revisit (fixes the
+      // auto-reopen-on-every-visit bug). Update local state immediately so
+      // the map reflects it without waiting for the round-trip.
+      if (roadblockNode) {
+        this.markRoadblockCleared(roadblockNode, data.quizId);
+      }
+
+      // Save any nuggets the student opted to keep into the review deck.
+      if (Array.isArray(data?.savedReviewItems) && data.savedReviewItems.length) {
+        this.learningPlanService
+          .saveReviewItems(this.language, data.savedReviewItems)
+          .pipe(take(1))
+          .subscribe({ error: () => {} });
+      }
+
       this.showToast(this.translate.instant('JOURNEY.ROADBLOCK.PASSED_TOAST'), 'success');
       if (roadblockNode) {
         await this.playPostRoadblockTravelSequence(roadblockNode);
@@ -2244,6 +2474,31 @@ export class JourneyPage implements OnInit, OnDestroy {
       }
     }
     this.syncTravelerRestingPosition();
+  }
+
+  /** Map-stable id for a roadblock gate (matches the backend `key`). */
+  private roadblockKey(afterPhase: number): string {
+    return `${this.chapterTheme}-${this.phaseRows.length}-rb-${afterPhase}`;
+  }
+
+  /** Mark a gate cleared locally + persist it to the DB (the cross-platform
+   *  source of truth). Idempotent server-side. */
+  private markRoadblockCleared(node: RoadblockNode, quizId?: string): void {
+    const key = this.roadblockKey(node.afterPhase);
+    if (this.clearedRoadblockKeys.has(key)) return;
+    this.clearedRoadblockKeys.add(key);
+    this.computeHotspots();
+    this.cdr.markForCheck();
+    this.learningPlanService
+      .clearRoadblock(this.language, {
+        key,
+        afterPhase: node.afterPhase,
+        chapterTheme: this.chapterTheme,
+        phaseCount: this.phaseRows.length,
+        quizId
+      })
+      .pipe(take(1))
+      .subscribe({ error: () => {} });
   }
 
   createRoadblockModalEnterAnimation = (baseEl: HTMLElement) => {
@@ -2481,27 +2736,67 @@ export class JourneyPage implements OnInit, OnDestroy {
       return;
     }
 
-    // Warm the quiz now so generation overlaps the travel animation.
-    this.prefetchRoadblockQuiz(gate);
-
+    // Claim the queue immediately so re-entrant calls don't double-open while
+    // we confirm the gate against the DB (the cross-platform source of truth).
     this.roadblockTravelQueued = true;
-    const alreadyTravelled = this.hasSeenRoadblockTravel(gate.afterPhase);
-    const waitForPath = () => {
-      if (!this.pathReady) {
-        requestAnimationFrame(waitForPath);
+
+    void this.verifyRoadblockStillActive(gate).then(stillActive => {
+      if (!stillActive) {
+        // Already cleared on another device/tab — never auto-open it.
+        this.roadblockTravelQueued = false;
+        this.schedulePhaseMovementCheck();
         return;
       }
-      if (alreadyTravelled) {
-        // Travel already shown — skip the animation, park the blue dot on the
-        // gate, and still open the quiz.
-        this.roadblockTravelQueued = false;
-        this.restTravelerAtRoadblock(gate);
-        void this.onRoadblockTap(gate);
-      } else {
-        void this.playRoadblockTravelSequence(gate, { openQuiz: true });
+
+      // Warm the quiz now so generation overlaps the travel animation.
+      this.prefetchRoadblockQuiz(gate);
+
+      const alreadyTravelled = this.hasSeenRoadblockTravel(gate.afterPhase);
+      const waitForPath = () => {
+        if (!this.pathReady) {
+          requestAnimationFrame(waitForPath);
+          return;
+        }
+        if (alreadyTravelled) {
+          // Travel already shown — skip the animation, park the blue dot on the
+          // gate, and still open the quiz.
+          this.roadblockTravelQueued = false;
+          this.restTravelerAtRoadblock(gate);
+          void this.onRoadblockTap(gate);
+        } else {
+          void this.playRoadblockTravelSequence(gate, { openQuiz: true });
+        }
+      };
+      requestAnimationFrame(waitForPath);
+    });
+  }
+
+  /**
+   * Confirm against the DB (source of truth, shared with the RN app) that a
+   * gate hasn't already been cleared elsewhere before auto-opening its quiz.
+   * Our web plan cache can be stale across tabs; this reconciles the cleared
+   * set + recomputes hotspots from the fresh plan. Returns whether the gate
+   * is still active. On network failure, falls back to local state.
+   */
+  private async verifyRoadblockStillActive(node: RoadblockNode): Promise<boolean> {
+    const key = this.roadblockKey(node.afterPhase);
+    try {
+      const res: any = await firstValueFrom(
+        this.learningPlanService.getPlan(this.language).pipe(take(1))
+      );
+      const clearedKeys: string[] = ((res?.plan?.clearedRoadblocks) || []).map((r: any) => r.key);
+      if (clearedKeys.length) {
+        const before = this.clearedRoadblockKeys.size;
+        clearedKeys.forEach(k => this.clearedRoadblockKeys.add(k));
+        if (this.clearedRoadblockKeys.size !== before) {
+          this.computeHotspots();
+          this.cdr.markForCheck();
+        }
       }
-    };
-    requestAnimationFrame(waitForPath);
+    } catch {
+      // Offline / transient error — don't block on the network; use what we have.
+    }
+    return !this.clearedRoadblockKeys.has(key);
   }
 
   /**

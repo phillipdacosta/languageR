@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable, Subject, of } from 'rxjs';
 import { switchMap, take, tap } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
+import { TranslateService } from '@ngx-translate/core';
 import { UserService } from './user.service';
 
 export interface LearningPlanPhase {
@@ -191,6 +192,12 @@ export interface ChestReward {
 export interface RoadblockQuizQuestion {
   type: 'multiple_choice' | 'fill_blank' | 'translate' | 'listen_select';
   prompt: string;
+  /** i18n key for app-authored prompts (e.g. Tier A "Which version is
+   *  correct?"). When present, render the translated key instead of `prompt`. */
+  promptKey?: string;
+  /** Prompt rendered in the student's interface language (shown under the
+   *  target-language prompt so they understand what's being asked). */
+  promptTranslation?: string;
   options?: string[];
   correctAnswer: string;
   acceptableAlternatives?: string[];
@@ -207,6 +214,17 @@ export interface RoadblockQuiz {
   questions: RoadblockQuizQuestion[];
 }
 
+/** A saveable nugget surfaced in a roadblock (correction, tutor tip, or
+ *  goal phrase). Routes straight into the review deck. */
+export interface RoadblockReviewItem {
+  itemType: 'correction' | 'phrase' | 'tip';
+  original?: string;
+  corrected: string;
+  explanation?: string;
+  context?: string;
+  errorType?: string;
+}
+
 export interface RoadblockResponse {
   success: boolean;
   available: boolean;
@@ -214,6 +232,12 @@ export interface RoadblockResponse {
   struggle?: string;
   struggleLabel?: string;
   personalizedHeader?: string;
+  /** Content provenance: A=own lessons, B=tutor notes, C=goal-inferred. */
+  tier?: string;
+  /** Honest, human-readable provenance label for the gate header. */
+  label?: string;
+  /** Items the student can save to their review deck. */
+  reviewItems?: RoadblockReviewItem[];
   reason?: string;
 }
 
@@ -327,9 +351,16 @@ export interface LessonPrepTopError {
   teachingPriority?: string;
 }
 
+export interface LessonPrepErrorPatternExample {
+  original: string;
+  corrected: string;
+  explanation?: string;
+}
+
 export interface LessonPrepErrorPattern {
   pattern: string;
   severity?: 'low' | 'medium' | 'high';
+  examples?: LessonPrepErrorPatternExample[];
 }
 
 export interface LessonPrep {
@@ -556,7 +587,8 @@ export class LearningPlanService {
 
   constructor(
     private http: HttpClient,
-    private userService: UserService
+    private userService: UserService,
+    private translate: TranslateService
   ) {}
 
   getPlan(language: string): Observable<{ success: boolean; plan: LearningPlan; entitlements?: ClientEntitlements }> {
@@ -731,9 +763,10 @@ export class LearningPlanService {
       take(1),
       switchMap(() => {
         const headers = this.userService.getAuthHeadersSync();
+        const interfaceLanguage = this.translate.currentLang || this.translate.defaultLang || 'en';
         return this.http.post<RoadblockResponse>(
           `${environment.backendUrl}/api/quizzes/roadblock`,
-          { language, phaseIndex },
+          { language, phaseIndex, interfaceLanguage },
           { headers }
         );
       })
@@ -789,6 +822,51 @@ export class LearningPlanService {
           { chestId, phaseIndex },
           { headers }
         ).pipe(tap(() => this.invalidatePlanCache(language)));
+      })
+    );
+  }
+
+  /**
+   * Persist that a roadblock gate was passed, so it stays cleared on revisit
+   * (no more auto-reopening before the next phase is completed). Idempotent.
+   */
+  clearRoadblock(
+    language: string,
+    payload: { key: string; afterPhase: number; chapterTheme: string; phaseCount: number; quizId?: string }
+  ): Observable<{ success: boolean; alreadyCleared?: boolean }> {
+    return this.userService.getCurrentUser().pipe(
+      take(1),
+      switchMap(() => {
+        const headers = this.userService.getAuthHeadersSync();
+        return this.http.post<{ success: boolean; alreadyCleared?: boolean }>(
+          `${this.apiUrl}/${encodeURIComponent(language)}/roadblock/clear`,
+          payload,
+          { headers }
+        ).pipe(tap(() => this.invalidatePlanCache(language)));
+      })
+    );
+  }
+
+  /** Save roadblock nuggets (corrections / tips / phrases) to the review deck. */
+  saveReviewItems(language: string, items: RoadblockReviewItem[]): Observable<{ success: boolean }> {
+    return this.userService.getCurrentUser().pipe(
+      take(1),
+      switchMap(() => {
+        const headers = this.userService.getAuthHeadersSync();
+        const payload = (items || []).map(i => ({
+          itemType: i.itemType,
+          original: i.original || '',
+          corrected: i.corrected,
+          explanation: i.explanation || '',
+          context: i.context || '',
+          errorType: i.errorType || 'other',
+          language
+        }));
+        return this.http.post<{ success: boolean }>(
+          `${environment.backendUrl}/api/review-deck/batch`,
+          { items: payload },
+          { headers }
+        );
       })
     );
   }
