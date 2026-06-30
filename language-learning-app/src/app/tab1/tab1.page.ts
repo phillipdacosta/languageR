@@ -46,7 +46,7 @@ import { buildStripeConnectPayloadForProfilePayout, classifyStripeReturnStatus, 
 import { SmartIslandService, DynamicCard } from '../services/smart-island.service';
 import { TranslateService } from '@ngx-translate/core';
 import { LearningPlanService, LearningPlan } from '../services/learning-plan.service';
-import { journeyBackgroundPreloadUrls } from '../journey/journey-map-assets';
+import { journeyBackgroundPreloadUrls, resolveJourneyHotspots } from '../journey/journey-map-assets';
 import { TranscriptionService, LessonAnalysis } from '../services/transcription.service';
 import { GamificationService, Badge as GamBadge } from '../services/gamification.service';
 import { ReviewDeckService } from '../services/review-deck.service';
@@ -3008,6 +3008,10 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     const phaseCount = Array.isArray(plan.phases) ? plan.phases.length : 4;
     this.imagePreloadService.preloadMany(journeyBackgroundPreloadUrls(chapterTheme, phaseCount));
 
+    // If the student is parked at an active roadblock gate, warm its checkpoint
+    // quiz now (while they're still on home) so the modal opens instantly.
+    this.prefetchActiveRoadblock(plan, chapterTheme);
+
     // Pre-mount the journey component hidden (behind *ngIf="journeyPreloaded")
     // so Angular bootstraps it, the cache-first getPlanWithCache returns
     // synchronously, and the SVG path + canvas are computed while the user is
@@ -3596,6 +3600,38 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     while (top?.classList.contains('journey-intro-modal')) {
       await top.dismiss({ reason: 'done' }, 'confirm');
       top = await this.modalCtrl.getTop();
+    }
+  }
+
+  /**
+   * If the plan shows the student parked at an active roadblock gate, warm its
+   * checkpoint quiz in the background now (home page) so the modal opens
+   * instantly when they reach it. Mirrors the journey-map gate detection.
+   */
+  private prefetchActiveRoadblock(plan: any, chapterTheme: string): void {
+    try {
+      const phases = Array.isArray(plan?.phases) ? plan.phases : [];
+      const n = phases.length;
+      if (n < 2) return;
+      const language = plan?.language || this.learningPlanService.activeJourneyLanguage;
+      if (!language) return;
+      const hotspots = resolveJourneyHotspots(chapterTheme, n);
+      const roadblocks = hotspots?.roadblocks || [];
+      if (!roadblocks.length) return;
+
+      const idx = plan.currentPhaseIndex || 0;
+      const statusAt = (i: number): string | null => {
+        if (i < 0 || i >= n) return null;
+        return phases[i].status || (i < idx ? 'completed' : i === idx ? 'active' : 'locked');
+      };
+      const gate = roadblocks
+        .filter((rb: any) => rb.afterPhase < n - 1)
+        .find((rb: any) => statusAt(rb.afterPhase) === 'completed' && statusAt(rb.afterPhase + 1) !== 'completed');
+      if (!gate) return;
+
+      firstValueFrom(this.learningPlanService.getRoadblockQuiz(language, gate.afterPhase + 1)).catch(() => {});
+    } catch {
+      /* non-blocking */
     }
   }
 

@@ -18,6 +18,9 @@ const quizQuestionSchema = new mongoose.Schema({
   options: [{ type: String }],          // for multiple_choice / listen_select
   correctAnswer: { type: String, required: true }, // canonical answer (string compare or index for MC)
   acceptableAlternatives: [{ type: String }],
+  // When true, any reasonable free-text answer is accepted (e.g. "Ich heiße ___"
+  // where any name works). Avoids penalizing students for typing their own name.
+  openAnswer: { type: Boolean, default: false },
   explanation: { type: String, default: '' },
   example: { type: String, default: '' }
 }, { _id: false });

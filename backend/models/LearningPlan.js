@@ -87,6 +87,8 @@ const historyEntrySchema = new mongoose.Schema({
       'admin_override',
       // Batch 11: AI split a stuck phase into 2a/2b.
       'phase_split',
+      // Tutor explicitly accepted the suggested next-lesson focus (adherence signal).
+      'tutor_accept_focus',
       null
     ],
     default: null
@@ -131,7 +133,7 @@ const tutorOverrideSchema = new mongoose.Schema({
   date: { type: Date, default: Date.now },
   action: {
     type: String,
-    enum: ['extend_phase', 'advance_phase', 'skip_phase', 'adjust_focus', 'add_note'],
+    enum: ['extend_phase', 'advance_phase', 'skip_phase', 'adjust_focus', 'add_note', 'accept_focus'],
     required: true
   },
   note: { type: String, default: '' }
@@ -308,6 +310,11 @@ const learningPlanSchema = new mongoose.Schema({
     default: 0
   },
   phases: [phaseSchema],
+  // Idempotency guard: lesson IDs already folded into the plan (scores,
+  // lessonsCompleted, beliefs, advancement). Prevents a re-analyzed lesson
+  // from double-counting toward the phase-advancement floor. Capped to the
+  // most recent ~100 ids since only recency matters for dedupe.
+  appliedLessonIds: [{ type: mongoose.Schema.Types.ObjectId }],
   // Phase promotion gate: rollingScore (default) | bayesian | hybrid.
   // See masteryService.evaluateAdvancementForPlan.
   masteryGateMode: {

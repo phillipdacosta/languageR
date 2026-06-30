@@ -22,8 +22,18 @@ export class RoadblockQuizModalComponent implements OnInit {
   @Input() quiz!: RoadblockQuiz;
   @Input() struggleLabel = '';
   @Input() personalizedHeader = '';
+  /** When provided, the modal opens immediately in a loading state and resolves
+   *  the quiz from this promise — so generation latency never blocks the open. */
+  @Input() quizLoader?: Promise<{
+    quiz: RoadblockQuiz;
+    struggleLabel?: string;
+    personalizedHeader?: string;
+  } | null>;
 
   readonly roadblockIconSrc = 'assets/journey/sprites/roadblock.png';
+
+  loading = false;
+  loadFailed = false;
 
   stage: 'intro' | 'quiz' | 'done' = 'intro';
   questionIndex = 0;
@@ -33,6 +43,7 @@ export class RoadblockQuizModalComponent implements OnInit {
   typedAnswer = '';
   answered = false;
   isCorrect = false;
+  retryHint = '';
 
   // First-attempt performance — reported on finish so the backend can
   // fold it into the student's skill belief. The gate is un-failable, so
@@ -54,9 +65,41 @@ export class RoadblockQuizModalComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    if (this.quizLoader) {
+      this.loading = true;
+      this.footerVisible = false;
+      this.quizLoader
+        .then(res => this.onQuizLoaded(res))
+        .catch(() => this.onQuizLoaded(null));
+      this.cdr.markForCheck();
+      return;
+    }
+    this.applyIntroLine();
+    this.updateFooterState();
+  }
+
+  private onQuizLoaded(res: { quiz: RoadblockQuiz; struggleLabel?: string; personalizedHeader?: string } | null): void {
+    this.loading = false;
+    if (!res || !res.quiz) {
+      this.loadFailed = true;
+      this.footerVisible = true;
+      this.footerDisabled = false;
+      this.footerLabelKey = 'COMMON.CLOSE';
+      this.cdr.markForCheck();
+      return;
+    }
+    this.quiz = res.quiz;
+    if (res.struggleLabel) this.struggleLabel = res.struggleLabel;
+    if (res.personalizedHeader) this.personalizedHeader = res.personalizedHeader;
+    this.applyIntroLine();
+    this.stage = 'intro';
+    this.updateFooterState();
+    this.cdr.markForCheck();
+  }
+
+  private applyIntroLine(): void {
     this.introLine = this.personalizedHeader
       || (this.struggleLabel ? `A quick check on ${this.struggleLabel}.` : 'A quick check before you move on.');
-    this.updateFooterState();
   }
 
   trackByIndex(i: number): number { return i; }
@@ -74,6 +117,7 @@ export class RoadblockQuizModalComponent implements OnInit {
     if (this.answered && !this.isCorrect) {
       this.answered = false;
       this.isCorrect = false;
+      this.retryHint = '';
     }
     this.footerDisabled = !this.typedAnswer.trim();
     this.updateFooterState();
@@ -82,6 +126,11 @@ export class RoadblockQuizModalComponent implements OnInit {
 
   onFooterPrimary(): void {
     if (this.footerDisabled || !this.footerVisible) return;
+    if (this.loadFailed) {
+      this.modalCtrl.dismiss(null, 'cancel');
+      return;
+    }
+    if (this.loading) return;
     if (this.stage === 'intro') {
       this.start();
       return;
@@ -109,6 +158,7 @@ export class RoadblockQuizModalComponent implements OnInit {
     this.typedAnswer = '';
     this.answered = false;
     this.isCorrect = false;
+    this.retryHint = '';
     this.questionScored = false;
     const total = this.quiz?.questions?.length || 1;
     this.questionCountLabel = this.translate.instant('JOURNEY.ROADBLOCK.QUESTION_COUNT', {
@@ -183,9 +233,9 @@ export class RoadblockQuizModalComponent implements OnInit {
     if (this.answered && this.isCorrect) return;
     const q = this.currentQuestion;
     if (!q) return;
-    const candidates = [q.correctAnswer, ...(q.acceptableAlternatives || [])].map(a => this.normalize(a));
     this.answered = true;
-    this.isCorrect = candidates.includes(this.normalize(this.typedAnswer));
+    this.isCorrect = this.typedAnswerIsCorrect(q, this.typedAnswer);
+    this.retryHint = this.isCorrect ? '' : this.buildRetryHint(q);
     this.gradeFirstAttempt();
     if (this.isCorrect) {
       const total = this.quiz?.questions?.length || 1;
@@ -229,5 +279,37 @@ export class RoadblockQuizModalComponent implements OnInit {
 
   private normalize(s: string): string {
     return String(s || '').trim().toLowerCase().replace(/[.!?¿¡]/g, '');
+  }
+
+  private inferOpenAnswer(q: RoadblockQuizQuestion): boolean {
+    if (q.openAnswer === true) return true;
+    if (q.openAnswer === false) return false;
+    if (q.type !== 'fill_blank' && q.type !== 'translate') return false;
+    const prompt = q.prompt || '';
+    if (!/_{2,}|\.{3,}|\[\s*blank\s*\]|\(\s*\)/i.test(prompt)) return false;
+    return /\bhei[ßs]e\b|my name is|me llamo|je m'?appelle|mi chiamo|ich bin\b|\bsoy\b|je suis|introduce yourself|your name/i.test(prompt);
+  }
+
+  private isReasonableOpenAnswer(raw: string): boolean {
+    const s = String(raw || '').trim();
+    if (!s || s.length > 40) return false;
+    return /^[\p{L}\p{M}'\-\s]{1,40}$/u.test(s);
+  }
+
+  private typedAnswerIsCorrect(q: RoadblockQuizQuestion, raw: string): boolean {
+    if (this.inferOpenAnswer(q)) {
+      return this.isReasonableOpenAnswer(raw);
+    }
+    const candidates = [q.correctAnswer, ...(q.acceptableAlternatives || [])].map(a => this.normalize(a));
+    return candidates.includes(this.normalize(raw));
+  }
+
+  private buildRetryHint(q: RoadblockQuizQuestion): string {
+    if (this.inferOpenAnswer(q)) {
+      return this.translate.instant('JOURNEY.ROADBLOCK.OPEN_ANSWER_HINT');
+    }
+    const answer = q.correctAnswer?.trim();
+    if (!answer) return '';
+    return this.translate.instant('JOURNEY.ROADBLOCK.TRY_ANSWER', { answer });
   }
 }

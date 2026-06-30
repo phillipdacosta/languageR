@@ -173,7 +173,11 @@ router.post('/roadblock', verifyToken, async (req, res) => {
       language,
       struggle: topStruggle.skillId,
       level,
-      trigger: 'roadblock'
+      trigger: 'roadblock',
+      struggleContext: {
+        displayName: topStruggle.displayName || '',
+        examples: topStruggle.examples || []
+      }
     });
 
     if (!result.pushed) {

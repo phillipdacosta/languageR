@@ -77,50 +77,52 @@
           <div class="ed-split approval-split-layout">
             <!-- ═══ LEFT: participant context (post-lesson-tutor style) ═══ -->
             <aside class="ed-details approval-split-guidance">
-              <div
-                class="ed-sidebar-head"
-                [class.ed-sidebar-head--clickable]="isStudentUser && tutorId"
-                (click)="isStudentUser && tutorId ? openTutorProfile() : null">
-                <img *ngIf="participantPicture" class="ed-sidebar-head__avatar" [src]="participantPicture" [alt]="participantName" referrerpolicy="no-referrer">
-                <span *ngIf="!participantPicture" class="ed-sidebar-head__avatar ed-sidebar-head__avatar--initial">{{ participantInitial }}</span>
-                <div class="ed-sidebar-head__body">
-                  <h3 class="ed-sidebar-head__name">{{ edSidebarTitle }}</h3>
-                  <p
-                    class="ed-sidebar-head__meta"
-                    *ngIf="participantMetaLine || participantMetaPending || edSidebarShowTrialLabel"
-                    [class.ed-sidebar-head__meta--pending]="participantMetaPending && !participantMetaLine && !edSidebarShowTrialLabel">
-                    <span *ngIf="participantMetaLine">{{ participantMetaLine }}</span><span class="ed-sidebar-head__trial" *ngIf="edSidebarShowTrialLabel"><span class="ed-sidebar-head__trial-sep" *ngIf="participantMetaLine" aria-hidden="true"> · </span><ion-icon name="star" aria-hidden="true"></ion-icon>{{ 'HOME.TRIAL_LESSON' | translate }}</span>
-                  </p>
-                  <div class="ed-sidebar-head__badges">
-                    <span class="ed-status" [ngClass]="statusClass">{{ statusLabel }}</span>
+              <div class="ed-sidebar-summary">
+                <div
+                  class="ed-sidebar-head"
+                  [class.ed-sidebar-head--clickable]="isStudentUser && tutorId"
+                  (click)="isStudentUser && tutorId ? openTutorProfile() : null">
+                  <div class="ed-sidebar-head__main">
+                    <img *ngIf="participantPicture" class="ed-sidebar-head__avatar" [src]="participantPicture" [alt]="participantName" referrerpolicy="no-referrer">
+                    <span *ngIf="!participantPicture" class="ed-sidebar-head__avatar ed-sidebar-head__avatar--initial">{{ participantInitial }}</span>
+                    <div class="ed-sidebar-head__body">
+                      <h3 class="ed-sidebar-head__name">{{ edSidebarTitle }}</h3>
+                      <p
+                        class="ed-sidebar-head__meta"
+                        *ngIf="participantMetaLine || participantMetaPending || edSidebarShowTrialLabel"
+                        [class.ed-sidebar-head__meta--pending]="participantMetaPending && !participantMetaLine && !edSidebarShowTrialLabel">
+                        <span *ngIf="participantMetaLine" class="ed-sidebar-head__meta-role">{{ participantMetaLine }}</span>
+                        <span class="ed-sidebar-head__meta-trial" *ngIf="edSidebarShowTrialLabel">
+                          <span class="ed-sidebar-head__trial">{{ 'HOME.TRIAL_LESSON' | translate }}</span>
+                        </span>
+                      </p>
+                    </div>
                   </div>
+                  <span class="ed-status ed-sidebar-head__status" [ngClass]="statusClass">{{ statusLabel }}</span>
                 </div>
-              </div>
 
-              <div class="ed-lesson-schedule">
-                <div class="ed-lesson-schedule-col ed-lesson-schedule-col--date">
-                  <div
-                    class="tw-date-badge"
-                    [class.tw-date-badge--today]="edScheduleIsToday"
-                    [class.tw-date-badge--today-word]="edScheduleIsToday">
-                    <span class="tw-date-badge__today-label" *ngIf="edScheduleIsToday">{{ 'HOME.TODAY' | translate }}</span>
-                    <ng-container *ngIf="!edScheduleIsToday">
-                      <span class="tw-date-badge__month">{{ edScheduleDateBadgeMonth }}</span>
-                      <span class="tw-date-badge__day">{{ edScheduleDateBadgeDay }}</span>
-                      <span class="tw-date-badge__weekday">{{ edScheduleDateBadgeWeekday }}</span>
-                    </ng-container>
+                <div class="ed-lesson-schedule">
+                  <div class="ed-lesson-schedule__date">
+                    <div
+                      class="tw-date-badge"
+                      [class.tw-date-badge--today]="edScheduleIsToday"
+                      [class.tw-date-badge--today-word]="edScheduleIsToday">
+                      <span class="tw-date-badge__today-label" *ngIf="edScheduleIsToday">{{ 'HOME.TODAY' | translate }}</span>
+                      <ng-container *ngIf="!edScheduleIsToday">
+                        <span class="tw-date-badge__month">{{ edScheduleDateBadgeMonth }}</span>
+                        <span class="tw-date-badge__day">{{ edScheduleDateBadgeDay }}</span>
+                        <span class="tw-date-badge__weekday">{{ edScheduleDateBadgeWeekday }}</span>
+                      </ng-container>
+                    </div>
+                  </div>
+                  <div class="ed-lesson-schedule__time">
+                    <div class="ed-lesson-schedule__time-row">
+                      <ion-icon class="ed-lesson-schedule__icon" name="time-outline" aria-hidden="true"></ion-icon>
+                      <span class="ed-lesson-schedule-time">{{ formattedTimeRange }}</span>
+                    </div>
+                    <span class="ed-lesson-schedule-duration">{{ edScheduleDurationLabel }}</span>
                   </div>
                 </div>
-                <span class="ed-lesson-schedule-divider" aria-hidden="true"></span>
-                <div class="ed-lesson-schedule-primary-line">
-                  <img
-                    class="ed-lesson-schedule-icon"
-                    src="assets/upnext-schedule-clock.png"
-                    alt=""
-                    aria-hidden="true" />
-                  <span class="ed-lesson-schedule-time">{{ formattedTimeRange }}</span>
-                </div>
-                <span class="ed-lesson-schedule-duration">{{ edScheduleDurationLabel }}</span>
               </div>
 
             <!-- Quick actions (consolidated: join/rebook/message in one row) -->
@@ -285,23 +287,8 @@
         <div class="ed-focus-card">
           <div class="ed-focus-card-head">
             <span class="ed-focus-card-eyebrow">{{ (edPlanIsTrial ? 'EVENT_DETAILS.LESSON_SCREEN.TRIAL_EYEBROW' : edPlanEyebrowKey) | translate }}</span>
-            <div class="ed-focus-card-head-actions" *ngIf="!mcLearningFocusEmpty">
-              <span class="ed-focus-card-state" *ngIf="edPlanStateLabel && !showJourneyMapPreview">{{ edPlanStateLabel }}</span>
-              <button
-                type="button"
-                class="ed-focus-card-edit"
-                *ngIf="edCanEditFocus && !edPlanIsTrial && !edFocusEditing"
-                (click)="startFocusEdit()">
-                <ion-icon name="create-outline"></ion-icon>
-                <span>{{ 'EVENT_DETAILS.LESSON_SCREEN.FOCUS_EDIT_CTA' | translate }}</span>
-              </button>
-              <button
-                type="button"
-                class="ed-focus-card-edit ed-focus-card-edit--ghost"
-                *ngIf="edCanEditFocus && !edPlanIsTrial && edFocusEditing"
-                (click)="cancelFocusEdit()">
-                {{ 'COMMON.CANCEL' | translate }}
-              </button>
+            <div class="ed-focus-card-head-actions" *ngIf="edPlanStateLabel && !showJourneyMapPreview">
+              <span class="ed-focus-card-state">{{ edPlanStateLabel }}</span>
             </div>
           </div>
 
@@ -310,6 +297,28 @@
             <div class="ed-focus-card-view" [class.is-hidden]="edFocusEditing">
               <p class="ed-focus-card-body">{{ edPlanFocusBody }}</p>
               <p class="ed-focus-card-advisory" *ngIf="!edPlanIsTrial && !edPlanIsPaused && edPlanAdvisoryNote">{{ edPlanAdvisoryNote }}</p>
+              <div class="ed-focus-card-actions" *ngIf="edCanEditFocus && !edPlanIsTrial">
+                <span class="ed-focus-card-accepted" *ngIf="edFocusAccepted">
+                  <ion-icon name="checkmark-circle"></ion-icon>
+                  <span>{{ 'EVENT_DETAILS.LESSON_SCREEN.FOCUS_ACCEPTED' | translate }}</span>
+                </span>
+                <button
+                  type="button"
+                  class="ed-focus-card-edit ed-focus-card-edit--accept"
+                  *ngIf="!edFocusAccepted"
+                  [disabled]="edFocusAccepting"
+                  (click)="acceptFocus()">
+                  <ion-icon name="checkmark-outline"></ion-icon>
+                  <span>{{ 'EVENT_DETAILS.LESSON_SCREEN.FOCUS_ACCEPT_CTA' | translate }}</span>
+                </button>
+                <button
+                  type="button"
+                  class="ed-focus-card-edit"
+                  (click)="startFocusEdit()">
+                  <ion-icon name="create-outline"></ion-icon>
+                  <span>{{ 'EVENT_DETAILS.LESSON_SCREEN.FOCUS_EDIT_CTA' | translate }}</span>
+                </button>
+              </div>
             </div>
 
             <div class="ed-focus-editor" [class.is-hidden]="!edFocusEditing">
@@ -322,6 +331,9 @@
                 [placeholder]="'EVENT_DETAILS.LESSON_SCREEN.FOCUS_EDIT_PLACEHOLDER' | translate"></textarea>
               <p class="ed-focus-editor-hint">{{ 'EVENT_DETAILS.LESSON_SCREEN.FOCUS_EDIT_HINT' | translate }}</p>
               <div class="ed-focus-editor-actions">
+                <button type="button" class="ed-focus-editor-btn ghost" [disabled]="edFocusSaving" (click)="cancelFocusEdit()">
+                  {{ 'COMMON.CANCEL' | translate }}
+                </button>
                 <button type="button" class="ed-focus-editor-btn primary" [disabled]="edFocusSaving || !edFocusDraft.trim()" (click)="saveFocusEdit()">
                   {{ (edFocusSaving ? 'EVENT_DETAILS.LESSON_SCREEN.FOCUS_EDIT_SAVING' : 'EVENT_DETAILS.LESSON_SCREEN.FOCUS_EDIT_SAVE') | translate }}
                 </button>

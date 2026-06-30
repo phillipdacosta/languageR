@@ -51,7 +51,7 @@ export interface TutorOverride {
   tutorId: string;
   tutorName: string;
   date: string;
-  action: 'extend_phase' | 'advance_phase' | 'skip_phase' | 'adjust_focus' | 'add_note';
+  action: 'extend_phase' | 'advance_phase' | 'skip_phase' | 'adjust_focus' | 'add_note' | 'accept_focus';
   note: string;
 }
 
@@ -194,6 +194,8 @@ export interface RoadblockQuizQuestion {
   options?: string[];
   correctAnswer: string;
   acceptableAlternatives?: string[];
+  /** When true, any reasonable free-text answer is accepted (e.g. name blanks). */
+  openAnswer?: boolean;
   explanation?: string;
   example?: string;
 }

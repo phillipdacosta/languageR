@@ -22,7 +22,7 @@ const seenQuizSchema = new mongoose.Schema({
   // The trigger that pushed this quiz — used for analytics + dedupe.
   trigger: {
     type: String,
-    enum: ['immediate_post_lesson', 'end_of_day_batch', 'manual', 'mastery_mode_weekly'],
+    enum: ['immediate_post_lesson', 'end_of_day_batch', 'manual', 'roadblock', 'mastery_mode_weekly'],
     default: 'manual'
   },
   // Mastery Mode (Batch 13): which C2 theme this challenge covered.

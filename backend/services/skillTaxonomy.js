@@ -31,12 +31,89 @@ const { validateSkillEntry, validateReferences } = require('./skills/taxonomySha
 // `<lang>.unknown.*` bucketing. Add a new file under skills/data/ and
 // register it here to enable a language.
 const TAXONOMY_FILES = Object.freeze({
+  en: './skills/data/en',
   es: './skills/data/es',
-  en: './skills/data/en'
-  // Add fr, de, it, pt, etc. as their taxonomy files come online.
+  de: './skills/data/de',
+  fr: './skills/data/fr',
+  it: './skills/data/it',
+  pt: './skills/data/pt',
+  ru: './skills/data/ru',
+  zh: './skills/data/zh',
+  ja: './skills/data/ja',
+  ko: './skills/data/ko',
+  ar: './skills/data/ar',
+  hi: './skills/data/hi',
+  nl: './skills/data/nl',
+  pl: './skills/data/pl',
+  tr: './skills/data/tr',
+  sv: './skills/data/sv',
+  no: './skills/data/no',
+  da: './skills/data/da',
+  fi: './skills/data/fi',
+  el: './skills/data/el',
+  cs: './skills/data/cs',
+  ro: './skills/data/ro',
+  uk: './skills/data/uk',
+  vi: './skills/data/vi',
+  th: './skills/data/th',
+  id: './skills/data/id',
+  ms: './skills/data/ms',
+  he: './skills/data/he',
+  fa: './skills/data/fa'
 });
 
 const UNIVERSAL_FILE = './skills/data/universal';
+
+// ── Language label → taxonomy prefix ───────────────────────────────
+// The app stores languages as full English names ("German", "Spanish"),
+// but every skillId is namespaced by ISO code ("de.*", "es.*"). Without
+// this mapping, canonicalize() would search a non-existent "<fullword>"
+// prefix and EVERY struggle would fall through to `<lang>.unknown.*`,
+// leaving the language taxonomies dormant. Map names → ISO; pass unknown
+// labels through unchanged so they still bucket safely (no regression).
+const LANG_PREFIX_ALIASES = Object.freeze({
+  english: 'en', en: 'en', eng: 'en',
+  spanish: 'es', es: 'es', espanol: 'es', castellano: 'es',
+  german: 'de', de: 'de', deu: 'de', ger: 'de', deutsch: 'de',
+  french: 'fr', fr: 'fr', francais: 'fr',
+  italian: 'it', it: 'it', italiano: 'it',
+  portuguese: 'pt', pt: 'pt', portugues: 'pt',
+  russian: 'ru', ru: 'ru',
+  chinese: 'zh', zh: 'zh', mandarin: 'zh',
+  japanese: 'ja', ja: 'ja',
+  korean: 'ko', ko: 'ko',
+  arabic: 'ar', ar: 'ar',
+  hindi: 'hi', hi: 'hi',
+  dutch: 'nl', nl: 'nl', nederlands: 'nl',
+  polish: 'pl', pl: 'pl', polski: 'pl',
+  turkish: 'tr', tr: 'tr', turkce: 'tr',
+  swedish: 'sv', sv: 'sv', svenska: 'sv',
+  norwegian: 'no', no: 'no', norsk: 'no',
+  danish: 'da', da: 'da', dansk: 'da',
+  finnish: 'fi', fi: 'fi', suomi: 'fi',
+  greek: 'el', el: 'el', ellinika: 'el',
+  czech: 'cs', cs: 'cs', cestina: 'cs',
+  romanian: 'ro', ro: 'ro', romana: 'ro',
+  ukrainian: 'uk', uk: 'uk',
+  vietnamese: 'vi', vi: 'vi',
+  thai: 'th', th: 'th',
+  indonesian: 'id', id: 'id',
+  malay: 'ms', ms: 'ms',
+  hebrew: 'he', he: 'he', ivrit: 'he',
+  persian: 'fa', fa: 'fa', farsi: 'fa'
+});
+
+function normalizeLangPrefix(lang) {
+  if (typeof lang !== 'string') return 'universal';
+  const raw = lang.trim().toLowerCase();
+  if (!raw) return 'universal';
+  if (LANG_PREFIX_ALIASES[raw]) return LANG_PREFIX_ALIASES[raw];
+  // Strip accents and retry (e.g. "Español" → "espanol").
+  const stripped = raw.normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
+  if (LANG_PREFIX_ALIASES[stripped]) return LANG_PREFIX_ALIASES[stripped];
+  // Unrecognized → keep as-is so it still buckets as `<lang>.unknown.*`.
+  return raw;
+}
 
 // ── Internal indexes (built once at module load) ───────────────────
 // allSkillsById: Map<skillId, skillObject>
@@ -182,7 +259,7 @@ function getSkill(skillId) {
  * "in scope of this language" decisions.
  */
 function listSkillsForLanguage(lang) {
-  const prefix = (lang || '').toLowerCase();
+  const prefix = normalizeLangPrefix(lang);
   const out = [];
   for (const skill of allSkillsById.values()) {
     const p = langPrefixForSkill(skill.id);
@@ -208,7 +285,7 @@ function slugifyForUnknown(rawIssue) {
  * Deterministic; safe to call thousands of times per request. Never throws.
  */
 function canonicalize(rawIssue, lang) {
-  const fallbackPrefix = (lang || '').toLowerCase() || 'universal';
+  const fallbackPrefix = normalizeLangPrefix(lang);
   const fallback = () => ({
     skillId: `${fallbackPrefix}.unknown.${slugifyForUnknown(rawIssue)}`,
     confidence: 'fallback',
@@ -320,5 +397,6 @@ module.exports = {
   stats,
   // Exported for tests
   _normalizeText: normalizeText,
-  _tokensOf: tokensOf
+  _tokensOf: tokensOf,
+  _normalizeLangPrefix: normalizeLangPrefix
 };
