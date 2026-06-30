@@ -17,7 +17,8 @@ import {
   AiRegenStatus,
   ComingUpItem,
   CefrReveal,
-  RoadblockQuiz
+  RoadblockQuiz,
+  RoadblockResponse
 } from '../services/learning-plan.service';
 import { UserService } from '../services/user.service';
 import { FormsModule } from '@angular/forms';
@@ -205,6 +206,21 @@ export class JourneyPage implements OnInit, OnDestroy {
    *  inline mode so the FLIP animation can short-hop between the home CTA
    *  and the inline panel's own back link. */
   @Input() @HostBinding('class.inline') inline = false;
+  /** True only while the inline panel is actually on-screen. The host (tab1)
+   *  pre-mounts this page hidden so the canvas is warm, so we must NOT fire
+   *  the roadblock quiz / travel animation until the student really opens the
+   *  map. Flipping false → true runs the deferred entry check exactly once. */
+  private _active = false;
+  @Input()
+  set active(value: boolean) {
+    const next = !!value;
+    if (next === this._active) return;
+    this._active = next;
+    if (next) this.onJourneyBecameVisible();
+  }
+  get active(): boolean {
+    return this._active;
+  }
   /** Emitted instead of router.back() when running inline, so the host can
    *  drive the reverse FLIP animation. */
   @Output() goBackEvent = new EventEmitter<void>();
@@ -264,8 +280,15 @@ export class JourneyPage implements OnInit, OnDestroy {
   travelerPhaseIndex: number | null = null;
   /** Keeps single-dot styling while the traveler dot is hidden (e.g. roadblock modal). */
   travelerMapMode = false;
+  /** True while the blue dot is parked ON an active roadblock gate (not a phase).
+   *  Suppresses the active-phase node's placeholder so only the blue dot shows. */
+  travelerOnRoadblock = false;
   private travelerAnimating = false;
   private roadblockTravelQueued = false;
+  /** In-flight roadblock-quiz fetch, started as soon as the gate is detected so
+   *  generation overlaps the travel animation instead of blocking the open. */
+  private roadblockPrefetch: Promise<RoadblockResponse | null> | null = null;
+  private roadblockPrefetchKey: number | null = null;
   /** Rest here after clearing a gate until the plan active phase catches up. */
   private travelerArrivedPhaseIndex: number | null = null;
 
@@ -2109,7 +2132,19 @@ export class JourneyPage implements OnInit, OnDestroy {
   trackByChestId(_i: number, node: ChestNode): string { return node.chestId; }
   trackByRoadblock(_i: number, node: RoadblockNode): number { return node.afterPhase; }
 
-  /** Tap an active roadblock → pull a struggle-targeted checkpoint quiz. */
+  /** Kick off the checkpoint-quiz fetch the moment a gate is detected, so the
+   *  (potentially slow) generation overlaps the travel animation. Single-flight
+   *  per gate; reused by onRoadblockTap so the modal open is instant/warm. */
+  private prefetchRoadblockQuiz(node: RoadblockNode): void {
+    if (this.roadblockPrefetchKey === node.afterPhase && this.roadblockPrefetch) return;
+    this.roadblockPrefetchKey = node.afterPhase;
+    this.roadblockPrefetch = firstValueFrom(
+      this.learningPlanService.getRoadblockQuiz(this.language, node.afterPhase + 1).pipe(take(1))
+    ).catch(() => null);
+  }
+
+  /** Tap an active roadblock → open the checkpoint immediately; the quiz loads
+   *  inside the modal so generation latency never blocks the open. */
   async onRoadblockTap(node: RoadblockNode, devOpts?: { mock?: boolean; skipStateCheck?: boolean }): Promise<void> {
     if (this.roadblockBusy || this.travelerAnimating) return;
     if (node.state !== 'active' && !(this.isDev && (devOpts?.skipStateCheck || this.devRoadblockForceActive))) {
@@ -2119,70 +2154,76 @@ export class JourneyPage implements OnInit, OnDestroy {
     this.roadblockBusy = true;
     this.updateTravelerMapMode();
     try {
-      if (devOpts?.mock) {
-        await this.presentRoadblockQuizModal({
-          quiz: this.buildMockRoadblockQuiz(),
-          struggleLabel: 'greetings',
-          personalizedHeader: 'Dev preview — quick check on greetings.'
-        }, node);
-        return;
-      }
-
-      const res = await firstValueFrom(
-        this.learningPlanService.getRoadblockQuiz(this.language, node.afterPhase + 1).pipe(take(1))
-      );
-
-      if (!res?.available || !res.quiz) {
-        if (this.isDev) {
-          this.showToast('No live quiz — opening mock (dev)', 'warning');
-          await this.presentRoadblockQuizModal({
-            quiz: this.buildMockRoadblockQuiz(),
-            struggleLabel: res?.struggleLabel || 'checkpoint',
-            personalizedHeader: res?.personalizedHeader || 'Dev fallback quiz.'
-          }, node);
-          return;
-        }
-        this.showToast(this.translate.instant('JOURNEY.ROADBLOCK.ALL_CLEAR'), 'success');
-        return;
-      }
-
-      await this.presentRoadblockQuizModal({
-        quiz: res.quiz,
-        struggleLabel: res.struggleLabel || '',
-        personalizedHeader: res.personalizedHeader || ''
-      }, node);
-    } catch {
-      if (this.isDev) {
-        this.showToast('API failed — opening mock (dev)', 'warning');
-        await this.presentRoadblockQuizModal({
-          quiz: this.buildMockRoadblockQuiz(),
-          struggleLabel: 'checkpoint',
-          personalizedHeader: 'Dev fallback after API error.'
-        }, node);
-        return;
-      }
-      this.showToast(this.translate.instant('COMMON.ERROR_GENERIC') || 'Something went wrong', 'danger');
+      const loader = this.buildRoadblockQuizLoader(node, devOpts);
+      await this.presentRoadblockQuizModal(loader, node);
     } finally {
       this.roadblockBusy = false;
       this.updateTravelerMapMode();
     }
   }
 
+  /** Resolve the quiz for a gate (reusing any in-flight prefetch), with dev
+   *  mock fallbacks. Returns null when no quiz is available. */
+  private buildRoadblockQuizLoader(
+    node: RoadblockNode,
+    devOpts?: { mock?: boolean; skipStateCheck?: boolean }
+  ): Promise<{ quiz: RoadblockQuiz; struggleLabel: string; personalizedHeader: string } | null> {
+    if (devOpts?.mock) {
+      return Promise.resolve({
+        quiz: this.buildMockRoadblockQuiz(),
+        struggleLabel: 'greetings',
+        personalizedHeader: 'Dev preview — quick check on greetings.'
+      });
+    }
+
+    let fetch$: Promise<RoadblockResponse | null>;
+    if (this.roadblockPrefetchKey === node.afterPhase && this.roadblockPrefetch) {
+      fetch$ = this.roadblockPrefetch;
+    } else {
+      fetch$ = firstValueFrom(
+        this.learningPlanService.getRoadblockQuiz(this.language, node.afterPhase + 1).pipe(take(1))
+      ).catch(() => null);
+    }
+    // Single-use: clear so a later open re-fetches fresh state.
+    this.roadblockPrefetch = null;
+    this.roadblockPrefetchKey = null;
+
+    return fetch$.then(res => {
+      if (res?.available && res.quiz) {
+        return {
+          quiz: res.quiz,
+          struggleLabel: res.struggleLabel || '',
+          personalizedHeader: res.personalizedHeader || ''
+        };
+      }
+      if (this.isDev) {
+        return {
+          quiz: this.buildMockRoadblockQuiz(),
+          struggleLabel: res?.struggleLabel || 'checkpoint',
+          personalizedHeader: res?.personalizedHeader || 'Dev fallback quiz.'
+        };
+      }
+      return null;
+    });
+  }
+
   private async presentRoadblockQuizModal(
-    props: {
-      quiz: RoadblockQuiz;
-      struggleLabel: string;
-      personalizedHeader: string;
-    },
+    quizLoader: Promise<{ quiz: RoadblockQuiz; struggleLabel: string; personalizedHeader: string } | null>,
     roadblockNode?: RoadblockNode
   ): Promise<void> {
-    this.hideTravelerDot();
+    // Park the blue dot ON the gate (not hidden) so it's the only marker and
+    // is already in place when the modal closes — no lingering green ghost.
+    if (roadblockNode) {
+      this.restTravelerAtRoadblock(roadblockNode);
+    } else {
+      this.hideTravelerDot();
+    }
     const bounds = roadblockNode ? this.captureRoadblockBounds(roadblockNode) : null;
     this.roadblockModalBounds = bounds;
 
     const modal = await this.modalCtrl.create({
       component: RoadblockQuizModalComponent,
-      componentProps: props,
+      componentProps: { quizLoader },
       cssClass: 'journey-roadblock-modal',
       backdropDismiss: false,
       enterAnimation: (baseEl) => this.createRoadblockModalEnterAnimation(baseEl),
@@ -2400,11 +2441,85 @@ export class JourneyPage implements OnInit, OnDestroy {
     } catch { /* ignore */ }
   }
 
-  /** Once per gate: animate the blue dot along the path, then open the quiz. */
+  /**
+   * On entry: surface any pending movement, then open an active roadblock.
+   *
+   * - Active gate present → animate travel to it the FIRST time (once per
+   *   gate), then ALWAYS open the checkpoint quiz. Landing on an active gate
+   *   must surface the quiz every visit until it's cleared — the gate blocks
+   *   progress, so a dismissed/refreshed quiz has to come back.
+   * - No active gate → animate plain phase-to-phase movement (once), then rest.
+   */
+  /**
+   * Fired when the inline panel transitions hidden → visible. Geometry is only
+   * valid once the panel is actually displayed (it's `display:none` while
+   * pre-mounted), so re-measure the map, then run the entry travel/quiz check
+   * that was deliberately skipped while hidden.
+   */
+  private onJourneyBecameVisible(): void {
+    // Double rAF: let the panel's display flip flush layout before we measure.
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      this.ensureMapStageResizeObserver();
+      this.computeMapNodes();
+    }));
+  }
+
   private scheduleRoadblockTravelCheck(): void {
-    if (this.roadblockTravelQueued || this.travelerAnimating || this.visitingChapter) return;
+    // Inline + not yet on-screen: the page is pre-mounted hidden inside tab1.
+    // Never auto-open the quiz or play movement here — just settle the dot in
+    // place. The real entry check runs from onJourneyBecameVisible() once the
+    // student actually opens the map.
+    if (this.inline && !this._active) {
+      this.syncTravelerRestingPosition();
+      return;
+    }
+    if (this.roadblockTravelQueued || this.travelerAnimating || this.roadblockBusy || this.visitingChapter) return;
+
     const gate = this.roadblockNodes.find(rb => rb.state === 'active' && !this.devRoadblockForceActive);
-    if (!gate || this.hasSeenRoadblockTravel(gate.afterPhase)) {
+    if (!gate) {
+      this.schedulePhaseMovementCheck();
+      return;
+    }
+
+    // Warm the quiz now so generation overlaps the travel animation.
+    this.prefetchRoadblockQuiz(gate);
+
+    this.roadblockTravelQueued = true;
+    const alreadyTravelled = this.hasSeenRoadblockTravel(gate.afterPhase);
+    const waitForPath = () => {
+      if (!this.pathReady) {
+        requestAnimationFrame(waitForPath);
+        return;
+      }
+      if (alreadyTravelled) {
+        // Travel already shown — skip the animation, park the blue dot on the
+        // gate, and still open the quiz.
+        this.roadblockTravelQueued = false;
+        this.restTravelerAtRoadblock(gate);
+        void this.onRoadblockTap(gate);
+      } else {
+        void this.playRoadblockTravelSequence(gate, { openQuiz: true });
+      }
+    };
+    requestAnimationFrame(waitForPath);
+  }
+
+  /**
+   * Animate the traveler from the last phase the student saw to their current
+   * one, so a fresh advancement is *seen* moving rather than just appearing.
+   * Plays once per target phase (persisted), then rests there on later visits.
+   */
+  private schedulePhaseMovementCheck(): void {
+    const target = this.resolveTravelerRestPhaseIndex();
+    if (target == null) {
+      this.syncTravelerRestingPosition();
+      return;
+    }
+
+    const lastSeen = this.getLastSeenPhaseIndex();
+    // First-ever load (no record) or no forward movement → just rest.
+    if (lastSeen == null || lastSeen >= target) {
+      this.setLastSeenPhaseIndex(target);
       this.syncTravelerRestingPosition();
       return;
     }
@@ -2415,9 +2530,85 @@ export class JourneyPage implements OnInit, OnDestroy {
         requestAnimationFrame(waitForPath);
         return;
       }
-      void this.playRoadblockTravelSequence(gate, { openQuiz: true });
+      void this.playPhaseMovementSequence(lastSeen, target);
     };
     requestAnimationFrame(waitForPath);
+  }
+
+  /** Animate dot from one platform to another, then rest + record it seen. */
+  private async playPhaseMovementSequence(fromPhaseIndex: number, toPhaseIndex: number): Promise<void> {
+    if (this.travelerAnimating) {
+      this.roadblockTravelQueued = false;
+      return;
+    }
+    await this.animateTravelerBetweenPhases(fromPhaseIndex, toPhaseIndex);
+    this.setLastSeenPhaseIndex(toPhaseIndex);
+    this.roadblockTravelQueued = false;
+    this.restTravelerAtPhase(toPhaseIndex);
+    this.cdr.markForCheck();
+  }
+
+  private lastSeenPhaseStorageKey(): string {
+    const key = mapLayoutKey(this.chapterTheme, this.phaseRows.length);
+    return `journey_phase_seen_v1_${this.language}_${key}`;
+  }
+
+  private getLastSeenPhaseIndex(): number | null {
+    try {
+      const raw = localStorage.getItem(this.lastSeenPhaseStorageKey());
+      if (raw == null) return null;
+      const n = parseInt(raw, 10);
+      return Number.isFinite(n) ? n : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /** Monotonic — the recorded position never rewinds (demotions keep their own UX). */
+  private setLastSeenPhaseIndex(idx: number): void {
+    try {
+      const prev = this.getLastSeenPhaseIndex();
+      if (prev != null && prev >= idx) return;
+      localStorage.setItem(this.lastSeenPhaseStorageKey(), String(idx));
+    } catch { /* ignore */ }
+  }
+
+  /** Tween the dot along the path between two phase platforms. */
+  private async animateTravelerBetweenPhases(fromIndex: number, toIndex: number): Promise<void> {
+    const from = this.mapNodes[fromIndex];
+    const to = this.mapNodes[toIndex];
+    if (!from || !to || toIndex <= fromIndex) return;
+
+    this.travelerVisible = true;
+    this.travelerPhaseIndex = null;
+    this.travelerOnRoadblock = false;
+    this.travelerXPct = from.xPct;
+    this.travelerYPct = from.yPct;
+    this.travelerAnimating = true;
+    this.updateTravelerMapMode();
+    this.cdr.markForCheck();
+
+    const durationMs = 1100 + Math.max(0, toIndex - fromIndex - 1) * 350;
+    const path = this.el.nativeElement.querySelector('.journey-map-path-line') as SVGPathElement | null;
+
+    try {
+      if (path && this.mapPathD) {
+        const lenStart = this.findPathLengthAtPoint(path, from.xPct, from.yPct, 0);
+        const lenEnd = this.findPathLengthAtPoint(path, to.xPct, to.yPct, lenStart + 0.001);
+        if (lenEnd > lenStart) {
+          await this.animateTravelerPathLength(path, lenStart, lenEnd, durationMs);
+          return;
+        }
+      }
+      await this.animateTravelerSegment(
+        { x: from.xPct, y: from.yPct },
+        { x: to.xPct, y: to.yPct },
+        durationMs
+      );
+    } finally {
+      this.travelerAnimating = false;
+      this.updateTravelerMapMode();
+    }
   }
 
   private async playRoadblockTravelSequence(
@@ -2498,6 +2689,9 @@ export class JourneyPage implements OnInit, OnDestroy {
 
     await this.animateTravelerToPathIndicesOrWaypoints(pathIndices, waypoints);
     this.travelerArrivedPhaseIndex = node.afterPhase + 1;
+    // Record the arrival so the plain phase-movement animation doesn't replay
+    // this same hop on the next page entry.
+    this.setLastSeenPhaseIndex(this.travelerArrivedPhaseIndex);
     this.restTravelerAtPhase(this.travelerArrivedPhaseIndex);
   }
 
@@ -2505,13 +2699,33 @@ export class JourneyPage implements OnInit, OnDestroy {
     this.travelerVisible = visible;
     if (!visible) {
       this.travelerPhaseIndex = null;
+      this.travelerOnRoadblock = false;
     }
     this.updateTravelerMapMode();
   }
 
   private hideTravelerDot(): void {
     this.travelerVisible = false;
+    this.travelerOnRoadblock = false;
     this.updateTravelerMapMode();
+  }
+
+  /** The current active gate (if any) the student is parked at. */
+  private activeRoadblockGate(): RoadblockNode | null {
+    return this.roadblockNodes.find(
+      rb => rb.state === 'active' && !this.devRoadblockForceActive
+    ) || null;
+  }
+
+  /** Park the blue dot directly on an active roadblock gate. */
+  private restTravelerAtRoadblock(node: RoadblockNode): void {
+    this.travelerXPct = node.x;
+    this.travelerYPct = node.y;
+    this.travelerPhaseIndex = null;
+    this.travelerOnRoadblock = true;
+    this.travelerVisible = true;
+    this.updateTravelerMapMode();
+    this.cdr.markForCheck();
   }
 
   private updateTravelerMapMode(): void {
@@ -2529,14 +2743,25 @@ export class JourneyPage implements OnInit, OnDestroy {
     this.travelerXPct = node.xPct;
     this.travelerYPct = node.yPct;
     this.travelerPhaseIndex = phaseIndex;
+    this.travelerOnRoadblock = false;
     this.travelerVisible = true;
     this.updateTravelerMapMode();
     this.cdr.markForCheck();
   }
 
-  /** Show the dot on the student's current phase whenever the map is idle. */
+  /**
+   * Show the blue dot wherever the student is idling: parked ON an active
+   * roadblock gate if one is blocking them, otherwise on the current phase.
+   * Single source of truth for "you are here" — never leaves the green
+   * placeholder showing on its own.
+   */
   private syncTravelerRestingPosition(): void {
-    if (this.travelerAnimating || this.visitingChapter || this.roadblockBusy || this.roadblockTravelQueued) {
+    if (this.travelerAnimating || this.visitingChapter || this.roadblockTravelQueued) {
+      return;
+    }
+    const gate = this.activeRoadblockGate();
+    if (gate) {
+      this.restTravelerAtRoadblock(gate);
       return;
     }
     const idx = this.resolveTravelerRestPhaseIndex();
@@ -2592,6 +2817,7 @@ export class JourneyPage implements OnInit, OnDestroy {
 
     this.travelerVisible = true;
     this.travelerPhaseIndex = null;
+    this.travelerOnRoadblock = false;
     this.travelerXPct = from.x;
     this.travelerYPct = from.y;
     this.travelerAnimating = true;
@@ -2660,6 +2886,7 @@ export class JourneyPage implements OnInit, OnDestroy {
     const end = waypoints[waypoints.length - 1];
     this.travelerVisible = true;
     this.travelerPhaseIndex = null;
+    this.travelerOnRoadblock = false;
     this.travelerXPct = start.x;
     this.travelerYPct = start.y;
     this.travelerAnimating = true;

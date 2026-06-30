@@ -21,7 +21,7 @@
     [class.journey-cta-fly-in]="journeyCtaHidden"
     [hidden]="!showJourneyView"
     *ngIf="journeyPreloaded">
-    <app-journey-page [inline]="true" (goBackEvent)="onJourneyGoBack()"></app-journey-page>
+    <app-journey-page [inline]="true" [active]="showJourneyView" (goBackEvent)="onJourneyGoBack()"></app-journey-page>
   </div>
 
   <!-- Inline Explore View -->

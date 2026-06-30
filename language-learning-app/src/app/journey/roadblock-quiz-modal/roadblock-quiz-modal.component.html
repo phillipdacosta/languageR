@@ -4,13 +4,23 @@
       <img [src]="roadblockIconSrc" alt="" class="rbq-icon" />
       <div class="rbq-header-copy">
         <p class="rbq-kicker">{{ 'JOURNEY.ROADBLOCK.TITLE' | translate }}</p>
-        <p class="rbq-header-sub" *ngIf="stage === 'intro'">{{ introLine }}</p>
-        <p class="rbq-count" *ngIf="stage === 'quiz'">{{ questionCountLabel }}</p>
+        <p class="rbq-header-sub" *ngIf="loading">{{ 'JOURNEY.ROADBLOCK.PREPARING' | translate }}</p>
+        <p class="rbq-header-sub" *ngIf="!loading && !loadFailed && stage === 'intro'">{{ introLine }}</p>
+        <p class="rbq-count" *ngIf="!loading && stage === 'quiz'">{{ questionCountLabel }}</p>
       </div>
     </div>
 
     <div class="rbq-scroll">
-      <div class="rbq-pane" *ngIf="stage === 'intro'">
+      <div class="rbq-pane rbq-pane--loading" *ngIf="loading">
+        <ion-spinner name="crescent" class="rbq-spinner"></ion-spinner>
+        <p class="rbq-hint">{{ 'JOURNEY.ROADBLOCK.PREPARING_HINT' | translate }}</p>
+      </div>
+
+      <div class="rbq-pane" *ngIf="loadFailed">
+        <p class="rbq-hint">{{ 'JOURNEY.ROADBLOCK.UNAVAILABLE' | translate }}</p>
+      </div>
+
+      <div class="rbq-pane" *ngIf="!loading && !loadFailed && stage === 'intro'">
         <p class="rbq-hint">{{ 'JOURNEY.ROADBLOCK.NO_FAIL' | translate }}</p>
       </div>
 
@@ -51,6 +61,7 @@
         </div>
         <div class="rbq-feedback rbq-feedback--retry" *ngIf="answered && !isCorrect">
           <strong>{{ 'JOURNEY.ROADBLOCK.NOT_QUITE' | translate }}</strong>
+          <span *ngIf="retryHint">{{ retryHint }}</span>
           <span *ngIf="currentQuestion.explanation">{{ currentQuestion.explanation }}</span>
         </div>
       </div>

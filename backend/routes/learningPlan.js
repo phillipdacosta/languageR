@@ -684,7 +684,7 @@ router.post('/tutor-override', verifyToken, async (req, res) => {
     // skip_phase / adjust_focus / add_note remain authoritative actions —
     // tutors retain full control over content, only the timing of progress
     // becomes a collaborative signal.
-    const validActions = ['extend_phase', 'advance_phase', 'skip_phase', 'adjust_focus', 'add_note'];
+    const validActions = ['extend_phase', 'advance_phase', 'skip_phase', 'adjust_focus', 'add_note', 'accept_focus'];
     if (!validActions.includes(action)) {
       return res.status(400).json({ success: false, message: `Invalid action. Must be one of: ${validActions.join(', ')}` });
     }
@@ -804,6 +804,17 @@ router.post('/tutor-override', verifyToken, async (req, res) => {
         changeDescription: `Note added by tutor ${tutorDisplayName}: ${note || ''}`,
         phaseIndexBefore: plan.currentPhaseIndex,
         phaseIndexAfter: plan.currentPhaseIndex
+      });
+    } else if (action === 'accept_focus') {
+      // Tutor explicitly committed to the app's suggested focus for the next
+      // lesson. No plan mutation — this is a positive adherence signal we
+      // record in history so we can measure how often tutors follow the plan.
+      plan.history.push({
+        date: new Date(),
+        changeDescription: `Tutor ${tutorDisplayName} confirmed they'll follow the suggested focus${plan.nextLessonFocus ? `: ${plan.nextLessonFocus}` : ''}`,
+        phaseIndexBefore: plan.currentPhaseIndex,
+        phaseIndexAfter: plan.currentPhaseIndex,
+        reason: 'tutor_accept_focus'
       });
     }
 

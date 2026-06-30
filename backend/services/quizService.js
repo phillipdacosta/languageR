@@ -37,6 +37,83 @@ function getOpenAIClient() {
 
 const DAILY_PUSH_CAP = 2;
 const STRUGGLE_COOLDOWN_HOURS = 48;
+
+// CEFR difficulty guardrails — injected into generation + verification so the
+// model can't drift above the student's level (the #1 cause of "too hard"
+// checkpoint questions). Language-agnostic; phrased in grammar concepts.
+const CEFR_GUARDRAILS = {
+  A1: 'Absolute beginner. Use ONLY present tense and simple, high-frequency everyday vocabulary. Keep sentences short (3–7 words). Allowed: basic statements, yes/no and simple wh- questions, "to be"/"to have", present-tense modal verbs, articles, numbers, greetings, basic everyday nouns. FORBID anything harder: NO subjunctive/conditional moods, NO past or future tenses, NO subordinate or relative clauses, NO passive voice, NO idioms.',
+  A2: 'Elementary. Present tense plus the single most common past tense; simple modal verbs; basic connectors (and/but/because). Short, concrete sentences. Avoid subjunctive/conditional moods, passive voice, and complex multi-clause sentences.',
+  B1: 'Intermediate. Common tenses (present, past, simple future) and straightforward subordinate clauses; light conditional for politeness only. Everyday and familiar work/school topics. Avoid literary or highly idiomatic language.',
+  B2: 'Upper-intermediate. Full range of common tenses, passive voice, and conditional/subjunctive; nuanced connectors and some common idioms.',
+  C1: 'Advanced. Abstract topics, idiomatic usage, and register awareness are fair game.',
+  C2: 'Mastery. Native-like nuance, idiom, and literary/academic register.'
+};
+function cefrGuardrail(level) {
+  return CEFR_GUARDRAILS[level] || CEFR_GUARDRAILS.A1;
+}
+
+/** A readable focus label from a (possibly dotted/"unknown") skill id. */
+function _focusLabel(struggle, displayName) {
+  if (displayName && typeof displayName === 'string') return displayName;
+  return String(struggle || '')
+    .replace(/^[a-z]+\.(unknown\.)?/i, '')
+    .replace(/_/g, ' ')
+    .trim();
+}
+
+/** Format up to 3 of the student's real mistakes to ground generation. */
+function _formatExamplesForPrompt(examples) {
+  if (!Array.isArray(examples) || examples.length === 0) return '';
+  return examples
+    .slice(0, 3)
+    .map((ex, i) => {
+      const said = ex?.original || ex?.text || ex?.utterance || '';
+      const fix = ex?.correction || ex?.corrected || ex?.fix || '';
+      if (!said) return '';
+      return `${i + 1}. Student said: "${said}"${fix ? ` → correct: "${fix}"` : ''}`;
+    })
+    .filter(Boolean)
+    .join('\n');
+}
+
+// ── Open-answer detection (fill_blank with infinitely many valid answers) ──
+const BLANK_MARKERS_RE = /_{2,}|\.{3,}|\[\s*blank\s*\]|\(\s*\)/i;
+const OPEN_ANSWER_PROMPT_RE = [
+  /\bhei[ßs]e\b/i,
+  /\bmy name is\b/i,
+  /\bme llamo\b/i,
+  /\bje m'?appelle\b/i,
+  /\bmi chiamo\b/i,
+  /\bich bin\b/i,
+  /\bsoy\b/i,
+  /\bje suis\b/i,
+  /\bintroduce yourself\b/i,
+  /\byour name\b/i
+];
+
+function _inferOpenAnswer(question) {
+  if (!question || question.openAnswer === true) return true;
+  if (question.openAnswer === false) return false;
+  const type = question.type;
+  if (type !== 'fill_blank' && type !== 'translate') return false;
+  const prompt = String(question.prompt || '');
+  if (!BLANK_MARKERS_RE.test(prompt)) return false;
+  return OPEN_ANSWER_PROMPT_RE.some(re => re.test(prompt));
+}
+
+/** Tag open-ended blanks and normalize question shape before save. */
+function _normalizeQuizQuestions(questions) {
+  if (!Array.isArray(questions)) return [];
+  return questions.map(q => {
+    const next = { ...q };
+    if (_inferOpenAnswer(next)) {
+      next.openAnswer = true;
+    }
+    return next;
+  });
+}
+
 const AUTO_PAUSE_AFTER_NEGATIVE_RATINGS = 5;
 const AUTO_PAUSE_DURATION_DAYS = 14;
 const POOL_VARIANTS_TARGET = 5;
@@ -46,6 +123,13 @@ const POOL_VARIANTS_TARGET = 5;
 // asked for (or hit a gate that requires) the quiz. 'roadblock' is the
 // journey-map checkpoint gate (mandatory, un-failable).
 const USER_INITIATED_TRIGGERS = new Set(['manual', 'roadblock']);
+
+// Mongoose Map keys cannot contain "." or "$". Struggle skillIds are dotted
+// (e.g. "german.unknown.practice_more_..."), so sanitize before using them as
+// keys in `lastPushedByStruggle`. Read + write must use the same encoding.
+function _safeMapKey(key) {
+  return String(key).replace(/[.$]/g, '_');
+}
 
 // ─────────────────────────────────────────────────────────────────────
 // Selection
@@ -59,7 +143,7 @@ const USER_INITIATED_TRIGGERS = new Set(['manual', 'roadblock']);
  *   - { pushed: false, reason }
  */
 async function selectAndPushQuiz(opts) {
-  const { userId, language, struggle, trigger = 'manual', lessonContext = null, level: explicitLevel = null } = opts;
+  const { userId, language, struggle, trigger = 'manual', lessonContext = null, level: explicitLevel = null, struggleContext = null } = opts;
   if (!userId || !language || !struggle) {
     return { pushed: false, reason: 'missing_required_args' };
   }
@@ -82,6 +166,34 @@ async function selectAndPushQuiz(opts) {
 
   const history = await _getOrCreateHistory(userId, language);
 
+  // Roadblock checkpoints must be idempotent. A gate that's reopened (or the
+  // journey re-entered) before the student passes has to re-serve the SAME
+  // quiz — never generate a new one. Without this, every open burns two AI
+  // calls and bloats the pool, because each push is logged to `seen` and then
+  // excluded from the next pool query, forcing fresh generation each time.
+  if (trigger === 'roadblock') {
+    const pending = (history.seen || [])
+      .slice()
+      .reverse()
+      .find(s =>
+        s.trigger === 'roadblock' &&
+        s.struggle === struggle &&
+        String(s.language) === String(language) &&
+        !s.completedAt
+      );
+    if (pending?.quizId) {
+      const existing = await Quiz.findOne({ _id: pending.quizId, retiredAt: null }).lean();
+      if (existing) {
+        return {
+          pushed: true,
+          quiz: existing,
+          personalizedHeader: pending.personalizedHeader || '',
+          reused: true
+        };
+      }
+    }
+  }
+
   // Auto-pause check (G26).
   if (history.autoPushPausedUntil && new Date(history.autoPushPausedUntil) > new Date()) {
     return { pushed: false, reason: 'auto_paused' };
@@ -95,7 +207,8 @@ async function selectAndPushQuiz(opts) {
   }
 
   // 48h per-struggle cooldown.
-  const lastPush = history.lastPushedByStruggle?.get?.(struggle) ?? history.lastPushedByStruggle?.[struggle];
+  const struggleKey = _safeMapKey(struggle);
+  const lastPush = history.lastPushedByStruggle?.get?.(struggleKey) ?? history.lastPushedByStruggle?.[struggleKey];
   if (lastPush && (Date.now() - new Date(lastPush).getTime()) < STRUGGLE_COOLDOWN_HOURS * 60 * 60 * 1000) {
     if (!userInitiated) return { pushed: false, reason: 'struggle_cooldown' };
   }
@@ -116,7 +229,13 @@ async function selectAndPushQuiz(opts) {
   // Pool empty? Generate fresh + persist + use.
   if (!quiz) {
     try {
-      quiz = await generateAndSaveQuiz({ language, level, struggle });
+      quiz = await generateAndSaveQuiz({
+        language,
+        level,
+        struggle,
+        displayName: struggleContext?.displayName || '',
+        examples: struggleContext?.examples || []
+      });
     } catch (err) {
       console.error('[Quiz] Pool empty AND generation failed:', err.message);
       return { pushed: false, reason: 'generation_failed' };
@@ -150,9 +269,9 @@ async function selectAndPushQuiz(opts) {
   });
   history.lastPushedByStruggle = history.lastPushedByStruggle || new Map();
   if (typeof history.lastPushedByStruggle.set === 'function') {
-    history.lastPushedByStruggle.set(struggle, new Date());
+    history.lastPushedByStruggle.set(struggleKey, new Date());
   } else {
-    history.lastPushedByStruggle[struggle] = new Date();
+    history.lastPushedByStruggle[struggleKey] = new Date();
   }
   if (typeof history.dailyPushCounts.set === 'function') {
     history.dailyPushCounts.set(todayKey, used + 1);
@@ -213,13 +332,14 @@ async function recordQuizCompletion({ userId, quizId, rating = 0 }) {
 // AI generation (two-pass: generate → verify)
 // ─────────────────────────────────────────────────────────────────────
 
-async function generateAndSaveQuiz({ language, level, struggle, type = 'drill' }) {
+async function generateAndSaveQuiz({ language, level, struggle, type = 'drill', displayName = '', examples = [] }) {
   // Determine variant index — fill the pool to POOL_VARIANTS_TARGET.
   const existingCount = await Quiz.countDocuments({ language, level, struggle, type, retiredAt: null });
   const templateVariant = existingCount;
 
-  const draft = await _generateQuizDraft({ language, level, struggle, type });
-  const verified = await _verifyQuizDraft(draft, { language, level, struggle });
+  const draft = await _generateQuizDraft({ language, level, struggle, type, displayName, examples });
+  const verified = await _verifyQuizDraft(draft, { language, level, struggle, displayName });
+  verified.questions = _normalizeQuizQuestions(verified.questions);
 
   const doc = new Quiz({
     language,
@@ -238,16 +358,24 @@ async function generateAndSaveQuiz({ language, level, struggle, type = 'drill' }
   return doc.toObject();
 }
 
-async function _generateQuizDraft({ language, level, struggle, type }) {
+async function _generateQuizDraft({ language, level, struggle, type, displayName = '', examples = [] }) {
+  const focus = _focusLabel(struggle, displayName);
+  const exampleBlock = _formatExamplesForPrompt(examples);
   const prompt = `Create a personalized practice quiz for a language learner.
 
 LANGUAGE: ${language}
-LEVEL: ${level}
-STRUGGLE: ${struggle}
+CEFR LEVEL: ${level}
+LEVEL CONSTRAINTS (STRICT — do not exceed): ${cefrGuardrail(level)}
+FOCUS (what to practice): ${focus}
 TYPE: ${type}
+${exampleBlock ? `\nWHAT THE STUDENT ACTUALLY GOT WRONG — ground the quiz in THESE exact situations and vocabulary (corrected), do not invent unrelated topics:\n${exampleBlock}\n` : ''}
+Generate 5-7 questions that ALL target the FOCUS above, STRICTLY within the
+CEFR LEVEL CONSTRAINTS. Every question MUST be solvable by a ${level} learner.
+If a question would require grammar or vocabulary beyond ${level}, rewrite it
+simpler. Prefer reusing the vocabulary and situations from the student's
+examples above so it feels like what they actually practiced.
 
-Generate 5-7 questions that ALL target the struggle "${struggle}" at the
-${level} CEFR level. Each question must include:
+Each question must include:
 - a clear prompt
 - the correct answer
 - 1-2 acceptable alternatives where applicable
@@ -255,6 +383,18 @@ ${level} CEFR level. Each question must include:
 - a real-world example
 
 Avoid fluff. The quiz should feel like targeted drilling, not a textbook chapter.
+
+FILL-IN-THE-BLANK RULES (critical):
+- fill_blank and translate items must have ONE clear correct answer OR be marked
+  openAnswer:true when ANY reasonable answer works (e.g. "Ich heiße ___" — any name).
+- NEVER use fill_blank where many answers are valid but only one is in correctAnswer
+  (bad: blank for a name when "Anna" is the only accepted answer).
+- For grammar drills (articles, verb forms, word order), embed enough context in
+  the prompt that the expected word is unambiguous, OR use multiple_choice instead.
+- Prefer multiple_choice for A1 pattern recognition ("Which sentence introduces
+  your name?") over open name blanks.
+- Set openAnswer:true ONLY when the blank accepts any valid free-text (names,
+  professions in intro drills, etc.).
 
 Respond ONLY with valid JSON:
 {
@@ -267,6 +407,7 @@ Respond ONLY with valid JSON:
       "options": ["string", ...],
       "correctAnswer": "string",
       "acceptableAlternatives": ["string", ...],
+      "openAnswer": false,
       "explanation": "string",
       "example": "string"
     }
@@ -291,20 +432,29 @@ Respond ONLY with valid JSON:
  * either confirm or correct each question. This catches the most common
  * AI mistake (G19): wrong answers in fill-in-blank or translate items.
  */
-async function _verifyQuizDraft(draft, { language, level, struggle }) {
-  const prompt = `Verify the answers in this quiz draft. For each question, either
-confirm the correctAnswer is right, or replace it with the correct one.
-Also fix any acceptableAlternatives that are wrong.
+async function _verifyQuizDraft(draft, { language, level, struggle, displayName = '' }) {
+  const prompt = `Verify this quiz draft on TWO axes: (1) answer correctness, and
+(2) CEFR level-appropriateness for a ${level} learner.
 
 LANGUAGE: ${language}
-LEVEL: ${level}
-STRUGGLE: ${struggle}
+CEFR LEVEL: ${level}
+LEVEL CONSTRAINTS (STRICT): ${cefrGuardrail(level)}
+FOCUS: ${_focusLabel(struggle, displayName)}
+
+For each question:
+- If the correctAnswer or acceptableAlternatives are wrong, fix them.
+- If the question uses grammar or vocabulary ABOVE ${level} (per the constraints
+  above), REWRITE the prompt/options so it is solvable at ${level} while still
+  practicing the FOCUS. Keep it simple.
+- If a fill_blank has many valid answers (e.g. a name after "Ich heiße"), set
+  openAnswer:true OR convert to multiple_choice. Never leave a name-blank with
+  only one hardcoded correctAnswer.
 
 DRAFT:
 ${JSON.stringify(draft, null, 2)}
 
 Return the corrected JSON in the same format. Do not change prompts or
-explanations unless they are factually wrong.`;
+explanations unless they are factually wrong or above ${level}.`;
 
   const completion = await getOpenAIClient().chat.completions.create({
     model: 'gpt-4o-mini',
@@ -376,6 +526,57 @@ async function pushImmediateFromLesson(lessonAnalysis) {
     trigger: 'immediate_post_lesson',
     lessonContext
   });
+}
+
+/**
+ * Pre-generate (warm) the roadblock checkpoint quiz for a student's current
+ * top struggle so the pool is ready BEFORE they reach the gate. Mirrors the
+ * selection logic of the /quizzes/roadblock route but never pushes to history
+ * (no `seen` entry) — it only fills the shared pool. Best-effort; safe to call
+ * fire-and-forget after a lesson is analyzed.
+ */
+async function prewarmRoadblockQuiz({ studentId, language, plan = null }) {
+  if (!studentId || !language) return { warmed: false, reason: 'missing_args' };
+
+  const struggleAggregator = require('./struggleAggregator');
+  const bayes = require('./bayesianMastery');
+
+  let planDoc = plan;
+  if (!planDoc) {
+    planDoc = await LearningPlan.findOne({ studentId, language })
+      .select('chapterLevel goal skillBeliefs')
+      .lean();
+  }
+  const level = planDoc?.chapterLevel || 'A1';
+
+  const agg = await struggleAggregator.aggregateStruggles({ studentId, language, plan: planDoc });
+  const struggles = agg.struggles || [];
+  const top = struggles.find(s => !bayes.isMastered(s.belief)) || null;
+  if (!top) return { warmed: false, reason: 'no_struggle' };
+
+  // Already pooled for this (language, level, struggle)? Nothing to do.
+  const existing = await Quiz.findOne({
+    language,
+    level,
+    struggle: top.skillId,
+    retiredAt: null
+  }).select('_id').lean();
+  if (existing) return { warmed: true, reason: 'already_pooled' };
+
+  try {
+    await generateAndSaveQuiz({
+      language,
+      level,
+      struggle: top.skillId,
+      displayName: top.displayName || '',
+      examples: top.examples || []
+    });
+    console.log(`🔥 [Quiz] Pre-warmed roadblock quiz for ${language} ${level} ${top.skillId}`);
+    return { warmed: true, reason: 'generated' };
+  } catch (err) {
+    console.warn('[Quiz] Roadblock pre-warm generation failed:', err.message);
+    return { warmed: false, reason: 'generation_failed' };
+  }
 }
 
 function _topStruggleFromAnalysis(analysis) {
@@ -619,6 +820,7 @@ module.exports = {
   selectAndPushQuiz,
   recordQuizCompletion,
   pushImmediateFromLesson,
+  prewarmRoadblockQuiz,
   runEndOfDayBatch,
   generateAndSaveQuiz,
   listSeenForUser,

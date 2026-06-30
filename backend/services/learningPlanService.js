@@ -386,6 +386,23 @@ async function updatePlanAfterLesson(planId, lessonAnalysis) {
     return _runPostLessonSideEffectsOnly(plan, lessonAnalysis);
   }
 
+  // Idempotency guard. The analysis pipeline can run more than once for the
+  // same lesson (retries, manual re-analysis, duplicate webhooks). Without a
+  // guard each run increments lessonsCompleted and pushes another lessonScore,
+  // which can shove a student over the phase-advancement floor after fewer
+  // *real* lessons than intended. Apply each lesson's plan mutation exactly
+  // once; re-runs still get the read-only side effects below.
+  const lessonIdStr = lessonAnalysis.lessonId
+    ? String(lessonAnalysis.lessonId._id || lessonAnalysis.lessonId)
+    : null;
+  if (lessonIdStr) {
+    const alreadyApplied = (plan.appliedLessonIds || []).some(id => String(id) === lessonIdStr);
+    if (alreadyApplied) {
+      console.log(`↩️ [LearningPlan] Lesson ${lessonIdStr} already applied — running side effects only (no re-count).`);
+      return _runPostLessonSideEffectsOnly(plan, lessonAnalysis);
+    }
+  }
+
   if (plan.status === 'draft') plan.status = 'active';
 
   const student = await User.findById(plan.studentId);
@@ -394,6 +411,16 @@ async function updatePlanAfterLesson(planId, lessonAnalysis) {
   // diff it after all the phase/chapter/focus logic has run and persist a
   // "what changed this lesson" delta for the post-lesson recap card.
   const impactBefore = _snapshotJourneyState(plan);
+
+  // Mark this lesson applied up front so any early return below still records
+  // the guard. Capped to the most recent 100 ids (dedupe only needs recency).
+  if (lessonIdStr) {
+    plan.appliedLessonIds = plan.appliedLessonIds || [];
+    plan.appliedLessonIds.push(lessonIdStr);
+    if (plan.appliedLessonIds.length > 100) {
+      plan.appliedLessonIds = plan.appliedLessonIds.slice(-100);
+    }
+  }
 
   // ── 0. Bayesian beliefs: decay → apply this lesson's evidence ─────
   // Runs BEFORE the existing mastery/phase logic so any new gate or
@@ -495,6 +522,20 @@ async function updatePlanAfterLesson(planId, lessonAnalysis) {
   try {
     const quizService = require('./quizService');
     await quizService.pushImmediateFromLesson(lessonAnalysis);
+
+    // Pre-warm the roadblock checkpoint quiz for the current top struggle so
+    // it's already pooled before the student reaches the gate (instant open,
+    // even for brand-new struggles). Fire-and-forget — generation can take a
+    // few seconds and must not delay the lesson pipeline.
+    if (lessonAnalysis.studentId && lessonAnalysis.language) {
+      quizService
+        .prewarmRoadblockQuiz({
+          studentId: lessonAnalysis.studentId,
+          language: lessonAnalysis.language,
+          plan
+        })
+        .catch(err => console.warn('[LearningPlan] Roadblock pre-warm failed (non-blocking):', err.message));
+    }
   } catch (err) {
     console.error('[LearningPlan] Immediate quiz push failed (non-blocking):', err.message);
   }

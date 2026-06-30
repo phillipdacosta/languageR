@@ -912,6 +912,19 @@
     }
   }
 
+  // Blue dot parked on a roadblock gate: the active phase is behind the gate,
+  // so hide its placeholder entirely — the single blue dot on the gate is the
+  // only "you are here" marker (no green ghost).
+  .journey-map-stage--traveler-roadblock {
+    .jm-node--active .jm-dot {
+      visibility: hidden;
+    }
+
+    .jm-node--active .jm-pulse-ring {
+      display: none;
+    }
+  }
+
   .jm-traveler-dot {
     display: block;
     width: 44px;
@@ -1772,6 +1785,21 @@ $jm-label-gap: 4px;
   align-items: center;
   text-align: center;
   padding-top: 12px;
+}
+
+.rbq-pane--loading {
+  align-items: center;
+  text-align: center;
+  padding: 18px 4px 8px;
+  gap: 14px;
+
+  .rbq-hint { text-align: center; }
+}
+
+.rbq-spinner {
+  width: 34px;
+  height: 34px;
+  color: #42aceb;
 }
 
 .rbq-icon--done {

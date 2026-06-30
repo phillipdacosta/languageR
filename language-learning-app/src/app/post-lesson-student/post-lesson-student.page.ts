@@ -16,6 +16,7 @@ import { VocabularyService, VocabEntry, GoalEntry } from '../services/vocabulary
 import { ReviewDeckService } from '../services/review-deck.service';
 import { LearningPlanService, LearningPlan } from '../services/learning-plan.service';
 import { JourneyMapPreviewPhase } from '../journey/journey-map-preview.component';
+import { resolveJourneyHotspots } from '../journey/journey-map-assets';
 import {
   TutorAvailabilityViewerComponent,
   BookableSlotPreview,
@@ -643,7 +644,49 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
       : this.translate.instant('POST_LESSON.STUDENT.JOURNEY_TITLE_WHERE');
 
     this.showJourneyCard = true;
+    this.prefetchActiveRoadblock(plan);
     this.cdr.detectChanges();
+  }
+
+  /**
+   * If the student is parked at an active roadblock gate, warm the checkpoint
+   * quiz in the background now (post-lesson) so the modal opens instantly when
+   * they reach it. Mirrors the journey-map gate detection; best-effort.
+   */
+  private prefetchActiveRoadblock(plan: LearningPlan): void {
+    try {
+      const phases = plan.phases || [];
+      const n = phases.length;
+      if (n < 2) return;
+      const language = (plan as any).language || this.planUpdateLanguage;
+      if (!language) return;
+      const hotspots = resolveJourneyHotspots(plan.chapterTheme || 'a1-desert', n);
+      const roadblocks = hotspots?.roadblocks || [];
+      if (!roadblocks.length) return;
+
+      const idx = plan.currentPhaseIndex || 0;
+      const statusAt = (i: number): string | null => {
+        if (i < 0 || i >= n) return null;
+        return phases[i].status || (i < idx ? 'completed' : i === idx ? 'active' : 'locked');
+      };
+      const gate = roadblocks
+        .filter(rb => rb.afterPhase < n - 1)
+        .find(rb => statusAt(rb.afterPhase) === 'completed' && statusAt(rb.afterPhase + 1) !== 'completed');
+      if (!gate) return;
+
+      firstValueFrom(this.learningPlanService.getRoadblockQuiz(language, gate.afterPhase + 1)).catch(() => {});
+    } catch {
+      /* non-blocking */
+    }
+  }
+
+  /** Normalize a focus line for before/after comparison (case + punctuation insensitive). */
+  private normalizeImpactFocus(focus: string | null | undefined): string {
+    return String(focus || '')
+      .toLowerCase()
+      .replace(/[.,!?;:]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
   /** "What changed" bullets — only when the delta belongs to this lesson. */
@@ -669,10 +712,19 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
     }
 
     if (impact.focusChanged && impact.focusAfter) {
+      // When the lesson diverged from the previously planned focus, reconcile
+      // the detour gracefully (plan adapted) instead of silently swapping the
+      // focus line — keeps the plan from looking stale after an off-plan lesson.
+      const before = this.normalizeImpactFocus(impact.focusBefore);
+      const after = this.normalizeImpactFocus(impact.focusAfter);
+      const detoured = !!before && before !== after;
       lines.push(
-        this.translate.instant('POST_LESSON.STUDENT.JOURNEY_IMPACT_FOCUS', {
-          focus: impact.focusAfter,
-        })
+        this.translate.instant(
+          detoured
+            ? 'POST_LESSON.STUDENT.JOURNEY_IMPACT_FOCUS_SHIFTED'
+            : 'POST_LESSON.STUDENT.JOURNEY_IMPACT_FOCUS',
+          { focus: impact.focusAfter }
+        )
       );
     }
 

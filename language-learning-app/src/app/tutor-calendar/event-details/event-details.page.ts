@@ -287,6 +287,9 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   edFocusDraft = '';
   edFocusSaving = false;
   edFocusBodyMinHeight = 0;
+  // Explicit "I'll follow this" acceptance of the suggested focus (adherence signal).
+  edFocusAccepted = false;
+  edFocusAccepting = false;
   @ViewChild('focusBodyWrap') focusBodyWrap?: ElementRef<HTMLElement>;
   @ViewChild('focusEditorInput') focusEditorInput?: ElementRef<HTMLTextAreaElement>;
   edPlanEyebrowKey = 'EVENT_DETAILS.LESSON_SCREEN.LESSON_OBJECTIVE';
@@ -1941,9 +1944,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
 
   /** Labels for post-lesson-style split header + left guidance column. */
   private refreshSplitLayoutLabels(): void {
-    this.edSidebarTitle = this.isTutorUser
-      ? (this.participantName || '')
-      : this.translate.instant('EVENT_DETAILS.LESSON_SCREEN.LESSON_WITH', { name: this.participantName || '' });
+    this.edSidebarTitle = this.participantName || '';
     this.edSidebarShowTrialLabel = !!(
       this.lesson?.isTrialLesson &&
       this.lesson?.status !== 'cancelled'
@@ -2045,9 +2046,6 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       line = `${lessonLang} ${this.participantRoleDisplay}`.trim();
     } else if (this.participantLanguages.length) {
       line = `${this.participantLanguages.join(', ')} ${this.participantRoleDisplay}`.trim();
-    }
-    if (this.participantCountry) {
-      line = line ? `${line} · ${this.participantCountry}` : this.participantCountry;
     }
     return line.trim();
   }
@@ -3130,6 +3128,8 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     this.edFocusEditing = false;
     this.edFocusDraft = '';
     this.edFocusSaving = false;
+    this.edFocusAccepted = false;
+    this.edFocusAccepting = false;
     this.edPlanEyebrowKey = 'EVENT_DETAILS.LESSON_SCREEN.LESSON_OBJECTIVE';
     this.edPlanIsTrial = false;
     this.edPlanTrialBody = '';
@@ -3325,6 +3325,50 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
 
     if (!this.edFocusDetailsVisible) {
       this.edFocusDetailsExpanded = false;
+    }
+  }
+
+  /**
+   * Tutor commits to the suggested focus ("I'll follow this"). Records a
+   * positive adherence signal via the accept_focus override — no plan
+   * mutation. Lets us measure how often tutors follow the plan and makes
+   * following it a deliberate, one-tap choice rather than a passive default.
+   */
+  async acceptFocus(): Promise<void> {
+    if (!this.edCanEditFocus || this.edFocusAccepting || this.edFocusAccepted) return;
+
+    const studentId = this.resolvePlanStudentId();
+    const language = this.resolveLessonLanguage() || this.edPlanSummary?.language || '';
+    if (!studentId || !language) {
+      await this.presentFocusToast(
+        this.translate.instant('EVENT_DETAILS.LESSON_SCREEN.FOCUS_EDIT_ERROR'),
+        'danger'
+      );
+      return;
+    }
+
+    this.edFocusAccepting = true;
+    try {
+      await firstValueFrom(
+        this.learningPlanService.submitTutorOverride({
+          studentId,
+          language,
+          action: 'accept_focus',
+        })
+      );
+      this.edFocusAccepted = true;
+      await this.presentFocusToast(
+        this.translate.instant('EVENT_DETAILS.LESSON_SCREEN.FOCUS_ACCEPT_SAVED'),
+        'success'
+      );
+    } catch (err: any) {
+      const msg =
+        err?.error?.message ||
+        this.translate.instant('EVENT_DETAILS.LESSON_SCREEN.FOCUS_EDIT_ERROR');
+      await this.presentFocusToast(msg, 'danger');
+    } finally {
+      this.edFocusAccepting = false;
+      this.cdr.detectChanges();
     }
   }
 
