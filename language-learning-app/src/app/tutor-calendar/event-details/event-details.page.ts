@@ -116,6 +116,18 @@ interface AnalysisData {
   source?: string;
   status?: string;
   translations?: Record<string, any>;
+  errorPatterns?: Array<{
+    pattern: string;
+    severity?: 'low' | 'medium' | 'high';
+    examples?: Array<{ original: string; corrected: string; explanation?: string }>;
+  }>;
+  correctedExcerpts?: Array<{
+    context?: string;
+    original: string;
+    corrected: string;
+    keyCorrections?: string[];
+  }>;
+  topErrors?: Array<{ rank?: number; issue: string; impact?: string; occurrences?: number }>;
 }
 
 interface BillingData {
@@ -307,6 +319,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
   edFocusAgendaItems: string[] = [];
   edFocusDetailsVisible = false;
   edFocusDetailsExpanded = false;
+  edFocusErrorExamples: Array<{ original: string; corrected: string }> = [];
   /** Upcoming student lessons: soft reassurance that prep content is optional. */
   edShowOptionalReassurance = false;
   edShowTutorBriefing = false;
@@ -1649,6 +1662,7 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     this.edFocusAgendaItems = [];
     this.edFocusDetailsVisible = false;
     this.edFocusDetailsExpanded = false;
+    this.edFocusErrorExamples = [];
   }
 
   /** Which main-card sections render and whether they show an empty state. */
@@ -3282,8 +3296,12 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       this.edPlanStateLabel = '';
     }
 
+    // Tutors see topics inline (expanded) only on upcoming lessons. Students
+    // always reach them via the show/hide toggle, including completed lessons
+    // ("For your next lesson"), so the chips must be populated regardless of
+    // completion — otherwise the toggle reveals nothing.
     this.edShowPlanExpanded = !this.isLessonCompleted && !this.edPlanIsPaused;
-    this.edPlanTopicChips = this.edShowPlanExpanded
+    this.edPlanTopicChips = !this.edPlanIsPaused
       ? (this.edPlanSuggestedTopics.length
           ? this.edPlanSuggestedTopics
           : this.edPlanFocusAreas).slice(0, 4)
@@ -3315,13 +3333,40 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
       return itemNorm !== focusNorm && !focusNorm.includes(itemNorm) && !itemNorm.includes(focusNorm);
     });
 
-    const hasChips =
-      this.edShowPlanExpanded &&
-      !this.edPlanIsTrial &&
-      !this.edPlanIsPaused &&
-      this.edPlanTopicChips.length > 0;
-    const hasAgenda = this.edFocusAgendaItems.length > 0;
-    this.edFocusDetailsVisible = hasChips || hasAgenda;
+    // Collect up to 2 concrete before/after examples from this lesson's
+    // error patterns (or corrected excerpts as fallback) so the student can
+    // see actual mistakes, not just a label like "Article agreement errors".
+    this.edFocusErrorExamples = [];
+    if (this.isStudentUser && this.isLessonCompleted) {
+      const patterns = this.analysisData?.errorPatterns || [];
+      for (const p of patterns) {
+        for (const ex of (p.examples || [])) {
+          if (ex.original && ex.corrected) {
+            this.edFocusErrorExamples.push({ original: ex.original, corrected: ex.corrected });
+          }
+          if (this.edFocusErrorExamples.length >= 2) break;
+        }
+        if (this.edFocusErrorExamples.length >= 2) break;
+      }
+      // Fall back to corrected excerpts if no error pattern examples exist.
+      if (!this.edFocusErrorExamples.length) {
+        for (const ex of (this.analysisData?.correctedExcerpts || [])) {
+          if (ex.original && ex.corrected) {
+            this.edFocusErrorExamples.push({ original: ex.original, corrected: ex.corrected });
+          }
+          if (this.edFocusErrorExamples.length >= 2) break;
+        }
+      }
+    }
+
+    // Toggle is only shown when expanding will actually reveal content. Mirror
+    // the exact conditions the template uses to render the chips/agenda so the
+    // toggle never appears with nothing underneath it.
+    const canShow = !this.edPlanIsTrial && !this.edPlanIsPaused;
+    const hasChips = canShow && this.edPlanTopicChips.length > 0;
+    const hasAgenda = canShow && this.edFocusAgendaItems.length > 0;
+    const hasExamples = canShow && this.edFocusErrorExamples.length > 0;
+    this.edFocusDetailsVisible = hasChips || hasAgenda || hasExamples;
 
     if (!this.edFocusDetailsVisible) {
       this.edFocusDetailsExpanded = false;
@@ -3674,6 +3719,8 @@ export class EventDetailsPage implements OnInit, OnDestroy, ViewWillEnter, ViewD
     this.refreshNotesPresentation();
     this.refreshFeedbackImpressionLabel();
     this.refreshMainCardSections();
+    // Re-run focus details so error examples are injected once analysis arrives.
+    this.refreshFocusDetailsPresentation();
   }
 
   private refreshFeedbackImpressionLabel(): void {

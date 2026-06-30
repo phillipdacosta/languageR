@@ -7,6 +7,7 @@ const quizService = require('../services/quizService');
 const struggleAggregator = require('../services/struggleAggregator');
 const bayes = require('../services/bayesianMastery');
 const learningPlanService = require('../services/learningPlanService');
+const roadblockContentService = require('../services/roadblockContentService');
 
 /**
  * GET /api/quizzes/me
@@ -137,7 +138,7 @@ router.post('/roadblock', verifyToken, async (req, res) => {
     const user = await User.findOne({ auth0Id: req.user.sub });
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
-    const { language } = req.body || {};
+    const { language, interfaceLanguage } = req.body || {};
     if (!language) return res.status(400).json({ success: false, message: 'language required' });
 
     // Load beliefs too: they let the aggregator score with the same
@@ -148,49 +149,26 @@ router.post('/roadblock', verifyToken, async (req, res) => {
       .lean();
     const level = plan?.chapterLevel || 'A1';
 
-    // Pull the student's aggregated struggles from recent lesson analyses.
-    const agg = await struggleAggregator.aggregateStruggles({
-      studentId: user._id,
-      language,
-      plan
-    });
+    // Tiered content: own-mistakes (A) → tutor notes (B) → goal-inferred (C).
+    // Guarantees the gate only ever tests things the student actually
+    // encountered (or is honestly framed as a goal-based learning moment),
+    // and never invents unrelated vocabulary.
+    const gate = await roadblockContentService.buildGate({ user, plan, language, level, interfaceLanguage });
 
-    const struggles = agg.struggles || [];
-    // Target the top struggle the student hasn't confidently mastered yet.
-    // If every surfaced struggle is already mastered, treat it as "all
-    // clear" — a rewarding pass beats drilling something they've nailed.
-    const topStruggle = struggles.find(s => !bayes.isMastered(s.belief)) || null;
-    if (!topStruggle) {
-      return res.json({
-        success: true,
-        available: false,
-        reason: struggles.length ? 'all_mastered' : 'no_struggle_data'
-      });
-    }
-
-    const result = await quizService.selectAndPushQuiz({
-      userId: user._id,
-      language,
-      struggle: topStruggle.skillId,
-      level,
-      trigger: 'roadblock',
-      struggleContext: {
-        displayName: topStruggle.displayName || '',
-        examples: topStruggle.examples || []
-      }
-    });
-
-    if (!result.pushed) {
-      return res.json({ success: true, available: false, reason: result.reason });
+    if (!gate.available) {
+      return res.json({ success: true, available: false, reason: gate.reason });
     }
 
     res.json({
       success: true,
       available: true,
-      quiz: result.quiz,
-      struggle: topStruggle.skillId,
-      struggleLabel: topStruggle.displayName || topStruggle.skillId,
-      personalizedHeader: result.personalizedHeader
+      tier: gate.tier,
+      label: gate.label,
+      quiz: gate.quiz,
+      struggle: gate.struggle,
+      struggleLabel: gate.struggleLabel,
+      personalizedHeader: gate.personalizedHeader,
+      reviewItems: gate.reviewItems || []
     });
   } catch (err) {
     console.error('POST /quizzes/roadblock failed:', err);

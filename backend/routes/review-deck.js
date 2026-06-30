@@ -335,18 +335,26 @@ router.post('/batch', verifyToken, async (req, res) => {
       return res.status(400).json({ message: 'Items array is required' });
     }
     
-    // Prepare items for insertion
-    const reviewItems = items.map(item => ({
-      userId: user._id,
-      original: item.original.trim(),
-      corrected: item.corrected.trim(),
-      explanation: item.explanation || '',
-      context: item.context || '',
-      language: item.language || 'Spanish',
-      errorType: item.errorType || 'other',
-      lessonId: item.lessonId,
-      analysisId: item.analysisId
-    }));
+    // Prepare items for insertion. `original` is optional for phrase/tip
+    // items (goal-inferred / tutor tips that have no "wrong" version).
+    const reviewItems = items
+      .filter(item => item && item.corrected && String(item.corrected).trim())
+      .map(item => ({
+        userId: user._id,
+        itemType: item.itemType || 'correction',
+        original: (item.original || '').trim(),
+        corrected: String(item.corrected).trim(),
+        explanation: item.explanation || '',
+        context: item.context || '',
+        language: item.language || 'Spanish',
+        errorType: item.errorType || 'other',
+        lessonId: item.lessonId,
+        analysisId: item.analysisId
+      }));
+
+    if (reviewItems.length === 0) {
+      return res.status(400).json({ message: 'No valid items to save' });
+    }
     
     // Insert, ignoring duplicates
     const result = await ReviewDeckItem.insertMany(reviewItems, { ordered: false })

@@ -627,14 +627,6 @@
   font-size: 13px;
   font-weight: 500;
 
-  &--overlay {
-    position: absolute;
-    top: 56px;
-    left: 12px;
-    right: 12px;
-    z-index: 12;
-    margin: 0;
-  }
 }
 .journey-visit-badge-text {
   display: inline-flex;
@@ -678,13 +670,31 @@
   align-self: stretch;
   margin: 0;
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
   justify-content: center;
   background: #000;
   border-radius: 0;
   overflow: hidden;
   transition: background-color 1.2s ease-in-out;
-  --rail-gutter: max(0px, calc((100cqw - min(100cqw, calc(100cqh * 16 / 9))) / 2));
+  // Dedicated side columns — the sharp map lives only in the center cell so
+  // chapter thumbnails never stack on top of the artwork.
+  --left-rail-w: clamp(168px, 14vw, 224px);
+  --right-chrome-w: 52px;
+  --map-usable-w: calc(100cqw - var(--left-rail-w) - var(--right-chrome-w));
+  // Vertical letterbox — blurred fill peeks above/below the sharp map (mirrors
+  // the bottom gap the user liked; top was flush before).
+  --map-bezel-y: clamp(16px, 3cqh, 36px);
+  --map-usable-h: calc(100cqh - 2 * var(--map-bezel-y));
+
+  .journey-visit-badge--overlay {
+    position: absolute;
+    top: var(--map-bezel-y);
+    left: calc(var(--left-rail-w) + 10px);
+    right: calc(var(--right-chrome-w) + 10px);
+    z-index: 12;
+    margin: 0;
+  }
 
   // Soft vignette hides the seam between sharp map and blurred fill.
   &::after {
@@ -709,28 +719,43 @@
     z-index: 0;
     user-select: none;
     -webkit-user-drag: none;
+    transition: opacity 0.42s ease;
+  }
+
+  .journey-map-row {
+    position: relative;
+    z-index: 3;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    flex: 1 1 auto;
+    min-height: 0;
+    min-width: 0;
+    padding: var(--map-bezel-y) 0;
+    box-sizing: border-box;
   }
 
   .journey-map-chapter-rail {
-    // Sit in the left pillarbox gutter and center cards within it.
-    position: absolute;
-    left: 0;
-    top: 50%;
-    transform: translateY(-50%);
+    flex: 0 0 var(--left-rail-w);
+    width: var(--left-rail-w);
+    min-width: var(--left-rail-w);
+    max-width: var(--left-rail-w);
+    align-self: center;
     z-index: 5;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: clamp(10px, 1.6cqh, 14px);
-    width: var(--rail-gutter);
-    min-width: clamp(148px, 18vw, 240px);
-    max-height: min(88cqh, 720px);
-    padding: 24px 16px;
+    max-height: min(var(--map-usable-h), 720px);
+    padding: 24px 14px;
     box-sizing: border-box;
     overflow-y: auto;
     overflow-x: hidden;
-    pointer-events: none;
+    pointer-events: auto;
     scrollbar-width: none;
     mask-image: linear-gradient(to bottom, transparent 0, #000 5%, #000 95%, transparent 100%);
 
@@ -742,23 +767,81 @@
   .journey-map-rail-card {
     position: relative;
     flex-shrink: 0;
-    width: min(100%, clamp(132px, calc(var(--rail-gutter) - 32px), 208px));
-    max-width: 208px;
+    width: min(100%, calc(var(--left-rail-w) - 28px));
+    max-width: 196px;
     aspect-ratio: 16 / 10;
     border-radius: 12px;
     overflow: hidden;
     border: 1px solid rgba(255, 255, 255, 0.18);
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.36);
+    padding: 0;
+    background: transparent;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.42);
+    }
+
+    &--selected {
+      overflow: visible;
+      z-index: 2;
+      border-color: #fff;
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
+      transition:
+        transform 0.15s ease,
+        box-shadow 0.28s ease,
+        border-color 0.28s ease,
+        opacity 0.28s ease;
+
+      &::after {
+        content: '';
+        position: absolute;
+        inset: -3px;
+        border: 2px solid #fff;
+        border-radius: 14px;
+        pointer-events: none;
+        z-index: 3;
+        box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+      }
+    }
 
     &--past {
       filter: blur(1px) brightness(0.78) saturate(0.85);
       opacity: 0.9;
+
+      &.journey-map-rail-card--selected {
+        opacity: 1;
+      }
     }
 
     &--future {
       filter: grayscale(0.92) brightness(0.48) saturate(0.22);
       opacity: 0.52;
+
+      &.journey-map-rail-card--selected {
+        opacity: 0.72;
+      }
     }
+  }
+
+  .journey-map-rail-card__lock {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    z-index: 2;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+
+    ion-icon { font-size: 12px; }
   }
 
   .journey-map-rail-card__img {
@@ -767,6 +850,7 @@
     height: 100%;
     object-fit: cover;
     object-position: center;
+    border-radius: 12px;
     pointer-events: none;
     user-select: none;
     -webkit-user-drag: none;
@@ -805,11 +889,74 @@
   // Full viewport 16:9 — @4x asset downscales cleanly on retina.
   .journey-map-stage {
     position: relative;
-    width: min(100cqw, calc(100cqh * 16 / 9));
-    height: min(100cqh, calc(100cqw * 9 / 16));
     flex: 0 0 auto;
+    width: min(var(--map-usable-w), calc(var(--map-usable-h) * 16 / 9));
+    height: min(var(--map-usable-h), calc(var(--map-usable-w) * 9 / 16));
     z-index: 3;
-    overflow: visible;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06);
+
+    .journey-map-bg--sharp,
+    .journey-map-path,
+    .jm-node,
+    .jm-hotspot,
+    .jm-chest,
+    .journey-map-level-badge {
+      transition: filter 0.42s ease;
+    }
+
+    &--preview-locked {
+      .journey-map-bg--sharp,
+      .journey-map-path,
+      .jm-node,
+      .jm-hotspot,
+      .jm-chest,
+      .journey-map-level-badge {
+        filter: grayscale(0.35) brightness(0.7) saturate(0.75);
+      }
+    }
+  }
+
+  .journey-map-locked-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(0, 0, 0, 0.28);
+    pointer-events: none;
+  }
+
+  .journey-map-locked-card {
+    max-width: 280px;
+    text-align: center;
+    padding: 20px 22px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.97);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.22);
+  }
+
+  .journey-map-locked-icon {
+    font-size: 28px;
+    color: #717171;
+    margin-bottom: 8px;
+  }
+
+  .journey-map-locked-title {
+    margin: 0 0 6px;
+    font-size: 16px;
+    font-weight: 700;
+    color: #111;
+  }
+
+  .journey-map-locked-body {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.45;
+    color: #555;
   }
 
   .journey-map-bg--sharp {
@@ -1053,35 +1200,32 @@
     }
   }
 
-  // ── Overlay chrome (title, back, dock) ─────────────────────────
-  .journey-map-chrome {
-    position: absolute;
-    inset: 0;
-    z-index: 10;
-    pointer-events: none;
-  }
-
+  // ── Overlay chrome (back + dock) ───────────────────────────────
   .journey-map-chrome-end {
-    position: absolute;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 1;
+    flex: 0 0 var(--right-chrome-w);
+    width: var(--right-chrome-w);
+    min-width: var(--right-chrome-w);
+    align-self: stretch;
+    position: relative;
+    z-index: 5;
     display: flex;
     flex-direction: column;
     align-items: center;
-    width: var(--rail-gutter);
-    min-width: clamp(148px, 18vw, 240px);
-    padding: 24px 16px;
+    padding: 16px 6px;
     box-sizing: border-box;
     pointer-events: none;
   }
 
   .journey-map-chrome-back-slot {
+    position: absolute;
+    top: calc(var(--map-bezel-y) + 8px);
+    // Anchor on the map — sit left of the slim dock column, inset from the stage edge.
+    right: calc(100% + 48px);
+    z-index: 6;
     flex-shrink: 0;
-    width: 100%;
+    width: auto;
     display: flex;
-    justify-content: center;
+    justify-content: flex-end;
     pointer-events: auto;
   }
 
@@ -1128,9 +1272,9 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 10px;
-    width: 48px;
-    margin-top: 16px;
+    gap: 8px;
+    width: 40px;
+    margin-top: 56px;
     pointer-events: auto;
   }
 
@@ -1140,11 +1284,25 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 10px;
-    width: 48px;
+    gap: 8px;
+    width: 40px;
     margin-top: auto;
     padding-bottom: 4px;
     pointer-events: auto;
+  }
+
+  @media (max-width: 720px) {
+    --left-rail-w: clamp(132px, 22vw, 168px);
+    --right-chrome-w: 44px;
+    --map-bezel-y: clamp(12px, 2.5cqh, 24px);
+
+    .journey-map-chapter-rail {
+      padding: 16px 10px;
+    }
+
+    .journey-map-chrome-end {
+      padding: 12px 4px;
+    }
   }
 
   // Hidden img used only to detect image load failure → we set
@@ -1579,12 +1737,12 @@ $jm-label-gap: 4px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  width: 48px;
+  gap: 8px;
+  width: 40px;
 
   @media (max-width: 600px) {
     width: 36px;
-    gap: 8px;
+    gap: 6px;
   }
 }
 
@@ -1768,6 +1926,67 @@ $jm-label-gap: 4px;
   line-height: 1.45;
 }
 
+.rbq-provenance {
+  margin: 6px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rbq-save {
+  margin-top: 18px;
+  width: 100%;
+  text-align: left;
+}
+
+.rbq-save-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #374151;
+  margin: 0 0 10px;
+}
+
+.rbq-save-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  background: #f9fafb;
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+
+  &--on {
+    background: rgba(34, 197, 94, 0.08);
+    border-color: rgba(34, 197, 94, 0.4);
+  }
+}
+
+.rbq-save-check {
+  font-size: 20px;
+  flex-shrink: 0;
+  color: #9ca3af;
+  margin-top: 1px;
+
+  .rbq-save-item--on & { color: #16a34a; }
+}
+
+.rbq-save-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rbq-save-main { font-size: 14px; font-weight: 600; color: #1f2937; }
+.rbq-save-explain { font-size: 12px; color: #6b7280; line-height: 1.4; }
+
 .rbq-scroll {
   flex: 1;
   min-height: 0;
@@ -1870,6 +2089,16 @@ $jm-label-gap: 4px;
   font-weight: 700;
   color: #111;
   line-height: 1.45;
+  margin: 0 0 6px;
+  text-align: left;
+  align-self: stretch;
+}
+
+.rbq-prompt-translation {
+  font-size: 14px;
+  font-weight: 500;
+  color: #6b7280;
+  line-height: 1.4;
   margin: 0 0 20px;
   text-align: left;
   align-self: stretch;

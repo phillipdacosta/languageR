@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, BehaviorSubject } from 'rxjs';
+import { Observable, BehaviorSubject, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
 import { UserService } from './user.service';
@@ -256,6 +257,14 @@ export interface LessonStatusResponse {
     leftAfterJoin: boolean;
   };
 }
+
+/** Statuses the backend GET /lessons/:id/status endpoint will answer for. */
+export const LESSON_STATUS_POLLABLE_STATUSES: Lesson['status'][] = [
+  'scheduled', 'confirmed', 'in_progress', 'ended_early'
+];
+
+const LESSON_JOIN_EARLY_MS = 15 * 60 * 1000;
+const LESSON_END_GRACE_MS = 5 * 60 * 1000;
 
 @Injectable({
   providedIn: 'root'
@@ -745,7 +754,38 @@ export class LessonService {
   // Check if user can join lesson (without generating token)
   getLessonStatus(lessonId: string): Observable<LessonStatusResponse> {
     const headers = this.userService.getAuthHeadersSync();
-    return this.http.get<LessonStatusResponse>(`${this.baseUrl}/${lessonId}/status`, { headers });
+    return this.http.get<LessonStatusResponse>(`${this.baseUrl}/${lessonId}/status`, { headers }).pipe(
+      // Completed / cancelled lessons legitimately 404 — callers treat success:false
+      // as "stop polling" instead of surfacing a console error.
+      catchError(() => of({
+        success: false,
+        canJoin: false,
+        timeUntilStart: 0,
+        timeUntilJoin: 0,
+        serverTime: new Date().toISOString(),
+        lesson: { id: lessonId, startTime: '', endTime: '', status: '' }
+      }))
+    );
+  }
+
+  /**
+   * Whether to poll GET /lessons/:id/status for live join state. The home
+   * card may still show a lesson from earlier today after it ended; polling
+   * those hits a 404 ("Lesson not available") and spams the console.
+   */
+  shouldPollLessonStatus(
+    lesson: Lesson | null | undefined,
+    opts?: { isClass?: boolean; isMockId?: boolean }
+  ): boolean {
+    if (!lesson?._id || opts?.isClass || opts?.isMockId) return false;
+    if (lesson.status && !LESSON_STATUS_POLLABLE_STATUSES.includes(lesson.status)) {
+      return false;
+    }
+    const start = new Date(lesson.startTime).getTime();
+    const end = new Date(lesson.endTime).getTime();
+    if (!Number.isFinite(start) || !Number.isFinite(end)) return false;
+    const now = Date.now();
+    return now >= start - LESSON_JOIN_EARLY_MS && now <= end + LESSON_END_GRACE_MS;
   }
 
   // Join lesson (generates Agora token if within time window)

@@ -60,12 +60,6 @@ export class ApiAuthInterceptor implements HttpInterceptor {
     }
 
     return from(buildBearerToken(this.authService)).pipe(
-      switchMap(token => {
-        const authed = req.clone({
-          setHeaders: { Authorization: `Bearer ${token}` },
-        });
-        return next.handle(authed);
-      }),
       catchError(err => {
         console.error(
           '[ApiAuthInterceptor] Failed to obtain Auth0 token; request aborted:',
@@ -73,6 +67,12 @@ export class ApiAuthInterceptor implements HttpInterceptor {
           err
         );
         return throwError(() => err);
+      }),
+      switchMap(token => {
+        const authed = req.clone({
+          setHeaders: { Authorization: `Bearer ${token}` },
+        });
+        return next.handle(authed);
       })
     );
   }

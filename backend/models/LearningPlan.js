@@ -474,6 +474,19 @@ const learningPlanSchema = new mongoose.Schema({
     xp: { type: Number, default: 0 },
     claimedAt: { type: Date, default: Date.now }
   }],
+  // One entry per passed roadblock checkpoint. `key` is map-stable
+  // (`${chapterTheme}-${phaseCount}-rb-${afterPhase}`) so a gate is treated
+  // as cleared even before the NEXT phase is completed — fixes the bug where
+  // a passed gate auto-reopened on every journey visit until phase N+1 was
+  // finished.
+  clearedRoadblocks: [{
+    key: { type: String, required: true },
+    afterPhase: { type: Number, default: 0 },
+    chapterTheme: { type: String, default: '' },
+    phaseCount: { type: Number, default: 0 },
+    quizId: { type: mongoose.Schema.Types.ObjectId, ref: 'Quiz', default: null },
+    clearedAt: { type: Date, default: Date.now }
+  }],
   lastUpdatedAt: {
     type: Date,
     default: Date.now

@@ -349,12 +349,23 @@
             <span>{{ (edFocusDetailsExpanded ? 'EVENT_DETAILS.LESSON_SCREEN.HIDE_TOPICS' : 'EVENT_DETAILS.LESSON_SCREEN.SHOW_TOPICS') | translate }}</span>
             <ion-icon [name]="edFocusDetailsExpanded ? 'chevron-up-outline' : 'chevron-down-outline'" aria-hidden="true"></ion-icon>
           </button>
-          <div class="ed-topics" *ngIf="edShowPlanExpanded && !edPlanIsTrial && !edPlanIsPaused && edPlanTopicChips.length && (!isStudentUser || edFocusDetailsExpanded)">
+          <div class="ed-topics" *ngIf="!edPlanIsTrial && !edPlanIsPaused && edPlanTopicChips.length && (isStudentUser ? edFocusDetailsExpanded : edShowPlanExpanded)">
             <span class="ed-topic" *ngFor="let topic of edPlanTopicChips">{{ topic }}</span>
           </div>
-          <ul class="ed-focus-agenda" *ngIf="edShowPlanExpanded && !edPlanIsTrial && !edPlanIsPaused && edFocusAgendaItems.length && (!isStudentUser || edFocusDetailsExpanded)">
+          <ul class="ed-focus-agenda" *ngIf="!edPlanIsTrial && !edPlanIsPaused && edFocusAgendaItems.length && (isStudentUser ? edFocusDetailsExpanded : edShowPlanExpanded)">
             <li *ngFor="let item of edFocusAgendaItems">{{ item }}</li>
           </ul>
+          <!-- Error examples: 1-2 before/after snippets from this lesson's analysis -->
+          <div
+            class="ed-error-examples"
+            *ngIf="isStudentUser && edFocusDetailsExpanded && edFocusErrorExamples.length">
+            <p class="ed-error-examples-label">{{ 'EVENT_DETAILS.LESSON_SCREEN.ERROR_EXAMPLES_LABEL' | translate }}</p>
+            <div class="ed-error-example" *ngFor="let ex of edFocusErrorExamples">
+              <span class="ed-error-example-original">{{ ex.original }}</span>
+              <ion-icon name="arrow-forward-outline" class="ed-error-example-arrow" aria-hidden="true"></ion-icon>
+              <span class="ed-error-example-corrected">{{ ex.corrected }}</span>
+            </div>
+          </div>
           </ng-container>
         </div>
       </section>
