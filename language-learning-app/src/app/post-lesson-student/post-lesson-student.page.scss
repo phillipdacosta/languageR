@@ -297,6 +297,7 @@ $pls-viewport-height: calc(100dvh - #{$pls-chrome-height});
   display: flex;
   flex-direction: column;
   min-height: 0;
+  flex: 1;
   width: 100%;
   overflow: hidden;
   border-top: 1px solid $pls-border-light;
@@ -565,11 +566,33 @@ $pls-viewport-height: calc(100dvh - #{$pls-chrome-height});
   flex-direction: column;
 
   &--centered {
+    flex: 1;
+    min-height: 0;
+
     .plt-actions-scroll {
       display: flex;
       flex-direction: column;
       align-items: center;
+      justify-content: flex-start;
       text-align: center;
+      min-height: 100%;
+
+      &::before,
+      &::after {
+        content: '';
+        flex: 1 1 0;
+        min-height: 20px;
+        width: 100%;
+        pointer-events: none;
+      }
+    }
+
+    .pls-right-step {
+      flex: 0 0 auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
     }
 
     .pls-right-column-title {
@@ -587,6 +610,17 @@ $pls-viewport-height: calc(100dvh - #{$pls-chrome-height});
     app-trial-lesson-recap-panel:not(.trl-recap-host--flush-back) {
       width: 100%;
       max-width: 420px;
+    }
+
+    .pls-recap-carousel,
+    .pls-recap-carousel-stack,
+    .pls-right-step--recap-carousel {
+      max-width: min(680px, 100%);
+    }
+
+    .pls-recap-carousel-stack .pls-book-again-cta {
+      max-width: 420px;
+      width: 100%;
     }
 
     app-trial-lesson-recap-panel.trl-recap-host--flush-back {
@@ -609,6 +643,31 @@ $pls-viewport-height: calc(100dvh - #{$pls-chrome-height});
     .pls-section-title,
     .pls-section-sub {
       text-align: center;
+    }
+
+    .pls-analysis-state,
+    .pls-analysis-ready,
+    .pls-journey-card,
+    .pls-recap-carousel-stack {
+      margin-inline: auto;
+    }
+
+    .pls-recap-focus-back {
+      align-self: flex-start;
+    }
+  }
+
+  &--recap-carousel.pls-right-panel--centered {
+    .plt-actions-scroll {
+      justify-content: flex-start;
+
+      &::before {
+        display: none;
+      }
+    }
+
+    .pls-recap-carousel__track {
+      padding-top: 0;
     }
   }
 }
@@ -968,6 +1027,10 @@ $pls-viewport-height: calc(100dvh - #{$pls-chrome-height});
 }
 
 // ── Analysis states ─────────────────────────────────────────
+.pls-analysis-state {
+  min-height: 200px;
+}
+
 .pls-analysis-loading,
 .pls-analysis-unavailable {
   text-align: center;
@@ -1047,12 +1110,244 @@ $pls-viewport-height: calc(100dvh - #{$pls-chrome-height});
   ion-icon { font-size: 28px; color: #86868b; }
 }
 
-.pls-analysis-ready {
-  animation: plsFadeIn 0.4s ease both;
-}
-
 .pls-book-again-cta {
   margin-top: 4px;
+}
+
+// ── Recap cover-flow carousel (analysis + journey) ───────────
+.pls-recap-carousel-stack {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
+
+.pls-recap-carousel-stack .pls-book-again-cta {
+  margin-top: 18px;
+}
+
+.pls-recap-focus-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0 0 16px;
+  padding: 8px 12px 8px 8px;
+  border: none;
+  border-radius: 999px;
+  background: $pls-bg-subtle;
+  color: $pls-text-primary;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.15s ease;
+
+  ion-icon {
+    font-size: 18px;
+  }
+
+  &:hover {
+    background: darken($pls-bg-subtle, 4%);
+  }
+
+  &:active {
+    transform: scale(0.98);
+  }
+}
+
+.pls-recap-carousel {
+  --pls-carousel-slide-w: 340px;
+  width: 100%;
+  max-width: none;
+  margin: 0 auto 0;
+  perspective: 1400px;
+
+  @media (min-width: 768px) {
+    --pls-carousel-slide-w: 400px;
+  }
+}
+
+.pls-recap-carousel__track {
+  display: flex;
+  align-items: stretch;
+  gap: 20px;
+  overflow-x: auto;
+  overflow-y: visible;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: calc(50% - var(--pls-carousel-slide-w) / 2);
+  padding: 20px calc(50% - var(--pls-carousel-slide-w) / 2) 28px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  mask-image: linear-gradient(to right, transparent 0, #000 6%, #000 94%, transparent 100%);
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.pls-recap-carousel__slide {
+  flex: 0 0 var(--pls-carousel-slide-w);
+  scroll-snap-align: center;
+  border: none;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  transform: scale(0.92) rotateY(10deg);
+  opacity: 0.62;
+  transform-origin: center center;
+  transition:
+    transform 0.38s cubic-bezier(0.32, 0.72, 0, 1),
+    opacity 0.32s ease;
+  -webkit-tap-highlight-color: transparent;
+
+  &--active {
+    transform: scale(1) rotateY(0deg);
+    opacity: 1;
+    z-index: 2;
+  }
+
+  &--before {
+    transform: scale(0.9) rotateY(12deg);
+  }
+
+  &--after {
+    transform: scale(0.9) rotateY(-12deg);
+  }
+
+  &:focus-visible {
+    outline: 2px solid #222;
+    outline-offset: 4px;
+  }
+}
+
+.pls-recap-carousel__card {
+  min-height: 300px;
+  padding: 28px 24px;
+  border-radius: 24px;
+  border: 1px solid $pls-border-light;
+  background: #ffffff;
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.04),
+    0 16px 40px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+
+  @media (min-width: 768px) {
+    min-height: 340px;
+    padding: 32px 28px;
+  }
+
+  &--journey {
+    text-align: left;
+    align-items: stretch;
+    justify-content: flex-start;
+  }
+}
+
+.pls-recap-carousel__card-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+
+  ion-icon {
+    font-size: 28px;
+    color: #fff;
+  }
+
+  &--success {
+    background: #059669;
+  }
+}
+
+.pls-recap-carousel__card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+
+  ion-icon {
+    font-size: 22px;
+    color: $pls-text-primary;
+  }
+
+  h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: $pls-text-primary;
+  }
+}
+
+.pls-recap-carousel__card-title {
+  margin: 0 0 12px;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.4px;
+  color: $pls-text-primary;
+  line-height: 1.2;
+
+  @media (min-width: 768px) {
+    font-size: 24px;
+  }
+}
+
+.pls-recap-carousel__card-sub {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.5;
+  color: $pls-text-secondary;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.pls-recap-carousel__map {
+  display: block;
+  border-radius: 14px;
+  overflow: hidden;
+  margin-bottom: 14px;
+  min-height: 140px;
+
+  @media (min-width: 768px) {
+    min-height: 168px;
+  }
+}
+
+.pls-recap-carousel__dots {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.pls-recap-carousel__dot {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: #d1d1d6;
+  cursor: pointer;
+  transition: transform 0.2s ease, background 0.2s ease;
+
+  &--active {
+    background: #1d1d1f;
+    transform: scale(1.15);
+  }
+}
+
+.pls-recap-focus-back + .pls-journey-card,
+.pls-recap-focus-back + .pls-analysis-state .pls-analysis-ready {
+  margin-top: 0;
 }
 
 .pls-view-feedback-cta {
@@ -1923,6 +2218,15 @@ $pls-viewport-height: calc(100dvh - #{$pls-chrome-height});
   .pls-pulse-ring { border-color: $d-text; }
 }
 
+.pls-journey-snapshot-host {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
 .pls-journey-card {
   margin-top: 16px;
   padding: 18px;
@@ -2053,6 +2357,39 @@ $pls-viewport-height: calc(100dvh - #{$pls-chrome-height});
 
 :host-context(html.ion-palette-dark) {
   @include post-lesson-student-theme-dark;
+
+  .pls-recap-focus-back {
+    background: rgba(255, 255, 255, 0.08);
+    color: #f2f2f2;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.12);
+    }
+  }
+
+  .pls-recap-carousel__card {
+    background: #1c1c1e;
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+  }
+
+  .pls-recap-carousel__card-head ion-icon,
+  .pls-recap-carousel__card-head h3,
+  .pls-recap-carousel__card-title {
+    color: #f2f2f2;
+  }
+
+  .pls-recap-carousel__card-sub {
+    color: #a1a1a6;
+  }
+
+  .pls-recap-carousel__dot {
+    background: rgba(255, 255, 255, 0.25);
+
+    &--active {
+      background: #f2f2f2;
+    }
+  }
 
   .pls-journey-card {
     background: #1c1c1e;

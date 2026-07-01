@@ -27,6 +27,7 @@ import { FormsModule } from '@angular/forms';
 import { AlertController, ModalController, AnimationController } from '@ionic/angular';
 import { ToastService } from '../services/toast.service';
 import { JourneyIntroComponent } from './journey-intro.component';
+import { JourneyMapVideoLoopComponent } from './journey-map-video-loop.component';
 import { ChapterCompleteModalComponent } from './chapter-complete-modal/chapter-complete-modal.component';
 import { PastMapsModalComponent } from './past-maps/past-maps-modal.component';
 import { PlanHistoryModalComponent } from './plan-history/plan-history-modal.component';
@@ -38,6 +39,7 @@ import {
   journeyBackgroundSrcSetFromUrl,
   journeyBackgroundUrlHiRes,
   journeyBackgroundUrl,
+  journeyBackgroundVideoUrl,
   MapPhaseVariant,
   resolveMapVariant,
   resolvePlatformLayout,
@@ -299,7 +301,8 @@ const CHAPTER_PREVIEW_EASE = 'cubic-bezier(0.32, 0.72, 0, 1)';
     IonicModule,
     RouterModule,
     TranslateModule,
-    JourneyWidgetComponent
+    JourneyWidgetComponent,
+    JourneyMapVideoLoopComponent
   ]
 })
 export class JourneyPage implements OnInit, OnDestroy {
@@ -324,6 +327,7 @@ export class JourneyPage implements OnInit, OnDestroy {
       this.onJourneyBecameVisible();
       this.playRoadmapReveal();
     }
+    this.cdr.markForCheck();
   }
   get active(): boolean {
     return this._active;
@@ -975,6 +979,14 @@ export class JourneyPage implements OnInit, OnDestroy {
       this.masteryChallengeThemeLabel = '';
     }
 
+    // Previewing another chapter — keep its map/nodes; refresh rail selection only.
+    if (this.visitingChapter) {
+      this.rebuildChapterStrip();
+      this.recomputePrimaryCta();
+      this.loadEditPermissions();
+      return;
+    }
+
     // Resolve chapter theme from the plan. Drives both the background image
     // and the per-theme waypoint set used to place nodes on the road.
     this.chapterTheme = (plan as any).chapterTheme || 'a1-desert';
@@ -1529,6 +1541,8 @@ export class JourneyPage implements OnInit, OnDestroy {
   // Hidden in production builds.
 
   isDev = !environment.production;
+  /** Hides journey map right-rail actions (info, maps, history, AI regen, dev tools). Set true to re-enable. */
+  showMapActionDock = false;
 
   private static readonly THEME_BY_LEVEL: { [k: string]: string } = {
     A1: 'a1-desert',
@@ -1921,6 +1935,13 @@ export class JourneyPage implements OnInit, OnDestroy {
       this.exitVisitingChapter();
       return;
     }
+    // Live chapter is already on the main map — tap returns from preview.
+    if (ch.state === 'current') {
+      if (this.visitingChapter) {
+        this.exitVisitingChapter();
+      }
+      return;
+    }
     if (ch.state === 'future') {
       this.startVisitingChapter({
         index: ch.index,
@@ -2061,19 +2082,38 @@ export class JourneyPage implements OnInit, OnDestroy {
     return journeyBackgroundUrlHiRes(this.backgroundUrl);
   }
 
+  get mapVideoUrl(): string | null {
+    const phaseCount = this.phaseRows.length || this.plan?.phases?.length || 4;
+    return journeyBackgroundVideoUrl(this.chapterTheme, phaseCount);
+  }
+
+  get mapUsesVideoBackground(): boolean {
+    if (this.backgroundFailed || !this.mapVideoUrl) return false;
+    if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      return false;
+    }
+    return true;
+  }
+
+  get mapVideoPlaying(): boolean {
+    if (this.inline && !this._active) return false;
+    return true;
+  }
+
   /** Drives map crossfade when switching live ↔ preview chapters. */
   get mapPreviewAnimKey(): string {
     return `${this.chapterTheme}-${this.visitingChapter?.index ?? 'live'}`;
   }
 
-  /** Non-current chapters for the left vertical rail (A1→C2). */
+  /** All chapters for the left rail — rendered bottom→top via column-reverse (A1…C2). */
   get chapterRailItems(): JourneyChapterStripItem[] {
-    return this.chapterStrip.filter(ch => ch.state !== 'current');
+    return this.chapterStrip;
   }
 
   private rebuildChapterStrip(): void {
     const liveIndex = this.liveChapterSnapshot?.index ?? this.chapterIndex;
     const previewIndex = this.visitingChapter?.index ?? null;
+    const livePhaseCount = this.plan?.phases?.length || this.phaseRows.length || 4;
 
     this.chapterStrip = JourneyPage.CHAPTER_PREVIEWS.map(ch => {
       let state: JourneyChapterStripItem['state'];
@@ -2089,7 +2129,10 @@ export class JourneyPage implements OnInit, OnDestroy {
         level: ch.level,
         theme: ch.theme,
         label: ch.label,
-        imageUrl: journeyBackgroundUrl(ch.theme, 5),
+        imageUrl: journeyBackgroundUrl(
+          ch.theme,
+          ch.index === liveIndex ? livePhaseCount : 5
+        ),
         state,
         selected: previewIndex === ch.index
       };

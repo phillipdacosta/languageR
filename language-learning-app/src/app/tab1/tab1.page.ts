@@ -2178,6 +2178,11 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       this.returningFromInline = false;
       this.cdr.detectChanges();
     }
+    if (this.showJourneyView) {
+      this.showJourneyView = false;
+      this.journeyCtaHidden = false;
+      this.cdr.detectChanges();
+    }
   }
 
   // ── Feedback Grace Period Countdown ──────────────────────
