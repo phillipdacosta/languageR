@@ -746,9 +746,9 @@
     align-self: center;
     z-index: 5;
     display: flex;
-    flex-direction: column;
+    flex-direction: column-reverse;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     gap: clamp(10px, 1.6cqh, 14px);
     max-height: min(var(--map-usable-h), 720px);
     padding: 24px 14px;
@@ -813,6 +813,18 @@
 
       &.journey-map-rail-card--selected {
         opacity: 1;
+      }
+    }
+
+    &--current {
+      border-color: rgba(255, 255, 255, 0.55);
+      box-shadow:
+        0 6px 20px rgba(0, 0, 0, 0.36),
+        0 0 0 1px rgba(255, 255, 255, 0.2);
+      cursor: default;
+
+      &:hover {
+        transform: none;
       }
     }
 
@@ -898,6 +910,8 @@
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06);
 
     .journey-map-bg--sharp,
+    .journey-map-bg--video,
+    app-journey-map-video-loop.journey-map-bg--video,
     .journey-map-path,
     .jm-node,
     .jm-hotspot,
@@ -907,12 +921,12 @@
     }
 
     &--preview-locked {
+      // Dim the artwork only — keep node dots/badges at full color so rings
+      // don't pick up a dark halo from brightness() on the UI layer.
       .journey-map-bg--sharp,
-      .journey-map-path,
-      .jm-node,
-      .jm-hotspot,
-      .jm-chest,
-      .journey-map-level-badge {
+      .journey-map-bg--video,
+      app-journey-map-video-loop.journey-map-bg--video,
+      .journey-map-path {
         filter: grayscale(0.35) brightness(0.7) saturate(0.75);
       }
     }
@@ -959,7 +973,9 @@
     color: #555;
   }
 
-  .journey-map-bg--sharp {
+  .journey-map-bg--sharp,
+  .journey-map-bg--video,
+  app-journey-map-video-loop.journey-map-bg--video {
     position: absolute;
     inset: 0;
     width: 100%;
@@ -970,6 +986,10 @@
     z-index: 0;
     user-select: none;
     -webkit-user-drag: none;
+  }
+
+  app-journey-map-video-loop.journey-map-bg--video {
+    object-fit: unset;
   }
 
   // ── Map hotspots (roadblocks + chests baked into the art) ────────
@@ -1391,7 +1411,9 @@
   &--fallback {
     .journey-map-bg--blur,
     .journey-map-rail-card__img,
-    .journey-map-bg--sharp {
+    .journey-map-bg--sharp,
+    .journey-map-bg--video,
+    app-journey-map-video-loop.journey-map-bg--video {
       display: none;
     }
 
@@ -1469,7 +1491,8 @@
 
   .jm-node--locked & {
     background: #D6DBE8;
-    border-color: #fff;
+    border-color: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 2px 8px rgba(76, 126, 244, 0.14);
     ion-icon { color: #9AA4BE; font-size: 13px; }
   }
 
@@ -1531,8 +1554,8 @@
 .jm-node--split .jm-dot {
   // Subtle outline ring to draw the eye to the badge without being loud.
   box-shadow:
-    0 3px 10px rgba(0, 0, 0, 0.18),
-    0 0 0 2px rgba(0, 0, 0, 0.06);
+    0 3px 10px rgba(76, 126, 244, 0.16),
+    0 0 0 2px rgba(76, 126, 244, 0.12);
 }
 
 // Recovery (bridge) badge — small leaf anchored to the dot. Same shape
@@ -1598,28 +1621,42 @@
 // flow), so `100%` = the dot's bottom edge. To sit ABOVE the dot with a
 // small breathing gap we anchor the label's bottom at `100% + 4px`
 // (i.e. 4px above the dot's top). Mirrored for the below variant.
-$jm-label-gap: 4px;
+$jm-label-gap: 8px;
 
 .jm-label {
   position: absolute;
   bottom: calc(100% + #{$jm-label-gap});
   left: 50%;
   transform: translateX(calc(-50% + var(--jm-label-x-offset, 0px)));
-  display: flex;
-  flex-direction: column;
+  display: inline-flex;
+  flex-direction: row;
   align-items: center;
-  gap: 1px;
-  max-width: 92px;
-  text-align: center;
+  gap: 7px;
+  max-width: min(148px, 38vw);
+  text-align: left;
   pointer-events: none;
-  background: rgba(255, 255, 255, 0.96);
-  border-radius: 8px;
-  padding: 3px 7px 4px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  padding: 5px 10px 5px 5px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(10px) saturate(1.4);
+  -webkit-backdrop-filter: blur(10px) saturate(1.4);
+  box-shadow:
+    0 2px 12px rgba(0, 0, 0, 0.14),
+    0 0 0 1px rgba(0, 0, 0, 0.04);
   white-space: normal;
   opacity: 1;
   visibility: visible;
-  transition: opacity 0.18s ease, visibility 0.18s ease, transform 0.18s ease;
+  transition:
+    opacity 0.18s ease,
+    visibility 0.18s ease,
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+// Completed phases — checkmark on the dot is enough; hide the title pill.
+.jm-node--completed .jm-label {
+  display: none;
 }
 
 // Future (locked) stages: label pops up on hover/focus/tap only.
@@ -1633,6 +1670,19 @@ $jm-label-gap: 4px;
 .jm-node--locked.jm-node--selected .jm-label {
   opacity: 1;
   visibility: visible;
+}
+
+.jm-node--active .jm-label {
+  box-shadow:
+    0 4px 16px rgba(66, 172, 235, 0.28),
+    0 0 0 1px rgba(66, 172, 235, 0.22);
+  border-color: rgba(66, 172, 235, 0.35);
+}
+
+.jm-node--selected .jm-label {
+  box-shadow:
+    0 4px 18px rgba(76, 126, 244, 0.32),
+    0 0 0 1px rgba(76, 126, 244, 0.24);
 }
 
 // Top-edge nodes: flip the label below the dot so it never escapes the
@@ -1696,32 +1746,52 @@ $jm-label-gap: 4px;
 // modifiers (--label-below for vertical, --label-start / --label-end for
 // horizontal) compose cleanly because they touch different properties.
 
-// Label text: black in light mode for crisp Apple-style legibility on the
-// frosted-white pill. Status conveys via the dot — colored text isn't
-// needed and reads as visual noise. Locked stays muted as the only
-// hierarchy cue. Dark mode overrides further down switch to white.
+// Label text — frosted chip + circular phase badge (same in light and dark mode).
 .jm-label-num {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #222;
+  color: #fff;
   font-size: 11px;
   font-weight: 700;
   line-height: 1;
-  color: #111;
+  letter-spacing: -0.02em;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
 
-  .jm-node--locked & { color: #8e8e93; }
+  .jm-node--active & {
+    background: #42aceb;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.2),
+      0 1px 4px rgba(66, 172, 235, 0.35);
+  }
+
+  .jm-node--locked & {
+    background: #b8c0d4;
+    color: #fff;
+    box-shadow: none;
+  }
 }
 
 .jm-label-title {
-  font-size: 10.5px;
-  font-weight: 500;
-  line-height: 1.3;
-  color: #111;
-  max-width: 86px;
+  flex: 1;
+  min-width: 0;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  color: #222;
+  max-width: none;
 
-  .jm-node--active &  { font-weight: 700; }
-  .jm-node--locked &  { color: #8e8e93; }
+  .jm-node--active &  { font-weight: 700; color: #111; }
+  .jm-node--locked &  { color: #717171; font-weight: 500; }
 
   @media (max-width: 600px) {
-    font-size: 9.5px;
-    max-width: 68px;
+    font-size: 10.5px;
   }
 }
 
@@ -3568,11 +3638,6 @@ $jm-label-gap: 4px;
     border-color: #fff;
     ion-icon { color: #fff; }
   }
-  .jm-node--split .jm-dot {
-    box-shadow:
-      0 3px 10px rgba(0, 0, 0, 0.6),
-      0 0 0 2px rgba(255, 255, 255, 0.1);
-  }
 
   // Recovery callout (dark)
   .jpcd-recovery-callout {
@@ -3592,11 +3657,6 @@ $jm-label-gap: 4px;
     background: #1c1c1e;
     border-color: #98d49b;
     ion-icon { color: #98d49b; }
-  }
-  .jm-node--recovery .jm-dot {
-    box-shadow:
-      0 3px 10px rgba(0, 0, 0, 0.5),
-      0 0 0 2px rgba(152, 212, 155, 0.18);
   }
 
   // Progress section
@@ -3694,54 +3754,42 @@ $jm-label-gap: 4px;
   .journey-phase-progress-num   { color: #4c7ef4; }
   .journey-phase-progress-label { color: #8e8e93; }
 
-  // Map canvas nodes
-  .jm-dot {
-    border-color: #1c1c1e;
-    box-shadow:
-      0 3px 10px rgba(0, 0, 0, 0.4),
-      0 0 0 1px rgba(255, 255, 255, 0.1);
-  }
+  // Map node dots + labels keep light-mode styling on the map artwork.
+  .journey-map-stage {
+    .jm-dot {
+      border-color: #fff;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18);
+    }
 
-  .jm-node--locked .jm-dot {
-    background: rgba(84, 84, 88, 0.32);
-    border-color: #1c1c1e;
-    ion-icon { color: #8e8e93; }
-  }
+    .jm-node--locked .jm-dot {
+      background: #D6DBE8;
+      border-color: rgba(255, 255, 255, 0.92);
+      box-shadow: 0 2px 8px rgba(76, 126, 244, 0.14);
+      ion-icon { color: #9AA4BE; }
+    }
 
-  .jm-node--goal.jm-node--locked .jm-dot {
-    background: rgba(28, 28, 30, 0.35);
-    border-color: rgba(255, 255, 255, 0.85);
-    ion-icon { color: rgba(255, 255, 255, 0.88); }
-  }
+    .jm-node--goal.jm-node--locked .jm-dot {
+      background: rgba(255, 255, 255, 0.22);
+      border-color: rgba(255, 255, 255, 0.95);
+      ion-icon { color: rgba(255, 255, 255, 0.92); }
+    }
 
-  .jm-node--active .jm-dot {
-    border-color: #1c1c1e;
-    box-shadow:
-      0 0 0 5px rgba(76, 126, 244, 0.25),
-      0 4px 14px rgba(76, 126, 244, 0.4),
-      0 0 0 1px rgba(255, 255, 255, 0.1);
-  }
+    .jm-node--active .jm-dot {
+      border-color: #fff;
+    }
 
-  .jm-node--selected .jm-dot {
-    box-shadow:
-      0 0 0 6px rgba(76, 126, 244, 0.3),
-      0 4px 18px rgba(76, 126, 244, 0.45),
-      0 0 0 1px rgba(255, 255, 255, 0.1);
-  }
+    .jm-node--split .jm-dot {
+      box-shadow:
+        0 3px 10px rgba(76, 126, 244, 0.16),
+        0 0 0 2px rgba(76, 126, 244, 0.12);
+    }
 
-  .jm-label {
-    background: rgba(28, 28, 30, 0.96);
-    color: #e5e5e7;
-    border: 1px solid rgba(84, 84, 88, 0.48);
-    box-shadow:
-      0 2px 8px rgba(0, 0, 0, 0.6),
-      0 0 0 1px rgba(255, 255, 255, 0.05);
+    .jm-node--recovery .jm-dot {
+      box-shadow:
+        0 3px 10px rgba(90, 140, 90, 0.14),
+        0 0 0 2px rgba(90, 140, 90, 0.18);
+    }
   }
-  // Override the explicit black/dark-grey text colors set in light mode.
-  .jm-label-num,
-  .jm-label-title { color: #fff; }
-  .jm-node--locked .jm-label-num,
-  .jm-node--locked .jm-label-title { color: #8e8e93; }
 
   // Floating dock
   .journey-dock-btn {

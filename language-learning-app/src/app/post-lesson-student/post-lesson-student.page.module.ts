@@ -10,6 +10,7 @@ import { CardManagementModalComponent } from '../components/card-management-moda
 import { ClassGoingMessageModalComponent } from '../components/class-going-message-modal/class-going-message-modal.component';
 import { TrialLessonRecapPanelComponent } from '../components/trial-lesson-recap-panel/trial-lesson-recap-panel.component';
 import { JourneyMapPreviewComponent } from '../journey/journey-map-preview.component';
+import { JourneySnapshotPanelComponent } from '../journey/journey-snapshot-panel/journey-snapshot-panel.component';
 
 const routes: Routes = [
   {
@@ -30,6 +31,7 @@ const routes: Routes = [
     ClassGoingMessageModalComponent,
     TrialLessonRecapPanelComponent,
     JourneyMapPreviewComponent,
+    JourneySnapshotPanelComponent,
   ],
   declarations: [PostLessonStudentPage]
 })

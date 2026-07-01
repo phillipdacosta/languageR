@@ -40,6 +40,17 @@ export function journeyBackgroundUrl(theme: string, phaseCount: number): string 
   return `assets/journey-backgrounds/${journeyBackgroundFilename(theme, phaseCount)}`;
 }
 
+/** Live journey canvas only — previews/snapshots keep the PNG from journeyBackgroundUrl. */
+const JOURNEY_MAP_VIDEO_BACKGROUNDS: Partial<Record<string, string>> = {
+  'a1-desert-5': 'a1-desert-5.mp4'
+};
+
+export function journeyBackgroundVideoUrl(theme: string, phaseCount: number): string | null {
+  const key = mapLayoutKey(theme, phaseCount);
+  const filename = JOURNEY_MAP_VIDEO_BACKGROUNDS[key];
+  return filename ? `assets/journey-backgrounds/${filename}` : null;
+}
+
 /** Keys with a real `@2x` downscale asset. Add more as upscaled variants are created. */
 const RETINA_BACKGROUND_KEYS = new Set<string>(['a1-desert-3', 'a1-desert-4', 'a1-desert-5']);
 

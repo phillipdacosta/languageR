@@ -184,6 +184,7 @@
           *ngFor="let ch of chapterRailItems; trackBy: trackByChapterStrip"
           class="journey-map-rail-card"
           [class.journey-map-rail-card--past]="ch.state === 'past'"
+          [class.journey-map-rail-card--current]="ch.state === 'current'"
           [class.journey-map-rail-card--future]="ch.state === 'future'"
           [class.journey-map-rail-card--selected]="ch.selected"
           [attr.data-theme]="ch.theme"
@@ -209,7 +210,15 @@
         [class.journey-map-stage--has-traveler]="travelerMapMode && !visitingChapter"
         [class.journey-map-stage--traveler-roadblock]="travelerOnRoadblock && !visitingChapter"
         [class.journey-map-stage--preview-locked]="visitingChapter?.locked">
+        <app-journey-map-video-loop
+          *ngIf="mapUsesVideoBackground && mapVideoUrl"
+          class="journey-map-bg journey-map-bg--sharp journey-map-bg--video"
+          [src]="mapVideoUrl"
+          [poster]="backgroundSrcHiRes"
+          [playing]="mapVideoPlaying"
+          (videoError)="onBackgroundError()"></app-journey-map-video-loop>
         <img
+          *ngIf="!mapUsesVideoBackground"
           class="journey-map-bg journey-map-bg--sharp"
           [src]="backgroundSrcHiRes"
           [srcset]="backgroundSrcSet"
@@ -387,7 +396,7 @@
             </button>
           </div>
 
-          <div class="journey-map-actions journey-map-actions--dock">
+          <div class="journey-map-actions journey-map-actions--dock" *ngIf="showMapActionDock">
             <button
               *ngIf="phaseRows.length"
               class="journey-dock-btn"
@@ -446,7 +455,7 @@
             </button>
           </div>
 
-          <div class="journey-map-actions journey-map-actions--dev-dock" *ngIf="isDev">
+          <div class="journey-map-actions journey-map-actions--dev-dock" *ngIf="showMapActionDock">
             <button
               class="journey-dock-btn journey-dock-btn--dev"
               type="button"

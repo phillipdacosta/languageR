@@ -118,6 +118,7 @@
         <div
           class="plt-actions approval-split-main approval-split-main--scroll pls-right-panel"
           [class.pls-right-panel--centered]="centerRightPanelContent"
+          [class.pls-right-panel--recap-carousel]="useRecapCarousel"
           *ngIf="lesson && tutor">
           <div class="plt-actions-scroll">
 
@@ -135,73 +136,148 @@
             </app-trial-lesson-recap-panel>
 
             <!-- Non-trial: analysis first when available -->
-            <div class="pls-right-step" *ngIf="!isTrialLesson">
+            <div class="pls-right-step" [class.pls-right-step--recap-carousel]="useRecapCarousel" *ngIf="!isTrialLesson">
               <ng-container *ngIf="aiAnalysisEnabled && showAnalysisPanel">
-                <div class="pls-analysis-loading" *ngIf="!analysisReady && !analysisUnavailable">
-                  <div class="pls-ai-animation">
-                    <div class="pls-pulse-ring"></div>
-                    <div class="pls-pulse-core">
-                      <ion-icon name="sparkles-outline"></ion-icon>
-                    </div>
-                  </div>
-                  <h2 class="pls-section-title">{{ analysisLoadingTitle }}</h2>
-                  <p class="pls-section-sub">{{ analysisLoadingSub }}</p>
-                  <div class="pls-progress-bar" *ngIf="pollCount > 0">
-                    <div class="pls-progress-fill" [style.width.%]="(pollCount / maxPollAttempts) * 100"></div>
-                  </div>
-                </div>
-
-                <div class="pls-analysis-unavailable" *ngIf="analysisUnavailable && !analysisReady">
-                  <div class="pls-unavailable-icon">
-                    <ion-icon name="document-text-outline"></ion-icon>
-                  </div>
-                  <h2 class="pls-section-title">{{ analysisUnavailableTitle }}</h2>
-                  <p class="pls-section-sub">{{ analysisUnavailableSub }}</p>
-                </div>
-
-                <div class="pls-analysis-ready" *ngIf="analysisReady && analysis" [class.pls-recap-only]="recapOnly">
-                  <div class="pls-analysis-header">
-                    <div class="pls-check-badge">
-                      <ion-icon name="checkmark"></ion-icon>
-                    </div>
-                    <h2 class="pls-section-title">{{ analysisReadyTitle }}</h2>
-                  </div>
-
-                  <div class="pls-recap-note" *ngIf="recapOnly">
-                    <ion-icon name="chatbubbles-outline"></ion-icon>
-                    <p>{{ recapMessage }}</p>
-                  </div>
-
-                  <div class="pls-quick-summary">
+                <div class="pls-recap-carousel-stack" *ngIf="showRecapCarouselRail">
+                  <div
+                    class="pls-recap-carousel"
+                    aria-roledescription="carousel">
                     <div
-                      class="pls-summary-card"
-                      *ngFor="let chip of quickSummaryChips"
-                      [class.pls-summary-card--strong]="chip.tone === 'strong'"
-                      [class.pls-summary-card--solid]="chip.tone === 'solid'"
-                      [class.pls-summary-card--building]="chip.tone === 'building'"
-                      [class.pls-summary-card--needs-work]="chip.tone === 'needs_work'">
-                      <span class="pls-summary-label">{{ chip.label }}</span>
-                      <span class="pls-summary-value">{{ chip.qualitative }}</span>
+                      #recapCarouselTrack
+                      class="pls-recap-carousel__track"
+                      (scroll)="onRecapCarouselScroll($event)">
+                      <button
+                        type="button"
+                        class="pls-recap-carousel__slide"
+                        [class.pls-recap-carousel__slide--active]="recapCarouselIndex === 0"
+                        [class.pls-recap-carousel__slide--before]="recapCarouselIndex > 0"
+                        (click)="viewFullAnalysis()">
+                        <div class="pls-recap-carousel__card pls-recap-carousel__card--analysis">
+                          <div class="pls-recap-carousel__card-icon pls-recap-carousel__card-icon--success">
+                            <ion-icon name="checkmark"></ion-icon>
+                          </div>
+                          <h3 class="pls-recap-carousel__card-title">{{ analysisReadyTitle }}</h3>
+                          <p class="pls-recap-carousel__card-sub" *ngIf="recapAnalysisPreviewHint">{{ recapAnalysisPreviewHint }}</p>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        class="pls-recap-carousel__slide"
+                        [class.pls-recap-carousel__slide--active]="recapCarouselIndex === 1"
+                        [class.pls-recap-carousel__slide--after]="recapCarouselIndex < 1"
+                        (click)="openJourneyModal()">
+                        <div class="pls-recap-carousel__card pls-recap-carousel__card--journey">
+                          <div class="pls-recap-carousel__card-head">
+                            <ion-icon name="map-outline"></ion-icon>
+                            <h3>{{ journeyCardTitle }}</h3>
+                          </div>
+                          <app-journey-map-preview
+                            class="pls-recap-carousel__map"
+                            size="sidebar"
+                            [chapterTheme]="journeyChapterTheme"
+                            [chapterLevel]="journeyChapterLevel"
+                            [phases]="journeyPhases"
+                            [currentPhaseIndex]="journeyCurrentPhaseIndex">
+                          </app-journey-map-preview>
+                          <p class="pls-recap-carousel__card-sub">{{ journeyPhasePillLabel }} · {{ journeyPhaseTitle }}</p>
+                        </div>
+                      </button>
+                    </div>
+
+                    <div class="pls-recap-carousel__dots" aria-hidden="true">
+                      <button
+                        type="button"
+                        class="pls-recap-carousel__dot"
+                        [class.pls-recap-carousel__dot--active]="recapCarouselIndex === 0"
+                        (click)="scrollRecapCarouselTo(0)"></button>
+                      <button
+                        type="button"
+                        class="pls-recap-carousel__dot"
+                        [class.pls-recap-carousel__dot--active]="recapCarouselIndex === 1"
+                        (click)="scrollRecapCarouselTo(1)"></button>
                     </div>
                   </div>
 
-                  <button type="button" class="pls-action-btn pls-action-btn--primary pls-action-btn--full" (click)="viewFullAnalysis()">
-                    <ion-icon name="analytics-outline"></ion-icon>
-                    <span>{{ viewFullAnalysisLabel }}</span>
+                  <button
+                    type="button"
+                    class="pls-action-btn pls-action-btn--secondary pls-action-btn--full pls-book-again-cta"
+                    *ngIf="analysisDeferredAvailability && !showBookAgainSection"
+                    (click)="openBookAgainSection()">
+                    <ion-icon name="calendar-outline"></ion-icon>
+                    <span>{{ bookAgainCtaLabel }}</span>
                   </button>
+                </div>
 
-                  <div class="pls-takeaways" *ngIf="showTakeawaysSection">
-                    <h3>{{ takeawaysTitle }}</h3>
-                    <ul>
-                      <li *ngFor="let item of takeawayItems">{{ item }}</li>
-                    </ul>
+                <div class="pls-analysis-state" *ngIf="shouldShowAnalysisStatePanel" [ngSwitch]="analysisPanelState">
+                  <div class="pls-analysis-loading" *ngSwitchCase="'loading'">
+                    <div class="pls-ai-animation">
+                      <div class="pls-pulse-ring"></div>
+                      <div class="pls-pulse-core">
+                        <ion-icon name="sparkles-outline"></ion-icon>
+                      </div>
+                    </div>
+                    <h2 class="pls-section-title">{{ analysisLoadingTitle }}</h2>
+                    <p class="pls-section-sub">{{ analysisLoadingSub }}</p>
+                    <div class="pls-progress-bar" *ngIf="pollCount > 0">
+                      <div class="pls-progress-fill" [style.width.%]="(pollCount / maxPollAttempts) * 100"></div>
+                    </div>
                   </div>
+
+                  <div class="pls-analysis-unavailable" *ngSwitchCase="'unavailable'">
+                    <div class="pls-unavailable-icon">
+                      <ion-icon name="document-text-outline"></ion-icon>
+                    </div>
+                    <h2 class="pls-section-title">{{ analysisUnavailableTitle }}</h2>
+                    <p class="pls-section-sub">{{ analysisUnavailableSub }}</p>
+                  </div>
+
+                  <ng-container *ngSwitchCase="'ready'">
+                    <div class="pls-analysis-ready" *ngIf="shouldShowFullAnalysis" [class.pls-recap-only]="recapOnly">
+                      <div class="pls-analysis-header">
+                        <div class="pls-check-badge">
+                          <ion-icon name="checkmark"></ion-icon>
+                        </div>
+                        <h2 class="pls-section-title">{{ analysisReadyTitle }}</h2>
+                      </div>
+
+                      <div class="pls-recap-note" *ngIf="recapOnly">
+                        <ion-icon name="chatbubbles-outline"></ion-icon>
+                        <p>{{ recapMessage }}</p>
+                      </div>
+
+                      <div class="pls-quick-summary">
+                        <div
+                          class="pls-summary-card"
+                          *ngFor="let chip of quickSummaryChips"
+                          [class.pls-summary-card--strong]="chip.tone === 'strong'"
+                          [class.pls-summary-card--solid]="chip.tone === 'solid'"
+                          [class.pls-summary-card--building]="chip.tone === 'building'"
+                          [class.pls-summary-card--needs-work]="chip.tone === 'needs_work'">
+                          <span class="pls-summary-label">{{ chip.label }}</span>
+                          <span class="pls-summary-value">{{ chip.qualitative }}</span>
+                        </div>
+                      </div>
+
+                      <button type="button" class="pls-action-btn pls-action-btn--primary pls-action-btn--full" (click)="viewFullAnalysis()">
+                        <ion-icon name="analytics-outline"></ion-icon>
+                        <span>{{ viewFullAnalysisLabel }}</span>
+                      </button>
+
+                      <div class="pls-takeaways" *ngIf="showTakeawaysSection">
+                        <h3>{{ takeawaysTitle }}</h3>
+                        <ul>
+                          <li *ngFor="let item of takeawayItems">{{ item }}</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </ng-container>
                 </div>
 
                 <button
                   type="button"
                   class="pls-action-btn pls-action-btn--secondary pls-action-btn--full pls-book-again-cta"
-                  *ngIf="analysisDeferredAvailability && !showBookAgainSection"
+                  *ngIf="analysisDeferredAvailability && !showBookAgainSection && !showRecapCarouselRail"
                   (click)="openBookAgainSection()">
                   <ion-icon name="calendar-outline"></ion-icon>
                   <span>{{ bookAgainCtaLabel }}</span>
@@ -209,7 +285,7 @@
               </ng-container>
 
               <!-- Journey snapshot: where you are now + what this lesson moved -->
-              <div class="pls-journey-card" *ngIf="showJourneyCard">
+              <div class="pls-journey-card" *ngIf="shouldShowFullJourney">
                 <div class="pls-journey-card__head">
                   <ion-icon name="map-outline"></ion-icon>
                   <h3>{{ journeyCardTitle }}</h3>
@@ -256,6 +332,21 @@
                   <span>{{ journeyCtaLabel }}</span>
                 </button>
               </div>
+
+              <app-journey-snapshot-panel
+                *ngIf="showJourneyCard"
+                class="pls-journey-snapshot-host"
+                [sectionTitle]="journeySnapshotTitle"
+                [modalTitle]="journeySnapshotTitle"
+                [chapterTheme]="journeyChapterTheme"
+                [chapterLevel]="journeyChapterLevel"
+                [phases]="journeyPhases"
+                [currentPhaseIndex]="journeyCurrentPhaseIndex"
+                [caption]="journeySnapshotCaption"
+                [phaseLabel]="journeySnapshotPhaseLabel"
+                [focusLabel]="journeyPhaseFocusLabel"
+                [showFullJourneyLabel]="showFullJourneyLabel"
+                [startingChapterIndex]="journeyStartingChapterIndex" />
 
               <!-- Book again availability (replaces analysis when CTA clicked) -->
               <div
@@ -330,7 +421,7 @@
                 <span>{{ viewFeedbackCtaLabel }}</span>
               </button>
 
-              <div class="pls-vocab-goals" *ngIf="vocabItems.length > 0 || goalItems.length > 0">
+              <div class="pls-vocab-goals" *ngIf="(vocabItems.length > 0 || goalItems.length > 0) && !useRecapCarousel">
                 <div class="pls-vocab-card" *ngIf="vocabItems.length > 0">
                   <div class="pls-vocab-header">
                     <div class="pls-vocab-header__title">

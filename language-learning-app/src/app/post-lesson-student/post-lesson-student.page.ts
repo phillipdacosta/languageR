@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ViewChild, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ChangeDetectorRef, ElementRef } from '@angular/core';
 import { Location } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
@@ -16,6 +16,7 @@ import { VocabularyService, VocabEntry, GoalEntry } from '../services/vocabulary
 import { ReviewDeckService } from '../services/review-deck.service';
 import { LearningPlanService, LearningPlan } from '../services/learning-plan.service';
 import { JourneyMapPreviewPhase } from '../journey/journey-map-preview.component';
+import { JourneySnapshotPanelComponent } from '../journey/journey-snapshot-panel/journey-snapshot-panel.component';
 import { resolveJourneyHotspots } from '../journey/journey-map-assets';
 import {
   TutorAvailabilityViewerComponent,
@@ -293,6 +294,25 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
     });
     this.quickSummaryChips = chips;
     this.rebuildTakeaways();
+    this.updateRecapAnalysisPreviewHint();
+  }
+
+  private updateRecapAnalysisPreviewHint(): void {
+    if (this.recapOnly) {
+      this.recapAnalysisPreviewHint = this.recapMessage;
+      return;
+    }
+    const grammar = this.quickSummaryChips.find(c => c.key === 'grammar');
+    const level = this.quickSummaryChips.find(c => c.key === 'level');
+    if (grammar && level) {
+      this.recapAnalysisPreviewHint = `${level.qualitative} · ${grammar.qualitative}`;
+    } else if (grammar) {
+      this.recapAnalysisPreviewHint = grammar.qualitative;
+    } else if (level) {
+      this.recapAnalysisPreviewHint = level.qualitative;
+    } else {
+      this.recapAnalysisPreviewHint = this.viewFullAnalysisLabel;
+    }
   }
 
   private isFirstAnalyzedLesson(): boolean {
@@ -387,7 +407,19 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
   journeyNextFocus = '';
   journeyImpactLines: string[] = [];
   journeyCtaLabel = '';
+  journeySnapshotTitle = '';
+  journeySnapshotCaption = '';
+  journeySnapshotPhaseLabel = '';
+  journeyPhaseFocusLabel = '';
+  journeyStartingChapterIndex = -1;
+  showFullJourneyLabel = '';
   private journeyPlan: LearningPlan | null = null;
+
+  /** Cover-flow carousel when analysis + journey are both ready. */
+  recapCarouselIndex = 0;
+  recapAnalysisPreviewHint = '';
+  @ViewChild('recapCarouselTrack') recapCarouselTrack?: ElementRef<HTMLElement>;
+  @ViewChild(JourneySnapshotPanelComponent) journeySnapshotPanel?: JourneySnapshotPanelComponent;
 
   constructor(
     private route: ActivatedRoute,
@@ -643,9 +675,32 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
       ? this.translate.instant('POST_LESSON.STUDENT.JOURNEY_TITLE_MOVED')
       : this.translate.instant('POST_LESSON.STUDENT.JOURNEY_TITLE_WHERE');
 
+    this.journeySnapshotTitle = this.translate.instant('JOURNEY.SNAPSHOT.YOU_ARE_HERE');
+    this.journeySnapshotCaption = this.translate.instant('PRE_CALL.PHASE_LABEL', {
+      current: String(idx + 1),
+      total: String(phases.length),
+      title: activePhase?.title || '',
+    });
+    this.journeySnapshotPhaseLabel = this.journeySnapshotCaption;
+    const focusAreas = activePhase?.focusAreas || [];
+    this.journeyPhaseFocusLabel = focusAreas.length
+      ? this.translate.instant('JOURNEY.SNAPSHOT.PHASE_FOCUS', {
+          areas: focusAreas.slice(0, 3).join(' · '),
+        })
+      : '';
+    this.journeyStartingChapterIndex = this.resolveJourneyChapterIndex(
+      plan.chapterTheme,
+      plan.chapterLevel
+    );
+    this.showFullJourneyLabel = this.translate.instant('JOURNEY.SNAPSHOT.SHOW_FULL_JOURNEY');
+
     this.showJourneyCard = true;
     this.prefetchActiveRoadblock(plan);
+    this.updateRightPanelLayout();
     this.cdr.detectChanges();
+    if (this.showRecapCarouselRail) {
+      requestAnimationFrame(() => this.scrollRecapCarouselTo(this.recapCarouselIndex, false));
+    }
   }
 
   /**
@@ -742,7 +797,30 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
   }
 
   openJourneyFromCard() {
-    this.router.navigate(['/tabs/home/journey']);
+    this.openJourneyModal();
+  }
+
+  openJourneyModal(): void {
+    this.journeySnapshotPanel?.openModal();
+  }
+
+  private resolveJourneyChapterIndex(theme?: string, level?: string): number {
+    const themeMap: Record<string, number> = {
+      'a1-desert': 0,
+      'a2-coast': 1,
+      'b1-lake': 2,
+      'b2-snow': 3,
+      'c1-cherry': 4,
+      'c2-tuscany': 5,
+    };
+    const fromTheme = themeMap[(theme || '').toLowerCase()];
+    if (typeof fromTheme === 'number') {
+      return fromTheme;
+    }
+    const levelMap: Record<string, number> = {
+      A1: 0, A2: 1, B1: 2, B2: 3, C1: 4, C2: 5,
+    };
+    return levelMap[(level || 'A1').toUpperCase()] ?? 0;
   }
 
   private ackPlanUpdate() {
@@ -937,7 +1015,60 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
     return !this.isTrialLesson && this.aiAnalysisEnabled && this.analysisReady && !!this.analysis;
   }
 
+  /** True while the analysis poll is still in flight (loading UI visible). */
+  get analysisPollingActive(): boolean {
+    return (
+      !!this.aiAnalysisEnabled &&
+      !this.isTrialLesson &&
+      !this.analysisReady &&
+      !this.analysisUnavailable
+    );
+  }
+
+  /** Single analysis UI state — one panel at a time, no blank frame on transition. */
+  get analysisPanelState(): 'loading' | 'unavailable' | 'ready' | null {
+    if (!this.aiAnalysisEnabled || this.isTrialLesson) return null;
+    if (this.analysisReady && this.analysis) return 'ready';
+    if (this.analysisUnavailable) return 'unavailable';
+    return 'loading';
+  }
+
+  /** Both recap cards available — show cover-flow carousel instead of stacked layout. */
+  get useRecapCarousel(): boolean {
+    return (
+      this.analysisPanelState === 'ready' &&
+      this.showJourneyCard &&
+      !!this.showAnalysisPanel
+    );
+  }
+
+  get showRecapCarouselRail(): boolean {
+    return this.useRecapCarousel;
+  }
+
+  get shouldShowFullAnalysis(): boolean {
+    if (this.analysisPanelState !== 'ready') return false;
+    return !this.useRecapCarousel;
+  }
+
+  get shouldShowFullJourney(): boolean {
+    if (!this.showJourneyCard) return false;
+    return !this.useRecapCarousel;
+  }
+
+  /** Hide the empty analysis shell while the carousel rail is showing. */
+  get shouldShowAnalysisStatePanel(): boolean {
+    if (!this.aiAnalysisEnabled || !this.showAnalysisPanel) return false;
+    if (this.analysisPanelState === 'loading' || this.analysisPanelState === 'unavailable') {
+      return true;
+    }
+    return this.shouldShowFullAnalysis;
+  }
+
   get showAvailabilitySection(): boolean {
+    if (this.analysisPollingActive) {
+      return false;
+    }
     if (!this.analysisDeferredAvailability) {
       return true;
     }
@@ -1064,12 +1195,48 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
   private updateRightPanelLayout(): void {
     if (this.isTrialLesson) return;
     const analysisFirst = this.showAnalysisPanel && this.analysisDeferredAvailability;
+    const analysisLoading = this.analysisPollingActive;
     const bookingFirst = this.analysisDeferredAvailability && this.showBookAgainSection;
+    const carouselRail = this.showRecapCarouselRail;
     this.centerRightPanelContent =
       analysisFirst ||
+      analysisLoading ||
       bookingFirst ||
+      carouselRail ||
       (this.showAvailabilitySection && this.useAvailabilityPreview && !this.showFullAvailabilityViewer);
     this.subheaderAlignToRightColumn = false;
+  }
+
+  onRecapCarouselScroll(event: Event): void {
+    const track = event.target as HTMLElement;
+    const slides = track.querySelectorAll<HTMLElement>('.pls-recap-carousel__slide');
+    if (!slides.length) return;
+    const center = track.scrollLeft + track.clientWidth / 2;
+    let bestIdx = 0;
+    let bestDist = Infinity;
+    slides.forEach((slide, i) => {
+      const slideCenter = slide.offsetLeft + slide.offsetWidth / 2;
+      const dist = Math.abs(center - slideCenter);
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestIdx = i;
+      }
+    });
+    if (bestIdx !== this.recapCarouselIndex) {
+      this.recapCarouselIndex = bestIdx;
+      this.cdr.markForCheck();
+    }
+  }
+
+  scrollRecapCarouselTo(index: number, smooth = true): void {
+    const track = this.recapCarouselTrack?.nativeElement;
+    if (!track) return;
+    const slide = track.querySelectorAll<HTMLElement>('.pls-recap-carousel__slide')[index];
+    if (!slide) return;
+    const left = slide.offsetLeft - (track.clientWidth - slide.offsetWidth) / 2;
+    track.scrollTo({ left, behavior: smooth ? 'smooth' : 'auto' });
+    this.recapCarouselIndex = index;
+    this.cdr.markForCheck();
   }
 
   openFullAvailabilityViewer(): void {
@@ -1279,6 +1446,7 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
   }
 
   startAnalysisPolling() {
+    this.updateRightPanelLayout();
     // Initial load
     this.checkAnalysis();
     
@@ -1318,13 +1486,18 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
         this.cefrRevealedForStudent = response.cefrRevealedForStudent === true;
         this.rebuildQuickSummary();
         this.updateSubheaderDisplay();
-        this.prefetchAvailabilityPreview();
-        // The plan update lands in the same server-side pipeline as the
-        // analysis — re-pull now to surface this lesson's journey delta.
-        this.refreshJourneyCardAfterAnalysis();
         if (this.pollingInterval) {
           clearInterval(this.pollingInterval);
         }
+        this.cdr.markForCheck();
+        // Defer secondary panel work so the ready state paints first (no flash).
+        requestAnimationFrame(() => {
+          if (this.showRecapCarouselRail) {
+            this.scrollRecapCarouselTo(0, false);
+          }
+          this.prefetchAvailabilityPreview();
+          void this.refreshJourneyCardAfterAnalysis();
+        });
         console.log('✅ Analysis ready:', this.analysis);
       } else if (status === 'insufficient_data' || status === 'failed') {
         this.analysisUnavailable = true;
@@ -1332,14 +1505,17 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
         if (this.pollingInterval) {
           clearInterval(this.pollingInterval);
         }
+        this.cdr.markForCheck();
         console.log(`⚠️ Analysis ${status}:`, response?.analysis?.error || 'No details');
       }
     } catch (error: any) {
       if (error.status === 404 && error.error?.status === 'unavailable') {
         this.analysisUnavailable = true;
+        this.updateRightPanelLayout();
         if (this.pollingInterval) {
           clearInterval(this.pollingInterval);
         }
+        this.cdr.markForCheck();
         console.log('⚠️ Analysis will never be generated:', error.error?.transcriptStatus);
       } else if (error.status !== 404) {
         console.error('Error checking analysis:', error);
